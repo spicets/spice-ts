@@ -78,6 +78,13 @@ a1 %hd(in 0) %hd(out 0) %vd(in 0) %vd(out 0) m
     behavior.accept!(call(.2 * delay, 4, 5)); // replace rolled-back point
     behavior.load(trial);
     expect([...trial.outputs]).toEqual([5, 4]);
+    const firstGuess = call(.4 * delay, 6, 7);
+    behavior.load(firstGuess);
+    behavior.load(call(.4 * delay, 60, 70)); // later Newton iterate
+    behavior.accept!(call(.4 * delay, 60, 70));
+    const delayed = call(1.3 * delay);
+    behavior.load(delayed);
+    expect([...delayed.outputs]).toEqual([7, 6]); // first guess, not accepted solution
     behavior.reset!();
     behavior.load(trial);
     expect([...trial.outputs]).toEqual([0, 0]);
@@ -88,6 +95,26 @@ a1 %hd(in 0) %hd(out 0) %vd(in 0) %vd(out 0) m
     expect(result.transient!.time.at(-1)).toBeCloseTo(5e-9, 18);
     expect(result.transient!.voltage('out').every(Number.isFinite)).toBe(true);
     expect(Math.max(...result.transient!.voltage('out'))).toBeGreaterThan(1);
+    // ngspice-47, source unchanged bytes then write tran1 (two identical runs).
+    // These edge samples expose final-iterate history and artificial voltage
+    // LTE changing the ceiling-sampled delay, not an impedance discrepancy.
+    const reference = [
+      [1.430499999999999e-9, 1.379559753257543],
+      [2.290500000000004e-9, 1.741864479334984],
+      [2.420500000000007e-9, 1.447282310249143],
+      [3.150500000000019e-9, 1.308553411306949],
+      [3.280500000000022e-9, 1.186022126689112],
+      [4.010500000000022e-9, 1.128315476041299],
+    ];
+    const { time } = result.transient!;
+    const voltage = result.transient!.voltage('out');
+    for (const [t, expected] of reference) {
+      const right = time.findIndex(x => x >= t);
+      const left = right - 1;
+      const fraction = (t - time[left]) / (time[right] - time[left]);
+      const actual = voltage[left] + fraction * (voltage[right] - voltage[left]);
+      expect(Math.abs(actual - expected)).toBeLessThan(.01 * 1.826888523723271);
+    }
   });
   it('rejects unsupported dispersion', async () => {
     await expect(simulate(`${deck(50, 'disp=1')}.op\n.end`)).rejects.toThrow('disp=0');
