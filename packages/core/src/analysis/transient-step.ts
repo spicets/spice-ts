@@ -55,6 +55,10 @@ export interface StepAttempt {
   readonly prevPrevSolution?: Float64Array;
   /** Previous timestep dt(n-1). Gear-2 only. */
   readonly prevDt?: number;
+  /** Third accepted solution and interval, for internal BDF3 attempts. */
+  readonly thirdPrevSolution?: Float64Array;
+  readonly prevPrevDt?: number;
+  readonly order?: 2 | 3;
   /** Per-run integration override used by convergence recovery. */
   readonly integrationMethod?: IntegrationMethod;
   /** `prevB` carries an accepted static-current residual instead of a raw RHS. */
@@ -121,6 +125,7 @@ export function attemptStep(ctx: StepContext, attempt: StepAttempt): StepResult 
     buildCompanionSystem(
       assembler, devices, dt, attempt.integrationMethod ?? options.integrationMethod,
       prevSolution, prevB, gmin, prevPrevSolution, prevDt, staticCurrentHistory, options.xmu,
+      attempt.thirdPrevSolution, attempt.prevPrevDt, attempt.order,
     );
 
     if (!assembler.isFastPath) assembler.lockTopology();

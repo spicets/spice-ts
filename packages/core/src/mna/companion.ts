@@ -2,6 +2,7 @@ import { MNAAssembler } from './assembler.js';
 import type { ChargeIntegration, DeviceModel } from '../devices/device.js';
 import type { IntegrationMethod } from '../types.js';
 import { MOSFET } from '../devices/mosfet.js';
+import { gear3Coefficients } from '../devices/gear3.js';
 import { stampDynamicDevices, stampStaticDevices } from './linear-stamp.js';
 
 interface DevicePlan {
@@ -103,6 +104,9 @@ export function buildCompanionSystem(
   prevDt?: number,
   staticCurrentHistory = false,
   xmu = 0.5,
+  thirdPrevSolution?: Float64Array,
+  prevPrevDt?: number,
+  order?: 2 | 3,
 ): void {
   // Clear and re-stamp at current time
   assembler.clear();
@@ -130,6 +134,10 @@ export function buildCompanionSystem(
   // Trapezoidal bootstraps with BE when b(n) is unavailable — this is how
   // the driver resets history after crossing a breakpoint.
   const useGear2 = method === 'gear2' && prevPrevSolution !== undefined && prevDt !== undefined;
+  const useGear3 = useGear2 && order === 3 && thirdPrevSolution !== undefined && prevPrevDt !== undefined;
+  // NIcomCof: ngspice src/maths/ni/nicomcof.c:61-84 builds the
+  // variable-step corrector from cumulative accepted intervals / trial dt.
+  const bdf3 = useGear3 ? gear3Coefficients(dt, prevDt!, prevPrevDt!) : undefined;
   const useTrap = method === 'trapezoidal' && prevB !== undefined;
   // ngspice-47 nicomcof.c:43-44: a0=1/dt/(1-xmu), a1=xmu/(1-xmu).
   const trapFactor = xmu === 0.5 ? 2 / dt : 1 / dt / (1 - xmu);
@@ -162,7 +170,16 @@ export function buildCompanionSystem(
     // in the same order and the system is bit-identical. G*x(n) reads each
     // slot before the same iteration adds kC to it, as the separate pass did
     // before the G + kC pass.
-    if (effectiveMethod === 'euler') {
+    if (bdf3 !== undefined) {
+      const [a0, a1, a2, a3] = bdf3;
+      for (let j = 0; j < n; j++) {
+        const history = -a1 * prevSolution[j] - a2 * prevPrevSolution![j] - a3 * thirdPrevSolution![j];
+        for (let p = colPtr[j]; p < colPtr[j + 1]; p++) {
+          gv[p] += a0 * cv[p];
+          b[rowIdx[p]] += cv[p] * history;
+        }
+      }
+    } else if (effectiveMethod === 'euler') {
       // BE: G_eff = G + C/dt, b_eff = b(n+1) + (C/dt)*x(n)
       const factor = 1 / dt;
       for (let j = 0; j < n; j++) {
@@ -280,7 +297,15 @@ export function buildCompanionSystem(
       assembler.G.add(i, i, gmin);
     }
 
-    if (effectiveMethod === 'euler') {
+    if (bdf3 !== undefined) {
+      const [a0, a1, a2, a3] = bdf3;
+      assembler.G.addMatrix(assembler.C, a0);
+      for (let i = 0; i < assembler.systemSize; i++) {
+        for (const [j, cval] of assembler.C.getRow(i)) {
+          assembler.b[i] -= cval * (a1 * prevSolution[j] + a2 * prevPrevSolution![j] + a3 * thirdPrevSolution![j]);
+        }
+      }
+    } else if (effectiveMethod === 'euler') {
       // BE: G_eff = G + C/dt, b_eff = b(n+1) + (C/dt)*x(n)
       const factor = 1 / dt;
       assembler.G.addMatrix(assembler.C, factor);
@@ -366,5 +391,7 @@ export function buildCompanionSystem(
   integration.xmu = xmu;
   integration.dt = dt;
   integration.prevDt = useGear2 ? prevDt : undefined;
+  integration.order = useGear3 ? 3 : undefined;
+  integration.prevPrevDt = useGear3 ? prevPrevDt : undefined;
   for (const device of plan.charged) device.stampTransientCharge!(ctx, integration);
 }
