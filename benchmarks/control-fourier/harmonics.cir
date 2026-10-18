@@ -1,0 +1,18 @@
+* Original harmonic probe for control fourier (#1334), MIT (spice-ts contributors)
+Vdc dc 0 0.3
+V1 a dc sin(0 1 10k 0 0 20)
+V2 b a sin(0 0.2 20k 0 0 50)
+V3 out b sin(0 0.1 30k 0 0 -30)
+Rout out 0 1k
+.tran 0.2u 600u
+.control
+set numdgt=15
+run
+fourier 10k v(out) v(a)
+set polydegree=2
+set nfreqs=5
+set fourgridsize=256
+fourier 10k v(out)
+quit
+.endc
+.end

@@ -84,6 +84,8 @@ export interface VdmosModel {
   readonly rd: number;
   readonly rs: number;
   readonly rg: number;
+  readonly kf: number;
+  readonly af: number;
   /** Parameter measurement temperature in kelvin. */
   readonly tnom: number;
   readonly rds: number;
@@ -190,6 +192,8 @@ export function resolveVdmosModel(card: ModelParams): { model: VdmosModel; warni
     rd: value('RD', 0),
     rs: value('RS', 0),
     rg: value('RG', 0),
+    kf: value('KF', 0),
+    af: value('AF', 1),
     tnom: given('TNOM') ? raw.TNOM + 273.15 : NOMINAL_TEMPERATURE,
     rds: value('RDS', 1e15),
     rdsGiven: given('RDS'),

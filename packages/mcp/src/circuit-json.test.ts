@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { JsonValue, SimulationReadDataV1, SimulationRequestV1, SimulationResultV1 } from '@spice-ts/protocol';
+import type { JsonValue, SimulationReadDataV1, SimulationRequestV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 import { createToolExecutor, DEFAULT_MCP_LIMITS, executeTool } from './server.js';
 
 // The converter supports passive R/C elements, not independent voltage sources.

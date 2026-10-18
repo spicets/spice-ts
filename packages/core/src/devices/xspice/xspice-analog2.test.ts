@@ -193,9 +193,9 @@ describe('XSPICE slice 2 parsing and typed rejections', () => {
     expect(dc.voltage('30')).toBeCloseTo(1 * 1000 / 1001, 9);
   });
 
-  it('keeps unimplemented delay typed-unsupported', () => {
+  it('keeps unimplemented filesource typed-unsupported', () => {
     for (const card of [
-      '.model s1 delay',
+      '.model s1 filesource',
     ]) {
       expect(() => parse(['x', 'v1 1 0 1', card, '.op'].join('\n'))).toThrow(UnsupportedCodeModelError);
     }

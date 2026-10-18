@@ -2,8 +2,9 @@ import { ParseError } from './errors.js';
 import { evaluateExpression } from './parser/expression.js';
 import { toParseError } from './parser/preprocessor.js';
 import { parseNumber } from './parser/tokenizer.js';
+import { stringParameter, type ParameterScope } from './parser/string-param.js';
 
-const ASSIGNMENT = /([A-Za-z_]\w*)\s*=\s*(\{[^}]*\}|\S+)/g;
+const ASSIGNMENT = /([A-Za-z_]\w*)\s*=\s*(\{[^}]*\}|"[^"]*"|\S+)/g;
 /** An identifier not preceded by a word character or a dot (so not the `k` of `3k` or `e3` of `1e3`). */
 const IDENTIFIER = /(?<![\w.])[A-Za-z_]\w*/g;
 
@@ -40,9 +41,9 @@ function paramAssignments(card: SubcircuitParamCard): BodyParam[] {
 }
 
 /** Evaluates one parameter; a failure is a ParseError at its `.param` card. */
-function evaluateParam(param: BodyParam, scope: Record<string, number>): number {
+function evaluateParam(param: BodyParam, scope: ParameterScope): number | string {
   try {
-    return evaluateExpression(param.expression, scope);
+    return stringParameter(param.expression, scope) ?? evaluateExpression(param.expression, scope);
   } catch (error) {
     if (error instanceof ParseError) throw error;
     // A bare SPICE number (e.g. `1meg`) is not an expression.
@@ -71,8 +72,8 @@ function evaluateParam(param: BodyParam, scope: Record<string, number>): number 
  */
 export function evaluateSubcircuitParams(
   cards: readonly SubcircuitParamCard[],
-  scope: Record<string, number>,
-  overrides: ReadonlyMap<string, number>,
+  scope: ParameterScope,
+  overrides: ReadonlyMap<string, number | string>,
 ): void {
   const pending = new Map<string, BodyParam>();
   for (const card of cards) {

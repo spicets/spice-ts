@@ -11,6 +11,15 @@ import {
 } from './junction-temperature.js';
 import { pnjlim } from './devsup.js';
 
+// Share readers instead of allocating and naming closures in every Newton iterate.
+function contextVoltage(ctx: StampContext, node: number): number {
+  return node >= 0 ? ctx.getVoltage(node) : 0;
+}
+
+function solutionVoltage(solution: Float64Array, node: number): number {
+  return node >= 0 ? solution[node] : 0;
+}
+
 export interface BJTParams {
   LEVEL: number;
   BF: number;
@@ -846,7 +855,7 @@ export class BJT implements DeviceModel {
       this.hasPriorJunctions = false;
       this.acceptedStep = undefined;
     }
-    this.nodeJunctions(this.acceptedJunctions, node => ctx.getVoltage(node));
+    this.nodeJunctions(this.acceptedJunctions, ctx, contextVoltage);
     if (ctx.initialUIC) {
       // bjtgetic.c reads external terminal differences, not the prime
       // nodes used for junction stamping after series-resistance expansion.
@@ -870,14 +879,13 @@ export class BJT implements DeviceModel {
   }
 
   /** Polarity-domain vbe, vbc and vsub (bjtload.c) at the node voltages `voltage`. */
-  private nodeJunctions(out: Float64Array, voltage: (node: number) => number): void {
+  private nodeJunctions<T>(out: Float64Array, source: T, voltage: (source: T, node: number) => number): void {
     const { polarity, SUBS } = this.params;
     const [nC, nB, nE] = this.nodes;
-    const at = (node: number): number => node >= 0 ? voltage(node) : 0;
     const substrateConnect = SUBS === 1 ? nC : nB;
-    out[BASE_EMITTER] = polarity * (at(nB) - at(nE));
-    out[BASE_COLLECTOR] = polarity * (at(nB) - at(nC));
-    out[SUBSTRATE] = polarity * SUBS * (at(this.substrateNode) - at(substrateConnect));
+    out[BASE_EMITTER] = polarity * (voltage(source, nB) - voltage(source, nE));
+    out[BASE_COLLECTOR] = polarity * (voltage(source, nB) - voltage(source, nC));
+    out[SUBSTRATE] = polarity * SUBS * (voltage(source, this.substrateNode) - voltage(source, substrateConnect));
   }
 
   private acceptCharges(ctx: StampContext): void {
@@ -922,7 +930,7 @@ export class BJT implements DeviceModel {
    */
   observeTransientNewton(solution: Float64Array): void {
     if (!this.inTransientNewton) return;
-    this.nodeJunctions(this.newtonJunctions, node => solution[node]);
+    this.nodeJunctions(this.newtonJunctions, solution, solutionVoltage);
     this.hasNewtonJunctions = true;
   }
 
@@ -943,7 +951,7 @@ export class BJT implements DeviceModel {
     if (this.predictJunctions) {
       // vbe and vbc are extrapolated; vsub is read from the last solution
       // (CKTrhsOld), here the accepted point, and only limited.
-      this.nodeJunctions(out, node => ctx.getVoltage(node));
+      this.nodeJunctions(out, ctx, contextVoltage);
       const accepted = this.acceptedJunctions;
       const step = this.acceptedStep;
       if (this.hasPriorJunctions && step !== undefined && step > 0 && ctx.dt > 0) {
@@ -958,7 +966,7 @@ export class BJT implements DeviceModel {
     } else if (this.hasNewtonJunctions) {
       out.set(this.newtonJunctions);
     } else {
-      this.nodeJunctions(out, node => ctx.getVoltage(node));
+      this.nodeJunctions(out, ctx, contextVoltage);
     }
     this.predictJunctions = false;
     this.hasNewtonJunctions = false;
@@ -1095,9 +1103,8 @@ export class BJT implements DeviceModel {
     const load = this.lastLoad;
     const { polarity } = this.params;
     const [nC, nB, nE] = this.nodes;
-    const voltage = (node: number): number => (node >= 0 ? solution[node] : 0);
-    const deltaVBE = polarity * (voltage(nB) - voltage(nE)) - load.vBE;
-    const deltaVBC = polarity * (voltage(nB) - voltage(nC)) - load.vBC;
+    const deltaVBE = polarity * (solutionVoltage(solution, nB) - solutionVoltage(solution, nE)) - load.vBE;
+    const deltaVBC = polarity * (solutionVoltage(solution, nB) - solutionVoltage(solution, nC)) - load.vBC;
     const cc = load.collectorCurrent;
     const cchat = cc + load.gmForward * deltaVBE - load.gmReverse * deltaVBC;
     if (Math.abs(cchat - cc) > tolerances.reltol * Math.max(Math.abs(cchat), Math.abs(cc)) + tolerances.abstol) {
@@ -1114,11 +1121,12 @@ export class BJT implements DeviceModel {
     emitterNode: number;
     collectorCurrent: number;
     baseCurrent: number;
+    baseConductance: number;
   } {
     const { polarity } = this.params;
     const [collectorNode, baseNode, emitterNode] = this.nodes;
     const voltage = (node: number): number => node >= 0 ? solution[node] : 0;
-    const { collectorCurrent, baseCurrent } = this.evaluateDC(
+    const { collectorCurrent, baseCurrent, qb } = this.evaluateDC(
       polarity * (voltage(baseNode) - voltage(emitterNode)),
       polarity * (voltage(baseNode) - voltage(collectorNode)),
       gmin,
@@ -1129,6 +1137,8 @@ export class BJT implements DeviceModel {
       emitterNode,
       collectorCurrent: Math.abs(collectorCurrent),
       baseCurrent: Math.abs(baseCurrent),
+      baseConductance: this.params.RB > 0
+        ? baseResistanceConductance(this.params, baseCurrent, qb) : 0,
     };
   }
 
@@ -1295,11 +1305,10 @@ export class BJT implements DeviceModel {
     const { ISS, NS, SUBS, polarity } = this.params;
     const substrate = this.substrateNode;
     const substrateConnect = SUBS === 1 ? this.nodes[0] : this.nodes[1];
-    const voltage = (node: number): number => node >= 0 ? ctx.getVoltage(node) : 0;
     const sign = polarity * SUBS;
     const terminalVoltage = this.chargesAtLimitedJunctions
       ? sign * this.limitedJunctions[SUBSTRATE]
-      : voltage(substrate) - voltage(substrateConnect);
+      : contextVoltage(ctx, substrate) - contextVoltage(ctx, substrateConnect);
     const { current, conductance } = substrateJunction(sign * terminalVoltage, ISS, NS * this.vt, ctx.gmin ?? DEVICE_GMIN);
     // Physical current from the substrate into the substrate-connect node.
     stampChargeBranch(ctx, substrate, substrateConnect, sign * current, conductance, terminalVoltage);

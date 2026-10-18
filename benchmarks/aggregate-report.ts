@@ -36,7 +36,7 @@ import {
 } from './corpus/classic/report.js';
 import { type FineReference, FINE_REFERENCE_RULE, fineReferenceColumn, fineReferenceSection } from './fine-reference.js';
 import { pairPlots } from './plot-pairing.js';
-import { sweepSegments } from './comparison-harness.js';
+import { prepareAlignmentReference, sweepSegments } from './comparison-harness.js';
 import { REFRESH_METRIC_TRANSITIONS, REFRESH_STATUS_TRANSITIONS } from './aggregate-refresh-855/transitions.js';
 
 const SCHEMA = 'spice-ts-aggregate-parity/v1' as const;
@@ -534,6 +534,9 @@ function measureInChunks(
   // Preserve the whole nested coordinate space. Slicing only the target loses its reset ordinal
   // at a 25k boundary and falsely compares that slice with every reference group.
   if (spiceTs.secondaryGrid || ngspice.secondaryGrid || sweepSegments(spiceTs).length > 1 || sweepSegments(ngspice).length > 1) return alignAndMeasure(spiceTs, ngspice, signals, options);
+  // Prepare the full reference once, not once per 25k target chunk (#1318).
+  // Target chunks and their reduction order stay unchanged for exact metric parity.
+  const reference = prepareAlignmentReference(ngspice);
   const chunkSize = 25_000;
   const chunks = Array.from({ length: Math.ceil(spiceTs.grid.length / chunkSize) }, (_, index) => {
     const start = index * chunkSize;
@@ -541,7 +544,7 @@ function measureInChunks(
     return alignAndMeasure({
       grid: spiceTs.grid.slice(start, end),
       signals: Object.fromEntries(signals.map(signal => [signal, spiceTs.signals[signal].slice(start, end)])),
-    }, ngspice, signals, options);
+    }, ngspice, signals, options, reference);
   });
   const comparedSignals: ComparisonMetrics['signals'] = {};
   for (const signal of signals) {

@@ -4,7 +4,7 @@ import type {
   SimulationReadDataV1,
   SimulationRequestV1,
   SimulationResultV1,
-} from '@spice-ts/protocol';
+} from '@spice-ts/core/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { createToolExecutor, DEFAULT_MCP_LIMITS, executeTool } from './server.js';
 

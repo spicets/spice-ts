@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import positive from '../../protocol/fixtures/positive-v1.json';
-import negative from '../../protocol/fixtures/negative-v1.json';
-import { checkConformanceV1, sha256CanonicalJson, type SimulationEventV1, type SimulationRequestV1 } from '@spice-ts/protocol';
+import positive from '../../core/protocol/fixtures/positive-v1.json';
+import negative from '../../core/protocol/fixtures/negative-v1.json';
+import { checkConformanceV1, sha256CanonicalJson, type SimulationEventV1, type SimulationRequestV1 } from '@spice-ts/core/protocol';
 import { createSpiceEngine, SpiceEngineError, type SpiceEngine } from './index.js';
 
 const request = positive.requests.spice as SimulationRequestV1;

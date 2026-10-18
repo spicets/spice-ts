@@ -21,7 +21,7 @@ From the repository root, with Node.js 20 or newer and pnpm installed:
     node examples/circuit-json-threshold-cancellation/packed-consumer.mjs
     node --test examples/circuit-json-threshold-cancellation/workflow.test.mjs
 
-The packed command creates a temporary project, packs and installs `@spice-ts/core`, `@spice-ts/protocol`, `@spice-ts/circuit-json`, and `@spice-ts/mcp`, copies only the standalone fixture and workflow into that project, and executes from the external project. It does not import workspace source files or private helpers.
+The packed command creates a temporary project, packs and installs `@spice-ts/core`, `@spice-ts/circuit-json`, and `@spice-ts/mcp`, copies only the standalone fixture and workflow into that project, and executes from the external project. It does not import workspace source files or private helpers.
 
 ## Verified contract
 

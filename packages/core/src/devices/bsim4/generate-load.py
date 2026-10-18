@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 SHA = 'a80f6e3e95d51534905b1f23410a951802666656'
-RANGES = [(1004, 2189), (3339, 3913)]
+RANGES = [(1004, 2189), (2527, 2921), (3339, 3913)]
 
 
 def generate(source: Path) -> str:
@@ -32,7 +32,7 @@ def generate(source: Path) -> str:
         if assigned[0] != 'type':
             fields[assigned[0]] = entries[case[1]]
     sections = ['\n'.join(lines[first - 1:last]) for first, last in RANGES]
-    body = sections[0] + '\nif (computeCharges && model->BSIM4xpart >= 0) {\n' + sections[1] + '\n}'
+    body = '\n'.join(sections[:2]) + '\nif (computeCharges && model->BSIM4xpart >= 0) {\n' + sections[2] + '\n}'
     comments = []
     def save(match):
         comments.append(match[0])

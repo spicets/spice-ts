@@ -213,6 +213,10 @@ export interface Ngbehavior {
  * All fields are optional; SPICE-convention defaults are used when omitted.
  */
 export interface SimulationOptions {
+  /** Save supported device currents as complete per-point analysis vectors. Default: false. */
+  savecurrents?: boolean;
+  /** Stop transient analysis after all applicable measurements complete. Default: false. */
+  autostop?: boolean;
   /** ngspice instance geometry scale. Explicit MOS/R/C lengths scale by S, MOS areas by S^2. Default: 1. */
   scale?: number;
   /** Parsed compatibility request; existing expression extensions remain available in all modes. */
@@ -247,6 +251,8 @@ export interface SimulationOptions {
   maxTimestep?: number;
   /** Integration method. Default: 'trapezoidal' */
   integrationMethod?: IntegrationMethod;
+  /** ngspice trapezoidal mixing coefficient. Default: 0.5; no range clamp. */
+  xmu?: number;
   /** ngspice MAXORD cap (1..6). Order 1 uses backward Euler for trap and gear. Default: 2. */
   maxOrder?: number;
   /** Trapezoidal truncation error factor. Default: 7 */
@@ -335,6 +341,7 @@ export interface ResolvedOptions {
   maxTransientIterations: number;
   maxTimestep: number;
   integrationMethod: IntegrationMethod;
+  xmu?: number;
   trtol: number;
   chgtol: number;
   gmin: number;
@@ -351,6 +358,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = {
   maxTransientIterations: 100,
   maxTimestep: Infinity,
   integrationMethod: 'trapezoidal',
+  xmu: 0.5,
   trtol: 7,
   chgtol: 1e-14,
   gmin: 0,
@@ -367,6 +375,9 @@ export function withNetlistOptions<T extends SimulationOptions>(netlist: Simulat
 }
 
 export function resolveOptions(opts?: SimulationOptions, stopTime?: number): ResolvedOptions {
+  if (opts?.xmu !== undefined && !Number.isFinite(opts.xmu)) {
+    throw new InvalidCircuitError('SimulationOptions.xmu must be finite');
+  }
   if (opts?.maxOrder !== undefined && (!Number.isInteger(opts.maxOrder) || opts.maxOrder < 1 || opts.maxOrder > 6)) {
     throw new InvalidCircuitError('SimulationOptions.maxOrder must be an integer from 1 to 6');
   }
@@ -392,6 +403,7 @@ export function resolveOptions(opts?: SimulationOptions, stopTime?: number): Res
     // truncation all use the same first-order rule (including streaming runs).
     integrationMethod: opts?.maxOrder === 1 ? 'euler' : opts?.integrationMethod ?? DEFAULT_OPTIONS.integrationMethod,
     trtol: opts?.trtol ?? DEFAULT_OPTIONS.trtol,
+    xmu: opts?.xmu ?? DEFAULT_OPTIONS.xmu,
     chgtol: opts?.chgtol ?? DEFAULT_OPTIONS.chgtol,
     gmin: opts?.gmin ?? DEFAULT_OPTIONS.gmin,
     deviceGmin: opts?.deviceGmin ?? DEFAULT_OPTIONS.deviceGmin,

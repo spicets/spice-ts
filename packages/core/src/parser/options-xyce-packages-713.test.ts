@@ -132,7 +132,7 @@ describe('Xyce .options packages follow ngspice-47 (#713)', () => {
   it.each([
     ['.options device tnom=50\n.op', "Unsupported .options field: 'tnom'"],
     ['.options nonlin gminsteps=10\n.op', "Unsupported .options field: 'gminsteps'"],
-    ['.options output savecurrents\n.op', "Unsupported .options field: 'savecurrents'"],
+    ['.options output savecurrents=1\n.op', "Unsupported .options field: 'savecurrents=1'"],
     ['.options timeint reltol=-1m\n.op', "Invalid .options reltol value: '-1m'"],
   ])('keeps ngspice-meaningful fields inside a package strict: %s', (netlist, message) => {
     expect(() => parse(netlist)).toThrow(message);

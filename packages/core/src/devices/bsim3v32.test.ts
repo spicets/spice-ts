@@ -15,11 +15,12 @@ ${options}
 .end
 `;
 
-describe('BSIM3 non-quasi-static selectors are rejected, not ignored (#594)', () => {
-  it('rejects an effective NQSMOD=1 from the instance or the card with a typed error', async () => {
+describe('BSIM3 non-quasi-static selectors (#594, #692)', () => {
+  it('rejects AC NQS from the instance or the card with a typed error', async () => {
     for (const netlist of [inverter('', 'NQSMOD=1'), inverter('nqsmod=1'), inverter('nqsmod=1', 'NQSMOD=7')]) {
-      await expect(simulate(netlist)).rejects.toBeInstanceOf(UnsupportedModelParameterError);
-      await expect(simulate(netlist)).rejects.toMatchObject({
+      const ac = netlist.replace('.op', '.ac lin 1 1e6 1e6');
+      await expect(simulate(ac)).rejects.toBeInstanceOf(UnsupportedModelParameterError);
+      await expect(simulate(ac)).rejects.toMatchObject({
         code: 'UNSUPPORTED_MODEL_PARAMETER', deviceName: 'M1', parameter: 'NQSMOD',
       });
     }
@@ -33,11 +34,21 @@ describe('BSIM3 non-quasi-static selectors are rejected, not ignored (#594)', ()
     }
   });
 
-  it('rejects ACNQSMOD=1 on the 3.3.0 device, which defines it', async () => {
+  it('permits NQS DC operating points but rejects NQS noise', async () => {
+    const deck = inverter('', 'NQSMOD=1');
+    expect((await simulate(deck)).dc!.voltage('out')).toBe((await simulate(inverter())).dc!.voltage('out'));
+    await expect(simulate(deck.replace('.op', '.noise v(out) VIN dec 2 1 1e6'))).rejects.toMatchObject({
+      code: 'UNSUPPORTED_MODEL_PARAMETER', parameter: 'NQSMOD',
+    });
+  });
+
+  it('permits ACNQSMOD=1 DC on the 3.3.0 device, which defines it', async () => {
     const netlist = inverter().replace(/version=3\.2\.2/g, 'version=3.3.0').replace(
       'W=2u L=1u ', 'W=2u L=1u ACNQSMOD=1',
     );
-    await expect(simulate(netlist)).rejects.toMatchObject({ code: 'UNSUPPORTED_MODEL_PARAMETER', parameter: 'ACNQSMOD' });
+    expect((await simulate(netlist)).dc!.voltage('out')).toBe(
+      (await simulate(netlist.replace('ACNQSMOD=1', 'ACNQSMOD=0'))).dc!.voltage('out'),
+    );
   });
 });
 

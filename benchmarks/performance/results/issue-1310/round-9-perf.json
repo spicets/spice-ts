@@ -1,0 +1,69 @@
+{
+  "baseSha": "173f6b8269b66c2fc9705040c353f1fbacca7c91",
+  "host": { "platform": "darwin", "release": "27.0.0", "arch": "arm64", "cpu": "Apple M5 Pro", "node": "v22.23.1", "sharedUncontrolled": true },
+  "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+  "identityAllFinalTimingRuns": {
+    "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+    "stampSha256": "3324cdb29c46ea0b0be79f64b9a06a767eba5549d997e193df9221f0634944db",
+    "rows": 40545, "acceptedAdvances": 40544, "rejectedSteps": 0,
+    "transientNewtonIterations": 85851, "dcNewtonIterations": 31,
+    "nrRetries": 0, "lteRetries": 0, "minimumAcceptedTimestep": 2.5e-15
+  },
+  "timingCommand": "spice-heavy node benchmarks/performance/dff-1310.mjs 1",
+  "timingPairs": [
+    { "order": ["base", "head"], "base": 18.902228958, "head": 18.780139334 },
+    { "order": ["head", "base"], "base": 20.560448416000003, "head": 19.157829583999998 },
+    { "order": ["base", "head"], "base": 21.15276075, "head": 19.063119625 },
+    { "order": ["head", "base"], "base": 19.576056792, "head": 17.621228166 },
+    { "order": ["base", "head"], "base": 20.094567209, "head": 19.140463165999996 },
+    { "order": ["head", "base"], "base": 21.148597791, "head": 20.066004458 }
+  ],
+  "medianSeconds": { "base": 20.327507812500002, "head": 19.101791395499998, "changePercent": -6.029841081877607 },
+  "profiles": {
+    "base": {
+      "totalSampleSeconds": 19.570958000000058, "simulateSeconds": 19.331541458000004,
+      "buckets": {
+        "VBIC": { "seconds": 16.86980000000055, "percent": 86.19813092440594 },
+        "GC": { "seconds": 1.1209129999999985, "percent": 5.727430409896108 },
+        "other": { "seconds": 0.5863270000000004, "percent": 2.99590341975083 },
+        "stamping": { "seconds": 0.557666, "percent": 2.849456832925595 },
+        "factorSolve": { "seconds": 0.403085, "percent": 2.0596079149523434 },
+        "acceptedPointCharge": { "seconds": 0.033167, "percent": 0.16947049807168307 }
+      }
+    },
+    "head": {
+      "totalSampleSeconds": 20.110125000000032, "simulateSeconds": 19.837272500000005,
+      "buckets": {
+        "VBIC": { "seconds": 17.49307900000046, "percent": 86.98642599188435 },
+        "GC": { "seconds": 1.0417989999999988, "percent": 5.1804700368595284 },
+        "other": { "seconds": 0.6079579999999999, "percent": 3.023143814372108 },
+        "stamping": { "seconds": 0.5782470000000002, "percent": 2.875402315997535 },
+        "factorSolve": { "seconds": 0.373875, "percent": 1.8591381207227673 },
+        "acceptedPointCharge": { "seconds": 0.015167, "percent": 0.07541972016583674 }
+      }
+    }
+  },
+  "counterComparison": {
+    "command": "TMPDIR=<scratch> node benchmarks/performance/dff-1310-counters.mjs",
+    "ngspiceVersion": "ngspice-47",
+    "ngspiceIdenticalAllThreeRuns": { "rows": 40545, "acceptedTimepointsIncludingInitial": 40545, "rejectedTimepoints": 0, "totalIterations": 81517, "transientIterations": 81491 },
+    "ngspiceTransientSeconds": [0.894385, 0.888759, 0.890097],
+    "spiceTsBaseSeconds": [19.17960375, 19.292193499999996, 19.585715750000002],
+    "spiceTs": { "acceptedTimepointsIncludingInitial": 40545, "rejectedTimepoints": 0, "totalIterations": 85882, "transientIterations": 85851 },
+    "transientIterationRatio": 1.053502840804506
+  },
+  "rejectedExperiments": {
+    "workspaceSizeLoopBoundPilotSeconds": 19.802419292,
+    "unrolledMapAddSubPilotSeconds": 19.387900709,
+    "unrolledTimingPairs": [
+      { "order": ["base", "head"], "base": 22.425542167, "head": 22.308631584000004 },
+      { "order": ["head", "base"], "base": 18.614798792, "head": 19.526220249999998 },
+      { "order": ["base", "head"], "base": 18.989540583, "head": 22.023629624999998 },
+      { "order": ["head", "base"], "base": 26.440299, "head": 49.994476666000004 },
+      { "order": ["base", "head"], "base": 26.992296459000002, "head": 29.958411083999998 },
+      { "order": ["head", "base"], "base": 23.003887584, "head": 24.480909583 }
+    ],
+    "unrolledMedians": { "base": 22.7147148755, "head": 23.3947705835 },
+    "selected": false
+  }
+}
