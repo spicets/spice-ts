@@ -427,10 +427,13 @@ export function parseNgspiceRaw(raw: string): ParsedPlot[] {
     const variableCount = Number(section.match(/^No\. Variables:\s*(\d+)/m)?.[1]);
     const pointCount = Number(section.match(/^No\. Points:\s*(\d+)/m)?.[1]);
     const variablesStart = section.indexOf('Variables:');
-    const valuesStart = section.indexOf('Values:');
+    // ngspice-47 INTERP can repeat its variable table/Values marker during
+    // startup. Only the final marker precedes the actual numeric samples.
+    const valuesStart = section.lastIndexOf('Values:');
     if (!plotName || !Number.isInteger(variableCount) || !Number.isInteger(pointCount) || variablesStart < 0 || valuesStart < 0) continue;
 
-    const variableLines = section.slice(variablesStart + 'Variables:'.length, valuesStart).trim().split('\n');
+    const firstValuesStart = section.indexOf('Values:');
+    const variableLines = section.slice(variablesStart + 'Variables:'.length, firstValuesStart).trim().split('\n');
     const variableNames = variableLines
       .map(line => line.match(/^\s*\d+\s+(\S+)/)?.[1]?.toLowerCase())
       .filter((name): name is string => name !== undefined);

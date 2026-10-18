@@ -41,7 +41,6 @@ import { parseZInstance } from './z-device-parser.js';
 import { locateSubcircuitCall, parseSubcircuitCallParams, parseSubcircuitHeader, type SubcircuitHeader } from './subcircuit-syntax.js';
 import { parseSwitchInstance } from './switch-parser.js';
 import { parseXspiceInstance, parseXspiceModelCard, xspiceModelType } from './xspice-parser.js';
-import { DIGITAL_MODELS } from '../devices/xspice/digital-models.js';
 import { isPspiceSwitchModel, translatePspiceSwitchModel } from './pspice-switch.js';
 import { isNgspiceOptionField, splitXyceOptionPackage } from './xyce-option-packages.js';
 import { parseNgbehavior } from './ngbehavior.js';
@@ -198,8 +197,6 @@ function parseNetlist(
               // Keep local code models in the body for instance-scoped resolution.
               // Parameter expressions can only be checked after expansion.
               if (!raw.includes('{')) parseXspiceModelCard(raw, lineNumber);
-              const codeModel = xspiceModelType(tokens);
-              if (codeModel !== 'pwl' && codeModel !== 'pswitch' && !DIGITAL_MODELS.has(codeModel ?? '')) assertSupportedModelType(tokens, lineNumber, raw);
             } else {
               assertSupportedModelType(tokens, lineNumber, raw);
               if (!raw.includes('{')) assertSupportedResistorModel(tokens, lineNumber, raw);
