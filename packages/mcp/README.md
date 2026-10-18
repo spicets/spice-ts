@@ -10,6 +10,7 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_simulate`: one bounded protocol-v1 simulation.
 - `spice_measure`: run the same simulation request once and return scalar measurements only.
 - `spice_dc_metrics`: return DC transfer gain, switching threshold, unity-gain points and noise margins without raw vectors.
+- `spice_op_report`: return operating-point node voltages, terminal currents, device powers and top dissipators.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, sampled peaking, and loop stability margins without vectors.
@@ -32,6 +33,26 @@ Like ngspice's default `.four`, it uses a 200-point grid excluding the endpoint 
 Optional `windowStartS` is an eligibility lower bound, not a new Fourier origin; the full last period must fit after it. Earlier samples remain interpolation support.
 THD includes only the requested harmonics. Zero/non-finite fundamental arithmetic returns `INVALID_DATA`, not JSON nulls.
 Domain errors set `isError` with `UNKNOWN_SIGNAL`, `NO_TRANSIENT`, `INSUFFICIENT_PERIOD` or `INVALID_DATA`; request and resource failures retain the standard API envelope.
+
+### Operating-point power report
+
+Call `spice_op_report` with a titleless SPICE `netlist` and optional `topN` (integer
+0–10000; default 10). For example:
+
+```json
+{"netlist":"V1 in 0 10\nR1 in out 1k\nR2 out 0 1k","topN":2}
+```
+
+This returns `nodeVoltages` (`out: 5` V), `devices` with `terminalCurrents`
+(amps entering each node terminal) and `powerW` (watts absorbed),
+`sourceDeliveredPowerW: 0.05`, `dissipatedPowerW: 0.05`, and `topDissipators`
+(`R1` and `R2`, each 0.025 W). Negative device power means delivery; totals sum
+negative and positive device powers separately, including absorbing sources.
+Repeated terminals are combined by node; internal model nodes may also appear.
+The report runs one DC OP regardless of analysis/control commands, rejects
+`.step`, and returns structured errors on convergence failures. It reuses core
+device-current readouts and DC loads, not separate device equations. Runtime,
+document and output limits and cancellation apply as for other tools.
 
 ### DC transfer metrics
 

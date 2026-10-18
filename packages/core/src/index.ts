@@ -24,6 +24,8 @@ export type { WasmNgspiceSimulatorOptions } from './simulators/ngspice-wasm.js';
 export { parse, parseAsync, parseTitleless, parseTitlelessAsync } from './parser/index.js';
 export { preprocess } from './parser/preprocessor.js';
 export { Circuit } from './circuit.js';
+export { operatingPointReport } from './op-report.js';
+export type { OperatingPointDevice, OperatingPointReport } from './op-report.js';
 export type { CompiledCircuit } from './circuit.js';
 export {
   DCResult, TransientResult, ACResult, DCSweepResult, NoiseResult, DistortionResult,
