@@ -393,6 +393,9 @@ function simulateControlScript(
     new UnsupportedControlCommandError(command, reason, line.lineNumber, line.text);
 
   const host: ControlHost = {
+    inputDirectory: options?.sourcePath === undefined ? undefined
+      : options.sourcePath.replace(/\\/g, '/').replace(/[^/]*$/, '').replace(/\/$/, '') || (options.sourcePath.startsWith('/') ? '/' : '.'),
+    writeFile: options?.writeControlFile,
     runAnalysis(tokens, line, saves) {
       const directive = parseControlAnalysisCard(tokens, line.lineNumber, line.text);
       if (directive.type === 'pz') return { directive, result: solve([], [directive], saves) };
@@ -458,7 +461,7 @@ function simulateControlScript(
   const result: SimulationResult = {
     warnings,
     convergence,
-    control: { runs: outcome.runs, output: outcome.output, quit: outcome.quit, measurements: outcome.measurements, fourier: outcome.fourier },
+    control: { files: outcome.files, runs: outcome.runs, output: outcome.output, quit: outcome.quit, measurements: outcome.measurements, fourier: outcome.fourier },
   };
   // Like the analysis fields, measurements come from the latest run of each analysis type.
   const latestMeasurements = new Map<string, MeasurementResult[]>();

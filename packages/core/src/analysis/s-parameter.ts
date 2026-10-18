@@ -151,7 +151,7 @@ export function solveSParameters(
     }
   }
 
-  return new SParameterResult(frequencies, ports.map(port => port.name), vectors);
+  return new SParameterResult(frequencies, ports.map(port => port.name), vectors, z0);
 }
 
 /** RF port sources ordered by port number; ngspice span.c needs at least two. */

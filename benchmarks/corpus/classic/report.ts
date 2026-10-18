@@ -565,7 +565,7 @@ export async function runNativeSpiceTsEncoded<S>(
   try {
     const core = await import(options.coreModule ?? pathToFileURL(resolve('packages/core/dist/index.js')).href);
     if (options.parseFirst ?? true) core.parse(text);
-    const simulated = await core.simulate(text);
+    const simulated = await core.simulate(text, { sourcePath: circuit.sourcePath });
     const analyses: EncodedAnalysis<S>[] = [];
     const runs = simulated.control?.runs ?? [];
     // The core also retains lowered straight-line .control runs in analyses[].

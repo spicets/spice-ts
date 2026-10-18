@@ -217,6 +217,10 @@ export interface Ngbehavior {
  * All fields are optional; SPICE-convention defaults are used when omitted.
  */
 export interface SimulationOptions {
+  /** Input deck path, when known. Defines the control-language $inputdir; never inferred from cwd. */
+  sourcePath?: string;
+  /** Optional caller-owned output sink. Core never accesses the filesystem; callers enforce their sandbox. */
+  writeControlFile?: (path: string, contents: string) => void;
   /** Save supported device currents as complete per-point analysis vectors. Default: false. */
   savecurrents?: boolean;
   /** Stop transient analysis after all applicable measurements complete. Default: false. */
