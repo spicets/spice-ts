@@ -8,6 +8,7 @@
     "spice_simulate:corrected"
   ],
   "tools": [
+    "spice_sensitivity",
     "spice_capabilities",
     "spice_validate",
     "spice_convert",
