@@ -2977,9 +2977,11 @@ export class Circuit {
             name: `${desc.name}.RS`,
             nodes: [anode, junction],
             value: seriesResistance / effectiveArea,
-            ...(trs1 !== 0 || trs2 !== 0
-              ? { params: { TC1: trs1, TC2: trs2, TNOM: card.TNOM ?? NOMINAL_TEMPERATURE_C } }
-              : {}),
+            params: {
+              TC1: trs1, TC2: trs2, TNOM: card.TNOM ?? NOMINAL_TEMPERATURE_C,
+              ...(desc.params?.TEMP !== undefined ? { TEMP: desc.params.TEMP } : {}),
+              ...(desc.params?.DTEMP !== undefined ? { DTEMP: desc.params.DTEMP } : {}),
+            },
           });
           result.push({
             ...desc,
