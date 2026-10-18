@@ -44,15 +44,15 @@
       "unsupported": 12
     },
     "spiceTs": {
-      "success": 142,
+      "success": 144,
       "failed": 13,
-      "unsupported": 181
+      "unsupported": 179
     },
     "outcomes": {
       "matched": 60,
-      "mismatch": 17,
-      "not-compared": 65,
-      "spice-ts-loss": 164,
+      "mismatch": 18,
+      "not-compared": 66,
+      "spice-ts-loss": 162,
       "ngspice-failed": 0,
       "both-failed": 30
     }
@@ -60,8 +60,8 @@
   "gapBuckets": [
     {
       "bucket": "parse: other unsupported syntax",
-      "fixtures": 57,
-      "ngspiceSuccess": 52,
+      "fixtures": 55,
+      "ngspiceSuccess": 50,
       "ids": [
         "examples-control-structs-foreach-bjt-ft-sp",
         "examples-digital-auto-bridge-shared-line-cir",
@@ -104,8 +104,6 @@
         "examples-xspice-original-examples-mixed-mode-deck",
         "examples-xspice-original-examples-user-defined-nodes-deck",
         "examples-xspice-pwm-osc-pwm-sin-cir",
-        "examples-xspice-see-repeat-loop-seegen-net",
-        "examples-xspice-see-seegen-cm1-cir",
         "examples-xspice-transmission-lines-cpline-ac-cir",
         "examples-xspice-transmission-lines-cpline-tran-cir",
         "examples-xspice-transmission-lines-cpmline-ac-cir",
@@ -7528,16 +7526,44 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 15: XSPICE code model 'seegen' (.model 'seemod1') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_inve"
+        "status": "success",
+        "analyses": [
+          "tran:1940",
+          "tran:1948",
+          "tran:1952",
+          "tran:1956",
+          "tran:1960",
+          "tran:1964",
+          "tran:1968",
+          "tran:1972",
+          "tran:1972",
+          "tran:1976"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax"
+      "comparedAnalyses": 10,
+      "comparedSignals": 5,
+      "worstNormalizedError": 0.917,
+      "worstSignal": "tran v(mon)",
+      "outcome": "mismatch",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "1e-11"
+        ],
+        "headline": {
+          "worst": 0.917,
+          "signal": "v(mon)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.909,
+          "signal": "v(mon)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.0376,
+          "signal": "v(mon)"
+        }
+      }
     },
     {
       "id": "examples-xspice-see-seegen-cm1-cir",
@@ -7554,16 +7580,25 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 4: XSPICE code model 'seegen' (.model 'seemod1') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_inver"
+        "status": "success",
+        "analyses": [
+          "tran:3550"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 1,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax"
+      "outcome": "not-compared",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "unavailable",
+        "tmax": [],
+        "reason": "no .tran card outside .control",
+        "headline": null,
+        "spiceTsVsFine": null,
+        "ngspiceDefaultVsFine": null
+      }
     },
     {
       "id": "examples-xspice-see-set1-cir",
@@ -10362,5 +10397,5 @@
       "gapBucket": "parse: other unsupported syntax"
     }
   ],
-  "outcomeSha256": "9e6121092208543e14a8ee949ada3a10815f793cbc4a7d8e4c2d18b444228dc0"
+  "outcomeSha256": "ec2cf390642ae99b140d6e0bf5d95c9c507e89d4f61a4416a497d9310dca2a88"
 }

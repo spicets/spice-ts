@@ -7,6 +7,7 @@
  */
 
 import { OTA_SPEC } from './ota-model.js';
+import { SEEGEN_SPEC } from './seegen.js';
 import { REACTIVE_IC_SPECS } from './reactive-ic-models.js';
 
 /** Analog port types spice-ts can stamp (XSPICE `%v`, `%vd`, `%i`, `%id`, `%vnam`, `%g`, `%gd`). */
@@ -479,7 +480,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('in_low', 0), real('in_high', 1), real('hyst', 0.1), real('out_lower_limit', 0), real('out_upper_limit', 1),
       ],
     },
-    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH,
+    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH, SEEGEN_SPEC,
 
     ADC_BRIDGE, DAC_BRIDGE,
     {

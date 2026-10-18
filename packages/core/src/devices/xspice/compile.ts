@@ -20,6 +20,7 @@ import { SWITCH_BEHAVIORS } from './switch-models.js';
 import { MAGNETIC_BEHAVIORS } from './magnetic-models.js';
 import { REACTIVE_IC_BEHAVIORS } from './reactive-ic-models.js';
 import { zener } from './zener.js';
+import { seegen } from './seegen.js';
 import { resolveSTransfer, STransferDevice } from './s-xfer.js';
 import { XSPICE_CODE_MODEL_SPECS, type XspiceParamValue } from './spec.js';
 import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xspice-device.js';
@@ -31,6 +32,7 @@ const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, Behavior
   ...REACTIVE_IC_BEHAVIORS,
   ...XSPICE_BEHAVIORS, ...LIMITER_BEHAVIORS, ...OSCILLATOR_BEHAVIORS, ...SWITCH_BEHAVIORS, ...MAGNETIC_BEHAVIORS, ...OTA_BEHAVIORS,
   ['zener', zener],
+  ['seegen', seegen],
 ]);
 
 /** An A instance whose connections and parameters were resolved against its code model. */

@@ -6,11 +6,11 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `9e6121092208543e14a8ee949ada3a10815f793cbc4a7d8e4c2d18b444228dc0`.
+- Fixtures: 336. Outcome SHA-256: `ec2cf390642ae99b140d6e0bf5d95c9c507e89d4f61a4416a497d9310dca2a88`.
 - ngspice (ngspice-47): 306 success, 18 failed, 12 unsupported.
-- spice-ts (0.3.0): 142 success, 13 failed, 181 unsupported.
-- Outcomes: matched 60, mismatch 17, not-compared 65, spice-ts-loss 164, ngspice-failed 0, both-failed 30.
-- Of the 306 decks ngspice runs successfully, spice-ts matches 60, mismatches 17, produces no comparable result for 65 and fails 164. For 155 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
+- spice-ts (0.3.0): 144 success, 13 failed, 179 unsupported.
+- Outcomes: matched 60, mismatch 18, not-compared 66, spice-ts-loss 162, ngspice-failed 0, both-failed 30.
+- Of the 306 decks ngspice runs successfully, spice-ts matches 60, mismatches 18, produces no comparable result for 66 and fails 162. For 155 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
 
@@ -43,7 +43,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 
 | Bucket | Fixtures | ngspice ok | Issue |
 |---|---|---|---|
-| parse: other unsupported syntax | 57 | 52 | none filed |
+| parse: other unsupported syntax | 55 | 50 | none filed |
 | model: CIDER numerical device models (NUMD/NUMOS/NBJT) | 37 | 37 | https://github.com/mfiumara/spice-ts/issues/497 |
 | control: ngspice control-language scripting (set/let/save/foreach/meas/...) | 24 | 22 | https://github.com/mfiumara/spice-ts/issues/488 |
 | model: VDMOS power MOSFET | 12 | 6 | https://github.com/mfiumara/spice-ts/issues/506 |
@@ -308,8 +308,8 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/original-examples/user_defined_nodes.deck](fixtures/examples/xspice/original-examples/user_defined_nodes.deck) | success | unsupported | spice-ts-loss |  |  | spice-ts: Parse error at line 19: XSPICE code model 'd_to_real' (.model 'node_bridge2') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer |
 | [examples/xspice/pwm-osc/fmcw-dosc.cir](fixtures/examples/xspice/pwm-osc/fmcw-dosc.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: Parse error at line 15: XSPICE code model 'd_osc' (.model 'var_clock') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_inv |
 | [examples/xspice/pwm-osc/pwm-sin.cir](fixtures/examples/xspice/pwm-osc/pwm-sin.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Parse error at line 6: XSPICE code model 'd_pwm' (.model 'pwm') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_inverter,  |
-| [examples/xspice/see/repeat_loop_seegen.net](fixtures/examples/xspice/see/repeat_loop_seegen.net) | success | unsupported | spice-ts-loss |  |  | spice-ts: Parse error at line 15: XSPICE code model 'seegen' (.model 'seemod1') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_inve |
-| [examples/xspice/see/seegen_cm1.cir](fixtures/examples/xspice/see/seegen_cm1.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Parse error at line 4: XSPICE code model 'seegen' (.model 'seemod1') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_inver |
+| [examples/xspice/see/repeat_loop_seegen.net](fixtures/examples/xspice/see/repeat_loop_seegen.net) | success | success | mismatch | 0.917 | tran v(mon) |  |
+| [examples/xspice/see/seegen_cm1.cir](fixtures/examples/xspice/see/seegen_cm1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/xspice/see/set1.cir](fixtures/examples/xspice/see/set1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/xspice/table/table-generator-q-2d.sp](fixtures/examples/xspice/table/table-generator-q-2d.sp) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Parse error at line 36: Unsupported .control command 'endif': it is not an ngspice control-language command spice-ts executes; spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod, option, set |
 | [examples/xspice/transmission_lines/cpline_ac.cir](fixtures/examples/xspice/transmission_lines/cpline_ac.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Parse error at line 9: XSPICE code model 'cpline' (.model 'CPLINE1') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_inver |
@@ -408,7 +408,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 
 - Fine-step reference (#592): ngspice-47 runs the same deck with every active .tran card rewritten to TMAX_fine = min(TSTEP, (TSTOP - TSTART)/50, deck TMAX if given) / 10, i.e. the ngspice default step ceiling divided by 10; TSTEP, TSTOP, TSTART, UIC and every other card are unchanged. The rule is the same for every transient fixture. No reference is generated when the deck has no parsable .tran card outside .control, or when TSTOP/TMAX_fine exceeds 1000000 steps; the ngspice run is bounded at 600 s. Each default run (spice-ts, ngspice) is scored by the same procedure: at the reference's output points, with the default run linearly interpolated onto them, over the transient signals of the headline comparison, normalised by the reference peak with the same per-quantity floors. The headline's one-sided breakpoint alignment applies at every default-run time point within ngspice's breakpoint merge distance (CKTminBreak = 0.00005 x TMAX_fine) of a reference time point; the headline matches breakpoints bit for bit, which here would favour ngspice, whose default run lands on its own reference's breakpoint times exactly while spice-ts's land a few ulps away. This charges each engine for its own published waveform, so a coarse output grid counts against whichever engine produced it. Status (matched/mismatch) is defined by the headline column only. One fine reference is not a convergence proof, and neither column is an accuracy ranking of the engines.
 - One fine reference is not a convergence proof: it is one more discretisation of the same circuit by the same engine. These columns are diagnostics of grid sensitivity, not an accuracy ranking and not a claim that either engine is more accurate. Status stays defined by the headline column.
-- Transient rows: 47; fine reference compared for 44, unavailable for 3. Above 0.01 among compared rows: headline (transient signals) 17, spice-ts vs fine 23, ngspice default vs fine 23.
+- Transient rows: 49; fine reference compared for 45, unavailable for 4. Above 0.01 among compared rows: headline (transient signals) 18, spice-ts vs fine 24, ngspice default vs fine 24.
 
 | Fixture | Status (headline) | Headline tran worst (vs ngspice default) | spice-ts vs fine | ngspice default vs fine | Fine TMAX | Note |
 |---|---|---|---|---|---|---|
@@ -446,6 +446,8 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/original-examples/polarity.deck](fixtures/examples/xspice/original-examples/polarity.deck) | matched | 0.00049 (v(10)) | 0.000304 (i(v1)) | 0.000493 (i(v1)) | 0.000001 |  |
 | [examples/xspice/original-examples/spice3.deck](fixtures/examples/xspice/original-examples/spice3.deck) | matched | 0.00000806 (v(emit)) | 0.000497 (i(vin)) | 0.000493 (i(vin)) | 0.000001 |  |
 | [examples/xspice/original-examples/supply_ramping.deck](fixtures/examples/xspice/original-examples/supply_ramping.deck) | mismatch | 0.0588 (v(1)) | 0.0427 (v(1)) | 0.0155 (v(1)) | 0.01 |  |
+| [examples/xspice/see/repeat_loop_seegen.net](fixtures/examples/xspice/see/repeat_loop_seegen.net) | mismatch | 0.917 (v(mon)) | 0.909 (v(mon)) | 0.0376 (v(mon)) | 1e-11 |  |
+| [examples/xspice/see/seegen_cm1.cir](fixtures/examples/xspice/see/seegen_cm1.cir) | not-compared |  |  |  |  | no .tran card outside .control |
 | [examples/xspice/various/xspice_c1.cir](fixtures/examples/xspice/various/xspice_c1.cir) | matched | 0.00000806 (v(emit)) | 0.000497 (i(vin)) | 0.000493 (i(vin)) | 0.000001 |  |
 | [examples/xspice/various/xspice_c2.cir](fixtures/examples/xspice/various/xspice_c2.cir) | matched | 0.000493 (v(1)) | 0.000303 (v(1)) | 0.000493 (v(1)) | 0.000001 |  |
 | [tests/general/fourbitadder.cir](fixtures/tests/general/fourbitadder.cir) | matched | 0.00143 (v(x1.x1.x1.x7.8)) | 0.0709 (v(x1.x1.x1.x7.8)) | 0.0701 (v(x1.x1.x1.x7.8)) | 1.2e-11 |  |

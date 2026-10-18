@@ -193,7 +193,8 @@
       "examples-xspice-original-examples-digital-models-deck",
       "examples-xspice-original-examples-mixed-io-size-deck",
       "examples-xspice-original-examples-mixed-ref-deck",
-      "examples-xspice-original-examples-supply-ramping-deck"
+      "examples-xspice-original-examples-supply-ramping-deck",
+      "examples-xspice-see-repeat-loop-seegen-net"
     ]
   }
 }
