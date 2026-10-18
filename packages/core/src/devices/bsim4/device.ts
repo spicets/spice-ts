@@ -102,6 +102,8 @@ export class BSIM4 implements DeviceModel {
   resetTransient(): void { this.chargeState.reset(); }
   private terminalCharges(read: (node: number) => number) {
     const p = this.model.values.type;
+    // RGATEMOD=1 stores charge behind the gate resistor, at GP, just as
+    // the static channel stamp does. This also governs acceptance and LTE.
     const v = this.intrinsicNodes.map(node => node < 0 ? 0 : read(node));
     return evaluateBsim4Charges(this.processed, this.model.given,
       { vgs: p * (v[1] - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) });
