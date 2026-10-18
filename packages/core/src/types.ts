@@ -337,6 +337,7 @@ export type SimulatorBackend = SimulatorBackendName | SimulatorAdapter;
 
 /** Resolved options with all defaults filled in */
 export interface ResolvedOptions {
+  maxOrder: number;
   rampTime: number;
   abstol: number;
   vntol: number;
@@ -353,6 +354,7 @@ export interface ResolvedOptions {
 }
 
 export const DEFAULT_OPTIONS: ResolvedOptions = {
+  maxOrder: 2,
   rampTime: 0,
   abstol: 1e-12,
   vntol: 1e-6,
@@ -385,8 +387,8 @@ export function resolveOptions(opts?: SimulationOptions, stopTime?: number): Res
   if (opts?.maxOrder !== undefined && (!Number.isInteger(opts.maxOrder) || opts.maxOrder < 1 || opts.maxOrder > 6)) {
     throw new InvalidCircuitError('SimulationOptions.maxOrder must be an integer from 1 to 6');
   }
-  if (opts?.integrationMethod === 'gear2' && (opts.maxOrder ?? 2) > 2) {
-    throw new InvalidCircuitError('spice-ts implements Gear orders 1 and 2 only');
+  if (opts?.integrationMethod === 'gear2' && (opts.maxOrder ?? 2) > 3) {
+    throw new InvalidCircuitError('spice-ts implements Gear orders 1 through 3 only');
   }
   if (opts?.rampTime !== undefined && (!Number.isFinite(opts.rampTime) || opts.rampTime < 0)) {
     throw new InvalidCircuitError('SimulationOptions.rampTime must be a non-negative finite number');
@@ -395,6 +397,7 @@ export function resolveOptions(opts?: SimulationOptions, stopTime?: number): Res
     throw new InvalidCircuitError('SimulationOptions.bypass must be a non-negative integer');
   }
   return {
+    maxOrder: opts?.maxOrder ?? DEFAULT_OPTIONS.maxOrder,
     rampTime: opts?.rampTime ?? DEFAULT_OPTIONS.rampTime,
     abstol: opts?.abstol ?? DEFAULT_OPTIONS.abstol,
     vntol: opts?.vntol ?? DEFAULT_OPTIONS.vntol,

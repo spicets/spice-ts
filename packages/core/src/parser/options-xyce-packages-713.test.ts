@@ -123,10 +123,21 @@ describe('Xyce .options packages follow ngspice-47 (#713)', () => {
 
   it.each([
     ['.options timeint maxord=5\n.options method=gear\n.op', 1],
-    ['.options method=gear maxord=3\n.op', 1],
+    ['.options method=gear maxord=4\n.op', 1],
   ])('rejects MAXORD values that change ngspice integration: %s', (netlist, line) => {
     expect(() => parse(netlist)).toThrow(ParseError);
     expect(() => parse(netlist)).toThrow(expect.objectContaining({ line }));
+  });
+
+  it.each([
+    '.options method=gear maxord=3',
+    '.options maxord=3 method=gear',
+    '.options maxord=3\n.options method=gear',
+    '.options method=gear\n.options maxord=3',
+    '.options maxord=4\n.options maxord=3 method=gear',
+    '.options timeint method=gear maxord=3',
+  ])('accepts Gear order three regardless of option ordering: %s', options => {
+    expect(parse(`${options}\n.op`).simulationOptions).toEqual({ integrationMethod: 'gear2', maxOrder: 3 });
   });
 
   it.each([
