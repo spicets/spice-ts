@@ -236,6 +236,26 @@ function add(a: Dual, b: Dual): Dual {
   return result;
 }
 
+// Fuse constant operands without constructing and clearing a constant Dual.
+// Keep the +0/-0 operations: copying a derivative would change signed zeros.
+function addConstant(a: Dual, value: number): Dual {
+  const result = a.workspace.take(a.value + value);
+  for (let i = 0; i < result.derivative.length; i++) result.derivative[i] = a.derivative[i] + 0;
+  return result;
+}
+
+function subConstant(a: Dual, value: number): Dual {
+  const result = a.workspace.take(a.value - value);
+  for (let i = 0; i < result.derivative.length; i++) result.derivative[i] = a.derivative[i] - 0;
+  return result;
+}
+
+function constantSub(value: number, a: Dual): Dual {
+  const result = a.workspace.take(value - a.value);
+  for (let i = 0; i < result.derivative.length; i++) result.derivative[i] = 0 - a.derivative[i];
+  return result;
+}
+
 function sub(a: Dual, b: Dual): Dual {
   const result = a.workspace.take(0);
   const derivative = result.derivative;
@@ -424,12 +444,12 @@ function evaluate(
   const iri = diode(vbci, thermal.IS, params.NR, vt);
   const qdbe = depletionCharge(vbei, PE, ME, params.FC);
   const qdbc = depletionCharge(vbci, PC, MC, params.FC);
-  const q1z = add(c(1, workspace), add(
+  const q1z = addConstant(add(
     scale(qdbe, reciprocalOrZero(params.VER)),
     scale(qdbc, reciprocalOrZero(params.VEF)),
-  ));
-  const q1Offset = sub(q1z, c(1e-4, workspace));
-  const q1 = add(scale(add(sqrt(add(mul(q1Offset, q1Offset), c(1e-8, workspace))), q1Offset), 0.5), c(1e-4, workspace));
+  ), 1);
+  const q1Offset = subConstant(q1z, 1e-4);
+  const q1 = addConstant(scale(add(sqrt(addConstant(mul(q1Offset, q1Offset), 1e-8)), q1Offset), 0.5), 1e-4);
   const q2 = add(scale(ifi, reciprocalOrZero(params.IKF)), scale(iri, reciprocalOrZero(params.IKR)));
   const qb = scale(add(q1, sqrt(add(mul(q1, q1), scale(q2, 4)))), 0.5);
   const itzf = div(ifi, qb);
@@ -443,8 +463,8 @@ function evaluate(
   // ngspice vbicload.c:3566-3598 uses the collector emission coefficients.
   const ibep = add(diode(vbep, thermal.IBEIP, params.NCI, vt), diode(vbep, thermal.IBENP, params.NCN, vt));
   const avalancheVoltage = scale(add(
-    sqrt(add(mul(sub(c(PC, workspace), vbci), sub(c(PC, workspace), vbci)), c(0.01, workspace))),
-    sub(c(PC, workspace), vbci),
+    sqrt(addConstant(mul(constantSub(PC, vbci), constantSub(PC, vbci)), 0.01)),
+    constantSub(PC, vbci),
   ), 0.5);
   const avalanche = scale(mul(
     avalancheVoltage,
@@ -460,18 +480,18 @@ function evaluate(
     scale(diode(vbci, thermal.ISP, params.NFP, vt), 1 - params.WSP),
   );
   const irp = diode(vbcp, thermal.ISP, params.NFP, vt);
-  const qbp = scale(add(c(1, workspace), sqrt(add(c(1, workspace), scale(ifp, 4 * reciprocalOrZero(params.IKP))))), 0.5);
+  const qbp = scale(addConstant(sqrt(addConstant(scale(ifp, 4 * reciprocalOrZero(params.IKP)), 1)), 1), 0.5);
   const iccp = div(sub(ifp, irp), qbp);
 
-  const kbci = sqrt(add(c(1, workspace), scale(exp(scale(vbci, 1 / vt)), thermal.GAMM)));
-  const kbcx = sqrt(add(c(1, workspace), scale(exp(scale(vbcx, 1 / vt)), thermal.GAMM)));
-  const ratio = div(add(kbci, c(1, workspace)), add(kbcx, c(1, workspace)));
+  const kbci = sqrt(addConstant(scale(exp(scale(vbci, 1 / vt)), thermal.GAMM), 1));
+  const kbcx = sqrt(addConstant(scale(exp(scale(vbcx, 1 / vt)), thermal.GAMM), 1));
+  const ratio = div(addConstant(kbci, 1), addConstant(kbcx, 1));
   const iohm = scale(add(vrci, scale(sub(sub(kbci, kbcx), log(ratio)), vt)), 1 / params.RCI);
   const derf = div(
     scale(iohm, params.RCI * reciprocalOrZero(params.VO)),
-    add(c(1, workspace), scale(sqrt(add(mul(vrci, vrci), c(0.01, workspace))), 0.5 * reciprocalOrZero(params.VO) / params.HRCF)),
+    addConstant(scale(sqrt(addConstant(mul(vrci, vrci), 0.01)), 0.5 * reciprocalOrZero(params.VO) / params.HRCF), 1),
   );
-  const irci = div(iohm, sqrt(add(c(1, workspace), mul(derf, derf))));
+  const irci = div(iohm, sqrt(addConstant(mul(derf, derf), 1)));
   const irbi = scale(mul(vrbi, qb), 1 / params.RBI);
   // Explicit RBP=0 is clamped by vbicmpar.c before vbicload.c sees it.
   const irbp = scale(mul(vrbp, qbp), 1 / params.RBP);
@@ -482,9 +502,9 @@ function evaluate(
   // Forward transit time with ITF/XTF/VTF bias dependence (QTF = 0).
   const forwardPositive = ifi.value > 0 ? 1 : 0;
   const relativeForward = scale(ifi, forwardPositive * reciprocalOrZero(params.ITF));
-  const highCurrent = div(relativeForward, add(relativeForward, c(1, workspace)));
+  const highCurrent = div(relativeForward, addConstant(relativeForward, 1));
   const enhancement = scale(
-    add(c(params.ITF > 0 ? 0 : 1, workspace), mul(highCurrent, highCurrent)),
+    addConstant(mul(highCurrent, highCurrent), params.ITF > 0 ? 0 : 1),
     params.XTF * forwardPositive,
   );
   // ngspice-47 vbicload.c:2223-2227,3859-3863 (a80f6e3e):
@@ -495,7 +515,7 @@ function evaluate(
   const biasedEnhancement = params.VTF > 0
     ? mul(map(vbci, vtfExp, vtfExp * 0.6944444 / params.VTF), enhancement)
     : enhancement;
-  const tff = scale(add(c(1, workspace), biasedEnhancement), params.TF);
+  const tff = scale(addConstant(biasedEnhancement, 1), params.TF);
   // ngspice-47 vbicload.c:3874-3896: partition depletion only; forward
   // diffusion remains intrinsic. The extrinsic integral uses Vbex, not Vbei.
   const qbe = add(scale(qdbe, thermal.CJE * params.WBE), div(mul(tff, ifi), qb));
