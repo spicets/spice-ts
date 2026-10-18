@@ -29,6 +29,7 @@ import type { ParameterOverrideApiError } from './params.js';
 import { runSweep, sweepProperties } from './sweep.js';
 import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } from './ac-metrics.js';
 import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProperties } from './tran-metrics.js';
+import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } from './fourier.js';
 import { noiseMetrics, noiseMetricsArgs, noiseMetricsOutputSchema, noiseMetricsProperties } from './noise-metrics.js';
 import type { NoiseResult } from '@spice-ts/core';
 
@@ -310,6 +311,19 @@ export const MCP_TOOLS = Object.freeze([
     },
   },
   {
+    name: 'spice_fourier',
+    description: 'Simulate one transient and return DC, harmonics and THD percent using ngspice .four last-period semantics (200-point linear interpolation). fundamentalHz is in Hz; harmonicCount counts positive harmonics (default 9, max 64). Optional windowStartS is a lower bound that must leave the full last period available. Phases are sine-referenced degrees.',
+    inputSchema: {
+      ...requestInputSchema,
+      required: ['request', 'signal', 'fundamentalHz'],
+      properties: { ...requestInputSchema.properties, ...fourierProperties },
+    },
+    outputSchema: {
+      type: 'object', oneOf: [...fourierOutputSchemas, toolFailureOutputSchema],
+      $defs: commonSchemaV1.$defs,
+    },
+  },
+  {
     name: 'spice_noise_metrics',
     description: 'Simulate exactly one unstepped .noise analysis. Integrate PSD by linear-frequency trapezoids over optional bandHz; interpolate spotFrequenciesHz densities in log-frequency without extrapolation. SPICE text input; native JSON IR does not yet support noise directives.',
     inputSchema: {
@@ -449,12 +463,13 @@ async function executeToolWithStore(
     }
     if (name === 'spice_simulation_read') return success(streamStore.read(streamReadArgs(args)));
     if (name === 'spice_simulation_cancel') return success(streamStore.cancel(streamCancelArgs(args)));
-    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_dc_metrics' && name !== 'spice_ac_metrics' && name !== 'spice_tran_metrics' && name !== 'spice_noise_metrics' && name !== 'spice_simulation_start') {
+    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_dc_metrics' && name !== 'spice_ac_metrics' && name !== 'spice_tran_metrics' && name !== 'spice_fourier' && name !== 'spice_noise_metrics' && name !== 'spice_simulation_start') {
       return failure(apiError('INVALID_REQUEST', 'Unknown tool', 'transport', {}));
     }
 
     const selectors = name === 'spice_ac_metrics' ? acMetricsArgs(args) : undefined;
     const tranSelectors = name === 'spice_tran_metrics' ? tranMetricsArgs(args) : undefined;
+    const fourierSelectors = name === 'spice_fourier' ? fourierArgs(args) : undefined;
     const noiseSelectors = name === 'spice_noise_metrics' ? noiseMetricsArgs(args) : undefined;
     const measurements = name === 'spice_measure' && isRecord(args) ? args.measurements : undefined;
     if (name === 'spice_measure' && (!Array.isArray(measurements) || measurements.length < 1 || measurements.length > 128)) {
@@ -506,8 +521,8 @@ async function executeToolWithStore(
         enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(measured)), 'transport');
         return success(measured, diagnostics);
       }
-      if (selectors || tranSelectors) {
-        const metrics = tranSelectors ? tranMetrics(result, tranSelectors) : acMetrics(result, selectors!);
+      if (selectors || tranSelectors || fourierSelectors) {
+        const metrics = fourierSelectors ? fourierMetrics(result, fourierSelectors) : tranSelectors ? tranMetrics(result, tranSelectors) : acMetrics(result, selectors!);
         enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(metrics)), 'transport');
         return { ...success(metrics, diagnostics), ...('error' in metrics ? { isError: true } : {}) };
       }
