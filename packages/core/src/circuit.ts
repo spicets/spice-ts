@@ -3924,6 +3924,9 @@ export class Circuit {
         case 'A': {
           const card = parseXspiceInstance(raw, lineNumber);
           const modelName = scopeModel(card.modelName);
+          if (!this._xspiceModels.has(modelName.toUpperCase())) {
+            throw new ParseError("Unsupported device card: 'A' (missing code model)", lineNumber, raw);
+          }
           // All code models share node-token scoping; preserve vector,
           // inversion and type tokens. Model support is checked by the
           // code-model parser, just as it is for top-level A cards.

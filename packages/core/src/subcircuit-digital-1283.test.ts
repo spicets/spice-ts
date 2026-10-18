@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ParseError } from './errors.js';
+
 import { UnsupportedCodeModelError } from './parser/xspice-parser.js';
 import { simulate } from './simulate.js';
 
@@ -48,12 +48,13 @@ describe('digital XSPICE cards in subcircuits (#1283)', () => {
     }
   });
 
-  it('keeps the typed boundary for unrelated analog A-cards', async () => {
-    await expect(simulate([
-      'unsupported analog subcircuit', '.model amp gain (gain=2)',
+  it('scopes implemented analog A-cards with a root model (#1434)', async () => {
+    const result = await simulate([
+      'analog subcircuit', '.model amp gain (gain=2)',
       '.subckt cell in out', 'a1 in out amp', '.ends',
       'v1 in 0 1', 'x1 in out cell', 'r1 out 0 1k', '.op', '.end',
-    ].join('\n'))).rejects.toThrow(ParseError);
+    ].join('\n'));
+    expect(result.dc!.voltage('out')).toBeCloseTo(2, 10);
   });
 
   it('keeps the typed error for an unimplemented code model in a subcircuit', async () => {
