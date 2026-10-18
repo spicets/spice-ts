@@ -63,7 +63,7 @@ const UNSUPPORTED_REASONS: Record<string, string> = {
   mc_source: 'circuit management is not implemented',
 };
 
-const STRUCTURE_KEYWORDS = new Set(['if', 'else', 'end', 'while', 'dowhile', 'repeat', 'foreach', 'break', 'continue']);
+const STRUCTURE_KEYWORDS = new Set(['if', 'else', 'end', 'endif', 'while', 'dowhile', 'repeat', 'foreach', 'break', 'continue']);
 
 /** The contract text listed in an unsupported-command error. */
 const CONTRACT = 'spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod/alterparam, reset, '
@@ -109,15 +109,16 @@ export function parseControlScript(blocks: ControlSourceBlock[]): ControlScript 
   }
 
   function block(opening: ControlSourceLine, allowElse: boolean): { then: ControlStatement[]; otherwise: ControlStatement[] } {
-    const first = body(allowElse ? ['end', 'else'] : ['end']);
+    // ngspice cpitf.c installs endif as an alias for end before parsing blocks.
+    const first = body(allowElse ? ['end', 'endif', 'else'] : ['end', 'endif']);
     if (first.terminator === undefined) {
       throw new UnsupportedControlCommandError(
         commandName(opening.text), "block is missing its closing 'end'", opening.lineNumber, opening.text,
       );
     }
     position++;
-    if (first.terminator === 'end') return { then: first.statements, otherwise: [] };
-    const second = body(['end']);
+    if (first.terminator !== 'else') return { then: first.statements, otherwise: [] };
+    const second = body(['end', 'endif']);
     if (second.terminator === undefined) {
       throw new UnsupportedControlCommandError(
         'if', "block is missing its closing 'end'", opening.lineNumber, opening.text,
@@ -151,6 +152,7 @@ export function parseControlScript(blocks: ControlSourceBlock[]): ControlScript 
         return { kind: name, line };
       case 'else':
       case 'end':
+      case 'endif':
         throw new UnsupportedControlCommandError(
           name, `'${name}' without a matching opening statement`, line.lineNumber, line.text,
         );

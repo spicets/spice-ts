@@ -3,7 +3,8 @@ import { simulate } from '../../simulate.js';
 
 const circuit = 'unary not\nV1 1 0 1\nR1 1 0 1k';
 
-// ngspice-47 batch-mode results. endif is a built-in alias for end (cpitf.c).
+// ngspice-47 batch-mode results for not/~. The requested condition-only !
+// spelling is an extension, not ngspice-47 syntax. endif aliases end (cpitf.c).
 describe('control unary not (#1455)', () => {
   it.each([
     ['not $?batchmode', 'false'],
@@ -46,11 +47,11 @@ endif
     expect(result.control!.output).toEqual(['nested', 'after']);
   });
 
-  it('evaluates symbolic not in let and while through the shared expression path', async () => {
+  it('evaluates symbolic not in while conditions', async () => {
     const result = await simulate(`${circuit}\n.control
 let done = 0
 while !done
-  let done = !0
+  let done = 1
 end
 echo $&done
 .endc\n.end`);
