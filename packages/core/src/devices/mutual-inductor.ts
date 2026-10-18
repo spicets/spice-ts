@@ -75,16 +75,34 @@ export function validateCoupledInductors(devices: readonly DeviceModel[]): void 
       matrix[i][j] += coupling.coupling;
       matrix[j][i] += coupling.coupling;
     }
-    // Cholesky detects non-viable groups even when every pair has |k| < 1.
+    // Pivoted Cholesky detects indefinite groups even when every |k| < 1,
+    // but preserves ngspice's valid semidefinite ideal transformers (|k|=1).
+    // The normalized matrix has unit diagonal, so this roundoff allowance
+    // depends only on group size, not on circuit inductance magnitudes.
+    const tolerance = 16 * Number.EPSILON * matrix.length;
     for (let i = 0; i < matrix.length; i++) {
-      for (let j = 0; j <= i; j++) {
-        let value = matrix[i][j];
-        for (let k = 0; k < j; k++) value -= matrix[i][k] * matrix[j][k];
-        if (i === j) {
-          if (!(value > 0)) reject();
-          matrix[i][j] = Math.sqrt(value);
-        } else {
-          matrix[i][j] = value / matrix[j][j];
+      let pivot = i;
+      for (let j = i + 1; j < matrix.length; j++) {
+        if (matrix[j][j] > matrix[pivot][pivot]) pivot = j;
+      }
+      [matrix[i], matrix[pivot]] = [matrix[pivot], matrix[i]];
+      for (const row of matrix) [row[i], row[pivot]] = [row[pivot], row[i]];
+      const diagonal = matrix[i][i];
+      if (diagonal < -tolerance) reject();
+      if (diagonal <= tolerance) {
+        // A zero pivot is legal only if the entire residual block is zero.
+        // Ignoring its off-diagonal entries would admit indefinite groups.
+        for (let j = i; j < matrix.length; j++) {
+          for (let k = i; k < matrix.length; k++) {
+            if (Math.abs(matrix[j][k]) > tolerance) reject();
+          }
+        }
+        break;
+      }
+      for (let j = i + 1; j < matrix.length; j++) {
+        for (let k = j; k < matrix.length; k++) {
+          matrix[k][j] -= matrix[j][i] * matrix[k][i] / diagonal;
+          matrix[j][k] = matrix[k][j];
         }
       }
     }

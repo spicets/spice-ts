@@ -35,7 +35,7 @@ K13 L1 L3 ${k13}
 .end`;
 
 describe('coupled inductance setup (#1419)', () => {
-  it.each(['0.99', '-0.99'])('simulates a viable pair with k=%s and trailing remcirc', async k => {
+  it.each(['0.99', '-0.99', '1', '-1'])('simulates a viable pair with k=%s and trailing remcirc', async k => {
     await expect(simulate(pair('1u', '4u', k))).resolves.toBeDefined();
   });
 
@@ -52,6 +52,18 @@ describe('coupled inductance setup (#1419)', () => {
 
   it('accepts the viable near-boundary 3x3 system', async () => {
     await expect(simulate(triple('0.9898988607'))).resolves.toBeDefined();
+  });
+
+  it.each(['1', '-1'])('accepts a rank-one 3x3 ideal transformer with k13=%s', async k13 => {
+    const deck = triple(k13).replace('K12 L1 L2 0.96', `K12 L1 L2 ${k13}`)
+      .replace('K23 L2 L3 0.99', 'K23 L2 L3 1');
+    await expect(simulate(deck)).resolves.toBeDefined();
+  });
+
+  it('rejects an indefinite group with a zero Cholesky pivot and nonzero residual coupling', async () => {
+    const deck = triple('0').replace('K12 L1 L2 0.96', 'K12 L1 L2 1')
+      .replace('K23 L2 L3 0.99', 'K23 L2 L3 1');
+    await expect(simulate(deck)).rejects.toThrow(/not positive definite/);
   });
 
   it('merges two previously separate pairs into a viable 4x4 group', async () => {
