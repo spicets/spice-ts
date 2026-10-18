@@ -17,6 +17,33 @@ import {
   type SampleEncoding,
 } from '../classic/report.js';
 import { type ControlPlotType, isControlPlotType } from './lib.js';
+import type { PlotIdentity } from '../../plot-pairing.js';
+
+/**
+ * With dot cards plus a control script, ngspice's batch -r export contains the final
+ * run, not control plot 1. Its raw header omits that ID. Restrict only singleton
+ * batch dot-card plots to the last native run and give the reference that run's ID.
+ * Explicit source/write exports already have IDs and must keep every retained run.
+ */
+export function batchControlPlots<T extends PlotIdentity>(text: string, candidate: readonly T[], reference: readonly T[]): { candidate: T[]; reference: T[] } {
+  const body = text.split(/\r?\n/).slice(1).join('\n');
+  if (!/^\s*\.control\b/im.test(body)) return { candidate: [...candidate], reference: [...reference] };
+  const dotCards = body.replace(/^\s*\.control\b[\s\S]*?^\s*\.endc\b/gim, '');
+  const final = new Map<PlotIdentity['type'], T>();
+  for (const type of ['op', 'dc', 'ac', 'tran'] as const) {
+    if (!new RegExp(`^\\s*\\.${type}\\b`, 'im').test(dotCards)) continue;
+    const own = candidate.filter(plot => plot.type === type);
+    const raw = reference.filter(plot => plot.type === type);
+    if (raw.length === 1 && raw[0].plotId === undefined && own.length > 0
+      && own.every(plot => new RegExp(`^${type}[1-9]\\d*$`).test(plot.plotId ?? ''))) {
+      final.set(type, own[own.length - 1]);
+    }
+  }
+  return {
+    candidate: candidate.filter(plot => !final.has(plot.type) || final.get(plot.type) === plot),
+    reference: reference.map(plot => final.has(plot.type) ? { ...plot, plotId: final.get(plot.type)!.plotId } : plot),
+  };
+}
 
 interface CoreComplex { real: number; imaginary: number }
 interface SParameters { frequencies: number[]; vectors: Map<string, CoreComplex[]> }
