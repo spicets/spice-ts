@@ -41,7 +41,9 @@ export function solveSensitivity(
   options: ResolvedOptions,
   convergence?: ConvergenceTelemetry,
 ): SensitivityResult {
-  const outputIndex = findOutputIndex(compiled, analysis.outputNode);
+  const outputIndex = analysis.outputType === 'current'
+    ? findCurrentOutputIndex(compiled, analysis.outputNode)
+    : findOutputIndex(compiled, analysis.outputNode);
   const referenceIndex = analysis.outputReferenceNode === undefined
     ? -1 : findOutputIndex(compiled, analysis.outputReferenceNode);
   const targets = collectTargets(compiled, analysis.mode);
@@ -59,7 +61,7 @@ export function solveSensitivity(
         return voltageDifference(solution, outputIndex, referenceIndex);
       }),
     }));
-    return new SensitivityResult(analysis.outputNode, 'dc', [], entries, analysis.outputReferenceNode);
+    return new SensitivityResult(analysis.outputNode, 'dc', [], entries, analysis.outputReferenceNode, analysis.outputType);
   }
 
   // ngspice `.sens ac` steps its own grid (cktsens.c), not the stretched `.ac` grid.
@@ -72,7 +74,7 @@ export function solveSensitivity(
       return solveACAtOutput(compiled, frequencies, options, outputIndex, referenceIndex, convergence);
     }),
   }));
-  return new SensitivityResult(analysis.outputNode, 'ac', frequencies, entries, analysis.outputReferenceNode);
+  return new SensitivityResult(analysis.outputNode, 'ac', frequencies, entries, analysis.outputReferenceNode, analysis.outputType);
 }
 
 function assertSingleACExcitation(compiled: CompiledCircuit): void {
@@ -303,4 +305,12 @@ function findOutputIndex(compiled: CompiledCircuit, name: string): number {
     if (nodeName.toLowerCase() === name.toLowerCase() && index >= 0) return index;
   }
   throw new InvalidCircuitError(`.sens output node '${name}' does not exist`);
+}
+
+function findCurrentOutputIndex(compiled: CompiledCircuit, name: string): number {
+  const source = compiled.devices.find(device => device.name.toLowerCase() === name.toLowerCase());
+  if (!(source instanceof VoltageSource)) {
+    throw new InvalidCircuitError(`.sens current output '${name}' must name an independent voltage source`);
+  }
+  return compiled.nodeCount + source.branchIndex;
 }

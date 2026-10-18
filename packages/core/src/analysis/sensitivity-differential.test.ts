@@ -129,7 +129,7 @@ describe('differential voltage sensitivity (#812, ticket 720)', () => {
       .rejects.toThrow(InvalidCircuitError);
   });
 
-  it.each(['i(V1)', 'v(a,b,c)', 'v(a,b) tran 1u 1m'])('keeps unsupported forms structured: %s', output => {
+  it.each(['i(V1,V2)', 'v(a,b,c)', 'v(a,b) tran 1u 1m'])('keeps unsupported forms structured: %s', output => {
     expect(() => parse(differentialPair.replace('v(a,b)', output))).toThrow(ParseError);
     expect(() => parse(differentialPair.replace('v(a,b)', output))).toThrow(/Unsupported .sens form/);
   });
