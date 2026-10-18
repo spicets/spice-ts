@@ -156,6 +156,12 @@ export function parseControlScript(blocks: ControlSourceBlock[]): ControlScript 
           name, `'${name}' without a matching opening statement`, line.lineNumber, line.text,
         );
       default:
+        // Removing the current circuit is harmless only after all work has
+        // finished. Do not whitelist circuit management in executable scripts.
+        if (name === 'remcirc' && rest === ''
+          && lines.slice(position).every(next => commandName(next.text) === 'quit')) {
+          return { kind: 'command', name, line };
+        }
         if (!isExecutableCommand(name)) throw unsupported(name, line);
         return { kind: 'command', name, line };
     }
