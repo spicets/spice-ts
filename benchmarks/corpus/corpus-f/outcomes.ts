@@ -14,7 +14,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { arch, cpus, platform, release, tmpdir } from 'node:os';
 import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -274,13 +274,46 @@ export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, s
       const secondaryGrid = type === 'dc' ? declaredSecondaryGrid(input.toString('utf8'), plot.plotName, plot.grid, 'batch-dot') : undefined;
       return type ? [{ type, plotName: plot.plotName, grid: Float64Array.from(plot.grid), signals: plot.signals, ...(secondaryGrid ? { secondaryGrid: Float64Array.from(secondaryGrid) } : {}) }] : [];
     });
+    // -r does not export analyses run inside .control. Reuse the control-vector wrapper
+    // on identical bytes, not wrdata expressions (which may square-root the spectra).
+    // Retain both the spectrum and integrated totals, with packed, selected columns.
+    let exportNote: string | undefined;
+    if (analyses.length === 0 && !errorLine && /^\s*noise\s+/im.test(input.toString('utf8'))
+      && /^\s*\.control\b/im.test(input.toString('utf8'))) {
+      const { controlWrapperDeck, controlExportDiagnostics } = await import('./control-vectors.js');
+      await writeFile(resolve(directory, 'fixture.cir'), input);
+      await writeFile(resolve(directory, 'wrapper.cir'), controlWrapperDeck(['noise']));
+      const exported = spawnSync('ngspice', ['-b', 'wrapper.cir'], {
+        cwd: directory, encoding: 'utf8', env: { ...process.env, HOME: directory },
+        timeout: NGSPICE_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: 64 * 1024 * 1024,
+      });
+      const diagnostics = await controlExportDiagnostics(directory, `${exported.stdout ?? ''}\n${exported.stderr ?? ''}`);
+      const exportOutput = diagnostics.output;
+      exportNote = diagnostics.note;
+      const exportError = firstNgspiceErrorLine(exportOutput, directory);
+      if (exported.error || exported.status !== 0 || exportError) {
+        return { ...failed(classifyNgspiceFailure(exportOutput),
+          scrub(exported.error?.message ?? exportError ?? `ngspice export exited ${exported.status}`, directory)),
+          ...(exportNote ? { note: exportNote } : {}) };
+      }
+      const files = (await readdir(directory)).filter(name => /^noise\d+\.raw$/.test(name))
+        .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]));
+      for (const file of files) {
+        const retained = await readNgspiceRawFilePacked(resolve(directory, file), keep);
+        for (const plot of retained) {
+          if (analysisType(plot.plotName) !== 'noise') continue;
+          analyses.push({ type: 'noise', plotName: plot.plotName, plotId: file.replace(/\.raw$/, ''),
+            grid: Float64Array.from(plot.grid), signals: plot.signals });
+        }
+      }
+    }
     if (analyses.length === 0 && !errorLine && /^\s*\.control\b/im.test(input.toString('utf8'))) {
       return { execution: { status: 'success', convergence: 'converged', analyses: [] }, status: 'success', note: CONTROL_ONLY_NOTE };
     }
     if (analyses.length === 0) {
       return failed(errorLine ? classifyNgspiceFailure(output) : 'failed', errorLine ?? 'no raw analysis data produced');
     }
-    return { execution: { status: 'success', convergence: 'converged', analyses }, status: 'success' };
+    return { execution: { status: 'success', convergence: 'converged', analyses }, status: 'success', ...(exportNote ? { note: exportNote } : {}) };
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

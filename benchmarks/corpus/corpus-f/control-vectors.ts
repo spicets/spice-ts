@@ -41,8 +41,32 @@ export const DEFERRED_EXIT_ALIASES = ['quit', 'exit'].map(command => `alias ${co
 export function controlWrapperDeck(_types: readonly string[]): string {
   return ['* corpus-f unmodified-fixture export wrapper', '.control', ...DEFERRED_EXIT_ALIASES, 'source fixture.cir',
     // $plots is ngspice's actual retained plot list, including loops and repeated runs.
-    'foreach exported_plot $plots', 'setplot $exported_plot', 'write {$exported_plot}.raw all', 'end',
+    'foreach exported_plot $plots', 'setplot $exported_plot', 'write {$exported_plot}.raw all >& {$exported_plot}.export-log', 'end',
     '.endc', '.end', ''].join('\n');
+}
+
+/** Keep export diagnostics separate from analysis errors. ngspice-47 writes the final
+ * no-writable-vector message directly to stderr, but checkvalid's reason to cp_err.
+ * Only pair that exact message with a failed plot export and its zero-length warning.
+ * Other diagnostics, including real analysis failures, remain visible to the classifier.
+ */
+export async function controlExportDiagnostics(directory: string, output: string): Promise<{ output: string; note?: string }> {
+  const files = await readdir(directory);
+  const skipped: string[] = [];
+  for (const file of files.filter(name => /^(?:[a-z]+\d+|const)\.export-log$/.test(name)).sort()) {
+    const log = await readFile(resolve(directory, file), 'utf8');
+    const plot = file.replace(/\.export-log$/, '');
+    const emptyWarning = /^Warning from checkvalid: vector .+ is not available or has zero length\.$/m;
+    const message = "Error during 'write': no writable vector found.";
+    if (!files.includes(`${plot}.raw`) && emptyWarning.test(log) && output.includes(message)) {
+      output = output.replace(message, '');
+      skipped.push(`${plot} (write all rejected an unavailable or zero-length vector)`);
+      output += `\n${log.replace(emptyWarning, '')}`;
+    } else {
+      output += `\n${log}`;
+    }
+  }
+  return { output, ...(skipped.length ? { note: `Skipped reference plot exports: ${skipped.join(', ')}` } : {}) };
 }
 
 /**
@@ -68,12 +92,14 @@ export async function runControlReference(
       cwd: directory, env, encoding: 'utf8', timeout: TIMEOUT_MS,
       killSignal: 'SIGKILL', maxBuffer: 64 * 1024 * 1024,
     });
-    const output = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
+    const diagnostics = await controlExportDiagnostics(directory, `${run.stdout ?? ''}\n${run.stderr ?? ''}`);
+    const { output } = diagnostics;
     const error = firstNgspiceErrorLine(output, directory);
     if (run.error || run.status !== 0) {
       const detail = scrub(run.error?.message ?? error ?? `ngspice exited ${run.status ?? run.signal}`, directory);
       return { status: classifyNgspiceFailure(output), firstErrorLine: detail,
-        execution: { status: 'failed', convergence: 'failed', analyses: [], error: detail } };
+        execution: { status: 'failed', convergence: 'failed', analyses: [], error: detail },
+        ...(diagnostics.note ? { note: diagnostics.note } : {}) };
     }
     const analyses: EngineAnalysis[] = [];
     const unreadable: string[] = [];
@@ -101,9 +127,10 @@ export async function runControlReference(
       }
     }
     if (analyses.length === 0 && error) return { status: classifyNgspiceFailure(output), firstErrorLine: error,
-      execution: { status: 'failed', convergence: 'failed', analyses: [], error } };
+      execution: { status: 'failed', convergence: 'failed', analyses: [], error },
+      ...(diagnostics.note ? { note: diagnostics.note } : {}) };
     return { status: 'success', execution: { status: 'success', convergence: 'converged', analyses },
-      ...(analyses.length === 0 ? { note: noReferenceNote({ ...circuit, analyses: types }, unreadable) } : {}) };
+      ...((analyses.length === 0 || diagnostics.note) ? { note: [analyses.length === 0 ? noReferenceNote({ ...circuit, analyses: types }, unreadable) : '', diagnostics.note].filter(Boolean).join('; ') } : {}) };
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -155,7 +182,7 @@ export function renderControlSection(fixtures: FixtureOutcome[], head: string, v
     'This supplement supersedes the historical batch-1 rows above for every `.control` deck. The original `outcomes.json` is deliberately unchanged.', '',
     `Measured with core tree \`${head}\` (\`git rev-parse HEAD:packages/core\`), ${version}, Node ${process.version}, ${platform()}/${arch()}, ${cpus()[0]?.model ?? 'unknown'}.`,
     '`pnpm build && pnpm exec tsx benchmarks/corpus/corpus-f/control-vectors.ts > control-receipt.json` regenerates this section and prints the full receipt. Add `--check` to rerun without changing files; `--jobs N` controls parallelism.', '',
-    'Every reference comes only from `ngspice -b wrapper.cir`. In a fresh temporary directory, the wrapper first runs `alias quit echo ...` and `alias exit echo ...` (#528), so a deck whose control block calls `quit`/`exit` runs that block to completion exactly as written while ngspice stays alive for the export, then runs `source fixture.cir`, then `setplot <type>1` and `write <type>.raw all` for each declared analysis type, including S-parameter (`sp`) and sensitivity (`sens`) plots (#694). `fixture.cir` is a byte-identical copy, verified against the manifest. No rewritten decks or `-r` reference fallback.',
+    'Every reference comes only from `ngspice -b wrapper.cir`. In a fresh temporary directory, the wrapper defers deck quit/exit with aliases (#528), sources byte-identical `fixture.cir`, then iterates every retained plot ID in `$plots` and attempts `write <plot>.raw all` with per-plot export diagnostics. An unavailable or zero-length saved vector can make ngspice reject the entire write even when other vectors have data. These unwritable plot exports are skipped and named in the outcome note/report diagnostic. Only their paired no-writable-vector message is excluded from failure classification; real analysis errors and other export errors retain their existing classification. Only declared analysis types, including sp/sens (#694), are admitted for scoring. No rewritten decks or -r reference fallback.',
     `Scoring reuses \`runFixture\`, \`compareExecutions\` and \`normalizedSignalErrors\` with MATCH_THRESHOLD = ${MATCH_THRESHOLD}. There is no per-circuit tuning. Only the first plot of each type is compared, matching the existing adapter; repeated analyses are not independently scored. A failed \`setplot\` cannot be mistaken for the requested analysis. Decks that leave no plot of a declared type (for example they \`destroy\` it) remain unscored, not matches. Raw files are read line by line and keep only the vectors spice-ts produced (the only ones that can be compared), so a 680 MB transient-noise reference loads. A sensitivity is normalised with the generic peak floor, not the node-voltage floor its \`v(...)\` raw name would imply.`, '',
     `All ${fixtures.length} control decks: ${Object.entries(totals.outcomes).map(([name, count]) => `${name} ${count}`).join(', ')}.`,
     'Bucket “loss” includes numerical mismatches and typed-unsupported/failed spice-ts executions with an ngspice reference. “No reference” and “not compared” are explicitly unscored. Worst error/signal is — where no comparison exists. #511 tracks untriaged numerical losses; #694 tracks the remaining reference/export limitations. Links do not affect scoring.', '',

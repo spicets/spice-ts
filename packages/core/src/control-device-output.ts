@@ -3,9 +3,34 @@ import type { AnalysisDirective } from './types.js';
 import type { SimulationResult } from './results.js';
 import type { DeviceModel } from './devices/device.js';
 import { Resistor } from './devices/resistor.js';
+import { Diode } from './devices/diode.js';
 import { CurrentSource } from './devices/current-source.js';
 import { VoltageSource } from './devices/voltage-source.js';
 import { BehavioralCurrentSource, BehavioralVoltageSource } from './devices/behavioral-source.js';
+import { InvalidCircuitError } from './errors.js';
+
+/** Expand `.option savecurrents` at analysis start, retaining explicit saves.
+ * Fail rather than return a partial set when a device has no current readout.
+ */
+export function savedCurrentVectors(
+  compiled: Pick<CompiledCircuit, 'devices' | 'simulationOptions'>,
+  explicit: readonly string[] = [],
+): string[] {
+  const names = new Set(explicit.map(name => name.toLowerCase()));
+  if (!compiled.simulationOptions.savecurrents) return [...names];
+  for (const device of compiled.devices) {
+    const parameter = device instanceof CurrentSource ? 'current'
+      : device instanceof Diode ? 'id'
+        : device instanceof Resistor || device instanceof VoltageSource
+          || device instanceof BehavioralCurrentSource || device instanceof BehavioralVoltageSource ? 'i'
+          : undefined;
+    if (parameter === undefined) {
+      throw new InvalidCircuitError(`Unsupported .option savecurrents current readout for device '${device.name}' (${device.constructor.name})`);
+    }
+    names.add(`@${device.name.toLowerCase()}[${parameter}]`);
+  }
+  return [...names];
+}
 
 /**
  * The circuit's present state after the last control-script analysis: the
@@ -18,6 +43,7 @@ export interface ControlOperatingState {
   /** Last solution: node voltages then branch currents, in MNA order. */
   readonly solution: Float64Array;
   readonly nodeCount: number;
+  readonly deviceGmin?: number;
 }
 
 /** The operating state left by one analysis, or undefined when it leaves none spice-ts can read. */
@@ -74,6 +100,9 @@ export function deviceOutputVector(
   const { solution, nodeCount } = state;
   const voltage = (node: number): number => (node >= 0 ? solution[node] : 0);
   const branch = (index: number): number => solution[nodeCount + index];
+  if (device instanceof Diode && (key === 'id' || key === 'i')) {
+    return [device.noiseOperatingPoint(solution, state.deviceGmin).current];
+  }
   if (device instanceof Resistor && key === 'i') {
     const [positive, negative] = device.nodes;
     return [device.branchIndex !== undefined

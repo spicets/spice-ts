@@ -1,0 +1,30 @@
+{
+  "baseSha": "8e148427b2ed15d715bb1c6089d9410a710fa079",
+  "node": "v22.23.1",
+  "command": "spice-heavy node benchmarks/performance/dff-1310.mjs 3",
+  "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+  "beforeSeconds": [58.98453375, 49.178942500000005, 51.97108404100001],
+  "afterSeconds": [36.02788962499999, 37.01534845799999, 38.190368583],
+  "beforeMedianSeconds": 51.97108404100001,
+  "afterMedianSeconds": 37.01534845799999,
+  "reductionPercent": 28.7770321881326,
+  "gatePassed": true,
+  "allSixRuns": {
+    "rows": 43273,
+    "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+    "convergence": {
+      "dc": { "newtonIterations": 31, "acceptedSolves": 1, "rejectedSolves": 0, "sourceStepAttempts": 0, "sourceStepFailures": 0, "gminStepAttempts": 0, "gminStepFailures": 0, "failure": null },
+      "transient": { "acceptedSteps": 43272, "rejectedSteps": 3139, "newtonIterations": 100724, "nrRetries": 0, "lteRetries": 3139, "minimumAcceptedTimestep": 2.5e-15, "failure": null }
+    }
+  },
+  "ngspiceReferenceSeconds": [1.3, 3.9],
+  "remainingLossRatio": [9.491114989230768, 28.4733449676923],
+  "profile": {
+    "shortenedTstop": "0.1n",
+    "sampledSimulationMs": 501.084,
+    "caveat": "Cold short source run through tsx. Simulation-stack sample denominator excludes loader and unparented GC. Whole-process GC was 5.2%. Inclusive percentages overlap.",
+    "selfPercent": { "VBIC.add": 12.315, "VBIC.constant": 10.852, "VBIC.evaluate": 9.430, "VBIC.anonymous": 7.118, "VBIC.sub": 6.752, "VBIC.diode": 5.838, "VBIC.scale": 4.848, "VBIC.depletionCharge": 4.158, "VBIC.stamp": 3.750, "set TextDecoder (V8 label)": 3.734 },
+    "inclusivePercent": { "root": 100, "simulate": 100, "solveCompiledAnalyses": 98.146, "solveTransient": 94.213, "advanceSolution": 93.373, "VBIC.evaluate": 75.528, "attemptStep": 57.801, "buildCompanionSystem": 54.699, "stampStaticDevices": 39.390, "VBIC.stamp": 38.101 },
+    "shortenedConvergence": { "dcIterations": 31, "acceptedSteps": 437, "rejectedSteps": 28, "newtonIterations": 999, "nrRetries": 0, "lteRetries": 28 }
+  }
+}

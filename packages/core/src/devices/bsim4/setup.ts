@@ -70,7 +70,7 @@ function readonlySet<T>(input: Set<T>): ReadonlySet<T> {
 // This is not a claim of channel-current support; b4temp/b4ld remain separate ports.
 const BASELINE_MODES = {
   mobmod: 0, capmod: 2, diomod: 1, rdsmod: 0, rbodymod: 0, rgatemod: 0,
-  geomod: 0, permod: 1, tempmod: 0, igcmod: 0, igbmod: 0,
+  geomod: 0, permod: 1, tempmod: 0,
   trnqsmod: 0, acnqsmod: 0, mtrlmod: 0, mtrlcompatmod: 0, cvchargemod: 0,
   gidlmod: 0, wpemod: 0, fnoimod: 1, tnoimod: 0,
 } as const satisfies Partial<Record<Bsim4ModelParameter, number>>;
@@ -128,7 +128,9 @@ export function setupBsim4Model(
       if (/^[lwp]?ndep$/.test(key) && value > 1e20) value *= 1e-6;
       if (/^[lwp]?(?:nsd|ngate)$/.test(key) && value > 1e23) value *= 1e-6;
       const baseline = (BASELINE_MODES as Readonly<Record<string, number>>)[key];
-      if (baseline !== undefined && value !== baseline) unsupported(raw, 'nonbaseline selector path is not ported; no silent upstream reset');
+      if (key === 'igcmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGCMOD=0/1 is ported');
+      if (key === 'igbmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGBMOD=0/1 is ported');
+      if (baseline !== undefined && value !== baseline && !(key === 'rgatemod' && value === 1)) unsupported(raw, 'nonbaseline selector path is not ported; no silent upstream reset');
       const neutral = (LAYOUT_DEFAULTS as Readonly<Record<string, number>>)[key];
       if (neutral !== undefined && value !== neutral) unsupported(raw, 'stress/well-proximity path is not ported');
       if (parameter === 'binunit' && value !== 1 && value !== 2) unsupported(raw, 'unported binunit value (b4temp.c size binning)');
@@ -167,8 +169,9 @@ export function setupBsim4Instance(
     const parameter = key as Bsim4InstanceParameter;
     if (given.has(parameter)) unsupported(raw, 'duplicate canonical instance parameter');
     const value = numeric(raw, input);
-    // b4set.c:2380-2415,2517-2583. No internal body/gate/NQS nodes.
-    if (['rbodymod', 'rgatemod', 'geomod', 'rgeomod', 'trnqsmod', 'acnqsmod', 'wnflag'].includes(key) && value !== 0) {
+    // b4set.c:2380-2415,2517-2583. Only the constant gate network is ported.
+    if (key === 'rgatemod' && value !== 0 && value !== 1) unsupported(raw, 'only RGATEMOD=0/1 is ported');
+    if (['rbodymod', 'geomod', 'rgeomod', 'trnqsmod', 'acnqsmod', 'wnflag'].includes(key) && value !== 0) {
       unsupported(raw, 'instance selector path is not ported');
     }
     // b4set.c:2417-2432, b4temp.c:1657-1761. Conservative neutral-layout guard.

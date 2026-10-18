@@ -24,8 +24,8 @@ export default defineConfig({
   define: pin ? { __SPICE_TS_BUNDLED_WORKER__: JSON.stringify(pin) } : {},
   resolve: {
     alias: {
+      '@spice-ts/core/protocol': fileURLToPath(new URL('../core/src/protocol/wire/index.ts', import.meta.url)),
       '@spice-ts/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
-      '@spice-ts/protocol': fileURLToPath(new URL('../protocol/src/index.ts', import.meta.url)),
     },
   },
 });

@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { EventEmitter } from 'node:events';
-import { sha256CanonicalJson } from '@spice-ts/protocol';
+import { sha256CanonicalJson } from '@spice-ts/core/protocol';
 import type {
   SimulationEventV1,
   SimulationReadDataV1,
   SimulationRequestV1,
   SimulationResultV1,
-} from '@spice-ts/protocol';
+} from '@spice-ts/core/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { createToolExecutor, DEFAULT_MCP_LIMITS, executeTool } from './server.js';
 import type { ExecutionWorker } from './server.js';

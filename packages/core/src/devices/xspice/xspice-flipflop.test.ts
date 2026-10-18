@@ -22,6 +22,8 @@ function harness(model: string, ic = ZERO, omitted: string[] = []) {
     const outputs: EventOutput[] = connections.filter(c => c.direction === 'out' && !c.isNull).map(() => ({ changed: true, state: UNKNOWN, strength: STRONG, delay: 0, load: 0 }));
     event.event({ analysis: time === 0 ? 'dc' : 'tran', init: initial, time, state, previous, outputs,
       inputState: i => inputs[connections.filter(c => c.direction === 'in' && !c.isNull)[i].name],
+      inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
+      previousTime: 0, setTemporaryBreakpoint: () => false,
       setBreakpoint() {}, scheduleOutput() {} });
     initial = false;
     return outputs;

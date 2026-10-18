@@ -68,6 +68,8 @@ export interface DiodeParams {
   EG?: number;
   /** Saturation-current temperature exponent; ngspice default 3. */
   XTI?: number;
+  RTH0?: number;
+  CTH0?: number;
 }
 
 /**
@@ -340,6 +342,10 @@ export class Diode implements DeviceModel {
     }
     this.modelWarnings = warnings;
     this.suppliedParams = params;
+    if (instanceParams.THERMAL && nodes.length === 3 && params.RTH0 !== undefined
+      && ((params.CJO ?? 0) !== 0 || (params.CJSW ?? 0) !== 0 || (params.TT ?? 0) !== 0)) {
+      throw new InvalidCircuitError('Self-heating diode junction charge is not implemented');
+    }
     const effectiveArea = (instanceParams.AREA ?? 1) * (instanceParams.M ?? 1);
     const effectivePerimeter = (instanceParams.PJ ?? 0) * (instanceParams.M ?? 1);
     this.params = {
@@ -474,6 +480,7 @@ export class Diode implements DeviceModel {
   }
 
   setTemperature(value: number): void {
+    this.ambientTemperature = value;
     this.temperature = value;
     this.applyTemperature();
   }
@@ -640,13 +647,17 @@ export class Diode implements DeviceModel {
     };
   }
 
-  /** DC junction current used by the small-signal shot/flicker noise model. */
+  /** DC junction current for device readouts and small-signal shot/flicker noise. */
   noiseOperatingPoint(solution: Float64Array, gmin = DEVICE_GMIN): {
     current: number;
     flickerCoefficient: number;
     flickerExponent: number;
     parallelMultiplier: number;
   } {
+    if (this.selfHeating) {
+      this.temperature = this.ambientTemperature + solution[this.nodes[2]];
+      this.applyTemperature();
+    }
     const [nA, nK] = this.nodes;
     const terminalVoltage = (nA >= 0 ? solution[nA] : 0) - (nK >= 0 ? solution[nK] : 0);
     const { RS, KF, AF } = this.params;
@@ -660,7 +671,23 @@ export class Diode implements DeviceModel {
     };
   }
 
+  private ambientTemperature = 27;
+
+  private get selfHeating(): boolean {
+    return (this.nodes[2] ?? -1) >= 0 && this.instanceParams.THERMAL === 1
+      && this.suppliedParams.RTH0 !== undefined;
+  }
+
+  stampSmallSignal(ctx: StampContext): void {
+    if (this.selfHeating) throw new InvalidCircuitError('Self-heating diode AC/noise is not implemented');
+    this.stamp(ctx);
+  }
+
   stamp(ctx: StampContext): void {
+    if (this.selfHeating) {
+      this.stampThermal(ctx);
+      return;
+    }
     const [nA, nK] = this.nodes;
     const vA = nA >= 0 ? ctx.getVoltage(nA) : 0;
     const vK = nK >= 0 ? ctx.getVoltage(nK) : 0;
@@ -707,6 +734,42 @@ export class Diode implements DeviceModel {
 
     if (nA >= 0) ctx.stampB(nA, -ieq);
     if (nK >= 0) ctx.stampB(nK, ieq);
+  }
+
+  /** Reduced RS/junction system with temperature-dependent current and power. */
+  private stampThermal(ctx: StampContext): void {
+    const [a, k, t] = this.nodes;
+    const voltage = (a >= 0 ? ctx.getVoltage(a) : 0) - (k >= 0 ? ctx.getVoltage(k) : 0);
+    const rise = ctx.getVoltage(t);
+    const temperature = this.ambientTemperature + rise;
+    const evaluate = (temp: number) => {
+      this.temperature = temp;
+      this.applyTemperature();
+      return diodeCurrent(voltage, this.junction(), this.params.RS);
+    };
+    // Central difference includes both the junction law and RS(TRS1,TRS2).
+    const delta = 1e-3;
+    const plus = evaluate(temperature + delta).current;
+    const minus = evaluate(temperature - delta).current;
+    const point = evaluate(temperature);
+    const current = point.current;
+    const conductance = point.conductance;
+    const dIdT = (plus - minus) / (2 * delta);
+    const ieq = current - conductance * voltage - dIdT * rise;
+    for (const [row, sign] of [[a, 1], [k, -1]]) {
+      if (row < 0) continue;
+      if (a >= 0) ctx.stampG(row, a, sign * conductance);
+      if (k >= 0) ctx.stampG(row, k, -sign * conductance);
+      ctx.stampG(row, t, sign * dIdT);
+      ctx.stampB(row, -sign * ieq);
+    }
+    // ngspice-47 dioload.c:749-759: junction heat plus RS Joule heat = V*I.
+    const dPdV = current + voltage * conductance;
+    const dPdT = voltage * dIdT;
+    if (a >= 0) ctx.stampG(t, a, -dPdV);
+    if (k >= 0) ctx.stampG(t, k, dPdV);
+    ctx.stampG(t, t, 1 / this.suppliedParams.RTH0! - dPdT);
+    ctx.stampB(t, voltage * current - dPdV * voltage - dPdT * rise);
   }
 
   stampDynamic(ctx: StampContext): void {

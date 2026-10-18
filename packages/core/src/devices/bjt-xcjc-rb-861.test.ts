@@ -89,7 +89,7 @@ describe('BJT XCJC < 1 with RB > 0 splits the B-C capacitance like ngspice-47 bj
     }
   });
 
-  it('.noise rejects it rather than drop the RB thermal noise', async () => {
+  it('.noise supports the self-stamped RB thermal noise (#1347)', async () => {
     await expect(simulate([
       'xcjc noise',
       'vcc vcc 0 5',
@@ -99,6 +99,6 @@ describe('BJT XCJC < 1 with RB > 0 splits the B-C capacitance like ngspice-47 bj
       '.model qn npn (rb=100 cjc=1p xcjc=0.5)',
       '.noise v(c) vin dec 1 1k 10k',
       '.end',
-    ].join('\n'))).rejects.toThrow(".noise does not support BJT base resistance with XCJC < 1 for 'q1'");
+    ].join('\n'))).resolves.toHaveProperty('noise');
   });
 });

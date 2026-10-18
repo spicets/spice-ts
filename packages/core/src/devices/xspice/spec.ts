@@ -7,6 +7,8 @@
  */
 
 import { OTA_SPEC } from './ota-model.js';
+import { SEEGEN_SPEC } from './seegen.js';
+import { REACTIVE_IC_SPECS } from './reactive-ic-models.js';
 
 /** Analog port types spice-ts can stamp (XSPICE `%v`, `%vd`, `%i`, `%id`, `%vnam`, `%g`, `%gd`). */
 export type XspiceAnalogPortType = 'v' | 'vd' | 'i' | 'id' | 'vnam' | 'g' | 'gd' | 'h' | 'hd';
@@ -238,7 +240,7 @@ const ILIMIT: XspiceCodeModelSpec = {
   ],
 };
 
-/** xtradev/pswitch/ifspec.ifs */
+/** ngspice-47 src/xspice/icm/xtradev/pswitch/ifspec.ifs:28-76 (ports and defaults). */
 const PSWITCH: XspiceCodeModelSpec = {
   name: 'pswitch',
   connections: [
@@ -410,7 +412,7 @@ function pull(name: string): XspiceCodeModelSpec {
   return { name, connections: [digital('out', 'out')], params: [real('load', 1e-12)] };
 }
 
-/** digital/{d_jkff,d_dff}/ifspec.ifs */
+/** digital/{d_jkff,d_dff,d_tff,d_srff}/ifspec.ifs */
 function flipFlop(name: string, data: readonly string[], load: string): XspiceCodeModelSpec {
   return {
     name,
@@ -447,7 +449,21 @@ function controlledOscillator(pwm: boolean): XspiceCodeModelSpec {
 /** Implemented code models keyed by lower-case ngspice Spice_Model_Name. */
 export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> = new Map(
   [
-    ASTATE, GAIN, SUMMER, MULT, DIVIDE, PWL, LIMIT, INT, D_DT, S_XFER, OTA_SPEC,
+    ASTATE, {
+      name: 'delay',
+      connections: [
+        { ...input('in'), allowedTypes: ['v', 'vd', 'vnam'] },
+        { ...output('out'), allowedTypes: ['v', 'vd'] },
+        { ...input('cntrl'), allowedTypes: ['v', 'vd', 'i', 'id'], nullAllowed: true },
+      ],
+      params: [real('delay', 0), boolean('has_delay_cnt', false), real('delmin', 0, { limits: [0, undefined] }),
+        real('delmax', 0, { limits: [0, undefined] }),
+        { name: 'buffer_size', type: 'int' as const, defaultValue: [1024], limits: [1, undefined] as const, vector: false, nullAllowed: true }],
+    }, GAIN, SUMMER, MULT, DIVIDE, PWL,
+    // analog/pwlts/ifspec.ifs:30-75 shares pwl parameters, but has only an output.
+    { name: 'pwlts', connections: [output('out')], params: PWL.params },
+    LIMIT, INT, D_DT, S_XFER, OTA_SPEC, ...REACTIVE_IC_SPECS,
+
     {
       name: 'lcouple',
       connections: ['l', 'mmf_out'].map((name, i) => ({ name, direction: 'inout' as const, defaultType: 'hd', allowedTypes: i === 0 ? ['h', 'hd'] : ['hd'], vector: false, nullAllowed: false })),
@@ -464,9 +480,27 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('in_low', 0), real('in_high', 1), real('hyst', 0.1), real('out_lower_limit', 0), real('out_upper_limit', 1),
       ],
     },
-    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH,
+    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH, SEEGEN_SPEC,
 
-    ADC_BRIDGE, DAC_BRIDGE, pull('d_pulldown'), pull('d_pullup'),
+    ADC_BRIDGE, DAC_BRIDGE,
+    {
+      // ngspice-47 digital/bidi_bridge/ifspec.ifs:24-196.
+      name: 'bidi_bridge',
+      connections: [
+        { name: 'a', direction: 'inout', defaultType: 'g', allowedTypes: ['g', 'gd'], vector: true, vectorBounds: [1, undefined], nullAllowed: false },
+        { ...digital('d', 'in', true, [1, undefined]), direction: 'inout' },
+        { ...digital('dir', 'in', true), nullAllowed: true },
+      ],
+      params: [
+        ...['direction', 'strength', 'smooth'].map((name, i) => ({ name, type: 'int' as const, defaultValue: [i === 0 ? 2 : 0], limits: [0, 2] as const, vector: false, nullAllowed: true })),
+        real('input_load', 1e-12), real('in_low', .1), real('in_high', .9), real('out_low', 0), real('out_high', 3.3),
+        real('drive_low', .02), real('drive_high', .02),
+        ...['r_stl', 'r_sth', 'r_low', 'r_high'].map((name, i) => real(name, i < 2 ? 20 : 10000, { limits: [1e-6, undefined] })),
+        ...['t_rise', 't_fall', 'rise_delay', 'fall_delay'].map(name => real(name, 1e-9, { limits: [1e-12, undefined] })),
+      ],
+    } satisfies XspiceCodeModelSpec,
+    pull('d_pulldown'), pull('d_pullup'),
+    controlledOscillator(false), controlledOscillator(true),
     {
       name: 'd_ram',
       connections: [digital('data_in', 'in', true, [1, undefined]), digital('data_out', 'out', true, [1, undefined]),
@@ -478,10 +512,21 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         ...['data_load', 'address_load', 'select_load', 'enable_load'].map(param => real(param, 1e-12)),
       ],
     },
-    controlledOscillator(false), controlledOscillator(true),
     flipFlop('d_jkff', ['j', 'k'], 'jk_load'), flipFlop('d_dff', ['data'], 'data_load'),
+    flipFlop('d_tff', ['t'], 't_load'), flipFlop('d_srff', ['s', 'r'], 'sr_load'),
     unaryGate('d_buffer'), unaryGate('d_inverter'),
+    {
+      // ngspice-47 digital/d_tristate/ifspec.ifs:29-62 (default transport-delay mode).
+      name: 'd_tristate',
+      connections: [digital('in', 'in'), digital('enable', 'in'), digital('out', 'out')],
+      params: [real('delay', 1e-9, { limits: [1e-12, undefined] }), real('input_load', 1e-12), real('enable_load', 1e-12)],
+    },
     naryGate('d_and'), naryGate('d_nand'), naryGate('d_or'), naryGate('d_nor'), naryGate('d_xor'), naryGate('d_xnor'),
+    {
+      name: 'd_lut',
+      connections: [digital('in', 'in', true, [1, undefined]), digital('out', 'out')],
+      params: [...DIGITAL_DELAYS, real('input_load', 1e-12), { ...string('table_values'), nullAllowed: false }],
+    },
   ].map(spec => [spec.name, spec]),
 );
 

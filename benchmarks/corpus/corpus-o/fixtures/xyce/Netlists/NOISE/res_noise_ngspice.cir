@@ -1,0 +1,28 @@
+RES_NOISE.CIR - NOISE ANALYSIS: RESISTOR DIVIDER, AMP, AND LP FILTER
+*
+* This is the ngspice version of the circuit, using .control statements.  
+* (I'm not that fluent in spice3 or ngspice, and I couldn't figure out
+* how to get the .probe or .print statements to output the input/output spectrums)
+*
+* This circuit isn't used in the regression test, as Xyce will not recognize the
+* ".control" commands.  It is included in this directory as
+* a reference.  For this circuit, Xyce and ngspice match very well.
+*
+* RESISTOR DIVIDER
+V1  1 0 DC 5.0 AC  1.0   
+R1  1 2 100K
+R2  2 0 100K
+*
+* AMP AND LP FILTER
+EAMP  3 0 2 0 1
+RLP1  3 4 100
+CLP1  4 0 1.59NF
+* 
+.control
+set filetype=ascii
+NOISE  V(4)  V1  DEC   5 100 100MEG 
+setplot noise1
+wrdata fileNgspice.txt inoise_spectrum onoise_spectrum
+.endc
+
+.END

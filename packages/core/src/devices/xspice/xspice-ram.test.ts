@@ -22,8 +22,10 @@ function harness(ic = 2, selectValue = 1) {
     const previous = state;
     state = structuredClone(state);
     const outputs: EventOutput[] = Array.from({ length: 2 }, () => ({ changed: true, state: UNKNOWN, strength: STRONG, delay: 0, load: 0 }));
-    event.event({ analysis: time === 0 ? 'dc' : 'tran', init, time, state, previous, outputs,
-      inputState: i => inputs[i], setBreakpoint() {}, scheduleOutput() {} });
+    event.event({ analysis: time === 0 ? 'dc' : 'tran', init, time, previousTime: 0, state, previous, outputs,
+      inputState: i => inputs[i], inputValue: i => ({ state: inputs[i], strength: STRONG }),
+      probeExternal: i => ({ state: inputs[i], strength: STRONG }),
+      setBreakpoint() {}, setTemporaryBreakpoint: () => true, scheduleOutput() {} });
     init = false;
     return outputs;
   };

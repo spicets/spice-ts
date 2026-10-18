@@ -1,0 +1,367 @@
+{
+  "remediation": {
+    "strategy": "Float64Array slabs of 256 derivative rows, stable per-Dual views, unchanged workspace ownership and arithmetic",
+    "command": "spice-heavy node benchmarks/performance/dff-1310.mjs 3",
+    "batches_in_execution_order": [
+      { "phase": "base", "seconds": [29.824331958, 27.050253542000004, 40.36986058400001] },
+      { "phase": "slab", "seconds": [41.382253709000004, 28.656063458000006, 46.647203833000006] },
+      { "phase": "base", "seconds": [24.50198225, 24.678742124999996, 22.771497958] },
+      { "phase": "slab", "seconds": [21.662883292, 23.6808075, 23.897284917000004] },
+      { "phase": "base", "seconds": [22.275897791000002, 19.403888916999996, 19.782294542000002] },
+      { "phase": "slab", "seconds": [18.587173458000002, 18.422372875, 18.316839583] }
+    ],
+    "median_seconds": { "base": 24.50198225, "slab": 23.6808075 },
+    "change_percent": -3.351462512793224,
+    "pilots_in_execution_order": [
+      { "phase": "slab", "seconds": 31.747830792 },
+      { "phase": "base", "seconds": 26.491011917 },
+      { "phase": "packed_double_arrays", "seconds": 36.034515833 }
+    ],
+    "identity_all_18_runs_and_3_pilots": {
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "stampSha256": "3324cdb29c46ea0b0be79f64b9a06a767eba5549d997e193df9221f0634944db",
+      "rows": 40545, "acceptedSteps": 40544, "rejectedSteps": 0,
+      "transientNewtonIterations": 85851, "dcNewtonIterations": 31
+    },
+    "warmed_allocation_constructors": { "base": 18840, "slab": 0, "loads": 80 },
+    "verification": {
+      "build": "pnpm build passed",
+      "lint": "pnpm lint passed",
+      "targeted": "331 passed in 23 files",
+      "identity_workspace": "5 passed in 2 files",
+      "full": "spice-heavy pnpm test passed all workspaces; core 5552 passed, 10 expected fail, 8 skipped"
+    },
+    "caveat": "Shared uncontrolled host with strong downward time trend. First slab batch and both variant pilots lose. No causal speedup claim. Failed initial slab launch had no simulation output (missing split-bundle chunk); full dist trees retained thereafter, first completed base batch preserved. Independent exact-head review must repeat. Original timings/profiles below describe rejected ordinary-array head only."
+  },
+  "issue": 1310,
+  "round": 8,
+  "base_sha": "e858c1d4a7735a185ab4e81285a09cc57b466b8c",
+  "timings": {
+    "before": [
+      {
+        "run": 0,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 36.04816366699999,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      },
+      {
+        "run": 1,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 35.097760834,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      },
+      {
+        "run": 2,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 35.688225874999986,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      }
+    ],
+    "after": [
+      {
+        "run": 0,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 39.513938166,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      },
+      {
+        "run": 1,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 36.32291025,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      },
+      {
+        "run": 2,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 45.855921,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      }
+    ],
+    "medianBeforeSeconds": 35.688225874999986,
+    "medianAfterSeconds": 39.513938166,
+    "medianChangePercent": 10.719816402193239
+  },
+  "alloc_counts": {
+    "loads": 80,
+    "devices": 2,
+    "before": 18840,
+    "after": 0,
+    "unit": "explicit derivative array constructions, one per Dual; after branch warmup; Array.from result containers excluded"
+  },
+  "identity": {
+    "stampSha256": "3324cdb29c46ea0b0be79f64b9a06a767eba5549d997e193df9221f0634944db",
+    "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+    "rows": 40545,
+    "acceptedSteps": 40544,
+    "rejectedSteps": 0,
+    "transientNewtonIterations": 85851,
+    "dcNewtonIterations": 31,
+    "allEightRunsIdentical": true
+  },
+  "profiles": {
+    "before": {
+      "seconds": {
+        "other": 1.1638039999999987,
+        "GC": 3.9496429999999867,
+        "VBIC": 27.435878999999176,
+        "factorSolve": 0.6095929999999996,
+        "stamping": 0.9214959999999992,
+        "acceptedPointCharge": 0.10350100000000004
+      },
+      "totalSeconds": 34.18391599999916,
+      "percentages": {
+        "other": 3.4045368002894323,
+        "GC": 11.554097546928457,
+        "VBIC": 80.259613907312,
+        "factorSolve": 1.783274332876358,
+        "stamping": 2.6957005159971197,
+        "acceptedPointCharge": 0.3027768965966409
+      },
+      "run": {
+        "run": 0,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 33.799612249999996,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      }
+    },
+    "after": {
+      "seconds": {
+        "other": 1.2829129999999975,
+        "GC": 1.220923999999999,
+        "stamping": 1.0418909999999995,
+        "VBIC": 30.85048699999908,
+        "factorSolve": 0.5721629999999995,
+        "acceptedPointCharge": 0.07033
+      },
+      "totalSeconds": 35.03870799999907,
+      "percentages": {
+        "other": 3.661416396974545,
+        "GC": 3.484500627135086,
+        "stamping": 2.973542860084987,
+        "VBIC": 88.04687376029932,
+        "factorSolve": 1.6329454841771414,
+        "acceptedPointCharge": 0.20072087132893676
+      },
+      "run": {
+        "run": 0,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 34.612861708000004,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      }
+    }
+  },
+  "commands": [
+    "pnpm install --frozen-lockfile",
+    "pnpm build",
+    "pnpm lint",
+    "pnpm -C packages/core exec vitest run src/devices/vbic-dual-workspace.test.ts (RED on base and GREEN on head)",
+    "pnpm -C packages/core exec vitest run src/devices/vbic src/mna",
+    "spice-heavy node benchmarks/performance/dff-1310.mjs 3 (before and after)",
+    "spice-heavy node --heap-prof --heap-prof-dir=<scratch>/<phase>-profile --cpu-prof --cpu-prof-dir=<scratch>/<phase>-profile --cpu-prof-name=cpu.cpuprofile benchmarks/performance/dff-1310.mjs 1 (before and after)",
+    "spice-heavy pnpm test",
+    "pnpm -C packages/core exec vitest run src/analysis/transient-convergence.test.ts"
+  ],
+  "tests": {
+    "targeted": {
+      "files": 23,
+      "passed": 331
+    },
+    "build": "passed",
+    "lint": "passed",
+    "fullSuite": "exit 1: one 30-second timeout in transient-convergence.test.ts; 5551 passed, 10 expected fail, 8 skipped; 414 files passed, 1 skipped",
+    "timeoutRerun": "both tests passed; half-wave rectifier 9309ms"
+  },
+  "interpretation": "Allocation reduction only. Shared noisy host, sequential groups. Every head unprofiled run was slower than every base run; no runtime improvement or causal performance claim. Profile GC decreased but VBIC sampled time increased. Known #1309 mismatch remains; ngspice not remeasured."
+}

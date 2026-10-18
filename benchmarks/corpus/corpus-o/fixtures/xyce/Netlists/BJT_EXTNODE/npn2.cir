@@ -1,0 +1,15 @@
+NPN Bipolar Transistor Circuit Netlist
+**************************************************************
+VCC  4 0 DC 12V
+RC 3 4 2K
+RB 4 5 377K
+* Zero volt sources used as ammeters to measure the
+* base and collector currents, respectively
+VMON1 5 1 0
+VMON2 3 2 0
+Q 2 1 0 0 NBJT
+.MODEL NBJT NPN (BF=100)
+.DC VCC 1 12 1
+.PRINT DC V(4) I(VMON1) I(VMON2) V(1) V(2) 
+
+.END

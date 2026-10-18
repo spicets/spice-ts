@@ -4,7 +4,7 @@ This directory is the CI entry point for the two agent workflows described in
 [`docs/architecture/ai-native-api.md` §10](../../../docs/architecture/ai-native-api.md#10-agent-workflows).
 Both run headlessly against public package entry points only (the built
 `@spice-ts/mcp` stdio server, and the exported `@spice-ts/circuit-json`,
-`@spice-ts/mcp`, and `@spice-ts/protocol` APIs, loaded through each package's
+`@spice-ts/mcp`, and `@spice-ts/core/protocol` APIs, loaded through their
 `exports["."].import` dist entry). Nothing imports workspace source files or
 private helpers.
 
@@ -52,7 +52,7 @@ issue requires, snapshotted in [`expected-output.json`](./expected-output.json):
 - Positive control: partial metadata with only `inputSha256` is valid.
 - Negative fixtures: adding `resultSha256` to partial metadata, or to partial
   data, is rejected (`additionalProperties: resultSha256`), and the packaged
-  `@spice-ts/protocol/fixtures/negative-v1.json#/partialWithResultHash`
+  `@spice-ts/core/protocol/fixtures/negative-v1.json#/partialWithResultHash`
   fixture is rejected too.
 
 Snapshots contain no timing, timestamps, random identifiers, runtime versions,

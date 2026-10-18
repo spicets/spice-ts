@@ -165,13 +165,6 @@ let x = ${expression}
     }
   });
 
-  it('keeps a deck .options savecurrents card unsupported: ngspice adds full-length @dev[i] plot vectors', async () => {
-    // inp.c inp_savecurrents turns the card into `.save @r1[i]` ... vectors spice-ts analyses do not produce,
-    // so reading them as present-state scalars would diverge from ngspice.
-    await expect(simulate('card\nV1 1 0 1\nR1 1 0 1k\n.options savecurrents\n.op\n.end'))
-      .rejects.toThrow("Unsupported .options field: 'savecurrents'");
-  });
-
   it('reports @dev[i] before any analysis as unsupported rather than inventing a state', async () => {
     const error = await simulate(`no analysis yet
 V1 1 0 1

@@ -4,7 +4,7 @@ import {
   parseTitlelessAsync,
 } from '@spice-ts/core';
 import type { AnalysisDirective, SimulationOptions } from '@spice-ts/core';
-import type { ResolvedOptionsV1, SimulationRequestV1 } from '@spice-ts/protocol';
+import type { ResolvedOptionsV1, SimulationRequestV1 } from '@spice-ts/core/protocol';
 
 /** The analyses and netlist `.options` core will see for a request, parsed by core itself. */
 export interface RequestPlan {

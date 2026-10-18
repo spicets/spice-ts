@@ -1,0 +1,21 @@
+{
+  "baseRevision": "e620ed8614da1c8afd2a8f0657a73857b58cbc98",
+  "fixture": "benchmarks/corpus/corpus-f/fixtures/examples/vbic/DFF_Y_ECL.sp",
+  "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+  "node": "v22.23.1",
+  "host": "Darwin 27.0.0 arm64, shared host",
+  "behaviorChanged": false,
+  "baseline": {"seconds": 46.812938791, "rows": 43273, "acceptedAdvances": 43272, "rejectedSteps": 3139, "newtonIterations": 100724, "nrRetries": 0, "lteRetries": 3139, "minimumAcceptedTimestep": 2.5e-15},
+  "observed": {"seconds": 54.073582166, "rows": 43273, "acceptedAdvances": 43272, "rejectedSteps": 3139, "newtonIterations": 100724, "nrRetries": 0, "lteRetries": 3139, "minimumAcceptedTimestep": 2.5e-15},
+  "classification": {
+    "spice-ts": {"voltage-lte": 3139, "charge-lte": 0, "voltage-and-charge-lte": 0, "newton": 0, "breakpoint": 0},
+    "ngspice-47": {"voltage-lte": 0, "charge-lte": 0, "voltage-and-charge-lte": 0, "newton": 0, "breakpoint": 0}
+  },
+  "ngspice": {"acceptedIncludingInitial": 40545, "rejectedSteps": 0, "transientSeconds": 1.64356, "classificationBasis": "Zero total rejects, not separately instrumented categories; breakpoint clipping is not counted as rejection."},
+  "firstVoltageReject": {"time": 3.2e-13, "timestep": 1.6e-13, "nextTimestep": 4.856085388943625e-14, "voltageRatio": 8.793309405909879, "chargeBound": 5.2409245884402585e-12},
+  "baselineAndObservedHash": "74f3e10feb6e37272834242d6308bf069f107cffbc69005902356682170992a5",
+  "hashLayout": "Row-major float64 little-endian: time, node voltages in map order, branch currents in map order. Observed initial row comes from baseline; every accepted advance is independently observed. Unlike round-3's column-major hash.",
+  "timingCaveat": "One baseline simulate call and one callback-enabled stepping call, both wrapped. Different result-construction scopes, shared host, no speed/overhead claim.",
+  "waveformErrorChange": "None for observed accepted advances relative to baseline; existing ngspice waveform loss remains. No new ngspice waveform error measurement.",
+  "commands": ["pnpm install --frozen-lockfile", "pnpm build", "pnpm lint", "pnpm -C packages/core exec vitest run src/analysis/transient-rejection-1310.test.ts src/analysis/transient-charge-lte.test.ts", "spice-heavy node <scratch>/measure.mjs", "spice-heavy ngspice -b <scratch>/stats.cir"]
+}

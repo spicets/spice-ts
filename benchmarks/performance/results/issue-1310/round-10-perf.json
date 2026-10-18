@@ -1,0 +1,59 @@
+{
+  "issue": 1310,
+  "base_sha": "86de7107c8b198e7227ec8feb925f040a026d1cf",
+  "scope": "Incremental closed-form depletion charges, not a complete replacement of the remaining Dual evaluator",
+  "environment": { "node": "v22.23.1", "os": "Darwin 27.0.0", "cpu": "Apple M5 Pro", "host_load": "shared, uncontrolled" },
+  "profile": {
+    "method": "V8 CPU samples, source-map-resolved inclusive frame counts; counts rather than timeDelta-weighted durations; includes startup, hashing and GC",
+    "command": "spice-heavy node --cpu-prof --cpu-prof-dir=<scratch> --cpu-prof-name=r10-<phase>.cpuprofile benchmarks/performance/dff-1310.mjs 1",
+    "before": { "samples": 3864, "evaluate_inclusive": 2467, "depletion_inclusive": 510, "simulate_seconds": 17.69116175 },
+    "after": { "samples": 3639, "evaluate_inclusive": 2156, "depletion_inclusive": 114, "simulate_seconds": 16.357993417 },
+    "before_top_self": { "evaluate": 438, "GC": 356, "scale": 276, "Dual.constant": 225, "add": 207, "depletionCharge": 146, "diode": 135 }
+  },
+  "oracle": {
+    "bias_points": 10800,
+    "scalar_comparisons": 2754000,
+    "worst_relative_error": 0,
+    "worst_absolute_error": 0,
+    "relative_tolerance": 1e-12,
+    "absolute_floor": 1e-42,
+    "coverage": "NPN/PNP normalized branches; -40/27/125 C; default and rich substrate/excess-phase/RTH models; ME/MC/MS=0,0.33,0.95; FC=0,0.9,0.99; forward/reverse/zero/saturation and +/-1e-15 around all depletion boundaries; seeded independent random branches",
+    "self_heating": "RTH is electrically inert in the currently supported four-terminal isothermal subset",
+    "oracle_implementation": "Pre-analytic Dual depletion integral substituted into complete current evaluator in test-only compiled source. All residual, charge and noise values and branch derivatives compared. No runtime export or oracle path."
+  },
+  "timings": {
+    "command": "spice-heavy node benchmarks/performance/dff-1310.mjs 1",
+    "method": "six alternating-order pairs, fresh processes, saved complete matching dist trees restored before each run, no warmup, no completed measurement discarded",
+    "pair_orders": ["base,head", "head,base", "base,head", "head,base", "base,head", "head,base"],
+    "base_seconds": [23.084268833000003, 22.425646333, 21.720284707999998, 28.044069334, 20.944529624999998, 20.51175075],
+    "head_seconds": [18.926378999999997, 22.624212, 19.317812583, 43.32539995799999, 21.486520041, 18.256998208000002],
+    "base_median_seconds": 22.0729655205,
+    "head_median_seconds": 20.402166312,
+    "median_change_percent": -7.569436951950415,
+    "pairwise_losses": [1, 3, 4]
+  },
+  "identity": {
+    "all_12_timings_and_both_profiles_identical": true,
+    "fixture_sha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+    "waveform_sha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+    "rows": 40545,
+    "accepted_steps": 40544,
+    "rejected_steps": 0,
+    "dc_newton_iterations": 31,
+    "transient_newton_iterations": 85851,
+    "nr_retries": 0,
+    "lte_retries": 0,
+    "minimum_accepted_timestep": 2.5e-15,
+    "dc_ac_transient_stamp_fingerprint": "bd942ae769ac72c14e81f01dc017fcc2eb2405613f1d1865dbccf12d42c06eea",
+    "stamp_scope": "Existing vbic-vtf.test.ts default device stamp fingerprint, not a full DFF stamp stream hash",
+    "ngspice_accuracy": "No numerical change in DFF output; prior round-9 ngspice comparison remains unchanged, not newly remeasured or improved"
+  },
+  "verification": {
+    "install_frozen_lockfile": "passed",
+    "build": "passed base and head",
+    "lint": "passed, including final test expansion",
+    "targeted": "332 tests passed in 24 files: pnpm -C packages/core exec vitest run src/devices/vbic src/mna",
+    "full_suite": "spice-heavy pnpm test attempted. Workspace vitest passed: core 5562 passed, 10 expected failures, 8 skipped; other packages passed. Combined 420-second tool call timed out during root Node benchmark tests after timing runs. Root suite did not finish, no all-green local full-suite claim.",
+    "ci": "Exact-head CI and independent review required before merge"
+  }
+}

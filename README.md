@@ -1,14 +1,49 @@
+<p align="left">
+  <img src="docs/brand/spice-ts-mark-f1.svg" width="56" alt="spice-ts" />
+</p>
+
 # spice-ts
 
-[![CI](https://github.com/mfiumara/spice-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/mfiumara/spice-ts/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/mfiumara/spice-ts/graph/badge.svg)](https://codecov.io/gh/mfiumara/spice-ts)
+**The SPICE simulator built for agents.**
+
+TypeScript-native circuit simulation with an MCP server, JSON in and out, and structured errors a model can act on.
+It runs in Node, in the browser or inside an agent sandbox, with no ngspice binary to ship.
+Accuracy is checked against ngspice on a public, reproducible benchmark, and every outcome is published, failures included.
+
+[![CI](https://github.com/spicets/spice-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/spicets/spice-ts/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/spicets/spice-ts/graph/badge.svg)](https://codecov.io/gh/spicets/spice-ts)
 [![npm @spice-ts/core](https://img.shields.io/npm/v/@spice-ts/core?label=%40spice-ts%2Fcore)](https://www.npmjs.com/package/@spice-ts/core)
 [![npm @spice-ts/ui](https://img.shields.io/npm/v/@spice-ts/ui?label=%40spice-ts%2Fui)](https://www.npmjs.com/package/@spice-ts/ui)
-[![GitHub stars](https://img.shields.io/github/stars/mfiumara/spice-ts?style=social)](https://github.com/mfiumara/spice-ts/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/spicets/spice-ts?style=social)](https://github.com/spicets/spice-ts/stargazers)
 
-A TypeScript-native SPICE circuit simulator. Parse netlists and run DC, transient, and AC analysis directly in Node.js or the browser with the built-in solver, or swap to an optional ngspice WASM backend.
+**[Live showcase](https://spicets.github.io/spice-ts/)** · **[Parity report](benchmarks/AGGREGATE_PARITY.md)** · **[MCP server](packages/mcp/README.md)**
 
-**[Live Showcase](https://mfiumara.github.io/spice-ts/)** — interactive demos with streaming parametric sweeps running entirely in your browser.
+---
+
+### Give your agent a simulator
+
+`@spice-ts/mcp` is not published to npm yet; run it from a clone of this repo.
+
+```sh
+pnpm install && pnpm --filter @spice-ts/mcp... build
+```
+
+```jsonc
+{
+  "mcpServers": {
+    "spice": {
+      "command": "node",
+      "args": ["/absolute/path/to/spice-ts/packages/mcp/dist/stdio.js"]
+    }
+  }
+}
+```
+
+The agent gets `spice_validate`, `spice_simulate`, `spice_measure` and a streaming job API.
+Bad decks come back as typed diagnostics (`FLOATING_NODE`, `NO_DC_PATH_TO_GROUND`, `VOLTAGE_SOURCE_LOOP`)
+with node and element ids, so the model can fix the circuit instead of guessing.
+
+### Or call it from code
 
 ```ts
 import { simulate } from '@spice-ts/core';
@@ -18,11 +53,18 @@ const result = await simulate(`
   R1 1 2 1k
   R2 2 0 1k
   .op
-  .end
 `);
 
-console.log(result.dc?.voltage('2')); // 2.5
+result.dc?.voltage('2'); // 2.5
 ```
+
+### Check our work
+
+Same netlist bytes go to spice-ts and ngspice, with no per-circuit tolerance tuning.
+The [100-circuit parity report](benchmarks/AGGREGATE_PARITY.md) lists every success, failure and unsupported case,
+with SHA-256 receipts so you can reproduce it.
+
+---
 
 ## Install
 
@@ -41,7 +83,7 @@ Requires Node.js ≥ 20.
 - **Device models** — R, C, L, V, I, Diode (Shockley), BJT (Ebers-Moll NPN/PNP), MOSFET (Level 1 Shichman-Hodges NMOS/PMOS), BSIM3v3 (LEVEL=49), VDMOS power MOSFET (ngspice `vdmos` nchan/pchan with body diode)
 - **Passive parasitics** — capacitor ESR/ESL/leakage and inductor DCR/core-loss/winding-capacitance expansion for AC and transient analysis
 - **Controlled sources** — VCVS (E), VCCS (G), CCVS (H), CCCS (F) with DC, AC, and subcircuit support
-- **Sparse solver** — Gilbert-Peierls LU with symbolic/numeric split, typed-array stamping, batch MOSFET evaluation. Competitive with ngspice-WASM on DC, AC, and nonlinear circuits
+- **Sparse solver** — Gilbert-Peierls LU with symbolic/numeric split, typed-array stamping, batch MOSFET evaluation.
 - **Complex AC solver** — native complex sparse LU (no 2n×2n real expansion)
 - **Subcircuits** — `.subckt`/`.ends` definitions with `X` device instantiation, nested expansion, parameterized subcircuits
 - **Library support** — `.include` file resolution, `.lib`/`.endl` section selection (process corners), `.param` expressions with SI suffixes
@@ -211,47 +253,47 @@ Three-way comparison: **spice-ts** (pure TypeScript) vs **eecircuit** (ngspice c
 
 ### DC Operating Point
 
-spice-ts uses a sparse LU solver (Gilbert-Peierls with symbolic/numeric split) and typed-array direct stamping. For DC analysis, it beats ngspice-WASM across all sizes:
+spice-ts uses a sparse LU solver (Gilbert-Peierls with symbolic/numeric split) and typed-array direct stamping.
 
-| Circuit | Size | spice-ts | eecircuit (WASM) | ngspice (native) | vs eecircuit |
+| Circuit | Size | spice-ts | eecircuit (WASM) | ngspice (native) | eecircuit ÷ spice-ts time |
 |---|---|---|---|---|---|
-| Resistor ladder | 10 | 0.16 ms | 0.9 ms | 0.9 ms | **5.5x faster** |
-| Resistor ladder | 100 | 1.2 ms | 1.4 ms | 0.5 ms | **1.2x faster** |
-| Resistor ladder | 500 | 2.2 ms | 4.0 ms | 0.7 ms | **1.8x faster** |
+| Resistor ladder | 10 | 0.16 ms | 0.9 ms | 0.9 ms | 5.6 |
+| Resistor ladder | 100 | 1.2 ms | 1.4 ms | 0.5 ms | 1.2 |
+| Resistor ladder | 500 | 2.2 ms | 4.0 ms | 0.7 ms | 1.8 |
 
 ### Transient
 
-| Circuit | Size | spice-ts | eecircuit (WASM) | ngspice (native) | vs eecircuit |
+| Circuit | Size | spice-ts | eecircuit (WASM) | ngspice (native) | eecircuit ÷ spice-ts time |
 |---|---|---|---|---|---|
-| RC chain | 10 | 5.1 ms | 4.2 ms | 1.6 ms | 1.2x slower |
-| RC chain | 50 | 14.7 ms | 17.1 ms | 4.0 ms | **1.2x faster** |
-| RC chain | 100 | 25.9 ms | 21.0 ms | 7.0 ms | 1.2x slower |
-| LC ladder | 10 | 10.7 ms | 10.6 ms | 3.7 ms | ~parity |
-| LC ladder | 50 | 41.6 ms | 35.9 ms | 11.2 ms | 1.2x slower |
+| RC chain | 10 | 5.1 ms | 4.2 ms | 1.6 ms | 0.82 |
+| RC chain | 50 | 14.7 ms | 17.1 ms | 4.0 ms | 1.2 |
+| RC chain | 100 | 25.9 ms | 21.0 ms | 7.0 ms | 0.81 |
+| LC ladder | 10 | 10.7 ms | 10.6 ms | 3.7 ms | 0.99 |
+| LC ladder | 50 | 41.6 ms | 35.9 ms | 11.2 ms | 0.86 |
 
 ### AC Small-Signal
 
-spice-ts uses a native complex sparse LU solver — no 2n×2n real expansion. Faster than WASM across all sizes:
+spice-ts uses a native complex sparse LU solver — no 2n×2n real expansion.
 
-| Circuit | Size | spice-ts | eecircuit (WASM) | ngspice (native) | vs eecircuit |
+| Circuit | Size | spice-ts | eecircuit (WASM) | ngspice (native) | eecircuit ÷ spice-ts time |
 |---|---|---|---|---|---|
-| RC chain | 10 | 0.46 ms | 1.4 ms | 0.5 ms | **3.1x faster** |
-| RC chain | 50 | 1.7 ms | 4.1 ms | 0.7 ms | **2.4x faster** |
-| RC chain | 100 | 3.3 ms | 5.8 ms | 1.1 ms | **1.8x faster** |
+| RC chain | 10 | 0.46 ms | 1.4 ms | 0.5 ms | 3.0 |
+| RC chain | 50 | 1.7 ms | 4.1 ms | 0.7 ms | 2.4 |
+| RC chain | 100 | 3.3 ms | 5.8 ms | 1.1 ms | 1.8 |
 
 ### Nonlinear (CMOS / Ring Oscillators)
 
 Batch MOSFET evaluation bypasses polymorphic dispatch — all transistors in a model group are evaluated in one tight loop with direct array writes:
 
-| Circuit | spice-ts | eecircuit (WASM) | ngspice (native) | vs eecircuit |
+| Circuit | spice-ts | eecircuit (WASM) | ngspice (native) | eecircuit ÷ spice-ts time |
 |---|---|---|---|---|
-| CMOS inv chain (5 stg) | 13.2 ms | 16.9 ms | 8.5 ms | **1.3x faster** |
-| CMOS inv chain (10 stg) | 21.7 ms | 28.4 ms | 13.3 ms | **1.3x faster** |
-| Ring oscillator (3 stg) | 25.7 ms | 29.8 ms | 14.5 ms | **1.2x faster** |
-| Ring oscillator (5 stg) | 37.6 ms | 40.5 ms | 20.8 ms | **1.1x faster** |
-| Ring oscillator (11 stg) | 84.3 ms | 69.8 ms | 37.4 ms | 1.2x slower |
+| CMOS inv chain (5 stg) | 13.2 ms | 16.9 ms | 8.5 ms | 1.3 |
+| CMOS inv chain (10 stg) | 21.7 ms | 28.4 ms | 13.3 ms | 1.3 |
+| Ring oscillator (3 stg) | 25.7 ms | 29.8 ms | 14.5 ms | 1.2 |
+| Ring oscillator (5 stg) | 37.6 ms | 40.5 ms | 20.8 ms | 1.1 |
+| Ring oscillator (11 stg) | 84.3 ms | 69.8 ms | 37.4 ms | 0.83 |
 
-> **Where spice-ts shines:** DC (up to 5x faster than WASM), AC (1.6-3x faster via native complex sparse solver), nonlinear CMOS (1.1-1.3x faster), and small-medium transient (parity). The default solver has no native binary, no WASM startup, and no process spawn. The optional ngspice-WASM backend is available when compatibility matters more than startup cost.
+> These are historical single-machine microbenchmarks against ngspice compiled to WASM (eecircuit), not a speed claim. A ratio >1 means spice-ts took less time on that run; native ngspice took less time than spice-ts on most rows. The [aggregate parity report](benchmarks/AGGREGATE_PARITY.md) makes no runtime claim. The default solver has no native binary, no WASM startup, and no process spawn. The optional ngspice-WASM backend is available when compatibility matters more than startup cost.
 
 ### Accuracy
 
@@ -275,7 +317,7 @@ Run `pnpm bench:accuracy` to see the full accuracy report including SPICE3 Quarl
 ## Development
 
 ```bash
-git clone https://github.com/mfiumara/spice-ts
+git clone https://github.com/spicets/spice-ts
 cd spice-ts
 pnpm install
 pnpm test              # run all tests

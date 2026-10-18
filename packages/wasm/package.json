@@ -1,13 +1,13 @@
 {
   "name": "@spice-ts/wasm",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Protocol-v1 module-worker facade for spice-ts",
   "license": "MIT",
   "author": "Mattia Fiumara",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mfiumara/spice-ts.git",
+    "url": "https://github.com/spicets/spice-ts.git",
     "directory": "packages/wasm"
   },
   "engines": {
@@ -46,7 +46,6 @@
   },
   "dependencies": {
     "@spice-ts/core": "workspace:*",
-    "@spice-ts/protocol": "workspace:*",
     "ajv": "^8.17.1"
   },
   "devDependencies": {

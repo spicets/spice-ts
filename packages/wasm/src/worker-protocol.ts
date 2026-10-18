@@ -1,4 +1,4 @@
-import type { SimulationRequestV1 } from '@spice-ts/protocol';
+import type { SimulationRequestV1 } from '@spice-ts/core/protocol';
 
 export type WorkerOperation = 'validate' | 'simulate';
 

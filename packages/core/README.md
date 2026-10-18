@@ -1,7 +1,7 @@
 # @spice-ts/core
 
 [![npm](https://img.shields.io/npm/v/@spice-ts/core)](https://www.npmjs.com/package/@spice-ts/core)
-[![CI](https://github.com/mfiumara/spice-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/mfiumara/spice-ts/actions/workflows/ci.yml)
+[![CI](https://github.com/spicets/spice-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/spicets/spice-ts/actions/workflows/ci.yml)
 
 TypeScript-native SPICE circuit simulator. Parse netlists and run DC, transient, and AC analysis directly in Node.js or the browser with the built-in solver, or swap to an optional ngspice WASM backend.
 
@@ -197,4 +197,4 @@ Pair with [`@spice-ts/ui`](https://www.npmjs.com/package/@spice-ts/ui) for React
 
 ## License
 
-MIT · See the [spice-ts monorepo](https://github.com/mfiumara/spice-ts) for benchmarks, roadmap, and contributing guide.
+MIT · See the [spice-ts monorepo](https://github.com/spicets/spice-ts) for benchmarks, roadmap, and contributing guide.

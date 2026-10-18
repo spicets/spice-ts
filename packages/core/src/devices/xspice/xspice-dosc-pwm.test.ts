@@ -24,6 +24,31 @@ function expectEdges(actual: Awaited<ReturnType<typeof edges>>, expected: [numbe
 }
 
 describe('ngspice-47 controlled digital oscillators (#1221)', () => {
+  it.each([
+    ['d_osc', 'cntl_array=[0 1] freq_array=[1 10]', 2, .1, .4,
+      [0, .2601998335, .4360580214, .6119162094, .7877743973], 21],
+    ['d_pwm', 'cntl_array=[0 1] dc_array=[.01 .99] frequency=1', 1.3, .02, .8,
+      [0, .6812246154, 1.308775385, 1.318775385], 4],
+  ] as const)('retries a modulated %s trial and matches ngspice-47 edge times', async (model, params, ramp, step, maxStep, times, count) => {
+    // ngspice-47, identical deck plus output-only `eprint out`: one timestep
+    // backup in each case. Literal times retain eprint's 10 significant digits.
+    const result = await simulate(`modulated rollback
+v1 in 0 pwl(0 0 ${ramp} 1)
+a1 in out clock
+.model clock ${model}(${params})
+.tran ${step} 2 0 ${maxStep}
+.end`);
+    const history = result.transient!.digital('out');
+    expect(history).toHaveLength(count);
+    times.forEach((time, i) => {
+      expect(history[i].time).toBeCloseTo(time, 8);
+      expect(history[i].state).toBe(i % 2 ? '1' : '0');
+    });
+    expect(result.convergence!.transient.rejectedSteps).toBe(1);
+    expect(result.convergence!.transient.nrRetries).toBe(0);
+    expect(result.convergence!.transient.lteRetries).toBe(0);
+  });
+
   it('interpolates frequency and uses low-first duty timing, ignoring legacy delays', async () => {
     // control 1 -> 2 Hz, period .5 s, low .375 s, high .125 s.
     expectEdges(await edges('d_osc', 1,
@@ -63,6 +88,7 @@ describe('ngspice-47 controlled digital oscillators (#1221)', () => {
     const queued: number[] = [];
     const view: EventInstanceView<unknown> = {
       initialized: true, state, previous: state, inputState: () => 0,
+      inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
       queue: time => queued.push(time), setBreakpoint: () => {},
       setAnalogInputs: values => { inputs = Array.from(values); },
       get analogInputs() { return inputs; },
@@ -75,8 +101,11 @@ describe('ngspice-47 controlled digital oscillators (#1221)', () => {
     const call = (time: number) => {
       const out: EventOutput = { changed: true, state: 2, strength: 3, delay: 0, load: 0 };
       model.event.event({
-        analysis: 'tran', init: false, time, state, previous: structuredClone(state),
-        outputs: [out], inputState: () => 0, setBreakpoint() {}, scheduleOutput() {},
+        analysis: 'tran', init: false, time, previousTime: 0, state, previous: structuredClone(state),
+        setTemporaryBreakpoint: () => false,
+        outputs: [out], inputState: () => 0,
+        inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
+        setBreakpoint() {}, scheduleOutput() {},
       });
       return out;
     };
@@ -91,5 +120,30 @@ describe('ngspice-47 controlled digital oscillators (#1221)', () => {
     expect(queued.pop()).toBeCloseTo(pwm ? .88 : .72, 12);
     expect(call(.35).changed).toBe(false);
     expect(queued).toEqual([]);
+  });
+
+  it.each([false, true])('requests rollback instead of emitting a missed modulated edge (%s)', pwm => {
+    const model = controlledOscillator(pwm)(new Map([
+      ['cntl_array', [0, 1]], ['freq_array', [1, 2]], ['dc_array', [.5, .75]],
+      ['duty_cycle', [.5]], ['frequency', [1]], ['init_phase', [0]],
+    ]), { connections: [], given: new Set() });
+    const state = model.event.createState();
+    const view: EventInstanceView<unknown> = {
+      initialized: true, state, previous: state, inputState: () => 0,
+      inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
+      queue() {}, setBreakpoint() {}, setAnalogInputs() {}, analogInputs: [1],
+    };
+    model.analog!(view);
+    const requested: number[] = [];
+    const out: EventOutput = { changed: true, state: 0, strength: 0, delay: 0, load: 0 };
+    model.event.event({
+      analysis: 'tran', init: false, time: .3, previousTime: .1, state, previous: structuredClone(state),
+      outputs: [out], inputState: () => 0,
+      inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
+      setBreakpoint() {}, scheduleOutput() {},
+      setTemporaryBreakpoint(time) { requested.push(time); return true; },
+    });
+    expect(requested).toEqual([.2]); // ngspice FACTOR2 * the new .25 s low interval
+    expect(out.changed).toBe(false);
   });
 });

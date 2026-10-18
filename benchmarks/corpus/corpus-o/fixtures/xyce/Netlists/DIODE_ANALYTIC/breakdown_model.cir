@@ -1,0 +1,58 @@
+Test the model in reverse breakdown region
+******************************************************
+* Tier: ?????
+* Directory/Circuit name:  DIODE_ANALYTIC/breakdown_model.cir
+* Description:  Runs a transient analysis to check the operation of the level
+*               1 diode in the breakdown region when a breakdown voltage is
+*               specified.
+* Input:  No exogenous input; nonzero initial condition specified for V(1).
+* Output: V(1) (capacitor voltage)
+*
+* Created by:  K. R. Santarelli (08/07)
+*
+* We form a circuit that is the series combination of a diode and a capacitor.
+* One node of the capacitor is connected to ground, the anode of the diode is
+* connected to ground, and the cathode of the diode is connected to the other
+* node of the capacitor.  We specify a nonzero initial voltage across the 
+* (1.2V) which places a negative voltage drop (-1.2V) across the diode, 
+* initially.  If the breakdown voltage of the diode is -1V (specified in 
+* diode model via "BV=1", then the diode initially operates in the reverse
+* breakdown region, where its I-V relationship satisfies 
+*
+* ID = -IBV*exp(-(VD+BV)/N*Vth)   for VD < -BV
+*
+* where IBV has a default value of 0.001, N (the emission coefficient) has a 
+* default value of 1, and Vth=kT/q /approx 25mV.  If we denote the voltage
+* across the capacitor (V(1)) as Vout(t), then the output voltage evolves 
+* according to the profile
+*
+*   Vout(t)=Vout(0) - NVth * ln[IBV/CNVth * exp(-(BV-Vout(0))/NVth) * t   + 1]
+*
+* where, in this case, Vout(0)=1.2V.  This expression is valid so long as 
+* Vout(t) >= -BV, at which point the diode leaves the breakdown region.  A
+* simple calculation shows that the above expression is valid for all values
+* of t such that 
+* 
+* t < (alpha-1)*C*N*Vth/(alpha*IBV) /approx C*N*Vth/IBV = 25sec
+*
+* where alpha = exp(-(BV-Vout(0))/NVth).
+*
+*
+* NOTE:  Even though there is technically no exogenous input in this circuit,
+*        xyce_verify will complain/crash if there isn't a single DC source 
+*	 present.  The voltage source Vdummy has been added to an artificial 
+*	 node (node 2) to keep the xyce_verify gods happy.
+*
+*********************************************************
+
+
+Vdummy 2 0 1V
+D1 0 1 Dmod
+C1 1 0 1 IC=1.2V
+
+.model Dmod D LEVEL=1 BV=1
+.tran 1u 10s
+.print tran V(1)
+.options TIMEINT reltol=1e-6 abstol=1e-6
+.end
+

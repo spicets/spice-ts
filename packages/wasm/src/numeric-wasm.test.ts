@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { sha256, type SimulationRequestV1 } from '@spice-ts/protocol';
+import { sha256, type SimulationRequestV1 } from '@spice-ts/core/protocol';
 import {
   createSpiceEngine,
   SpiceEngineError,

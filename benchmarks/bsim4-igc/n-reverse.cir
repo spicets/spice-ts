@@ -1,0 +1,11 @@
+Self-authored BSIM4 NMOS reverse gate-current sweep (MIT)
+.model DUT NMOS LEVEL=54 VERSION=4.8 IGCMOD=1 TOXE=1n DLCIG=20n DLCIGD=30n PIGCD=0.7 NGATE=1e20
+Vd d 0 -0.7
+Vg g 0 0
+Vb b 0 -0.9
+M1 d g 0 b DUT L=100n W=10u NF=3 M=2
+.temp 87
+
+.dc Vg -0.5 1.5 0.05
+.print dc i(Vg) i(Vd)
+.end

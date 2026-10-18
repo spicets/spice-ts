@@ -14,7 +14,7 @@ function run(command, args, cwd) {
   if (result.status !== 0 || result.error) throw new Error(`${command}: ${result.error ?? result.stderr}\n${result.stdout}`);
   return result.stdout;
 }
-for (const name of ['core', 'protocol', 'mcp', 'wasm', 'ui', 'circuit-json']) {
+for (const name of ['core', 'mcp', 'wasm', 'ui', 'circuit-json']) {
   run('pnpm', ['pack', '--pack-destination', packs], join(root, 'packages', name));
 }
 writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
@@ -22,6 +22,18 @@ run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', ...readdir
 writeFileSync(join(consumer, 'smoke.mjs'), `
 import assert from 'node:assert/strict';
 import { simulate } from '@spice-ts/core';
+import { createRequire } from 'node:module';
+import { canonicalJson, sha256, protocolSchemasV1 } from '@spice-ts/core/protocol';
+assert.equal(canonicalJson({ b: 2, a: 1 }), '{"a":1,"b":2}');
+const bytes = new TextEncoder().encode('abc');
+assert.equal(sha256(bytes), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+const require = createRequire(import.meta.url);
+const protocolCjs = require('@spice-ts/core/protocol');
+assert.equal(protocolCjs.sha256(bytes), sha256(bytes));
+assert.deepEqual(require('@spice-ts/core/protocol/schemas/simulation-request.schema.json'), protocolSchemasV1['simulation-request']);
+assert.ok(require('@spice-ts/core/protocol/fixtures/positive-v1.json').requests.spice);
+assert.throws(() => require.resolve('@spice-ts/protocol'), { code: 'MODULE_NOT_FOUND' });
+console.log('PASS packed core/protocol ESM, CommonJS, schemas and fixtures without standalone protocol');
 import * as ui from '@spice-ts/ui';
 import * as circuitJson from '@spice-ts/circuit-json';
 import { createSpiceEngine } from '@spice-ts/wasm';

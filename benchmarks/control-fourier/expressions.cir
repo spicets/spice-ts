@@ -1,0 +1,16 @@
+* Original spaced expression probe for control fourier (#1334), MIT (spice-ts contributors)
+Vdc dc 0 0.3
+V1 a dc sin(0 1 10k 0 0 20)
+V2 b a sin(0 0.2 20k 0 0 50)
+V3 out b sin(0 0.1 30k 0 0 -30)
+Rout out 0 1k
+.tran 0.2u 600u
+.control
+set numdgt=15
+run
+fourier 10k v(out) + v(a)
+fourier 10k v(out) + v(a) v(a) v(out) - 2 * v(a)
+fourier 10k (v(out) + v(a)) / 2 v(out)
+quit
+.endc
+.end

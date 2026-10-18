@@ -28,7 +28,10 @@ function evaluate(
 }
 
 describe('behavioral source expressions', () => {
-  it.each([[-100, -98, 1], [0.5, 2.5, 1], [2, 4, 0.5], [6, 6, 0.5], [100, 97, 1]])(
+  it.each([
+    [-100, -98, 1], [-10, -8, 1], [0.5, 2.5, 1], [2, 4, 0.5],
+    [6, 6, 0.5], [12, 9, 1], [22, 19, 1], [100, 97, 1],
+  ])(
     'interpolates and extrapolates pwl at %s with the ngspice segment derivative', (x, value, slope) => {
       const result = evaluate('pwl(v(x),-10,-8,2,4,12,9,22,19)', { x });
       expect(result.value).toBe(value);
@@ -36,6 +39,11 @@ describe('behavioral source expressions', () => {
     },
   );
 
+  it('applies the pwl segment slope to the argument gradient for Newton', () => {
+    const result = evaluate('pwl(2*v(x),-10,-8,2,4,12,9,22,19)', { x: 3 });
+    expect(result.value).toBe(6);
+    expect(result.gradient.x).toBe(1);
+  });
 
   it('uses the configured CKTgmin for PTdivide regularization (#1068)', () => {
     const environment = { time: 0, transient: false, temperature: 27, gmin: 1e-6 };

@@ -1,0 +1,11 @@
+VBIC substrate parasitic WSP probe (project-authored MIT)
+VC c 0 0.1
+VB b 0 DC 0.65 AC 1
+VS s 0 0
+Q1 c b 0 s QV
+.model QV NPN(LEVEL=4 IS=1e-16 ISP=1e-15 NFP=1.2 IKP=1u RBI=1000 RBX=20 RBP=500 WSP=0.3 TR=1n)
+.op
+.dc VB 0.6 0.7 0.05
+.ac dec 1 1meg 100meg
+.save i(vc) i(vb) i(vs)
+.end

@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 
 const packageRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const coreRoot = resolve(packageRoot, '../core');
-const protocolRoot = resolve(packageRoot, '../protocol');
+
 const consumerRoot = mkdtempSync(join(tmpdir(), 'spice-ts-wasm-consumer-'));
 const packsRoot = join(consumerRoot, 'packs');
 
@@ -20,31 +20,29 @@ function run(command, args, cwd) {
 
 try {
   mkdirSync(packsRoot);
-  for (const root of [coreRoot, protocolRoot, packageRoot]) {
+  for (const root of [coreRoot, packageRoot]) {
     run('pnpm', ['pack', '--pack-destination', packsRoot], root);
   }
   const tarballs = readdirSync(packsRoot)
     .filter((name) => name.endsWith('.tgz'))
     .map((name) => join(packsRoot, name));
-  if (tarballs.length !== 3) throw new Error(`Expected three package tarballs, found ${tarballs.length}`);
+  if (tarballs.length !== 2) throw new Error(`Expected two package tarballs, found ${tarballs.length}`);
   const coreTarball = tarballs.find(path => basename(path).startsWith('spice-ts-core-'));
-  const protocolTarball = tarballs.find(path => basename(path).startsWith('spice-ts-protocol-'));
+
   const wasmTarball = tarballs.find(path => basename(path).startsWith('spice-ts-wasm-'));
-  if (!coreTarball || !protocolTarball || !wasmTarball) throw new Error('Packed dependency set is incomplete');
+  if (!coreTarball || !wasmTarball) throw new Error('Packed dependency set is incomplete');
 
   writeFileSync(join(consumerRoot, 'package.json'), `${JSON.stringify({
     private: true,
     type: 'module',
     dependencies: {
       '@spice-ts/core': `file:${coreTarball}`,
-      '@spice-ts/protocol': `file:${protocolTarball}`,
       '@spice-ts/wasm': `file:${wasmTarball}`,
       ajv: '8.20.0',
     },
     pnpm: {
       overrides: {
         '@spice-ts/core': `file:${coreTarball}`,
-        '@spice-ts/protocol': `file:${protocolTarball}`,
       },
     },
   }, null, 2)}\n`);

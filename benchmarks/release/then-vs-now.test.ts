@@ -1,27 +1,66 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { median, summarize, renderHeadline, POLICY } from './then-vs-now.js';
 import type { EngineExecution } from '../corpus/classic/report.js';
 
-test('release plan avoids a peer-only UI major without running changeset version', () => {
+// Use the CLI's read-only planner, not `status`: status also checks changed files
+// against the base branch and rejects a valid empty post-release plan.
+const require = createRequire(import.meta.url);
+const cliRequire = createRequire(require.resolve('@changesets/cli/package.json'));
+const getReleasePlan = cliRequire('@changesets/get-release-plan').default;
+
+function assertNoUiMajor(plan: { releases: { name: string; type: string }[] }) {
+  const ui = plan.releases.find(entry => entry.name === '@spice-ts/ui');
+  if (ui) assert.ok(['none', 'patch', 'minor'].includes(ui.type), JSON.stringify(ui));
+}
+
+test('release plan avoids a peer-only UI major without running changeset version', async () => {
+  const plan = await getReleasePlan(process.cwd());
+  for (const name of ['@spice-ts/core', '@spice-ts/mcp']) {
+    const current = JSON.parse(readFileSync(`packages/${name.split('/')[1]}/package.json`, 'utf8'));
+    const release = plan.releases.find((entry: { name: string }) => entry.name === name);
+    if (current.version === '0.3.0' && release) assert.equal(release.newVersion, '0.4.0');
+  }
+  assertNoUiMajor(plan);
+});
+
+test('release policy handles empty plans and guards a pending in-range peer update', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'release-plan-'));
   try {
-    const output = join(directory, 'status.json');
-    const result = spawnSync('pnpm', ['changeset', 'status', '--output', output], { encoding: 'utf8' });
-    assert.equal(result.status, 0, result.stderr);
-    const plan = JSON.parse(readFileSync(output, 'utf8'));
-    for (const name of ['@spice-ts/core', '@spice-ts/mcp']) {
-      const current = JSON.parse(readFileSync(`packages/${name.split('/')[1]}/package.json`, 'utf8'));
-      const release = plan.releases.find((entry: { name: string }) => entry.name === name);
-      if (current.version === '0.3.0' && release) assert.equal(release.newVersion, '0.4.0');
+    mkdirSync(join(directory, '.changeset'));
+    const config = JSON.parse(readFileSync('.changeset/config.json', 'utf8'));
+    config.ignore = [];
+    writeFileSync(join(directory, '.changeset/config.json'), JSON.stringify(config));
+    writeFileSync(join(directory, 'package.json'), JSON.stringify({ private: true, workspaces: ['packages/*'] }));
+    writeFileSync(join(directory, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+    for (const name of ['core', 'ui']) {
+      mkdirSync(join(directory, 'packages', name), { recursive: true });
+      const manifest = JSON.parse(readFileSync(`packages/${name}/package.json`, 'utf8'));
+      // Recreate the pre-release peer relationship without changing repository manifests.
+      manifest.version = '0.3.0';
+      writeFileSync(join(directory, 'packages', name, 'package.json'), JSON.stringify(manifest));
     }
-    const ui = plan.releases.find((entry: { name: string }) => entry.name === '@spice-ts/ui');
-    // After Mattia versions the release, there may be no pending UI release.
-    if (ui) assert.ok(['patch', 'minor'].includes(ui.type), JSON.stringify(ui));
+    const empty = await getReleasePlan(directory);
+    assert.deepEqual(empty.changesets, []);
+    assert.deepEqual(empty.releases, []);
+    assertNoUiMajor(empty);
+
+    writeFileSync(join(directory, '.changeset/core-minor.md'), '---\n"@spice-ts/core": minor\n---\nTest peer-only release policy.\n');
+    const pending = await getReleasePlan(directory);
+    assert.equal(pending.changesets.length, 1);
+    assert.equal(pending.releases.find((entry: { name: string }) => entry.name === '@spice-ts/core').newVersion, '0.4.0');
+    assertNoUiMajor(pending);
+
+    // Prove the guard rejects the peer-only major produced without this policy.
+    config.___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH.onlyUpdatePeerDependentsWhenOutOfRange = false;
+    writeFileSync(join(directory, '.changeset/config.json'), JSON.stringify(config));
+    const unsafe = await getReleasePlan(directory);
+    assert.equal(unsafe.releases.find((entry: { name: string }) => entry.name === '@spice-ts/ui').type, 'major');
+    assert.throws(() => assertNoUiMajor(unsafe));
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

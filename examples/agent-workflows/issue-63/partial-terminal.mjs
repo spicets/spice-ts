@@ -13,15 +13,15 @@ import Ajv2020 from 'ajv/dist/2020.js';
 // declare these as workspace dependencies: doing so reorders `pnpm -r build`
 // so that @spice-ts/mcp's prebuild rebuilds core while @spice-ts/wasm bundles it.
 const packagesDir = new URL('../../../packages/', import.meta.url);
-async function publicPackage(name) {
+async function publicPackage(name, subpath = '.') {
   const packageJson = new URL(`${name}/package.json`, packagesDir);
   const manifest = JSON.parse(await readFile(packageJson, 'utf8'));
-  return import(new URL(manifest.exports['.'].import, packageJson).href);
+  return import(new URL(manifest.exports[subpath].import, packageJson).href);
 }
 const { fromCircuitJSON } = await publicPackage('circuit-json');
 const { createToolExecutor } = await publicPackage('mcp');
-const { protocolSchemasV1, sha256CanonicalJson } = await publicPackage('protocol');
-const require = createRequire(new URL('protocol/package.json', packagesDir));
+const { protocolSchemasV1, sha256CanonicalJson } = await publicPackage('core', './protocol');
+const require = createRequire(new URL('core/package.json', packagesDir));
 const schemaId = name => `https://spice-ts.dev/schemas/v1/${name}.schema.json`;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 for (const schema of Object.values(protocolSchemasV1)) ajv.addSchema(schema);
@@ -117,7 +117,7 @@ const leakedResultSha256 = sha256CanonicalJson(pointEvents);
 const resultHashInPartialMetadata = { ...terminal, metadata: { inputSha256, resultSha256: leakedResultSha256 } };
 const resultHashInPartialData = { ...terminal, partial: { ...terminal.partial, resultSha256: leakedResultSha256 } };
 const packagedNegative = JSON.parse(await readFile(
-  require.resolve('./fixtures/negative-v1.json'),
+  require.resolve('@spice-ts/core/protocol/fixtures/negative-v1.json'),
   'utf8',
 )).partialWithResultHash;
 
@@ -130,7 +130,7 @@ const checks = [
   check('terminal with resultSha256 in partial metadata', 'stream-terminal', resultHashInPartialMetadata),
   check('partial data with resultSha256', 'partial-simulation-result', resultHashInPartialData.partial),
   check('terminal with resultSha256 in partial data', 'stream-terminal', resultHashInPartialData),
-  check('@spice-ts/protocol fixtures/negative-v1.json#/partialWithResultHash', 'stream-terminal', packagedNegative),
+  check('@spice-ts/core/protocol fixtures/negative-v1.json#/partialWithResultHash', 'stream-terminal', packagedNegative),
 ];
 assert.deepEqual(checks.map(({ valid }) => valid), [true, true, true, true, false, false, false, false, false]);
 
