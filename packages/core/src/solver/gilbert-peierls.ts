@@ -87,6 +87,7 @@ export class GilbertPeierlsSolver implements SparseSolver {
   private pivotsRowIdx: Int32Array | null = null;
   private scatterPos = new Int32Array(0); // elimination position of each A entry's row
   private natPos!: Int32Array;            // final position of step j's preferred row
+  private pivotPrefix!: Int32Array;       // L entries visited before the chosen pivot
   private zeroPtr!: Int32Array;           // CSC pointers into zeroRows per column
   private zeroRows = new Int32Array(16);  // touched positions whose value was exactly zero
 
@@ -167,6 +168,7 @@ export class GilbertPeierlsSolver implements SparseSolver {
     this.nonzeroList = new Int32Array(n);
     this.activeK = new Int32Array(n);
     this.natPos = new Int32Array(n);
+    this.pivotPrefix = new Int32Array(n);
     this.zeroPtr = new Int32Array(n + 1);
     this.snStart = new Int32Array(n);
     this.snEnd = new Int32Array(n);
@@ -524,9 +526,14 @@ export class GilbertPeierlsSolver implements SparseSolver {
       // stay out of L, pivoted rows whose column was never applied) are
       // recorded for the pivot-reuse check in refactorWithPivots().
       zeroPtr[j] = zp;
+      let beforePivot = true;
+      this.pivotPrefix[j] = 0;
       for (let t = 0; t < nonzeroCount; t++) {
         const origRow = nonzeroList[t];
-        if (origRow === chosenOrigRow) continue;
+        if (origRow === chosenOrigRow) {
+          beforePivot = false;
+          continue;
+        }
         if (workspace[origRow] === 0) {
           if (zp === zeroRows.length) {
             this.growZeroRows(zp + 1);
@@ -542,6 +549,7 @@ export class GilbertPeierlsSolver implements SparseSolver {
           lRows[lp] = origRow;
           lValues[lp] = workspace[origRow] / pivotVal;
           lp++;
+          if (beforePivot) this.pivotPrefix[j]++;
         }
       }
 
@@ -895,7 +903,7 @@ export class GilbertPeierlsSolver implements SparseSolver {
    *    same order for later columns);
    *  - the threshold-pivoting rule selects the same row: the preferred row
    *    still passes the threshold, or the off-preference pivot is still the
-   *    strict maximum and the preferred row still fails.
+   *    first maximum in the original candidate order and the preferred row still fails.
    *
    * Under those conditions every workspace entry sees the same operations in
    * the same order as in factorize(), so the factors are bit-identical. On
@@ -959,6 +967,8 @@ export class GilbertPeierlsSolver implements SparseSolver {
       const nat = natPos[j];
       let natAbs = 0;
       let maxL = 0;
+      let maxBeforePivot = 0;
+      const prefixEnd = lStart + this.pivotPrefix[j];
       for (let p = lStart; p < lEnd; p++) {
         const row = lRows[p];
         const v = x[row];
@@ -967,6 +977,7 @@ export class GilbertPeierlsSolver implements SparseSolver {
         lValues[p] = v / pivotVal;
         const a = Math.abs(v);
         if (a > maxL) maxL = a;
+        if (p < prefixEnd && a > maxBeforePivot) maxBeforePivot = a;
         if (row === nat) natAbs = a;
       }
       const absPivot = Math.abs(pivotVal);
@@ -975,7 +986,11 @@ export class GilbertPeierlsSolver implements SparseSolver {
         if (!(maxVal >= 1e-18) || !(absPivot >= threshold * maxVal)) return false;
       } else {
         // The preferred row is a later pivot: an L row or untouched (zero).
-        if (!(absPivot > maxL) || natAbs >= threshold * absPivot) return false;
+        // Full factorization takes the first maximum in nonzeroList order.
+        // L preserves that order with the pivot removed. Later equal maxima
+        // are safe; earlier ties would change the chosen row and must fall back.
+        if (!(absPivot >= maxL) || !(absPivot > maxBeforePivot)
+          || natAbs >= threshold * absPivot) return false;
       }
       if (!(absPivot >= 1e-18)) return false;
       uValues[uDiag] = pivotVal;

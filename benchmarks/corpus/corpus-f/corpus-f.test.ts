@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import './metric-performance.test.js';
+import './noise-reference.test.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -38,15 +40,58 @@ import { PACKED_COLUMNS, parseRawLines, parseRawLinesInto } from './raw-stream.j
 import { parseNgspiceRaw } from '../../comparison-harness.js';
 import { analysisType, type ClassicCircuit, type EngineExecution } from '../classic/report.js';
 import { compareExecutions } from '../../aggregate-report.js';
-import { CONTROL_SECTION, controlWrapperDeck, hasControlBlock, noReferenceNote, runControlReference, trackingIssue } from './control-vectors.js';
+import { CONTROL_SECTION, controlExportDiagnostics, controlWrapperDeck, hasControlBlock, noReferenceNote, renderControlSection, runControlReference, trackingIssue } from './control-vectors.js';
 
 const ROOT = 'benchmarks/corpus/corpus-f';
 const HAS_NGSPICE = spawnSync('ngspice', ['--version'], { encoding: 'utf8' }).status === 0;
 const HAS_CORE_DIST = existsSync('packages/core/dist/index.js');
 
 describe('corpus-f control wrapper (#521)', () => {
+  it('skips only paired unwritable exports and preserves other errors (#1356)', async () => {
+    const directory = await mkdtemp(resolve(tmpdir(), 'corpus-f-export-'));
+    const warning = 'Warning from checkvalid: vector @r1[i] is not available or has zero length.';
+    const message = "Error during 'write': no writable vector found.";
+    try {
+      await writeFile(resolve(directory, 'ac1.export-log'), `${warning}\n`);
+      await writeFile(resolve(directory, 'ac2.export-log'), `${warning}\nError: unrelated export failure\n`);
+      await writeFile(resolve(directory, 'ac2.raw'), 'existing raw data');
+      await writeFile(resolve(directory, 'noise1.export-log'), 'Error: unrelated noise export failure\n');
+      const diagnostics = await controlExportDiagnostics(directory, `Error: analysis failed\n${message}\n${message}`);
+      assert.match(diagnostics.note ?? '', /ac1/);
+      assert.doesNotMatch(diagnostics.note ?? '', /ac2|noise1/);
+      assert.equal(diagnostics.output.split(message).length - 1, 1);
+      assert.match(diagnostics.output, /Error: analysis failed/);
+      assert.match(diagnostics.output, /Error: unrelated export failure/);
+      assert.match(diagnostics.output, /Error: unrelated noise export failure/);
+      assert.match(diagnostics.output, /Warning from checkvalid/);
+      const unpaired = await controlExportDiagnostics(directory, 'Error: analysis failed');
+      assert.equal(unpaired.note, undefined);
+      assert.match(unpaired.output, /Warning from checkvalid/);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+  it('recovers writable control plots and reports the skipped plot (#1356)', { skip: !HAS_NGSPICE }, async () => {
+    const input = Buffer.from('empty AC export\nV1 in 0 dc 1 ac 1\nR1 in out 1k\nR2 out 0 1k\n.save @r1[i] v(out)\n.control\nop\nac dec 2 1 10\n.endc\n.end\n');
+    const before = Buffer.from(input);
+    const circuit = { localPath: 'toy.cir', analyses: ['op', 'ac'] } as CorpusFManifest['circuits'][number];
+    const reference = await runControlReference(input, circuit);
+    assert.equal(reference.status, 'success');
+    assert.deepEqual(reference.execution.analyses.map(a => a.plotId), ['op1']);
+    assert.match(reference.note ?? '', /ac1.*unavailable or zero-length vector/);
+    assert.deepEqual(input, before);
+    const fixture: FixtureOutcome = {
+      id: 'toy.cir', sourcePath: 'toy.cir', sha256: sha256(input), analyses: ['op', 'ac'],
+      unmappedAnalyses: [], sameNameAs: [],
+      ngspice: { status: 'success', analyses: ['op'], note: reference.note },
+      spiceTs: { status: 'failed', analyses: [], firstErrorLine: 'candidate failure' },
+      comparedAnalyses: 0, comparedSignals: 0, worstNormalizedError: null,
+      worstSignal: null, outcome: 'spice-ts-loss', gapBucket: null,
+    };
+    assert.match(renderControlSection([fixture], 'test-head', 'ngspice-47'), /Skipped reference plot exports: ac1/);
+  });
   it('sources a separate unchanged fixture and exports every retained plot', () => {
-    assert.equal(controlWrapperDeck(['dc', 'dc', 'ac']), '* corpus-f unmodified-fixture export wrapper\n.control\nalias quit echo corpus-f: deck quit deferred until export\nalias exit echo corpus-f: deck exit deferred until export\nsource fixture.cir\nforeach exported_plot $plots\nsetplot $exported_plot\nwrite {$exported_plot}.raw all\nend\n.endc\n.end\n');
+    assert.equal(controlWrapperDeck(['dc', 'dc', 'ac']), '* corpus-f unmodified-fixture export wrapper\n.control\nalias quit echo corpus-f: deck quit deferred until export\nalias exit echo corpus-f: deck exit deferred until export\nsource fixture.cir\nforeach exported_plot $plots\nsetplot $exported_plot\nwrite {$exported_plot}.raw all >& {$exported_plot}.export-log\nend\n.endc\n.end\n');
     assert.equal(hasControlBlock('.control in title\n.op\n.end\n'), false);
     assert.equal(hasControlBlock('title\n .CONTROL\nop\n.endc\n'), true);
   });

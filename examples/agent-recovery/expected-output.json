@@ -12,7 +12,10 @@
     "spice_validate",
     "spice_convert",
     "spice_simulate",
+    "spice_sweep",
+    "spice_ac_metrics",
     "spice_measure",
+    "spice_compare",
     "spice_simulation_start",
     "spice_simulation_read",
     "spice_simulation_cancel"

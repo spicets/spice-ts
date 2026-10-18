@@ -153,11 +153,8 @@ dc  v1 0 60 0.1
 
   it.each([
     // examples/rf/pss/vackar_osc_pss_ctrl.cir
-    ['tran 10n 20u\ncutout v(4)', 'cutout'],
     ['tran 10n 20u\nspec 10 1meg 10 v(4)', 'spec'],
     ['pss 1.8e6 20e-6 4 1024 10 50 5e-3 uic', 'pss'],
-    // examples/vdmos/100W.sp
-    ['op\nfourier 1K V(out)', 'fourier'],
   ])('rejects a command spice-ts does not execute at parse time: %s', (control, command) => {
     const error = parseError(`Unsupported\n${rc}\n.control\n${control}\n.endc`);
     expect(error.message).toContain(`Unsupported .control command '${command}'`);

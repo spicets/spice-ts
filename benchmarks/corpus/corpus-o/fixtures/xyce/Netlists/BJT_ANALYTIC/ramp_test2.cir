@@ -1,0 +1,58 @@
+*Testing Gummel-Poon BJT Model
+*******************************************************************
+* Tier: ?????
+* Directory/Circuit name:  BJT_ANALYTIC/ramp_test2.cir
+* Description:  Runs a transient analysis to check operation of level 1 BJT
+*               model.
+* Input:  V1=V(1)
+* Output: I(V1) (voltage source current = BJT emitter current)
+*
+* Created by:  K. R. Santarelli 10/07
+*
+* NOTES:  We perform a transient simulation to validate the Gummel-Poon BJT 
+*         model by connecting the base and collector of an NPN BJT to a ramp
+*         voltage (V1(t) = t), connecting the emitter of the BJT to ground, and
+*         measuring the corresponding emitter current (we actually measure the
+*         current flowing out of the voltage source V1 which is equal to the 
+*         emitter current by KCL; measuring the emitter current via IE(Q1) 
+*         directly is often-times erroneous in transient simulations and is a
+*         separate issue under investigation).  The emitter current of the 
+*         transistor is comprised of three main components:
+*             
+*         1.  Forward/reverse bias diode currents (Icc, Ibe, Ire).
+*         2.  A current formed by the time derivative of the total base 
+*             charge (i.e., terms of the form dQb/dt).
+*         3.  Currents due to depletion capacitance (i.e., terms of the form
+*             Cde * dVbe/dt).
+*           
+*         Note that, compared to the more standard Ebers-Moll model, there 
+*         exists a dynamic term (Qbo/Qb) which multiplies Is in the expression
+*         for the collector current, as well.  
+*         
+*         For this particular test, we zero out the depeletion capacitance 
+*         terms by leaving CJE at 0.  We test the modelling of the charge 
+*         derivative terms by setting TF=0.2 and VAR=1.  For the parameters 
+*         given below in the .model statement, we find that the analytical 
+*         solution (using the approximate expressions for Qb/Q0 implemented in
+*         Xyce) is given by
+* 
+*         Ie(t) =  ((1-t/VAR) + 1/BF + ISE/IS - TF)*IS*(exp(t/Vth) - 1)
+*                 + (1-t/VAR)*TF*IS/Vth*exp(t/Vth)
+* 
+*         where BF=100 and Vth=kT/q.  Note we set NE=NF=1 to simplify the 
+*         expression (so exp(t/(NF*Vth))=exp(t/(NE*Vth))=exp(t/Vth)).  We also
+*         have to use really tight tolerances in the time integrator to get
+*         the Xyce-simulated solution to match the analytical solution.
+*
+***************************************************************************
+
+V1 1 0 DC 0 PWL (0 0 1 1) 
+Q1 1 1 0 Qmod 
+.model Qmod NPN level=1 ISE=1e-12 IS=1e-10 NE=1 VAR=1  TF=.02
+.tran 1u .1
+.print tran V(1) I(V1)
+.options device gmin=0 voltlim=0
+.options timeint abstol=1e-13 reltol=1e-7 
+.options linsol TR_partition=0
+
+.end

@@ -1,0 +1,5228 @@
+{
+  "schemaVersion": "spice-ts-corpus-o-outcomes/v1",
+  "sources": [
+    {
+      "key": "xyce",
+      "repository": "https://github.com/Xyce/Xyce_Regression",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "license": "GPL-3.0-or-later",
+      "licenseUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/README.md",
+      "licensePath": "benchmarks/corpus/corpus-o/licenses/xyce/README.md",
+      "licenseTextPath": "benchmarks/corpus/corpus-o/licenses/xyce/COPYING",
+      "basis": "Repository README grants GPL version 3 or later; standalone decks with separate notices excluded by unchanged staticVerdict. Independent benchmark data, not package code.",
+      "licenseSha256": "82ff6df7bddcdf639483d261949a02a5f43da85d579f1242b05c3aa0c430f7cb",
+      "licenseTextSha256": "12ac5047f2af0522f06798b1589ffc4599bc29c91f954d7874e0320634e777c0"
+    }
+  ],
+  "manifestSha256": "747644df64086743c948043a402a2e44c3594ecf7e01a0154d1a2ebc56449a19",
+  "coreTree": "c82cd06e1183d1ff7464ee21005c24fbd8a2a001",
+  "tools": {
+    "ngspice": "ngspice-47",
+    "spiceTs": "0.4.0",
+    "node": "v22.23.1"
+  },
+  "environment": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "commands": {
+    "generate": "spice-heavy pnpm exec tsx benchmarks/corpus/corpus-o/parity.ts",
+    "verify": "pnpm exec tsx --test benchmarks/corpus/corpus-o/corpus-o.test.ts",
+    "ngspice": "unchanged corpus-f runNgspicePacked on original bytes",
+    "spiceTs": "unchanged corpus-f runBoundedSimulatePacked on original bytes"
+  },
+  "policy": {
+    "input": "byte-identical fixture for both engines",
+    "fixtureAdaptation": "none",
+    "perCircuitToleranceTuning": false,
+    "matchThreshold": 0.01,
+    "matchRule": "matched = both engines succeed, every spice-ts analysis has an ngspice counterpart, and for every common signal max|spice-ts - ngspice| <= 0.01 x max(peak |ngspice signal|, floor). The floor is uniform per quantity (#593): 0.0001 V for node voltages v(...) and 1e-10 A for branch currents i(...), so a signal whose ngspice peak is zero or tiny matches when the absolute difference is at most the ngspice-47 default VNTOL (0.000001 V) or ABSTOL (1e-12 A); every other quantity (pole/zero roots, noise spectra) keeps 1e-12. Deck .options tolerances are not consulted. Errors are taken at spice-ts points with ngspice interpolated (transient breakpoint alignment as in the aggregate report).",
+    "deterministicHashExcludes": [
+      "environment",
+      "tools.node",
+      "ngspice.analyses",
+      "spiceTs.analyses"
+    ],
+    "fineReference": "none: no adapted deck",
+    "executionDeadlineMs": 119000,
+    "metricDeadlineMs": 119000,
+    "runtimeBoundary": "serial cold owned engine group wall, not solver-only or warm runtime"
+  },
+  "totals": {
+    "fixtures": 23,
+    "ngspice": {
+      "success": 23,
+      "failed": 0,
+      "unsupported": 0
+    },
+    "spiceTs": {
+      "success": 23,
+      "failed": 0,
+      "unsupported": 0
+    },
+    "outcomes": {
+      "matched": 23,
+      "mismatch": 0,
+      "not-compared": 0,
+      "spice-ts-loss": 0,
+      "ngspice-failed": 0,
+      "both-failed": 0
+    },
+    "bySource": {
+      "xyce": {
+        "matched": 23,
+        "mismatch": 0,
+        "not-compared": 0,
+        "spice-ts-loss": 0,
+        "ngspice-failed": 0,
+        "both-failed": 0
+      }
+    }
+  },
+  "gapBuckets": [],
+  "classCounts": {
+    "matched": 23,
+    "mismatch": 0,
+    "unsupported": 0,
+    "failed": 0,
+    "not-compared": 0
+  },
+  "fixtures": [
+    {
+      "id": "o-1",
+      "sourcePath": "xyce/Netlists/NOISE/commonEmitterBjt_ngspice.cir",
+      "sha256": "cff4fd7c9f9edb1a78c1d985ded41df53250e8ca2886f8262acc788b0d956bfd",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:167",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:167",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 0.0000226,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "noise1",
+            "ngspice": "noise1",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 167,
+              "ngspicePoints": 167,
+              "alignedPoints": 166,
+              "excludedOutOfRange": 1
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 166,
+                "absoluteError": {
+                  "max": 4.524487901967389e-11,
+                  "rms": 1.6031557906235956e-11
+                },
+                "relativeError": {
+                  "max": 0.000028475984110832644,
+                  "rms": 0.00002037641959400707,
+                  "sampleCount": 166,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 166,
+                "absoluteError": {
+                  "max": 2.6825552167706853e-12,
+                  "rms": 1.6985631775087584e-12
+                },
+                "relativeError": {
+                  "max": 0.000030244659685738822,
+                  "rms": 0.00002202363863647524,
+                  "sampleCount": 166,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 167,
+              "ngspicePoints": 167,
+              "alignedPoints": 166,
+              "excludedOutOfRange": 1
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 166,
+                "absoluteError": {
+                  "max": 4.524487901967389e-11,
+                  "rms": 1.6031557906235956e-11
+                },
+                "relativeError": {
+                  "max": 0.000028475984110832644,
+                  "rms": 0.00002037641959400707,
+                  "sampleCount": 166,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 166,
+                "absoluteError": {
+                  "max": 2.6825552167706853e-12,
+                  "rms": 1.6985631775087584e-12
+                },
+                "relativeError": {
+                  "max": 0.000030244659685738822,
+                  "rms": 0.00002202363863647524,
+                  "sampleCount": 166,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "noise2",
+            "ngspice": "noise2",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 7.487103897750576e-12,
+                  "rms": 7.487103897750576e-12
+                },
+                "relativeError": {
+                  "max": 0.000009234887283367942,
+                  "rms": 0.000009234887283367942,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 4.344383108325206e-12,
+                  "rms": 4.344383108325206e-12
+                },
+                "relativeError": {
+                  "max": 0.000009429461268891314,
+                  "rms": 0.000009429461268891314,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 7.487103897750576e-12,
+                  "rms": 7.487103897750576e-12
+                },
+                "relativeError": {
+                  "max": 0.000009234887283367942,
+                  "rms": 0.000009234887283367942,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 4.344383108325206e-12,
+                  "rms": 4.344383108325206e-12
+                },
+                "relativeError": {
+                  "max": 0.000009429461268891314,
+                  "rms": 0.000009429461268891314,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 1442.075833,
+        "spiceTsChildWallMs": 2798.0888749999995,
+        "metricProcessWallMs": 1375.50025
+      }
+    },
+    {
+      "id": "o-2",
+      "sourcePath": "xyce/Netlists/NOISE/commonEmitterBjt.cir",
+      "sha256": "9439fdb50af115647cfc50cc6718d0b7d49a1935cb78b141b66d1c87d803ce13",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:167",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:167",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 0.0000226,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 167,
+              "ngspicePoints": 167,
+              "alignedPoints": 166,
+              "excludedOutOfRange": 1
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 166,
+                "absoluteError": {
+                  "max": 4.524487901967389e-11,
+                  "rms": 1.6031557906235956e-11
+                },
+                "relativeError": {
+                  "max": 0.000028475984110832644,
+                  "rms": 0.00002037641959400707,
+                  "sampleCount": 166,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 166,
+                "absoluteError": {
+                  "max": 2.6825552167706853e-12,
+                  "rms": 1.6985631775087584e-12
+                },
+                "relativeError": {
+                  "max": 0.000030244659685738822,
+                  "rms": 0.00002202363863647524,
+                  "sampleCount": 166,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 167,
+              "ngspicePoints": 167,
+              "alignedPoints": 166,
+              "excludedOutOfRange": 1
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 166,
+                "absoluteError": {
+                  "max": 4.524487901967389e-11,
+                  "rms": 1.6031557906235956e-11
+                },
+                "relativeError": {
+                  "max": 0.000028475984110832644,
+                  "rms": 0.00002037641959400707,
+                  "sampleCount": 166,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 166,
+                "absoluteError": {
+                  "max": 2.6825552167706853e-12,
+                  "rms": 1.6985631775087584e-12
+                },
+                "relativeError": {
+                  "max": 0.000030244659685738822,
+                  "rms": 0.00002202363863647524,
+                  "sampleCount": 166,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 7.487103897750576e-12,
+                  "rms": 7.487103897750576e-12
+                },
+                "relativeError": {
+                  "max": 0.000009234887283367942,
+                  "rms": 0.000009234887283367942,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 4.344383108325206e-12,
+                  "rms": 4.344383108325206e-12
+                },
+                "relativeError": {
+                  "max": 0.000009429461268891314,
+                  "rms": 0.000009429461268891314,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 7.487103897750576e-12,
+                  "rms": 7.487103897750576e-12
+                },
+                "relativeError": {
+                  "max": 0.000009234887283367942,
+                  "rms": 0.000009234887283367942,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 4.344383108325206e-12,
+                  "rms": 4.344383108325206e-12
+                },
+                "relativeError": {
+                  "max": 0.000009429461268891314,
+                  "rms": 0.000009429461268891314,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 1344.1076249999996,
+        "spiceTsChildWallMs": 3142.177040999999,
+        "metricProcessWallMs": 1443.0070000000014
+      }
+    },
+    {
+      "id": "o-3",
+      "sourcePath": "xyce/Netlists/NOISE/gain-stage_b3.cir",
+      "sha256": "2c174bb54d3c2b941a74e1d89463cd13699b08ab4ea033b4b1121773bbccca71",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.74e-7,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 7.463301332149675e-15,
+                  "rms": 7.372041903536302e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133842507708e-7,
+                  "rms": 1.7383133788347685e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 2.198373307675064e-14,
+                  "rms": 2.187497107326023e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133848797115e-7,
+                  "rms": 1.7383133794449179e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 7.463301332149675e-15,
+                  "rms": 7.372041903536302e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133842507708e-7,
+                  "rms": 1.7383133788347685e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 2.198373307675064e-14,
+                  "rms": 2.187497107326023e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133848797115e-7,
+                  "rms": 1.7383133794449179e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.364884223778757e-10,
+                  "rms": 2.364884223778757e-10
+                },
+                "relativeError": {
+                  "max": 1.738313353002891e-7,
+                  "rms": 1.738313353002891e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.641566602239024e-10,
+                  "rms": 6.641566602239024e-10
+                },
+                "relativeError": {
+                  "max": 1.738313366928409e-7,
+                  "rms": 1.738313366928409e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.364884223778757e-10,
+                  "rms": 2.364884223778757e-10
+                },
+                "relativeError": {
+                  "max": 1.738313353002891e-7,
+                  "rms": 1.738313353002891e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.641566602239024e-10,
+                  "rms": 6.641566602239024e-10
+                },
+                "relativeError": {
+                  "max": 1.738313366928409e-7,
+                  "rms": 1.738313366928409e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 1493.6614580000005,
+        "spiceTsChildWallMs": 2870.400207999999,
+        "metricProcessWallMs": 1370.022832999999
+      }
+    },
+    {
+      "id": "o-4",
+      "sourcePath": "xyce/Netlists/NOISE/gain-stage1.cir",
+      "sha256": "6a12a9b6172cb9785513add28988697f19c87054ca55f6554e14fe994f8dcd21",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.74e-7,
+      "worstSignal": "noise inoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 7.463301345384565e-15,
+                  "rms": 7.37204190465773e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133858119232e-7,
+                  "rms": 1.7383133790977998e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 1.882208572173062e-14,
+                  "rms": 1.872896560122349e-14
+                },
+                "relativeError": {
+                  "max": 1.4883133578334778e-7,
+                  "rms": 1.4883133503816306e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 7.463301345384565e-15,
+                  "rms": 7.37204190465773e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133858119232e-7,
+                  "rms": 1.7383133790977998e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 1.882208572173062e-14,
+                  "rms": 1.872896560122349e-14
+                },
+                "relativeError": {
+                  "max": 1.4883133578334778e-7,
+                  "rms": 1.4883133503816306e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.364884234620779e-10,
+                  "rms": 2.364884234620779e-10
+                },
+                "relativeError": {
+                  "max": 1.7383133609723442e-7,
+                  "rms": 1.7383133609723442e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.686392550406649e-10,
+                  "rms": 5.686392550406649e-10
+                },
+                "relativeError": {
+                  "max": 1.4883133411086527e-7,
+                  "rms": 1.4883133411086527e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.364884234620779e-10,
+                  "rms": 2.364884234620779e-10
+                },
+                "relativeError": {
+                  "max": 1.7383133609723442e-7,
+                  "rms": 1.7383133609723442e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.686392550406649e-10,
+                  "rms": 5.686392550406649e-10
+                },
+                "relativeError": {
+                  "max": 1.4883133411086527e-7,
+                  "rms": 1.4883133411086527e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 1494.2698749999981,
+        "spiceTsChildWallMs": 3314.9814160000024,
+        "metricProcessWallMs": 1305.0846249999995
+      }
+    },
+    {
+      "id": "o-5",
+      "sourcePath": "xyce/Netlists/NOISE/gain-stage2.cir",
+      "sha256": "6c00479b8bccb873d392b1d98cb88c97048fed31a6e6377f6ef1513cf29f1699",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.74e-7,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 7.463301345384565e-15,
+                  "rms": 7.372041903074102e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133842498737e-7,
+                  "rms": 1.7383133787239912e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 2.198373310322042e-14,
+                  "rms": 2.1874971079290777e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133869727487e-7,
+                  "rms": 1.738313379913617e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 7.463301345384565e-15,
+                  "rms": 7.372041903074102e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133842498737e-7,
+                  "rms": 1.7383133787239912e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 2.198373310322042e-14,
+                  "rms": 2.1874971079290777e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133869727487e-7,
+                  "rms": 1.738313379913617e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.3648842389575875e-10,
+                  "rms": 2.3648842389575875e-10
+                },
+                "relativeError": {
+                  "max": 1.738313364160125e-7,
+                  "rms": 1.738313364160125e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.641566610912641e-10,
+                  "rms": 6.641566610912641e-10
+                },
+                "relativeError": {
+                  "max": 1.7383133691985758e-7,
+                  "rms": 1.7383133691985758e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.3648842389575875e-10,
+                  "rms": 2.3648842389575875e-10
+                },
+                "relativeError": {
+                  "max": 1.738313364160125e-7,
+                  "rms": 1.738313364160125e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.641566610912641e-10,
+                  "rms": 6.641566610912641e-10
+                },
+                "relativeError": {
+                  "max": 1.7383133691985758e-7,
+                  "rms": 1.7383133691985758e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 876.8087500000001,
+        "spiceTsChildWallMs": 1762.1209580000032,
+        "metricProcessWallMs": 729.7093340000029
+      }
+    },
+    {
+      "id": "o-6",
+      "sourcePath": "xyce/Netlists/NOISE/gain-stage3.cir",
+      "sha256": "216f8ae59be39170031b3a275725e613d4df502e9049ba8e5ffe27bd086f1bf0",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.74e-7,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 7.463301332149675e-15,
+                  "rms": 7.372041903536302e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133842507708e-7,
+                  "rms": 1.7383133788347685e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 2.198373307675064e-14,
+                  "rms": 2.187497107326023e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133848797115e-7,
+                  "rms": 1.7383133794449179e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 7.463301332149675e-15,
+                  "rms": 7.372041903536302e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133842507708e-7,
+                  "rms": 1.7383133788347685e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 2.198373307675064e-14,
+                  "rms": 2.187497107326023e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133848797115e-7,
+                  "rms": 1.7383133794449179e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.364884223778757e-10,
+                  "rms": 2.364884223778757e-10
+                },
+                "relativeError": {
+                  "max": 1.738313353002891e-7,
+                  "rms": 1.738313353002891e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.641566602239024e-10,
+                  "rms": 6.641566602239024e-10
+                },
+                "relativeError": {
+                  "max": 1.738313366928409e-7,
+                  "rms": 1.738313366928409e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.364884223778757e-10,
+                  "rms": 2.364884223778757e-10
+                },
+                "relativeError": {
+                  "max": 1.738313353002891e-7,
+                  "rms": 1.738313353002891e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.641566602239024e-10,
+                  "rms": 6.641566602239024e-10
+                },
+                "relativeError": {
+                  "max": 1.738313366928409e-7,
+                  "rms": 1.738313366928409e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 743.8904169999987,
+        "spiceTsChildWallMs": 1760.6697090000016,
+        "metricProcessWallMs": 668.3316250000025
+      }
+    },
+    {
+      "id": "o-7",
+      "sourcePath": "xyce/Netlists/NOISE/invalid_device.cir",
+      "sha256": "f17e7d674551d40e41a106e4cc7bf5f20ff482dca077222948c0d4149f5177ef",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:21",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:21",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.06e-7,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 21,
+              "ngspicePoints": 21,
+              "alignedPoints": 21,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.942767226437573e-16,
+                  "rms": 5.493862326304918e-16
+                },
+                "relativeError": {
+                  "max": 1.0722585486794605e-7,
+                  "rms": 9.246396978816144e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.935606427768587e-14,
+                  "rms": 4.9980900867346514e-14
+                },
+                "relativeError": {
+                  "max": 1.0722579794168705e-7,
+                  "rms": 9.246389052549924e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 21,
+              "ngspicePoints": 21,
+              "alignedPoints": 21,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.942767226437573e-16,
+                  "rms": 5.493862326304918e-16
+                },
+                "relativeError": {
+                  "max": 1.0722585486794605e-7,
+                  "rms": 9.246396978816144e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.935606427768587e-14,
+                  "rms": 4.9980900867346514e-14
+                },
+                "relativeError": {
+                  "max": 1.0722579794168705e-7,
+                  "rms": 9.246389052549924e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8400137879006403e-13,
+                  "rms": 1.8400137879006403e-13
+                },
+                "relativeError": {
+                  "max": 1.0368828613438546e-7,
+                  "rms": 1.0368828613438546e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8160355516475338e-11,
+                  "rms": 1.8160355516475338e-11
+                },
+                "relativeError": {
+                  "max": 1.0487489707883222e-7,
+                  "rms": 1.0487489707883222e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8400137879006403e-13,
+                  "rms": 1.8400137879006403e-13
+                },
+                "relativeError": {
+                  "max": 1.0368828613438546e-7,
+                  "rms": 1.0368828613438546e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8160355516475338e-11,
+                  "rms": 1.8160355516475338e-11
+                },
+                "relativeError": {
+                  "max": 1.0487489707883222e-7,
+                  "rms": 1.0487489707883222e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 918.4682499999981,
+        "spiceTsChildWallMs": 2151.2529590000013,
+        "metricProcessWallMs": 977.2319580000039
+      }
+    },
+    {
+      "id": "o-8",
+      "sourcePath": "xyce/Netlists/NOISE/noiseBjt1.cir",
+      "sha256": "8f1d4d782a4ab80802291808a279275eeaeadfd7869f79820e5050fafb1e2209",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:21",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:21",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.06e-7,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 21,
+              "ngspicePoints": 21,
+              "alignedPoints": 21,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.942767226437573e-16,
+                  "rms": 5.493862326304918e-16
+                },
+                "relativeError": {
+                  "max": 1.0722585486794605e-7,
+                  "rms": 9.246396978816144e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.935606427768587e-14,
+                  "rms": 4.9980900867346514e-14
+                },
+                "relativeError": {
+                  "max": 1.0722579794168705e-7,
+                  "rms": 9.246389052549924e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 21,
+              "ngspicePoints": 21,
+              "alignedPoints": 21,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.942767226437573e-16,
+                  "rms": 5.493862326304918e-16
+                },
+                "relativeError": {
+                  "max": 1.0722585486794605e-7,
+                  "rms": 9.246396978816144e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.935606427768587e-14,
+                  "rms": 4.9980900867346514e-14
+                },
+                "relativeError": {
+                  "max": 1.0722579794168705e-7,
+                  "rms": 9.246389052549924e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8400137879006403e-13,
+                  "rms": 1.8400137879006403e-13
+                },
+                "relativeError": {
+                  "max": 1.0368828613438546e-7,
+                  "rms": 1.0368828613438546e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8160355516475338e-11,
+                  "rms": 1.8160355516475338e-11
+                },
+                "relativeError": {
+                  "max": 1.0487489707883222e-7,
+                  "rms": 1.0487489707883222e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8400137879006403e-13,
+                  "rms": 1.8400137879006403e-13
+                },
+                "relativeError": {
+                  "max": 1.0368828613438546e-7,
+                  "rms": 1.0368828613438546e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8160355516475338e-11,
+                  "rms": 1.8160355516475338e-11
+                },
+                "relativeError": {
+                  "max": 1.0487489707883222e-7,
+                  "rms": 1.0487489707883222e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 771.4536250000019,
+        "spiceTsChildWallMs": 1473.653624999999,
+        "metricProcessWallMs": 655.4989579999965
+      }
+    },
+    {
+      "id": "o-9",
+      "sourcePath": "xyce/Netlists/NOISE/noiseBjt2.cir",
+      "sha256": "2d32fef5b0f3e3929a84798a55e837547765b8535285585c9d220f257887f2f4",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:1429",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:1429",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 7.65e-8,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1429,
+              "ngspicePoints": 1429,
+              "alignedPoints": 1429,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 1429,
+                "absoluteError": {
+                  "max": 1.4968632240618762e-15,
+                  "rms": 1.4964211584642367e-15
+                },
+                "relativeError": {
+                  "max": 7.649696031223277e-8,
+                  "rms": 7.648163874116156e-8,
+                  "sampleCount": 1429,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 1429,
+                "absoluteError": {
+                  "max": 1.5537279167374897e-14,
+                  "rms": 1.550451688470094e-14
+                },
+                "relativeError": {
+                  "max": 7.651976388772912e-8,
+                  "rms": 7.64950490457971e-8,
+                  "sampleCount": 1429,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1429,
+              "ngspicePoints": 1429,
+              "alignedPoints": 1429,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 1429,
+                "absoluteError": {
+                  "max": 1.4968632240618762e-15,
+                  "rms": 1.4964211584642367e-15
+                },
+                "relativeError": {
+                  "max": 7.649696031223277e-8,
+                  "rms": 7.648163874116156e-8,
+                  "sampleCount": 1429,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 1429,
+                "absoluteError": {
+                  "max": 1.5537279167374897e-14,
+                  "rms": 1.550451688470094e-14
+                },
+                "relativeError": {
+                  "max": 7.651976388772912e-8,
+                  "rms": 7.64950490457971e-8,
+                  "sampleCount": 1429,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.110938533923855e-13,
+                  "rms": 2.110938533923855e-13
+                },
+                "relativeError": {
+                  "max": 7.648615553230101e-8,
+                  "rms": 7.648615553230101e-8,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.161825565430561e-12,
+                  "rms": 2.161825565430561e-12
+                },
+                "relativeError": {
+                  "max": 7.650240997037035e-8,
+                  "rms": 7.650240997037035e-8,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.110938533923855e-13,
+                  "rms": 2.110938533923855e-13
+                },
+                "relativeError": {
+                  "max": 7.648615553230101e-8,
+                  "rms": 7.648615553230101e-8,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.161825565430561e-12,
+                  "rms": 2.161825565430561e-12
+                },
+                "relativeError": {
+                  "max": 7.650240997037035e-8,
+                  "rms": 7.650240997037035e-8,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 641.8454999999958,
+        "spiceTsChildWallMs": 1789.5834160000013,
+        "metricProcessWallMs": 651.5547089999964
+      }
+    },
+    {
+      "id": "o-10",
+      "sourcePath": "xyce/Netlists/NOISE/res_noise_ngspice.cir",
+      "sha256": "5f90a7de42b73c0c465c2c38931beb573bc067f20f9fd3a96c11fa4a736f6bd0",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:31",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:31",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.74e-7,
+      "worstSignal": "noise inoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "noise1",
+            "ngspice": "noise1",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 31,
+              "ngspicePoints": 31,
+              "alignedPoints": 31,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 1.0018845222332145e-14,
+                  "rms": 1.0018845199704752e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133817744128e-7,
+                  "rms": 1.7383133778484614e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 5.009422584696293e-15,
+                  "rms": 4.0738539519751434e-15
+                },
+                "relativeError": {
+                  "max": 1.738313382381507e-7,
+                  "rms": 1.738313376897088e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 31,
+              "ngspicePoints": 31,
+              "alignedPoints": 31,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 1.0018845222332145e-14,
+                  "rms": 1.0018845199704752e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133817744128e-7,
+                  "rms": 1.7383133778484614e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 5.009422584696293e-15,
+                  "rms": 4.0738539519751434e-15
+                },
+                "relativeError": {
+                  "max": 1.738313382381507e-7,
+                  "rms": 1.738313376897088e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "noise2",
+            "ngspice": "noise2",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.256989169869105e-10,
+                  "rms": 1.256989169869105e-10
+                },
+                "relativeError": {
+                  "max": 1.738313373192448e-7,
+                  "rms": 1.738313373192448e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.233604900166868e-12,
+                  "rms": 6.233604900166868e-12
+                },
+                "relativeError": {
+                  "max": 1.738313371224713e-7,
+                  "rms": 1.738313371224713e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.256989169869105e-10,
+                  "rms": 1.256989169869105e-10
+                },
+                "relativeError": {
+                  "max": 1.738313373192448e-7,
+                  "rms": 1.738313373192448e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.233604900166868e-12,
+                  "rms": 6.233604900166868e-12
+                },
+                "relativeError": {
+                  "max": 1.738313371224713e-7,
+                  "rms": 1.738313371224713e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 728.2195830000055,
+        "spiceTsChildWallMs": 1468.754958000005,
+        "metricProcessWallMs": 642.6223339999997
+      }
+    },
+    {
+      "id": "o-11",
+      "sourcePath": "xyce/Netlists/NOISE/res_noise.cir",
+      "sha256": "8f283f9f84ae85d45dfb0ad9f0dee39309f2e026ef359ddfe47aae7b180caaad",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:31",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:31",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.74e-7,
+      "worstSignal": "noise inoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 31,
+              "ngspicePoints": 31,
+              "alignedPoints": 31,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 1.0018845222332145e-14,
+                  "rms": 1.0018845199704752e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133817744128e-7,
+                  "rms": 1.7383133778484614e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 5.009422584696293e-15,
+                  "rms": 4.0738539519751434e-15
+                },
+                "relativeError": {
+                  "max": 1.738313382381507e-7,
+                  "rms": 1.738313376897088e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 31,
+              "ngspicePoints": 31,
+              "alignedPoints": 31,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 1.0018845222332145e-14,
+                  "rms": 1.0018845199704752e-14
+                },
+                "relativeError": {
+                  "max": 1.7383133817744128e-7,
+                  "rms": 1.7383133778484614e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 5.009422584696293e-15,
+                  "rms": 4.0738539519751434e-15
+                },
+                "relativeError": {
+                  "max": 1.738313382381507e-7,
+                  "rms": 1.738313376897088e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.256989169869105e-10,
+                  "rms": 1.256989169869105e-10
+                },
+                "relativeError": {
+                  "max": 1.738313373192448e-7,
+                  "rms": 1.738313373192448e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.233604900166868e-12,
+                  "rms": 6.233604900166868e-12
+                },
+                "relativeError": {
+                  "max": 1.738313371224713e-7,
+                  "rms": 1.738313371224713e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.256989169869105e-10,
+                  "rms": 1.256989169869105e-10
+                },
+                "relativeError": {
+                  "max": 1.738313373192448e-7,
+                  "rms": 1.738313373192448e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.233604900166868e-12,
+                  "rms": 6.233604900166868e-12
+                },
+                "relativeError": {
+                  "max": 1.738313371224713e-7,
+                  "rms": 1.738313371224713e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 647.5311250000013,
+        "spiceTsChildWallMs": 2396.0740000000005,
+        "metricProcessWallMs": 693.4495419999948
+      }
+    },
+    {
+      "id": "o-12",
+      "sourcePath": "xyce/Netlists/VANOISE/gain-stage1_psp.cir",
+      "sha256": "f718a5f43ad0be650bd713e5551aed00add0b343b9c05f90232dc9d7c9458873",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:71",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.74e-7,
+      "worstSignal": "noise inoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 1.0283615644806896e-14,
+                  "rms": 1.0283615644806893e-14
+                },
+                "relativeError": {
+                  "max": 1.7383279353315367e-7,
+                  "rms": 1.7383279353315375e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 1.642863948950244e-15,
+                  "rms": 1.6428639489502436e-15
+                },
+                "relativeError": {
+                  "max": 1.6630984732147265e-7,
+                  "rms": 1.663098473214726e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 71,
+              "ngspicePoints": 71,
+              "alignedPoints": 71,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 1.0283615644806896e-14,
+                  "rms": 1.0283615644806893e-14
+                },
+                "relativeError": {
+                  "max": 1.7383279353315367e-7,
+                  "rms": 1.7383279353315375e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 71,
+                "absoluteError": {
+                  "max": 1.642863948950244e-15,
+                  "rms": 1.6428639489502436e-15
+                },
+                "relativeError": {
+                  "max": 1.6630984732147265e-7,
+                  "rms": 1.663098473214726e-7,
+                  "sampleCount": 71,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 3.251964606886676e-10,
+                  "rms": 3.251964606886676e-10
+                },
+                "relativeError": {
+                  "max": 1.7383279179864622e-7,
+                  "rms": 1.7383279179864622e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.1951916455860586e-11,
+                  "rms": 5.1951916455860586e-11
+                },
+                "relativeError": {
+                  "max": 1.6630984542904506e-7,
+                  "rms": 1.6630984542904506e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 3.251964606886676e-10,
+                  "rms": 3.251964606886676e-10
+                },
+                "relativeError": {
+                  "max": 1.7383279179864622e-7,
+                  "rms": 1.7383279179864622e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.1951916455860586e-11,
+                  "rms": 5.1951916455860586e-11
+                },
+                "relativeError": {
+                  "max": 1.6630984542904506e-7,
+                  "rms": 1.6630984542904506e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 628.7081249999974,
+        "spiceTsChildWallMs": 1839.7334999999948,
+        "metricProcessWallMs": 750.5718750000015
+      }
+    },
+    {
+      "id": "o-13",
+      "sourcePath": "xyce/Netlists/BJT_ANALYTIC/ramp_test2.cir",
+      "sha256": "4117823840f391e2e11481991d86efd58583043bbfa1e93f20808d8d77f89ef2",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "tran:100008"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "tran:100008"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 2,
+      "worstNormalizedError": 1.88e-9,
+      "worstSignal": "tran i(v1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "tran",
+          "signals": [
+            "i(v1)",
+            "v(1)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 100008,
+              "ngspicePoints": 100008,
+              "alignedPoints": 100008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 100008,
+                "absoluteError": {
+                  "max": 1.4169736151458493e-17,
+                  "rms": 6.614776854172034e-19
+                },
+                "relativeError": {
+                  "max": 1.8324943132818633e-7,
+                  "rms": 6.39323735925071e-10,
+                  "sampleCount": 100007,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 100008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 100007,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 100008,
+              "ngspicePoints": 100008,
+              "alignedPoints": 100008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 100008,
+                "absoluteError": {
+                  "max": 1.4169736151458493e-17,
+                  "rms": 6.614776854172034e-19
+                },
+                "relativeError": {
+                  "max": 1.8324943132818633e-7,
+                  "rms": 6.39323735925071e-10,
+                  "sampleCount": 100007,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 100008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 100007,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 1413.2789580000026,
+        "spiceTsChildWallMs": 2053.3762910000005,
+        "metricProcessWallMs": 685.5478749999966
+      }
+    },
+    {
+      "id": "o-14",
+      "sourcePath": "xyce/Netlists/BJT_EXTNODE/npn_rb_rc_re_2.cir",
+      "sha256": "e827701a14ba46d2dd287f2e7a831c284fc127bac1bbeb2961f48e27f9c9bed1",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 8,
+      "worstNormalizedError": 0.000859,
+      "worstSignal": "dc v(1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "dc",
+          "signals": [
+            "i(vcc)",
+            "i(vmon1)",
+            "i(vmon2)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)",
+            "v(5)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 8.941905507351116e-8,
+                  "rms": 3.057858583986429e-8
+                },
+                "relativeError": {
+                  "max": 0.00009316959441067002,
+                  "rms": 0.0000323724866504417,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.560887926187551e-9,
+                  "rms": 5.848239039573656e-10
+                },
+                "relativeError": {
+                  "max": 0.0001886871476489741,
+                  "rms": 0.00007759469595359837,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 8.82401558942791e-8,
+                  "rms": 3.03883539835431e-8
+                },
+                "relativeError": {
+                  "max": 0.00009254370416816041,
+                  "rms": 0.00003227485541076416,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005884547482677416,
+                  "rms": 0.0002204786116639988
+                },
+                "relativeError": {
+                  "max": 0.0009000953248284655,
+                  "rms": 0.0003388713333433501,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.00017648031198080893,
+                  "rms": 0.000060776707965458165
+                },
+                "relativeError": {
+                  "max": 0.0001614632970560635,
+                  "rms": 0.000054041370692710624,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.00017648031198080893,
+                  "rms": 0.000060776707965458165
+                },
+                "relativeError": {
+                  "max": 0.0001614632970560635,
+                  "rms": 0.000054041370692710624,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005884547482677416,
+                  "rms": 0.0002204786116639988
+                },
+                "relativeError": {
+                  "max": 0.0009000953248284655,
+                  "rms": 0.0003388713333433501,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 8.941905507351116e-8,
+                  "rms": 3.057858583986429e-8
+                },
+                "relativeError": {
+                  "max": 0.00009316959441067002,
+                  "rms": 0.0000323724866504417,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.560887926187551e-9,
+                  "rms": 5.848239039573656e-10
+                },
+                "relativeError": {
+                  "max": 0.0001886871476489741,
+                  "rms": 0.00007759469595359837,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 8.82401558942791e-8,
+                  "rms": 3.03883539835431e-8
+                },
+                "relativeError": {
+                  "max": 0.00009254370416816041,
+                  "rms": 0.00003227485541076416,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005884547482677416,
+                  "rms": 0.0002204786116639988
+                },
+                "relativeError": {
+                  "max": 0.0009000953248284655,
+                  "rms": 0.0003388713333433501,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.00017648031198080893,
+                  "rms": 0.000060776707965458165
+                },
+                "relativeError": {
+                  "max": 0.0001614632970560635,
+                  "rms": 0.000054041370692710624,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.00017648031198080893,
+                  "rms": 0.000060776707965458165
+                },
+                "relativeError": {
+                  "max": 0.0001614632970560635,
+                  "rms": 0.000054041370692710624,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005884547482677416,
+                  "rms": 0.0002204786116639988
+                },
+                "relativeError": {
+                  "max": 0.0009000953248284655,
+                  "rms": 0.0003388713333433501,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 482.74175000000105,
+        "spiceTsChildWallMs": 1089.2514159999992,
+        "metricProcessWallMs": 470.18237500000396
+      }
+    },
+    {
+      "id": "o-15",
+      "sourcePath": "xyce/Netlists/BJT_EXTNODE/npn_rc_re_1.cir",
+      "sha256": "b222125ff7ca5ba305bcf6d8c0451cd02208b61a818e9de7b39432caa335b940",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 8,
+      "worstNormalizedError": 0.000639,
+      "worstSignal": "dc v(1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "dc",
+          "signals": [
+            "i(vcc)",
+            "i(vmon1)",
+            "i(vmon2)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)",
+            "v(5)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 7.676510392057691e-7,
+                  "rms": 2.827234006544657e-7
+                },
+                "relativeError": {
+                  "max": 0.0008903879360240095,
+                  "rms": 0.0002927463532956062,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.3057148613538062e-9,
+                  "rms": 5.24487174528493e-10
+                },
+                "relativeError": {
+                  "max": 0.0003831753662178762,
+                  "rms": 0.00011778345231668121,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 7.665148189194004e-7,
+                  "rms": 2.8237184436548606e-7
+                },
+                "relativeError": {
+                  "max": 0.0008980799241369776,
+                  "rms": 0.00029527119164937134,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0004922545027384873,
+                  "rms": 0.00019773166479508683
+                },
+                "relativeError": {
+                  "max": 0.0006881517471508753,
+                  "rms": 0.00027192953211611464,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.001533029638259631,
+                  "rms": 0.000564743690104531
+                },
+                "relativeError": {
+                  "max": 0.0006685717417053659,
+                  "rms": 0.00023106207565639717,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.001533029638259631,
+                  "rms": 0.000564743690104531
+                },
+                "relativeError": {
+                  "max": 0.0006685717417053659,
+                  "rms": 0.00023106207565639717,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0004922545027384873,
+                  "rms": 0.00019773166479508683
+                },
+                "relativeError": {
+                  "max": 0.0006881517471508753,
+                  "rms": 0.00027192953211611464,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 7.676510392057691e-7,
+                  "rms": 2.827234006544657e-7
+                },
+                "relativeError": {
+                  "max": 0.0008903879360240095,
+                  "rms": 0.0002927463532956062,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.3057148613538062e-9,
+                  "rms": 5.24487174528493e-10
+                },
+                "relativeError": {
+                  "max": 0.0003831753662178762,
+                  "rms": 0.00011778345231668121,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 7.665148189194004e-7,
+                  "rms": 2.8237184436548606e-7
+                },
+                "relativeError": {
+                  "max": 0.0008980799241369776,
+                  "rms": 0.00029527119164937134,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0004922545027384873,
+                  "rms": 0.00019773166479508683
+                },
+                "relativeError": {
+                  "max": 0.0006881517471508753,
+                  "rms": 0.00027192953211611464,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.001533029638259631,
+                  "rms": 0.000564743690104531
+                },
+                "relativeError": {
+                  "max": 0.0006685717417053659,
+                  "rms": 0.00023106207565639717,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.001533029638259631,
+                  "rms": 0.000564743690104531
+                },
+                "relativeError": {
+                  "max": 0.0006685717417053659,
+                  "rms": 0.00023106207565639717,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0004922545027384873,
+                  "rms": 0.00019773166479508683
+                },
+                "relativeError": {
+                  "max": 0.0006881517471508753,
+                  "rms": 0.00027192953211611464,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 457.8712499999965,
+        "spiceTsChildWallMs": 1084.1374159999978,
+        "metricProcessWallMs": 483.29062500000146
+      }
+    },
+    {
+      "id": "o-16",
+      "sourcePath": "xyce/Netlists/BJT_EXTNODE/npn_rc_re_2.cir",
+      "sha256": "c7bd3fa322552650009684c9cd4c7229507485f251e9945b1bd568ad93fc3913",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 8,
+      "worstNormalizedError": 0.000639,
+      "worstSignal": "dc v(1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "dc",
+          "signals": [
+            "i(vcc)",
+            "i(vmon1)",
+            "i(vmon2)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)",
+            "v(5)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 7.676510392057691e-7,
+                  "rms": 2.827234006544657e-7
+                },
+                "relativeError": {
+                  "max": 0.0008903879360240095,
+                  "rms": 0.0002927463532956062,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.3057148613538062e-9,
+                  "rms": 5.24487174528493e-10
+                },
+                "relativeError": {
+                  "max": 0.0003831753662178762,
+                  "rms": 0.00011778345231668121,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 7.665148189194004e-7,
+                  "rms": 2.8237184436548606e-7
+                },
+                "relativeError": {
+                  "max": 0.0008980799241369776,
+                  "rms": 0.00029527119164937134,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0004922545027384873,
+                  "rms": 0.00019773166479508683
+                },
+                "relativeError": {
+                  "max": 0.0006881517471508753,
+                  "rms": 0.00027192953211611464,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.001533029638259631,
+                  "rms": 0.000564743690104531
+                },
+                "relativeError": {
+                  "max": 0.0006685717417053659,
+                  "rms": 0.00023106207565639717,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.001533029638259631,
+                  "rms": 0.000564743690104531
+                },
+                "relativeError": {
+                  "max": 0.0006685717417053659,
+                  "rms": 0.00023106207565639717,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0004922545027384873,
+                  "rms": 0.00019773166479508683
+                },
+                "relativeError": {
+                  "max": 0.0006881517471508753,
+                  "rms": 0.00027192953211611464,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 7.676510392057691e-7,
+                  "rms": 2.827234006544657e-7
+                },
+                "relativeError": {
+                  "max": 0.0008903879360240095,
+                  "rms": 0.0002927463532956062,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.3057148613538062e-9,
+                  "rms": 5.24487174528493e-10
+                },
+                "relativeError": {
+                  "max": 0.0003831753662178762,
+                  "rms": 0.00011778345231668121,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 7.665148189194004e-7,
+                  "rms": 2.8237184436548606e-7
+                },
+                "relativeError": {
+                  "max": 0.0008980799241369776,
+                  "rms": 0.00029527119164937134,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0004922545027384873,
+                  "rms": 0.00019773166479508683
+                },
+                "relativeError": {
+                  "max": 0.0006881517471508753,
+                  "rms": 0.00027192953211611464,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.001533029638259631,
+                  "rms": 0.000564743690104531
+                },
+                "relativeError": {
+                  "max": 0.0006685717417053659,
+                  "rms": 0.00023106207565639717,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.001533029638259631,
+                  "rms": 0.000564743690104531
+                },
+                "relativeError": {
+                  "max": 0.0006685717417053659,
+                  "rms": 0.00023106207565639717,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0004922545027384873,
+                  "rms": 0.00019773166479508683
+                },
+                "relativeError": {
+                  "max": 0.0006881517471508753,
+                  "rms": 0.00027192953211611464,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 530.0907089999964,
+        "spiceTsChildWallMs": 1044.6560000000027,
+        "metricProcessWallMs": 456.5229999999938
+      }
+    },
+    {
+      "id": "o-17",
+      "sourcePath": "xyce/Netlists/BJT_EXTNODE/npn1.cir",
+      "sha256": "faea2b9386a9cc2e351d8e69f4e2896d309926d2c9f64d5409ac6cb111752fea",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 8,
+      "worstNormalizedError": 0.000685,
+      "worstSignal": "dc v(1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "dc",
+          "signals": [
+            "i(vcc)",
+            "i(vmon1)",
+            "i(vmon2)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)",
+            "v(5)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.4717112716802934e-7,
+                  "rms": 4.652239628743147e-8
+                },
+                "relativeError": {
+                  "max": 0.00017011586334607538,
+                  "rms": 0.000052036657907714786,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.457139070728481e-9,
+                  "rms": 4.6061753115794286e-10
+                },
+                "relativeError": {
+                  "max": 0.00017011578509518294,
+                  "rms": 0.00005203663400582588,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.4571398809727545e-7,
+                  "rms": 4.606177875628394e-8
+                },
+                "relativeError": {
+                  "max": 0.00017011586412855455,
+                  "rms": 0.00005203665814673821,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005493414296491306,
+                  "rms": 0.00017365280924170717
+                },
+                "relativeError": {
+                  "max": 0.0007127091927012455,
+                  "rms": 0.0002249821224393696,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0002914279761947469,
+                  "rms": 0.00009212355751273513
+                },
+                "relativeError": {
+                  "max": 0.0001274344488088042,
+                  "rms": 0.00003925762124693712,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0002914279761947469,
+                  "rms": 0.00009212355751273513
+                },
+                "relativeError": {
+                  "max": 0.0001274344488088042,
+                  "rms": 0.00003925762124693712,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005493414296491306,
+                  "rms": 0.00017365280924170717
+                },
+                "relativeError": {
+                  "max": 0.0007127091927012455,
+                  "rms": 0.0002249821224393696,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.4717112716802934e-7,
+                  "rms": 4.652239628743147e-8
+                },
+                "relativeError": {
+                  "max": 0.00017011586334607538,
+                  "rms": 0.000052036657907714786,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.457139070728481e-9,
+                  "rms": 4.6061753115794286e-10
+                },
+                "relativeError": {
+                  "max": 0.00017011578509518294,
+                  "rms": 0.00005203663400582588,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.4571398809727545e-7,
+                  "rms": 4.606177875628394e-8
+                },
+                "relativeError": {
+                  "max": 0.00017011586412855455,
+                  "rms": 0.00005203665814673821,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005493414296491306,
+                  "rms": 0.00017365280924170717
+                },
+                "relativeError": {
+                  "max": 0.0007127091927012455,
+                  "rms": 0.0002249821224393696,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0002914279761947469,
+                  "rms": 0.00009212355751273513
+                },
+                "relativeError": {
+                  "max": 0.0001274344488088042,
+                  "rms": 0.00003925762124693712,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0002914279761947469,
+                  "rms": 0.00009212355751273513
+                },
+                "relativeError": {
+                  "max": 0.0001274344488088042,
+                  "rms": 0.00003925762124693712,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005493414296491306,
+                  "rms": 0.00017365280924170717
+                },
+                "relativeError": {
+                  "max": 0.0007127091927012455,
+                  "rms": 0.0002249821224393696,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 496.6066659999997,
+        "spiceTsChildWallMs": 1021.1679999999978,
+        "metricProcessWallMs": 479.34449999999924
+      }
+    },
+    {
+      "id": "o-18",
+      "sourcePath": "xyce/Netlists/BJT_EXTNODE/npn2.cir",
+      "sha256": "54089a56e1b919d6b91f7da6528bc14a235bf05079488dbf73db762dfa7df287",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "dc:12"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 8,
+      "worstNormalizedError": 0.000685,
+      "worstSignal": "dc v(1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "dc",
+          "signals": [
+            "i(vcc)",
+            "i(vmon1)",
+            "i(vmon2)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)",
+            "v(5)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.4717112716802934e-7,
+                  "rms": 4.652239628743147e-8
+                },
+                "relativeError": {
+                  "max": 0.00017011586334607538,
+                  "rms": 0.000052036657907714786,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.457139070728481e-9,
+                  "rms": 4.6061753115794286e-10
+                },
+                "relativeError": {
+                  "max": 0.00017011578509518294,
+                  "rms": 0.00005203663400582588,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.4571398809727545e-7,
+                  "rms": 4.606177875628394e-8
+                },
+                "relativeError": {
+                  "max": 0.00017011586412855455,
+                  "rms": 0.00005203665814673821,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005493414296491306,
+                  "rms": 0.00017365280924170717
+                },
+                "relativeError": {
+                  "max": 0.0007127091927012455,
+                  "rms": 0.0002249821224393696,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0002914279761947469,
+                  "rms": 0.00009212355751273513
+                },
+                "relativeError": {
+                  "max": 0.0001274344488088042,
+                  "rms": 0.00003925762124693712,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0002914279761947469,
+                  "rms": 0.00009212355751273513
+                },
+                "relativeError": {
+                  "max": 0.0001274344488088042,
+                  "rms": 0.00003925762124693712,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005493414296491306,
+                  "rms": 0.00017365280924170717
+                },
+                "relativeError": {
+                  "max": 0.0007127091927012455,
+                  "rms": 0.0002249821224393696,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 12,
+              "ngspicePoints": 12,
+              "alignedPoints": 12,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.4717112716802934e-7,
+                  "rms": 4.652239628743147e-8
+                },
+                "relativeError": {
+                  "max": 0.00017011586334607538,
+                  "rms": 0.000052036657907714786,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.457139070728481e-9,
+                  "rms": 4.6061753115794286e-10
+                },
+                "relativeError": {
+                  "max": 0.00017011578509518294,
+                  "rms": 0.00005203663400582588,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vmon2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 1.4571398809727545e-7,
+                  "rms": 4.606177875628394e-8
+                },
+                "relativeError": {
+                  "max": 0.00017011586412855455,
+                  "rms": 0.00005203665814673821,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005493414296491306,
+                  "rms": 0.00017365280924170717
+                },
+                "relativeError": {
+                  "max": 0.0007127091927012455,
+                  "rms": 0.0002249821224393696,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0002914279761947469,
+                  "rms": 0.00009212355751273513
+                },
+                "relativeError": {
+                  "max": 0.0001274344488088042,
+                  "rms": 0.00003925762124693712,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0002914279761947469,
+                  "rms": 0.00009212355751273513
+                },
+                "relativeError": {
+                  "max": 0.0001274344488088042,
+                  "rms": 0.00003925762124693712,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 12,
+                "absoluteError": {
+                  "max": 0.0005493414296491306,
+                  "rms": 0.00017365280924170717
+                },
+                "relativeError": {
+                  "max": 0.0007127091927012455,
+                  "rms": 0.0002249821224393696,
+                  "sampleCount": 12,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 746.3707080000022,
+        "spiceTsChildWallMs": 1297.2472909999997,
+        "metricProcessWallMs": 613.0364580000023
+      }
+    },
+    {
+      "id": "o-19",
+      "sourcePath": "xyce/Netlists/DIODE_ANALYTIC/breakdown_model.cir",
+      "sha256": "c428a046c15bce99cb0f75a8346327a2becc1adb4c37b175c6d07da133159249",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "tran:10000008"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "tran:10000008"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 3,
+      "worstNormalizedError": 1.22e-12,
+      "worstSignal": "tran v(1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "tran",
+          "signals": [
+            "i(vdummy)",
+            "v(1)",
+            "v(2)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 10000008,
+              "ngspicePoints": 10000008,
+              "alignedPoints": 10000008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vdummy)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 10000008
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 1.224652985245411e-16,
+                  "rms": 1.2246529852452618e-16
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 10000008
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10000008,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 10000008,
+              "ngspicePoints": 10000008,
+              "alignedPoints": 10000008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vdummy)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 10000008
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 1.224652985245411e-16,
+                  "rms": 1.2246529852452618e-16
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 10000008
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10000008,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 53062.86875000001,
+        "spiceTsChildWallMs": 15774.656790999987,
+        "metricProcessWallMs": 66192.912083
+      }
+    },
+    {
+      "id": "o-20",
+      "sourcePath": "xyce/Netlists/DIODE_ANALYTIC/forward_model.cir",
+      "sha256": "f5e090a36963633e2be6dc76dee709dc51efb4b9fa97dc5d93667c25b64dca9c",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "tran:10000008"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "tran:10000008"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 3,
+      "worstNormalizedError": 1.67e-15,
+      "worstSignal": "tran v(2)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "tran",
+          "signals": [
+            "i(v1)",
+            "v(1)",
+            "v(2)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 10000008,
+              "ngspicePoints": 10000008,
+              "alignedPoints": 10000008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 1.4757665443600018e-28,
+                  "rms": 1.4757658319875551e-28
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 10000008
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 3.3306690738754696e-16,
+                  "rms": 3.3306675461632e-16
+                },
+                "relativeError": {
+                  "max": 1.6653345369377324e-15,
+                  "rms": 1.6653337730816e-15,
+                  "sampleCount": 10000008,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 10000008,
+              "ngspicePoints": 10000008,
+              "alignedPoints": 10000008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 1.4757665443600018e-28,
+                  "rms": 1.4757658319875551e-28
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 10000008
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 10000008,
+                "absoluteError": {
+                  "max": 3.3306690738754696e-16,
+                  "rms": 3.3306675461632e-16
+                },
+                "relativeError": {
+                  "max": 1.6653345369377324e-15,
+                  "rms": 1.6653337730816e-15,
+                  "sampleCount": 10000008,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 54491.506250000006,
+        "spiceTsChildWallMs": 16410.531415999983,
+        "metricProcessWallMs": 90351.13
+      }
+    },
+    {
+      "id": "o-21",
+      "sourcePath": "xyce/Netlists/DIODE_CMC/DiodeClipper_DC.cir",
+      "sha256": "574f4b63a33c5a2d735258cdb4ca04e36a5a43f34b57d618a8eace385ca9196c",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "dc:26"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "dc:26"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 6,
+      "worstNormalizedError": 0.0000446,
+      "worstSignal": "dc i(vin)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "dc",
+          "signals": [
+            "i(vcc)",
+            "i(vin)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 26,
+              "ngspicePoints": 26,
+              "alignedPoints": 26,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 1.3269722185025971e-7,
+                  "rms": 3.782842300641398e-8
+                },
+                "relativeError": {
+                  "max": 0.00011861730976638002,
+                  "rms": 0.00002576159353490439,
+                  "sampleCount": 26,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vin)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 4.151216635231436e-7,
+                  "rms": 9.263733874855776e-8
+                },
+                "relativeError": {
+                  "max": 0.00004999289507073796,
+                  "rms": 0.000013285559273393597,
+                  "sampleCount": 25,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 26,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 0.000415121663522533,
+                  "rms": 0.00009263733874860263
+                },
+                "relativeError": {
+                  "max": 0.0005961078883243197,
+                  "rms": 0.00013076971186461026,
+                  "sampleCount": 26,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 25,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 26
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 26,
+              "ngspicePoints": 26,
+              "alignedPoints": 26,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 1.3269722185025971e-7,
+                  "rms": 3.782842300641398e-8
+                },
+                "relativeError": {
+                  "max": 0.00011861730976638002,
+                  "rms": 0.00002576159353490439,
+                  "sampleCount": 26,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vin)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 4.151216635231436e-7,
+                  "rms": 9.263733874855776e-8
+                },
+                "relativeError": {
+                  "max": 0.00004999289507073796,
+                  "rms": 0.000013285559273393597,
+                  "sampleCount": 25,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 26,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 0.000415121663522533,
+                  "rms": 0.00009263733874860263
+                },
+                "relativeError": {
+                  "max": 0.0005961078883243197,
+                  "rms": 0.00013076971186461026,
+                  "sampleCount": 26,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 25,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 26,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 26
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 571.9600419999915,
+        "spiceTsChildWallMs": 1014.4683749999967,
+        "metricProcessWallMs": 425.19758300000103
+      }
+    },
+    {
+      "id": "o-22",
+      "sourcePath": "xyce/Netlists/DIODE_CMC/DiodeClipper_noise.cir",
+      "sha256": "debcbb8af4074b23d7a6a1e7eafd433ea646e4fd8d47a9db058102180f3bdf98",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:31",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:31",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.74e-7,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 31,
+              "ngspicePoints": 31,
+              "alignedPoints": 31,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 1.8813444175797447e-15,
+                  "rms": 1.0176844872761343e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133355580918e-7,
+                  "rms": 1.7383132057602974e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 9.259635817496555e-16,
+                  "rms": 5.6035947978743235e-16
+                },
+                "relativeError": {
+                  "max": 1.7383133364845908e-7,
+                  "rms": 1.7383132057423427e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 31,
+              "ngspicePoints": 31,
+              "alignedPoints": 31,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 1.8813444175797447e-15,
+                  "rms": 1.0176844872761343e-15
+                },
+                "relativeError": {
+                  "max": 1.7383133355580918e-7,
+                  "rms": 1.7383132057602974e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 31,
+                "absoluteError": {
+                  "max": 9.259635817496555e-16,
+                  "rms": 5.6035947978743235e-16
+                },
+                "relativeError": {
+                  "max": 1.7383133364845908e-7,
+                  "rms": 1.7383132057423427e-7,
+                  "sampleCount": 31,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 9.454607656131896e-12,
+                  "rms": 9.454607656131896e-12
+                },
+                "relativeError": {
+                  "max": 1.738313181372448e-7,
+                  "rms": 1.738313181372448e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.297790218263031e-12,
+                  "rms": 5.297790218263031e-12
+                },
+                "relativeError": {
+                  "max": 1.7383131811187355e-7,
+                  "rms": 1.7383131811187355e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 9.454607656131896e-12,
+                  "rms": 9.454607656131896e-12
+                },
+                "relativeError": {
+                  "max": 1.738313181372448e-7,
+                  "rms": 1.738313181372448e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.297790218263031e-12,
+                  "rms": 5.297790218263031e-12
+                },
+                "relativeError": {
+                  "max": 1.7383131811187355e-7,
+                  "rms": 1.7383131811187355e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 440.0158340000198,
+        "spiceTsChildWallMs": 958.6166250000242,
+        "metricProcessWallMs": 424.6498750000028
+      }
+    },
+    {
+      "id": "o-23",
+      "sourcePath": "xyce/Netlists/DIODE_CMC/DiodeClipper.cir",
+      "sha256": "828853fea5596b82de27b603fef5b28a879cd8b8ffc71c0bb3b908fe21ba7e39",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "tran:1000008"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "tran:1000008"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 6,
+      "worstNormalizedError": 2.65e-8,
+      "worstSignal": "tran v(4)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "tran",
+          "signals": [
+            "i(vcc)",
+            "i(vin)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1000008,
+              "ngspicePoints": 1000008,
+              "alignedPoints": 1000008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 4.26121095874199e-11,
+                  "rms": 1.4541959845937118e-11
+                },
+                "relativeError": {
+                  "max": 3.045160597025306e-8,
+                  "rms": 9.624338864734018e-9,
+                  "sampleCount": 1000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vin)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.406199605542835e-10,
+                  "rms": 4.798846733045763e-11
+                },
+                "relativeError": {
+                  "max": 0.0056808888667336,
+                  "rms": 0.00000820354087147108,
+                  "sampleCount": 1000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.4061996056469184e-7,
+                  "rms": 4.798846733196427e-8
+                },
+                "relativeError": {
+                  "max": 0.009972425017411038,
+                  "rms": 0.000013114601602940592,
+                  "sampleCount": 1000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 4.529709940470639e-14,
+                  "rms": 1.0760942247277949e-14
+                },
+                "relativeError": {
+                  "max": 3.87206036645049e-10,
+                  "rms": 5.64070064507192e-13,
+                  "sampleCount": 1000007,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.4073752635512804e-7,
+                  "rms": 4.7989068598123576e-8
+                },
+                "relativeError": {
+                  "max": 0.025997109737541657,
+                  "rms": 0.000027543255834423715,
+                  "sampleCount": 1000007,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1000008,
+              "ngspicePoints": 1000008,
+              "alignedPoints": 1000008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcc)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 4.26121095874199e-11,
+                  "rms": 1.4541959845937118e-11
+                },
+                "relativeError": {
+                  "max": 3.045160597025306e-8,
+                  "rms": 9.624338864734018e-9,
+                  "sampleCount": 1000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vin)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.406199605542835e-10,
+                  "rms": 4.798846733045763e-11
+                },
+                "relativeError": {
+                  "max": 0.0056808888667336,
+                  "rms": 0.000008203540871471093,
+                  "sampleCount": 1000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.4061996056469184e-7,
+                  "rms": 4.7988467331964586e-8
+                },
+                "relativeError": {
+                  "max": 0.009972425017411038,
+                  "rms": 0.000013114601602940592,
+                  "sampleCount": 1000008,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 4.529709940470639e-14,
+                  "rms": 1.0760942247552492e-14
+                },
+                "relativeError": {
+                  "max": 3.87206036645049e-10,
+                  "rms": 5.640700700722675e-13,
+                  "sampleCount": 1000007,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.4073752635512804e-7,
+                  "rms": 4.7989068598123576e-8
+                },
+                "relativeError": {
+                  "max": 0.025997109737541657,
+                  "rms": 0.000027543255834423715,
+                  "sampleCount": 1000007,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          }
+        }
+      ],
+      "classification": "matched",
+      "runtime": {
+        "ngspiceChildWallMs": 6367.360584000009,
+        "spiceTsChildWallMs": 3163.9527499999967,
+        "metricProcessWallMs": 10972.231541999965
+      }
+    }
+  ],
+  "parityGaps": [],
+  "outcomeSha256": "e71d528eceb93b68c477000f1cb155602c90fb541df8b66c8fc911dae9d7914d"
+}

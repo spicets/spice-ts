@@ -1,0 +1,49 @@
+{
+  "issue": 1310,
+  "baseSha": "d8b0f1ce",
+  "environment": {"node": "v22.23.1", "os": "macOS 27.0.1", "arch": "arm64", "cpu": "Apple M5 Pro", "load": "uncontrolled shared host; sequential groups; no extra warmup"},
+  "beforeSeconds": [40.985040708, 66.70369066699999, 38.61474970800002],
+  "afterSeconds": [79.220899625, 121.906112583, 78.409874625],
+  "beforeMedianSeconds": 40.985040708,
+  "afterMedianSeconds": 79.220899625,
+  "runtimeChangePercent": 93.2922311567611,
+  "runtimeLoss": true,
+  "allocations": {"baseline": 67040, "after": 59360, "budgetExclusive": 60000, "reductionPercent": 11.455847255369928, "scope": "explicit numeric-length Array constructions, not all heap objects or bytes", "red": "Initial <50000 trial fails at baseline and after (59360). Final <60000 budget independently fails with old accumulation calls (67040), then passes with new calls."},
+  "stampSha256": "3324cdb29c46ea0b0be79f64b9a06a767eba5549d997e193df9221f0634944db",
+  "identityVerifiedAcrossAllSixRuns": true,
+  "outputSha256AllSixRuns": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+  "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+  "rowsAllSixRuns": 43273,
+  "convergenceAllSixRuns": {
+    "dc": {"newtonIterations": 31, "acceptedSolves": 1, "rejectedSolves": 0, "sourceStepAttempts": 0, "sourceStepFailures": 0, "gminStepAttempts": 0, "gminStepFailures": 0, "failure": null},
+    "transient": {"acceptedSteps": 43272, "rejectedSteps": 3139, "newtonIterations": 100724, "nrRetries": 0, "lteRetries": 3139, "minimumAcceptedTimestep": 2.5e-15, "failure": null}
+  },
+  "profile": {
+    "scope": "Whole-process timeDelta-weighted stack samples, including startup/hash outside simulate, under uncontrolled scheduling; not CPU-cycle accounting.",
+    "classification": "Resolve bundled function-start coordinates via matching build source maps (@jridgewell/trace-mapping 0.3.31) before rebuilding. Precedence: GC leaf; any vbic.ts frame in lines 171-489 baseline or 171-500 after => evaluation; VBIC method matching Charge|Transient|accept or line >= evaluationEnd+210 => charge; VBIC method matching stamp|Jacobian or any stamp-prefixed frame => stamping; source matching solver|matrix|sparse or function matching solve|refactorWithPivots => matrix; harness line >=16 => hashing; source matching result|output or pushResults => output; remainder other. Unresolved frames retain URL/name. GC is not causally attributed. Output/hash have zero separately attributed samples, not zero work.",
+    "beforeTotalSampledSeconds": 41.206958000002494,
+    "beforeBuckets": [
+      {"bucket": "VBIC evaluate/derivatives", "seconds": 27.901375000002567, "percent": 67.71034882021837},
+      {"bucket": "GC", "seconds": 5.170334999999996, "percent": 12.547237774745915},
+      {"bucket": "Stamping", "seconds": 3.824976999999964, "percent": 9.282357120367227},
+      {"bucket": "Accepted-point/charge work", "seconds": 2.275982999999985, "percent": 5.523297788688617},
+      {"bucket": "Matrix factor/solve", "seconds": 1.7265389999999907, "percent": 4.189921032268109},
+      {"bucket": "Other/startup/driver", "seconds": 0.3077489999999995, "percent": 0.7468374637117859}
+    ],
+    "beforeTopEvaluationSelfSeconds": {"add": 5.056690999999999, "evaluate": 4.016638999999961, "constant": 2.977256999999974, "sub": 2.8747219999999745, "scale": 2.1676319999999896},
+    "afterTotalSampledSeconds": 48.850584000000296,
+    "afterSimulateSeconds": 48.36309004099999,
+    "afterBuckets": [
+      {"bucket": "VBIC evaluate/derivatives", "seconds": 30.783565000000316, "percent": 63.01575637253411},
+      {"bucket": "GC", "seconds": 6.127181999999996, "percent": 12.54269959188197},
+      {"bucket": "Stamping", "seconds": 5.651411, "percent": 11.56876855351405},
+      {"bucket": "Accepted-point/charge work", "seconds": 3.1167079999999916, "percent": 6.380083398798206},
+      {"bucket": "Matrix factor/solve", "seconds": 2.732758999999995, "percent": 5.594117359988937},
+      {"bucket": "Other/startup/driver", "seconds": 0.4389589999999998, "percent": 0.8985747232827291}
+    ],
+    "afterTopEvaluationSelfSeconds": {"evaluate": 4.760179999999996, "constant": 4.6840859999999935, "add": 3.13266599999999, "scale": 2.8330099999999923, "diode": 2.171796999999998, "sub": 0.9442869999999994}
+  },
+  "tests": {"vbic": "227 tests / 16 files passed, including fingerprint and ngspice parity", "install": "passed", "build": "passed", "lint": "passed", "fullSuite": "spice-heavy pnpm test exit 0"},
+  "commands": ["pnpm install --frozen-lockfile", "pnpm build", "spice-heavy node --cpu-prof --cpu-prof-dir=<scratch>/r5-before-profile benchmarks/performance/dff-1310.mjs 1", "spice-heavy node benchmarks/performance/dff-1310.mjs 3 (before and after)", "pnpm -C packages/core exec vitest run src/devices/vbic-allocation.test.ts (RED/GREEN)", "pnpm -C packages/core exec vitest run src/devices/vbic", "pnpm lint", "spice-heavy node --cpu-prof --cpu-prof-dir=<scratch>/r5-after-profile benchmarks/performance/dff-1310.mjs 1", "spice-heavy pnpm test"],
+  "losses": ["Median runtime increased 93.2922%; no demonstrated wall-time speedup or causal attribution to host load.", "After median is 45.58x historical ngspice median 1.738080 s; no fresh ngspice run.", "#1309 V(Q) mismatch remains; 43273 rows vs ngspice 40545."]
+}

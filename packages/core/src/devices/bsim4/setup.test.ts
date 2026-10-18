@@ -87,7 +87,7 @@ describe('BSIM4 fail-closed setup', () => {
   it.each([
     ['mobmod', 1], ['capmod', 0], ['diomod', 0], ['diomod', 2], ['rdsmod', 1],
     ['rbodymod', 1], ['rgatemod', 1], ['geomod', 1], ['permod', 0], ['tempmod', 1],
-    ['igcmod', 1], ['igbmod', 1], ['mtrlmod', 1], ['mtrlcompatmod', 1], ['cvchargemod', 1],
+    ['igcmod', 2], ['igbmod', 2], ['mtrlmod', 1], ['mtrlcompatmod', 1], ['cvchargemod', 1],
     ['gidlmod', 1], ['wpemod', 1], ['tnoimod', 1], ['fnoimod', 0],
     ['trnqsmod', 1], ['acnqsmod', 1], ['binunit', 3], ['paramchk', 2],
   ])('rejects genuine alternate selector %s=%s', (parameter, value) => {

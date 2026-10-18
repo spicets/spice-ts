@@ -50,8 +50,8 @@ import {{preprocessBsim4}} from {json.dumps(str(BASE / 'temp.ts'))};
 import {{evaluateBsim4}} from {json.dumps(str(BASE / 'load.ts'))};
 const cases=[];
 for(const type of [1,-1]) for(const temperature of [300.15,360.15]) for(const nf of [1,3])
-for(const extra of [{{}},{{lambda:2e-10,vtl:2e5,xn:4}},{{alpha0:0.1,alpha1:1e4,beta0:0.1,pdits:0.1,pditsd:0.2,pditsl:1e4,fprout:0.2,dvtp0:1e-8,dvtp1:0.2,dvtp2:0.01,dvtp3:0.1,dvtp4:0.2,dvtp5:0.001}}])
-for(const bias of [{{vgs:0,vds:0,vbs:0}},{{vgs:0.4,vds:0.05,vbs:-0.3}},{{vgs:1.4,vds:0.7,vbs:0.1}},{{vgs:1.8,vds:2,vbs:-0.2}},{{vgs:1,vds:-0.7,vbs:-0.5}}]) {{
+for(const extra of [{{}},{{igbmod:1,toxe:1e-9,toxref:1.2e-9,ntox:1.3}},{{igbmod:1,igcmod:1,toxe:1e-9,ngate:1e20,nigbacc:1.2,nigbinv:2.5}},{{lambda:2e-10,vtl:2e5,xn:4}},{{alpha0:0.1,alpha1:1e4,beta0:0.1,pdits:0.1,pditsd:0.2,pditsl:1e4,fprout:0.2,dvtp0:1e-8,dvtp1:0.2,dvtp2:0.01,dvtp3:0.1,dvtp4:0.2,dvtp5:0.001}}])
+for(const bias of [{{vgs:-2,vds:0.7,vbs:-0.2}},{{vgs:-2,vds:-0.7,vbs:-0.9}},{{vgs:0,vds:0,vbs:0}},{{vgs:0.4,vds:0.05,vbs:-0.3}},{{vgs:1.4,vds:0.7,vbs:0.1}},{{vgs:1.8,vds:2,vbs:-0.2}},{{vgs:1,vds:-0.7,vbs:-0.5}}]) {{
  const model=setupBsim4Model({{type,...extra}});
  const instance=setupBsim4Instance(model,{{l:0.35e-6,w:2e-6*nf,nf}},{{d:1,g:2,s:0,b:3}});
  const processed=preprocessBsim4(model,instance,temperature);
@@ -72,7 +72,8 @@ console.log(JSON.stringify(cases));
     c += '\n'.join('double ' + group + ';' for group in re.findall(r'\bdouble\s+([^;]+);', ''.join(lines[100:238])))
     c += '\nvgs=inputVgs; vds=inputVds; vbs=inputVbs; vgd=vgs-vds; vbd=vbs-vds;\n' + body
     targets = [('ids', 'cdrain'), ('gm', 'here->BSIM4gm'), ('gds', 'here->BSIM4gds'), ('gmbs', 'here->BSIM4gmbs'),
-               ('isub', 'here->BSIM4csub'), ('gbgs', 'here->BSIM4gbgs'), ('gbds', 'here->BSIM4gbds'), ('gbbs', 'here->BSIM4gbbs')]
+               ('isub', 'here->BSIM4csub'), ('gbgs', 'here->BSIM4gbgs'), ('gbds', 'here->BSIM4gbds'), ('gbbs', 'here->BSIM4gbbs'),
+               ('igb', 'here->BSIM4Igb'), ('gigbg', 'here->BSIM4gIgbg'), ('gigbd', 'here->BSIM4gIgbd'), ('gigbb', 'here->BSIM4gIgbb')]
     c += '\nprintf("RESULT");\n'
     for _, expression in targets:
         c += f'printf("\\t%.17g", ({expression}) * here->BSIM4nf);\n'

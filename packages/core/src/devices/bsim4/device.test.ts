@@ -49,7 +49,7 @@ describe('BSIM4 DC device integration', () => {
     expect(() => device.charges()).toThrow(UnsupportedModel);
   });
   for (const [parameter, value] of [
-    ['IGCMOD', 1], ['IGBMOD', 1], ['RDSMOD', 1], ['RBODYMOD', 1], ['RGATEMOD', 1],
+    ['IGCMOD', 2], ['IGBMOD', 2], ['RDSMOD', 1], ['RBODYMOD', 1], ['RGATEMOD', 1],
     ['TRNQSMOD', 1], ['ACNQSMOD', 1], ['MOBMOD', 1], ['TEMPMOD', 1], ['GEOMOD', 1],
     ['PERMOD', 0], ['WPEMOD', 1], ['SAREF', 2e-6], ['AGIDL', 1e-9], ['AGISL', 1e-9],
     ['JTSS', 1e-9], ['A2', 0.001], ['PRWG', -0.1], ['RDSW', -1], ['RDSWMIN', -1],
@@ -90,11 +90,13 @@ M1 d g 0 0 DUT L=1u W=10u
       expect(Math.abs((2 - v) / 2000 - (op.ids + op.isub - op.cbd))).toBeLessThan(1e-9);
     });
   }
-  for (const polarity of [1, -1] as const) for (const vds of [0.7, -0.7]) {
-    it(`stamps conservative terminal currents/Jacobian, polarity=${polarity}, Vds=${vds}`, () => {
-      const device = new BSIM4('M', [0, 1, 2, 3], { LEVEL: 54, ALPHA0: 0.1, BETA0: 0.1 },
+  for (const polarity of [1, -1] as const) for (const vds of [0.7, -0.7]) for (const igcmod of [0, 1])
+    for (const igbmod of [0, 1]) for (const vgs of (igbmod ? [-2, 1.4] : [1.4])) {
+    it(`stamps conservative terminal currents/Jacobian, polarity=${polarity}, Vds=${vds}, Vgs=${vgs}, IGCMOD=${igcmod}, IGBMOD=${igbmod}`, () => {
+      const device = new BSIM4('M', [0, 1, 2, 3], { LEVEL: 54, ALPHA0: 0.1, BETA0: 0.1,
+        IGCMOD: igcmod, IGBMOD: igbmod, TOXE: 1e-9, DLCIG: 20e-9, DLCIGD: 30e-9 },
         { L: 1e-6, W: 10e-6, NF: 2, M: 3, MULT_I: 2, AD: 1e-12, AS: 2e-12 }, polarity);
-      const bias = { vds, vgs: 1.4, vbs: -0.9 };
+      const bias = { vds, vgs, vbs: -0.9 };
       const voltage = [0.4 + polarity * vds, 0.4 + polarity * bias.vgs, 0.4, 0.4 + polarity * bias.vbs];
       function stamp(v: number[]) {
         let G = new Float64Array(16), B = new Float64Array(4);
@@ -110,8 +112,14 @@ M1 d g 0 0 DUT L=1u W=10u
       }
       const { G, current } = stamp(voltage);
       const op = device.evaluate(bias);
-      expect(current[0]).toBeCloseTo(6 * polarity * (op.mode * op.ids + (op.mode > 0 ? op.isub : 0) - op.cbd), 12);
+      expect(current[0]).toBeCloseTo(6 * polarity * (op.mode * op.ids + (op.mode > 0 ? op.isub : 0)
+        - op.cbd - op.igd - (op.mode > 0 ? op.igcd : op.igcs)), 12);
+      expect(current[1]).toBeCloseTo(6 * polarity * (op.igs + op.igd + op.igcs + op.igcd + op.igb), 12);
       expect(current.reduce((total, x) => total + x, 0)).toBeCloseTo(0, 13);
+      // IGB uses ngspice's approximate bulk chain rule on (Vgs - Vbs).
+      // verify-load.py checks those derivatives against C; loaded-gate tests
+      // exercise Newton convergence rather than imposing a different Jacobian.
+      if (igbmod) return;
       for (let column = 0; column < 4; column++) {
         const h = 1e-5, hi = [...voltage], lo = [...voltage]; hi[column] += h; lo[column] -= h;
         const high = stamp(hi).current, low = stamp(lo).current;

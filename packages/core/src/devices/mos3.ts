@@ -58,6 +58,10 @@ const COEFF2 = -0.01110777e0;
 
 /** Resolved MOS3/MOS9 model card after mos3set.c defaulting and mos3temp.c model preprocessing. */
 export interface MOS3ModelParams {
+  /** mos3noi.c selectors; mos9noi.c always uses the legacy current-based form. */
+  KF: number;
+  AF: number;
+  NLEV: number;
   /** 3 (ngspice mos3) or 9 (ngspice mos9). */
   level: 3 | 9;
   polarity: number;
@@ -227,7 +231,7 @@ export function resolveMOS3Model(
     'IS', 'PB', 'CGSO', 'CGDO', 'CGBO', 'RSH', 'CJ', 'MJ', 'CJSW', 'MJSW',
     'JS', 'TOX', 'LD', 'XL', 'WD', 'XW', 'DELVTO', 'DELVT0', 'U0', 'UO',
     'FC', 'NSUB', 'TPG', 'NSS', 'VMAX', 'XJ', 'NFS', 'ETA', 'DELTA',
-    'THETA', 'KAPPA', 'TNOM',
+    'THETA', 'KAPPA', 'TNOM', 'KF', 'AF', 'NLEV',
   ]);
   return {
     level,
@@ -262,6 +266,9 @@ export function resolveMOS3Model(
     THETA: params.THETA ?? 0,
     KAPPA: params.KAPPA ?? 0.2,
     TNOM: tnom,
+    KF: params.KF ?? 0,
+    AF: params.AF ?? 1,
+    NLEV: params.NLEV ?? 2,
     unsupportedTemperatureParameter: Object.keys(params).find(key => params[key] !== undefined
       && !temperatureParameters.has(key)),
     oxideCapFactor,
@@ -984,6 +991,13 @@ export class MOS3 implements DeviceModel {
     const cb = load.cbs + load.cbd;
     const cbhat = cb + load.gbd * delvbd + load.gbs * delvbs;
     return Math.abs(cbhat - cb) <= reltol * Math.max(Math.abs(cbhat), Math.abs(cb)) + abstol;
+  }
+
+  /** Noise geometry in mos3noi.c/mos9noi.c excludes the DC-only XL/XW offsets. */
+  noiseOperatingPoint(): { gm: number; cd: number; length: number; width: number } {
+    return { gm: this.lastLoad.gm, cd: this.lastLoad.cd,
+      length: this.instance.L - 2 * this.model.LD,
+      width: this.instance.W - 2 * this.model.WD };
   }
 
   /** Meyer half capacitances [gs, gd, gb] at the given solution. */

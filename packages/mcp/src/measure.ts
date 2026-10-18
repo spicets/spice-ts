@@ -1,12 +1,12 @@
-import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/protocol';
+import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
 const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when'] as const;
 type Measurement = {
-  kind: typeof kinds[number]; signal: string; analysis: number;
+  kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
   from?: number; to?: number; at?: number; value?: number;
   edge?: 'rising' | 'falling' | 'either';
 };
-type MeasurementErrorCode = 'INVALID_MEASUREMENT' | 'UNKNOWN_SIGNAL' | 'UNKNOWN_ANALYSIS' | 'AMBIGUOUS_ANALYSIS' | 'OUT_OF_RANGE' | 'NO_CROSSING' | 'NON_FINITE_RESULT';
+type MeasurementErrorCode = 'INVALID_MEASUREMENT' | 'UNKNOWN_SIGNAL' | 'UNKNOWN_ANALYSIS' | 'AMBIGUOUS_ANALYSIS' | 'UNKNOWN_STEP' | 'OUT_OF_RANGE' | 'NO_CROSSING' | 'NON_FINITE_RESULT';
 type MeasurementResult = { value: number; unit: string } | { error: { code: MeasurementErrorCode; message: string } };
 
 export const measurementListSchema = {
@@ -16,6 +16,7 @@ export const measurementListSchema = {
     properties: {
       kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256 },
       analysis: { type: 'integer', minimum: 0 },
+      step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
       edge: { enum: ['rising', 'falling', 'either'] },
     },
@@ -31,11 +32,12 @@ function valid(value: unknown): value is Measurement {
   const m = value as Measurement;
   return kinds.includes(m.kind) && typeof m.signal === 'string' && m.signal.length > 0 && m.signal.length <= 256
     && Number.isInteger(m.analysis) && m.analysis >= 0
+    && (m.step === undefined || (Number.isInteger(m.step) && m.step >= 0))
     && ['from', 'to', 'at', 'value'].every(key => {
       const n = (m as unknown as Record<string, unknown>)[key];
       return n === undefined || (typeof n === 'number' && Number.isFinite(n));
     })
-    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'from', 'to', 'at', 'value', 'edge'].includes(key))
+    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge'].includes(key))
     && (m.edge === undefined || ['rising', 'falling', 'either'].includes(m.edge))
     && (m.from === undefined || m.to === undefined || m.from <= m.to)
     && (m.kind !== 'at' || m.at !== undefined)
@@ -72,8 +74,10 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     const m = raw;
     const analyses = result.analyses.filter(a => a.analysisIndex === m.analysis);
     if (!analyses.length) return error('UNKNOWN_ANALYSIS', 'No analysis with this index');
-    if (analyses.length !== 1) return error('AMBIGUOUS_ANALYSIS', 'Stepped analyses must be measured in separate requests');
-    const data = series(analyses[0], m.signal);
+    if (m.step === undefined && analyses.length !== 1) return error('AMBIGUOUS_ANALYSIS', `Analysis has ${analyses.length} steps; select a zero-based step index`);
+    const analysis = m.step === undefined ? analyses[0] : analyses.find(a => (a.step?.index ?? 0) === m.step);
+    if (!analysis) return error('UNKNOWN_STEP', 'No step with this index in the selected analysis');
+    const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', 'Signal or projection is unavailable');
     let { x, y } = data;
     if (!x.length || x.length !== y.length || ![...x, ...y].every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal has empty or non-finite data');

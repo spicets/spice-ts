@@ -118,9 +118,9 @@ describe('XSPICE compile-time checks', () => {
       'disto', 'v1 1 0 1 ac 1', 'a1 1 2 g1', '.model g1 gain', 'r2 2 0 1k', '.disto dec 2 1k 10k', '.end',
     ].join('\n')).compile()).toThrow('do not support .disto');
     expect(() => parse([
-      'noisy gain', 'v1 1 0 1 ac 1', 'a1 1 2 g1', '.model g1 gain (noise_voltage=1u)', 'r2 2 0 1k',
+      'unsupported noise', 'v1 1 0 1 ac 1', 'a1 1 2 g1', '.model g1 s_xfer (num_coeff=[1] den_coeff=[1 1])', 'r2 2 0 1k',
       '.noise v(2) v1 dec 2 1k 10k', '.end',
-    ].join('\n')).compile()).toThrow('gain noise sources are not supported');
+    ].join('\n')).compile()).toThrow(InvalidCircuitError);
   });
 });
 

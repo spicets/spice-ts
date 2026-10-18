@@ -49,7 +49,8 @@ All guards reuse `UnsupportedModelParameterError`, exported here as
   TRNQSMOD=0, ACNQSMOD=0, MTRLMOD=0, MTRLCOMPATMOD=0,
   CVCHARGEMOD=0, GIDLMOD=0, WPEMOD=0, FNOIMOD=1, TNOIMOD=0.
   BINUNIT accepts 1/2; PARAMCHK accepts 0/1. Baselines do not imply noise or
-  capacitive support. Alternate CAPMOD/PERMOD values conservatively reject.
+  capacitive support. IGCMOD=1 and IGBMOD=1 additionally support static tunneling.
+  Alternate CAPMOD/PERMOD values conservatively reject.
 - Every explicitly nondefault model stress/WPE parameter in `LAYOUT_DEFAULTS`
   rejects, including L/W/P coefficients. This is conservative even where another
   activation input is absent. Defaults such as SAREF=1e-6 and LODK2=1 are neutral.

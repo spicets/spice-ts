@@ -4,6 +4,7 @@ import { ParseError } from '../../errors.js';
 import { simulate } from '../../simulate.js';
 import { parse, parseTitleless } from '../index.js';
 import { extractControlBlocks } from './source.js';
+import { UnsupportedControlCommandError } from './errors.js';
 
 // ngspice-47 src/frontend/inp.c (inp_spsource): a `.endc` card outside a
 // `.control` section is removed from the deck after printing
@@ -51,13 +52,14 @@ describe('#666 misplaced .endc warns and continues like ngspice-47', () => {
     expect(() => parse(`${deck}\n.control\n.control\n.endc`)).toThrow(ParseError);
   });
 
-  it('moves ro_nand_digi.cir past the stray .endc to the D_NAND model (#553)', async () => {
+  it('moves ro_nand_digi.cir past the stray .endc and scoped D_NAND to edisplay (#1283)', async () => {
     const netlist = readFileSync(new URL(
       '../../../../../benchmarks/corpus/corpus-f/fixtures/examples/xspice/various/ro_nand_digi.cir',
       import.meta.url,
     ), 'utf8');
     const error = await simulate(netlist).then(() => undefined, (caught: unknown) => caught);
     expect(String(error)).not.toContain('.endc');
-    expect(String(error)).toContain('D_NAND');
+    expect(error).toBeInstanceOf(UnsupportedControlCommandError);
+    expect(String(error)).toContain("Unsupported .control command 'edisplay'");
   });
 });

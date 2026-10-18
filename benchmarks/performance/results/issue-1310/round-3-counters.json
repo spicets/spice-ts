@@ -1,0 +1,260 @@
+{
+  "revision": "afefa01b5aac9377231c40b38f9fc06e9efb7b0c",
+  "measuredAt": "2026-10-17T11:58:51.765Z",
+  "host": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M5 Pro",
+    "node": "v22.23.1"
+  },
+  "fixture": "benchmarks/corpus/corpus-f/fixtures/examples/vbic/DFF_Y_ECL.sp",
+  "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+  "ngspiceVersion": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n******",
+  "commands": [
+    "spice-heavy ngspice -b <scratch>/stats.cir (three separate processes)",
+    "spice-heavy node benchmarks/performance/dff-1310.mjs 3"
+  ],
+  "statsWrapper": "Issue 1310 stats-only control wrapper\n.control\nsource benchmarks/corpus/corpus-f/fixtures/examples/vbic/DFF_Y_ECL.sp\nrusage all\nquit\n.endc\n.end\n",
+  "ngspice": [
+    {
+      "run": 1,
+      "rows": 40545,
+      "counters": {
+        "Total elapsed time (seconds)": 1.765,
+        "Number of lines in the deck": 34,
+        "Netlist loading time": 0.000264,
+        "Subckt and Param expansion time": 0.000333,
+        "Netlist parsing time": 0.000303,
+        "Nominal temperature": 27,
+        "Operating temperature": 27,
+        "Total iterations": 81517,
+        "Transient iterations": 81491,
+        "Circuit Equations": 123,
+        "Circuit original non-zeroes": 688,
+        "Circuit fill-in non-zeroes": 122,
+        "Circuit total non-zeroes": 0,
+        "Transient timepoints": 40545,
+        "Accepted timepoints": 40545,
+        "Rejected timepoints": 0,
+        "Total analysis time (seconds)": 1.75813,
+        "Matrix load time": 1.08074,
+        "Matrix synchronize time": 0,
+        "Matrix reorder time": 0.00018,
+        "Matrix factor time": 0.284215,
+        "Matrix solve time": 0.140406,
+        "Transient analysis time": 1.75058,
+        "Transient load time": 1.08022,
+        "Transient sync time": 0,
+        "Transient factor time": 0.284096,
+        "Transient solve time": 0.140347,
+        "Transient trunc time": 0.095339,
+        "Transient iterations for the last time point": 0,
+        "AC analysis time": 0,
+        "AC load time": 0,
+        "AC sync time": 0,
+        "AC factor time": 0,
+        "AC solve time": 0
+      }
+    },
+    {
+      "run": 2,
+      "rows": 40545,
+      "counters": {
+        "Total elapsed time (seconds)": 1.745,
+        "Number of lines in the deck": 34,
+        "Netlist loading time": 0.00016,
+        "Subckt and Param expansion time": 0.000208,
+        "Netlist parsing time": 0.000182,
+        "Nominal temperature": 27,
+        "Operating temperature": 27,
+        "Total iterations": 81517,
+        "Transient iterations": 81491,
+        "Circuit Equations": 123,
+        "Circuit original non-zeroes": 688,
+        "Circuit fill-in non-zeroes": 122,
+        "Circuit total non-zeroes": 0,
+        "Transient timepoints": 40545,
+        "Accepted timepoints": 40545,
+        "Rejected timepoints": 0,
+        "Total analysis time (seconds)": 1.73934,
+        "Matrix load time": 1.092,
+        "Matrix synchronize time": 0,
+        "Matrix reorder time": 0.000162,
+        "Matrix factor time": 0.273772,
+        "Matrix solve time": 0.143966,
+        "Transient analysis time": 1.73808,
+        "Transient load time": 1.0916,
+        "Transient sync time": 0,
+        "Transient factor time": 0.273669,
+        "Transient solve time": 0.14391,
+        "Transient trunc time": 0.090263,
+        "Transient iterations for the last time point": 0,
+        "AC analysis time": 0,
+        "AC load time": 0,
+        "AC sync time": 0,
+        "AC factor time": 0,
+        "AC solve time": 0
+      }
+    },
+    {
+      "run": 3,
+      "rows": 40545,
+      "counters": {
+        "Total elapsed time (seconds)": 1.5,
+        "Number of lines in the deck": 34,
+        "Netlist loading time": 0.000205,
+        "Subckt and Param expansion time": 0.000246,
+        "Netlist parsing time": 0.000225,
+        "Nominal temperature": 27,
+        "Operating temperature": 27,
+        "Total iterations": 81517,
+        "Transient iterations": 81491,
+        "Circuit Equations": 123,
+        "Circuit original non-zeroes": 688,
+        "Circuit fill-in non-zeroes": 122,
+        "Circuit total non-zeroes": 0,
+        "Transient timepoints": 40545,
+        "Accepted timepoints": 40545,
+        "Rejected timepoints": 0,
+        "Total analysis time (seconds)": 1.49554,
+        "Matrix load time": 0.93032,
+        "Matrix synchronize time": 0,
+        "Matrix reorder time": 0.000124,
+        "Matrix factor time": 0.244498,
+        "Matrix solve time": 0.132602,
+        "Transient analysis time": 1.49422,
+        "Transient load time": 0.930005,
+        "Transient sync time": 0,
+        "Transient factor time": 0.244418,
+        "Transient solve time": 0.132555,
+        "Transient trunc time": 0.075468,
+        "Transient iterations for the last time point": 0,
+        "AC analysis time": 0,
+        "AC load time": 0,
+        "AC sync time": 0,
+        "AC factor time": 0,
+        "AC solve time": 0
+      }
+    }
+  ],
+  "spiceTs": [
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 53.184228875,
+      "rows": 43273,
+      "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 43272,
+          "rejectedSteps": 3139,
+          "newtonIterations": 100724,
+          "nrRetries": 0,
+          "lteRetries": 3139,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      }
+    },
+    {
+      "run": 1,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 51.488292833,
+      "rows": 43273,
+      "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 43272,
+          "rejectedSteps": 3139,
+          "newtonIterations": 100724,
+          "nrRetries": 0,
+          "lteRetries": 3139,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      }
+    },
+    {
+      "run": 2,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 51.827137707999995,
+      "rows": 43273,
+      "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 43272,
+          "rejectedSteps": 3139,
+          "newtonIterations": 100724,
+          "nrRetries": 0,
+          "lteRetries": 3139,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      }
+    }
+  ],
+  "derived": {
+    "ngspice_median_transient_seconds": 1.73808,
+    "spice_ts_median_simulate_seconds": 51.827137707999995,
+    "runtime_ratio": 29.818614625333698,
+    "iteration_ratio": 1.236013792934189,
+    "per_iteration_cost_ratio": 24.12482352203118,
+    "ngspice_seconds_per_iteration": 2.13284902627284e-05,
+    "spice_ts_seconds_per_iteration": 0.000514546063579683,
+    "accepted_advance_ratio": 1.0672849250197316,
+    "attempted_advance_ratio": 1.1447069850039464,
+    "iteration_share_log_gap": 0.06241037616038565,
+    "cost_share_log_gap": 0.9375896238396143,
+    "iteration_excess_share_at_ng_cost": 0.008189630070791654,
+    "iteration_savings_at_ts_cost": 0.19094753981176282,
+    "counterfactual_ts_seconds_at_ng_iteration_count": 41.930873267171954
+  },
+  "statsOnlyValidation": {
+    "originalDeckCommand": "spice-heavy ngspice -b benchmarks/corpus/corpus-f/fixtures/examples/vbic/DFF_Y_ECL.sp",
+    "originalDeckRows": 40545,
+    "wrapperRows": [
+      40545,
+      40545,
+      40545
+    ],
+    "numericalOptionsChanged": false,
+    "scope": "Row-count check, not an ngspice waveform hash check. Stats commands execute after TRAN; sourced deck bytes are unchanged."
+  }
+}

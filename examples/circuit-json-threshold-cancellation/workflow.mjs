@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fromCircuitJSON } from '@spice-ts/circuit-json';
 import { createToolExecutor } from '@spice-ts/mcp';
-import { sha256CanonicalJson } from '@spice-ts/protocol';
+import { sha256CanonicalJson } from '@spice-ts/core/protocol';
 
 const fixture = JSON.parse(await readFile(new URL('./circuit.json', import.meta.url), 'utf8'));
 const executeTool = createToolExecutor();

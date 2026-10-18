@@ -23,6 +23,6 @@ CI runs the focused test through `pnpm -C examples test` (`test:agent-workflows`
 
 The AC sweep `.ac lin 2 10 100` produces one point (10 Hz), matching ngspice-47's `acan.c` `N-1 > 1` step guard for `lin 2` (#555). The transient grid (58 points for `.tran 1u 2u`; ngspice-47 takes 59) follows the ngspice-style first step from #545; the remaining step-grid divergence after t=0 is tracked in #561.
 
-`packed-consumer.mjs` packs `@spice-ts/core`, `@spice-ts/protocol`, and `@spice-ts/mcp`, installs the tarballs in a temporary external project, copies only `workflow.mjs`, and runs from that external directory. The focused test compares stdout byte-for-byte with `expected-output.json`.
+`packed-consumer.mjs` packs `@spice-ts/core`, `@spice-ts/circuit-json`, and `@spice-ts/mcp`, installs the tarballs in a temporary external project, copies only `workflow.mjs`, and runs from that external directory. The focused test compares stdout byte-for-byte with `expected-output.json`.
 
 The circuit is authored demonstration data. It is not benchmark or parity evidence, and this example makes no simulator-accuracy or performance claim.

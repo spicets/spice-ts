@@ -62,6 +62,8 @@ export class TransientResult {
     private readonly voltageArrays: Map<string, number[]>,
     private readonly currentArrays: Map<string, number[]>,
     private readonly digitalHistories: Map<string, DigitalNodeEvent[]> = new Map(),
+    /** Saved device quantities sampled at exactly the returned time points. */
+    public readonly deviceVectors: Map<string, Float64Array> = new Map(),
   ) {}
 
   /**
@@ -361,6 +363,8 @@ export class DCSweepResult {
     private readonly currentArrays: Map<string, Float64Array>,
     /** Point-aligned outer sweep coordinates, when a second source is swept. */
     public readonly secondarySweepValues?: Float64Array,
+    /** Explicitly saved device outputs, sampled at each DC operating point. */
+    public readonly deviceVectors: Map<string, Float64Array> = new Map(),
   ) {}
 
   /**
@@ -532,6 +536,26 @@ export interface ControlScriptRun {
   result: SimulationResult;
 }
 
+/** Harmonic table from one control-language Fourier operand. */
+export interface FourierResult {
+  vector: string;
+  fundamental: number;
+  gridSize: number;
+  degree: number;
+  periods: number;
+  /** Total harmonic distortion in percent, excluding DC and the fundamental. */
+  thd: number;
+  harmonics: {
+    harmonic: number;
+    frequency: number;
+    magnitude: number;
+    /** Sine-reference phase in degrees. */
+    phase: number;
+    normalizedMagnitude: number;
+    normalizedPhase: number;
+  }[];
+}
+
 /** What an interpreted `.control` script did. */
 export interface ControlScriptResult {
   /** Every analysis the script ran, in execution order. */
@@ -542,4 +566,6 @@ export interface ControlScriptResult {
   quit: boolean;
   /** Every `meas` command the script ran, in order (failed ones with ngspice's reason). */
   measurements: MeasurementResult[];
+  /** Fourier commands in execution order, one entry per operand. */
+  fourier?: FourierResult[];
 }

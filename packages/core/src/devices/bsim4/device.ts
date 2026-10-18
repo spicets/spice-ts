@@ -158,5 +158,19 @@ export class BSIM4 implements DeviceModel {
     pair(dr, 3, op.isub, substrate);
     pair(3, 2, op.cbs, [0, 0, -op.gbs, op.gbs]);
     pair(3, 0, op.cbd, [-op.gbd, 0, 0, op.gbd]);
+    // b4ld.c:4764-4800,4855-4891. Channel partition follows mode;
+    // overlap currents always belong to the physical source/drain terminals.
+    const gateChannel = (to: number, current: number, gg: number, gd: number, gb: number) => {
+      const gradient = [0, gg, 0, gb];
+      gradient[dr] = gd; gradient[sr] = -(gg + gd + gb);
+      pair(1, to, current, gradient);
+    };
+    gateChannel(sr, op.igcs, op.gigcsg, op.gigcsd, op.gigcsb);
+    gateChannel(dr, op.igcd, op.gigcdg, op.gigcdd, op.gigcdb);
+    // b4ld.c:4801-4811,4892-4902. Gate-body derivatives follow channel
+    // orientation, but the current always flows between gate and bulk.
+    if (this.model.values.igbmod === 1) gateChannel(3, op.igb, op.gigbg, op.gigbd, op.gigbb);
+    pair(1, 2, op.igs, [0, op.gigsg, -op.gigsg, 0]);
+    pair(1, 0, op.igd, [-op.gigdg, op.gigdg, 0, 0]);
   }
 }

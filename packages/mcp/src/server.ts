@@ -1,7 +1,7 @@
 import { Circuit, parseTitleless, mapProtocolErrorV1, simulateProtocolV1, validateProtocolV1 } from '@spice-ts/core';
 import { fromCircuitJSON, toCircuitJSON } from '@spice-ts/circuit-json';
 import type { CircuitJSON, ConversionDiagnosticV1 } from '@spice-ts/circuit-json';
-import { commonSchemaV1, sha256CanonicalJson } from '@spice-ts/protocol';
+import { commonSchemaV1, sha256CanonicalJson } from '@spice-ts/core/protocol';
 import type {
   AnalysisResultV1,
   JsonObject,
@@ -15,13 +15,18 @@ import type {
   SpiceApiErrorV1,
   StreamTerminalV1,
   SuccessEnvelopeV1,
-} from '@spice-ts/protocol';
+} from '@spice-ts/core/protocol';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { createRequire } from 'node:module';
 import { Worker } from 'node:worker_threads';
 import { estimatedResultPoints, requestPlan, resolvedOptions } from './request-plan.js';
 import type { RequestPlan } from './request-plan.js';
 import { measurementListSchema, measureResult } from './measure.js';
+import { compareInputSchema, compareOutputSchema, compareSignals } from './compare.js';
+import { overrideParameters, parameterOverrides, ParameterOverrideError, paramsSchema } from './params.js';
+import type { ParameterOverrideApiError } from './params.js';
+import { runSweep, sweepProperties } from './sweep.js';
+import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } from './ac-metrics.js';
 
 export interface McpLimits {
   maxDocumentBytes: number;
@@ -130,6 +135,11 @@ const capabilitiesOutputSchema = {
     analyses: { type: 'array', items: { enum: ['op', 'dc', 'tran', 'ac'] } },
     inputFormats: { type: 'array', items: { enum: ['spice', 'spice-ts', 'circuit-json'] } },
     tools: { type: 'array', items: { type: 'string' } },
+    parameterOverrides: { type: 'object', properties: {
+      tools: { type: 'array', items: { type: 'string' } }, input: { type: 'string' },
+      valueType: { type: 'string' }, scope: { type: 'string' }, caseSensitive: { type: 'boolean' },
+      unknownParameterCode: { const: 'UNKNOWN_PARAMETER' },
+    } },
     limits: {
       type: 'object',
       required: Object.keys(DEFAULT_MCP_LIMITS),
@@ -256,13 +266,35 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_simulate',
-    description: 'Execute one bounded protocol-v1 simulation request.',
-    inputSchema: requestInputSchema,
+    description: 'Execute one bounded protocol-v1 simulation request. Optional params: Record<string, number> overrides top-level .param values before elaboration (SPICE text only, case-insensitive, finite numbers). Unknown names return UNKNOWN_PARAMETER with available names.',
+    inputSchema: { ...requestInputSchema, properties: { ...requestInputSchema.properties, params: paramsSchema } },
     outputSchema: { ...commonSchemaV1.$defs.simulationResult, $defs: commonSchemaV1.$defs },
   },
   {
+    name: 'spice_sweep',
+    description: 'Sequential bounded parameter sweep. Target a top-level .param (SPICE only) or R/C/L component scalar value (SPICE or native JSON IR). Supply exactly one of values or range. lin points is total samples; dec points is samples per decade including exact stop. Returns ordered statuses and optional spice_measure-style measurements; individual simulation failures do not abort other points. Maximum 100 points and one shared wall-time budget.',
+    inputSchema: {
+      ...requestInputSchema, required: ['request', 'parameter'],
+      properties: { ...requestInputSchema.properties, ...sweepProperties },
+      oneOf: [{ required: ['values'], not: { required: ['range'] } }, { required: ['range'], not: { required: ['values'] } }],
+    },
+  },
+  {
+    name: 'spice_ac_metrics',
+    description: 'Simulate and reduce one AC sweep to gain, half-power bandwidth and loop margins. dcGainDb is the lowest-frequency sample, not an extrapolation to DC. Uses first descending crossings with log-frequency interpolation.',
+    inputSchema: {
+      ...requestInputSchema,
+      required: ['request', 'output'],
+      properties: { ...requestInputSchema.properties, ...acMetricsProperties },
+    },
+    outputSchema: {
+      type: 'object', oneOf: [acMetricsOutputSchema, toolFailureOutputSchema],
+      $defs: commonSchemaV1.$defs,
+    },
+  },
+  {
     name: 'spice_measure',
-    description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; signals are v(node), i(branch), mag(v(node)), or db(v(node)). Cross/when return the first matching axis coordinate.',
+    description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; optional step selects the zero-based SimulationResultV1 step.index (required for multiple steps). Unstepped analyses accept step 0 only. Signals are v(node), i(branch), mag(v(node)), or db(v(node)). Cross/when return the first matching axis coordinate.',
     inputSchema: {
       ...requestInputSchema,
       required: ['request', 'measurements'],
@@ -284,9 +316,15 @@ export const MCP_TOOLS = Object.freeze([
     },
   },
   {
+    name: 'spice_compare',
+    description: 'Compare inline waveforms, protocol-v1 results, or completed jobs on the union axis within their overlap. Errors are relative to the reference peak. AC compares magnitude and wrapped phase in degrees.',
+    inputSchema: { ...compareInputSchema, $defs: commonSchemaV1.$defs },
+    outputSchema: compareOutputSchema,
+  },
+  {
     name: 'spice_simulation_start',
-    description: 'Start one bounded protocol-v1 simulation job and return its first opaque cursor.',
-    inputSchema: requestInputSchema,
+    description: 'Start one bounded protocol-v1 simulation job and return its first opaque cursor. Optional params: Record<string, number> overrides top-level .param values before elaboration (SPICE text only, case-insensitive, finite numbers). Unknown names return UNKNOWN_PARAMETER with available names.',
+    inputSchema: { ...requestInputSchema, properties: { ...requestInputSchema.properties, params: paramsSchema } },
     outputSchema: streamStartToolOutputSchema,
   },
   {
@@ -308,6 +346,7 @@ const capabilities = Object.freeze({
   analyses: Object.freeze(['op', 'dc', 'tran', 'ac']),
   inputFormats: Object.freeze(['spice', 'spice-ts', 'circuit-json']),
   tools: Object.freeze(MCP_TOOLS.map(tool => tool.name)),
+  parameterOverrides,
   limits: DEFAULT_MCP_LIMITS,
   streaming: Object.freeze({
     defaultChunkPoints: DEFAULT_STREAM_CHUNK_POINTS,
@@ -345,21 +384,50 @@ async function executeToolWithStore(
   const limits = options.limits ?? DEFAULT_MCP_LIMITS;
   try {
     if (name === 'spice_capabilities') return success(streamStore.capabilities());
+    if (name === 'spice_sweep') {
+      const original = toolRequest(args);
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const deadline = Date.now() + effective.maxWallTimeMs;
+      const result = await runSweep(args, original, (request, measurements) => executeToolWithStore(
+        measurements === undefined ? 'spice_simulate' : 'spice_measure',
+        { request, ...(measurements === undefined ? {} : { measurements }) },
+        { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
+      ), points => {
+        throwIfCancelled(options.signal);
+        enforceMaximum('maxWallTimeMs', effective.maxWallTimeMs, effective.maxWallTimeMs - (deadline - Date.now()), 'solve');
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify({ parameter: isRecord(args) ? args.parameter : undefined, points })), 'transport');
+      });
+      return success(result);
+    }
     if (name === 'spice_convert') return convertTool(args, limits, options.signal);
+    if (name === 'spice_compare') {
+      throwIfCancelled(options.signal);
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args) ?? ''), 'validation');
+      const compared = compareSignals(args, id => streamStore.comparisonResult(id), limits.maxResultPoints);
+      enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(compared)), 'transport');
+      return { ...success(compared), ...('error' in compared ? { isError: true } : {}) };
+    }
     if (name === 'spice_simulation_read') return success(streamStore.read(streamReadArgs(args)));
     if (name === 'spice_simulation_cancel') return success(streamStore.cancel(streamCancelArgs(args)));
-    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_simulation_start') {
+    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_ac_metrics' && name !== 'spice_simulation_start') {
       return failure(apiError('INVALID_REQUEST', 'Unknown tool', 'transport', {}));
     }
 
+    const selectors = name === 'spice_ac_metrics' ? acMetricsArgs(args) : undefined;
     const measurements = name === 'spice_measure' && isRecord(args) ? args.measurements : undefined;
     if (name === 'spice_measure' && (!Array.isArray(measurements) || measurements.length < 1 || measurements.length > 128)) {
       throw apiError('INVALID_REQUEST', 'Expected 1 through 128 measurements', 'validation', {});
     }
     if (name === 'spice_measure') enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(measurements)), 'validation');
-    const original = toolRequest(args);
+    let original = toolRequest(args);
     const effective = effectiveLimits(original, limits);
     enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
+    if ((name === 'spice_simulate' || name === 'spice_simulation_start') && isRecord(args) && args.params !== undefined) {
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      original = overrideParameters(original, args.params);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
+    }
     throwIfCancelled(options.signal);
     const { request, diagnostics } = convertRequest(original);
     const plan = await boundedRequestPlan(request, effective);
@@ -385,6 +453,11 @@ async function executeToolWithStore(
         ? await boundedCall(() => options.simulate!(bounded), effective.maxWallTimeMs, options.signal)
         : await runInWorker<SimulationResultV1>('simulate', bounded, effective.maxWallTimeMs, options);
       enforceResultBounds(result, effective);
+      if (selectors) {
+        const metrics = acMetrics(result, selectors);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(metrics)), 'transport');
+        return success(metrics, diagnostics);
+      }
       if (name === 'spice_measure') {
         const measured = measureResult(result, measurements as unknown[]);
         enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(measured)), 'transport');
@@ -395,6 +468,7 @@ async function executeToolWithStore(
       release();
     }
   } catch (error) {
+    if (error instanceof ParameterOverrideError) return failure(error.apiError);
     return failure(publicError(error));
   }
 }
@@ -600,6 +674,13 @@ class StreamStore {
     }
     job.replay.set(args.cursor, data);
     return data;
+  }
+
+  comparisonResult(jobId: string): SimulationResultV1 {
+    const job = this.job(jobId);
+    if (job.terminal && job.terminal.status !== 'complete') throw apiError('INVALID_REQUEST', 'Job did not complete successfully', 'validation', {});
+    if (job.state.status !== 'ready') throw apiError('INVALID_REQUEST', 'Job result is not ready; read the job to completion first', 'validation', {});
+    return job.state.result;
   }
 
   cancel(jobId: string): SimulationReadDataV1 {
@@ -1424,7 +1505,7 @@ function success(value: object, diagnostics?: ConversionDiagnosticV1[]): CallToo
   };
 }
 
-function failure(error: SpiceApiErrorV1): CallToolResult {
+function failure(error: SpiceApiErrorV1 | ParameterOverrideApiError): CallToolResult {
   const value = { error };
   return {
     isError: true,

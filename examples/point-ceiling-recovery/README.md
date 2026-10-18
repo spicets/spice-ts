@@ -11,4 +11,4 @@ pnpm -C packages/mcp build
 pnpm -C examples test:point-ceiling-recovery
 ```
 
-`packed-consumer.mjs` packs and installs `@spice-ts/core`, `@spice-ts/protocol`, and `@spice-ts/mcp` into a temporary external project. Only `workflow.mjs` is copied into that project; its imports use the packed public `@spice-ts/mcp` and `@spice-ts/protocol` entrypoints.
+`packed-consumer.mjs` packs and installs `@spice-ts/core`, `@spice-ts/circuit-json`, and `@spice-ts/mcp` into a temporary external project. Only `workflow.mjs` is copied into that project; its imports use the packed public `@spice-ts/mcp` and `@spice-ts/core/protocol` entrypoints.

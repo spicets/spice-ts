@@ -70,7 +70,7 @@ function readonlySet<T>(input: Set<T>): ReadonlySet<T> {
 // This is not a claim of channel-current support; b4temp/b4ld remain separate ports.
 const BASELINE_MODES = {
   mobmod: 0, capmod: 2, diomod: 1, rdsmod: 0, rbodymod: 0, rgatemod: 0,
-  geomod: 0, permod: 1, tempmod: 0, igcmod: 0, igbmod: 0,
+  geomod: 0, permod: 1, tempmod: 0,
   trnqsmod: 0, acnqsmod: 0, mtrlmod: 0, mtrlcompatmod: 0, cvchargemod: 0,
   gidlmod: 0, wpemod: 0, fnoimod: 1, tnoimod: 0,
 } as const satisfies Partial<Record<Bsim4ModelParameter, number>>;
@@ -128,6 +128,8 @@ export function setupBsim4Model(
       if (/^[lwp]?ndep$/.test(key) && value > 1e20) value *= 1e-6;
       if (/^[lwp]?(?:nsd|ngate)$/.test(key) && value > 1e23) value *= 1e-6;
       const baseline = (BASELINE_MODES as Readonly<Record<string, number>>)[key];
+      if (key === 'igcmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGCMOD=0/1 is ported');
+      if (key === 'igbmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGBMOD=0/1 is ported');
       if (baseline !== undefined && value !== baseline) unsupported(raw, 'nonbaseline selector path is not ported; no silent upstream reset');
       const neutral = (LAYOUT_DEFAULTS as Readonly<Record<string, number>>)[key];
       if (neutral !== undefined && value !== neutral) unsupported(raw, 'stress/well-proximity path is not ported');

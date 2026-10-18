@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createToolExecutor } from '@spice-ts/mcp';
-import { sha256CanonicalJson } from '@spice-ts/protocol';
+import { sha256CanonicalJson } from '@spice-ts/core/protocol';
 
 /**
  * @typedef {{
@@ -28,7 +28,10 @@ const toolNames = [
   'spice_validate',
   'spice_convert',
   'spice_simulate',
+  'spice_sweep',
+  'spice_ac_metrics',
   'spice_measure',
+  'spice_compare',
   'spice_simulation_start',
   'spice_simulation_read',
   'spice_simulation_cancel',
@@ -48,7 +51,15 @@ assert.deepEqual(capabilities, {
   protocolVersion: '1',
   analyses: ['op', 'dc', 'tran', 'ac'],
   inputFormats: ['spice', 'spice-ts', 'circuit-json'],
-  tools: ['spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_measure', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel'],
+  parameterOverrides: {
+    tools: ['spice_simulate', 'spice_simulation_start'],
+    input: 'params',
+    valueType: 'Record<string, number> (finite numbers)',
+    scope: 'top-level .param in spice source only',
+    caseSensitive: false,
+    unknownParameterCode: 'UNKNOWN_PARAMETER',
+  },
+  tools: ['spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_measure', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel'],
   limits: {
     maxDocumentBytes: 262144,
     maxAnalyses: 8,

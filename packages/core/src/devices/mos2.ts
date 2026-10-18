@@ -49,6 +49,10 @@ const SIG2 = [1, 1, -1, -1];
 
 /** Resolved MOS2 model card after mos2set.c defaulting and mos2temp.c model preprocessing. */
 export interface MOS2ModelParams {
+  /** mos2noi.c, default NLEV=2 from mos2set.c. */
+  KF: number;
+  AF: number;
+  NLEV: number;
   polarity: number;
   VTO: number;
   KP: number;
@@ -244,6 +248,9 @@ export function resolveMOS2Model(
     NEFF: params.NEFF ?? 1,
     NFS: params.NFS ?? 0,
     TNOM: tnom,
+    KF: params.KF ?? 0,
+    AF: params.AF ?? 1,
+    NLEV: params.NLEV ?? 2,
     oxideCapFactor,
     xd,
     given: {
@@ -1141,6 +1148,12 @@ export class MOS2 implements DeviceModel {
     const cb = load.cbs + load.cbd;
     const cbhat = cb + load.gbd * delvbd + load.gbs * delvbs;
     return Math.abs(cbhat - cb) <= reltol * Math.max(Math.abs(cbhat), Math.abs(cb)) + abstol;
+  }
+
+  /** mos2noi.c reads the loaded gm and cd (including the drain bulk junction). */
+  noiseOperatingPoint(): { gm: number; cd: number; length: number; width: number } {
+    return { gm: this.lastLoad.gm, cd: this.lastLoad.cd,
+      length: this.effectiveLength, width: this.instance.W };
   }
 
   /** Meyer half capacitances [gs, gd, gb] at the given solution. */

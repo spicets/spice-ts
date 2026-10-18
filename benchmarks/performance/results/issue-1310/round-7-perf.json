@@ -1,0 +1,491 @@
+{
+  "issue": 1310,
+  "base": "b27f315e5ead2dfb20ff984ba702e19527e50540",
+  "timings": {
+    "before": [
+      {
+        "run": 0,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 59.1832495,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      },
+      {
+        "run": 1,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 39.465513625,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      },
+      {
+        "run": 2,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 37.043298875000005,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      }
+    ],
+    "after": [
+      {
+        "run": 0,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 23.651545542,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      },
+      {
+        "run": 1,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 27.658177375,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      },
+      {
+        "run": 2,
+        "node": "v22.23.1",
+        "tstop": "10n",
+        "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+        "seconds": 33.417891083,
+        "rows": 40545,
+        "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+        "convergence": {
+          "dc": {
+            "newtonIterations": 31,
+            "acceptedSolves": 1,
+            "rejectedSolves": 0,
+            "sourceStepAttempts": 0,
+            "sourceStepFailures": 0,
+            "gminStepAttempts": 0,
+            "gminStepFailures": 0,
+            "failure": null
+          },
+          "transient": {
+            "acceptedSteps": 40544,
+            "rejectedSteps": 0,
+            "newtonIterations": 85851,
+            "nrRetries": 0,
+            "lteRetries": 0,
+            "minimumAcceptedTimestep": 2.5e-15,
+            "failure": null
+          }
+        }
+      }
+    ]
+  },
+  "medianSeconds": {
+    "before": 39.465513625,
+    "after": 27.658177375
+  },
+  "medianChangePercent": -29.918111194986373,
+  "identity": {
+    "node": "v22.23.1",
+    "tstop": "10n",
+    "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+    "rows": 40545,
+    "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+    "convergence": {
+      "dc": {
+        "newtonIterations": 31,
+        "acceptedSolves": 1,
+        "rejectedSolves": 0,
+        "sourceStepAttempts": 0,
+        "sourceStepFailures": 0,
+        "gminStepAttempts": 0,
+        "gminStepFailures": 0,
+        "failure": null
+      },
+      "transient": {
+        "acceptedSteps": 40544,
+        "rejectedSteps": 0,
+        "newtonIterations": 85851,
+        "nrRetries": 0,
+        "lteRetries": 0,
+        "minimumAcceptedTimestep": 2.5e-15,
+        "failure": null
+      }
+    }
+  },
+  "alloc_counts": {
+    "counter": "distinct ChargeIntegration identities over 40 builds, two assemblers",
+    "red": 40,
+    "green": 2
+  },
+  "cpuBucketsSeconds": {
+    "before": {
+      "Other/startup/driver/hash": 3.688650999999997,
+      "VBIC": 68.55887900000012,
+      "Stamping/assembly": 2.4483339999999987,
+      "Matrix factor/solve": 1.902253,
+      "GC": 30.668592999999962,
+      "Accepted-point/charge": 0.06279
+    },
+    "after": {
+      "Other/startup/driver/hash": 1.3768789999999989,
+      "GC": 5.569310000000001,
+      "VBIC": 33.1298610000005,
+      "Matrix factor/solve": 0.6479929999999997,
+      "Stamping/assembly": 1.2106240000000001,
+      "Accepted-point/charge": 0.037625
+    }
+  },
+  "allocationSampling": {
+    "interval": 32768,
+    "includeObjectsCollectedByMajorGC": true,
+    "includeObjectsCollectedByMinorGC": true,
+    "topFrames": {
+      "before": [
+        [
+          "Ke ../src/devices/vbic.ts:223:9",
+          23788441992
+        ],
+        [
+          "at ../src/devices/vbic.ts:191:9",
+          21618396568
+        ],
+        [
+          "Nt ../src/devices/vbic.ts:257:9",
+          13488172616
+        ],
+        [
+          "jn ../src/devices/vbic.ts:265:9",
+          8419938144
+        ],
+        [
+          "uu ../src/devices/vbic.ts:354:9",
+          8184344400
+        ],
+        [
+          "Tr ../src/devices/vbic.ts:215:9",
+          7955093744
+        ],
+        [
+          "Fn ../src/devices/vbic.ts:197:9",
+          7671265296
+        ],
+        [
+          "stamp ../src/devices/vbic.ts:666:2",
+          6727060696
+        ],
+        [
+          "cu ../src/devices/vbic.ts:283:9",
+          6281295728
+        ],
+        [
+          " ../src/devices/vbic.ts:366:25",
+          4165063440
+        ],
+        [
+          "Wi ../src/devices/vbic.ts:227:9",
+          4068511200
+        ],
+        [
+          "Ji ../src/devices/vbic.ts:236:9",
+          4056433688
+        ],
+        [
+          "stampTransientCharge ../src/devices/vbic.ts:713:2",
+          3440925608
+        ],
+        [
+          " ../src/devices/vbic.ts:456:53",
+          3242183520
+        ],
+        [
+          " ../src/devices/vbic.ts:457:51",
+          3241013128
+        ],
+        [
+          "Ia ../src/devices/vbic.ts:185:9",
+          2063509552
+        ],
+        [
+          "wh ../src/devices/vbic.ts:246:9",
+          1535586168
+        ],
+        [
+          "acceptTransientStep ../src/devices/vbic.ts:742:2",
+          878103952
+        ],
+        [
+          " ../src/mna/assembler.ts:380:23",
+          830740528
+        ],
+        [
+          " ../src/devices/vbic.ts:460:17",
+          644213328
+        ],
+        [
+          "from ",
+          599129648
+        ],
+        [
+          "Zy ../src/devices/vbic.ts:252:9",
+          511182784
+        ],
+        [
+          "VI ../src/devices/vbic.ts:241:9",
+          495139144
+        ],
+        [
+          "allocUnsafe node:buffer",
+          481476672
+        ],
+        [
+          "constant ../src/devices/vbic.ts:174:9",
+          458680424
+        ]
+      ],
+      "after": [
+        [
+          "Ke ../src/devices/vbic.ts:223:9",
+          22780683408
+        ],
+        [
+          "at ../src/devices/vbic.ts:191:9",
+          21225209328
+        ],
+        [
+          "Nt ../src/devices/vbic.ts:257:9",
+          13986705984
+        ],
+        [
+          "Fn ../src/devices/vbic.ts:197:9",
+          8948731752
+        ],
+        [
+          "uu ../src/devices/vbic.ts:354:9",
+          8769717624
+        ],
+        [
+          "jn ../src/devices/vbic.ts:265:9",
+          8393596840
+        ],
+        [
+          "Tr ../src/devices/vbic.ts:215:9",
+          7912397496
+        ],
+        [
+          "stamp ../src/devices/vbic.ts:666:2",
+          6716065504
+        ],
+        [
+          "cu ../src/devices/vbic.ts:283:9",
+          6353764160
+        ],
+        [
+          " ../src/devices/vbic.ts:366:25",
+          4172469320
+        ],
+        [
+          "Wi ../src/devices/vbic.ts:227:9",
+          4080945408
+        ],
+        [
+          "Ji ../src/devices/vbic.ts:236:9",
+          4059383600
+        ],
+        [
+          "stampTransientCharge ../src/devices/vbic.ts:713:2",
+          3449183976
+        ],
+        [
+          " ../src/devices/vbic.ts:456:53",
+          3248881120
+        ],
+        [
+          " ../src/devices/vbic.ts:457:51",
+          3241763272
+        ],
+        [
+          "Ia ../src/devices/vbic.ts:185:9",
+          1842434928
+        ],
+        [
+          "wh ../src/devices/vbic.ts:246:9",
+          1548726096
+        ],
+        [
+          "acceptTransientStep ../src/devices/vbic.ts:742:2",
+          882167392
+        ],
+        [
+          " ../src/mna/assembler.ts:380:23",
+          831264992
+        ],
+        [
+          " ../src/devices/vbic.ts:460:17",
+          824808064
+        ],
+        [
+          "from ",
+          600934880
+        ],
+        [
+          "Zy ../src/devices/vbic.ts:252:9",
+          503277696
+        ],
+        [
+          "NI ../src/devices/vbic.ts:241:9",
+          489204640
+        ],
+        [
+          "allocUnsafe node:buffer",
+          481378272
+        ],
+        [
+          " ../src/devices/vbic.ts:464:16",
+          323564688
+        ]
+      ]
+    },
+    "companionSelfEstimatedBytes": {
+      "before": [
+        [
+          "ZM ../src/mna/companion.ts:89:16",
+          18289560
+        ]
+      ],
+      "after": [
+        [
+          "QM ../src/mna/companion.ts:94:16",
+          10416224
+        ]
+      ]
+    }
+  },
+  "historicalContractMismatch": "Merged #1344 changed baseline before this branch. Historical fa930f7d/43273 rows/3139 rejects/100724 Newton iterations not reproduced. Current-base identity preserved exactly; supervisor reconciliation required.",
+  "stampFingerprint": "3324cdb29c46ea0b0be79f64b9a06a767eba5549d997e193df9221f0634944db",
+  "tests_run": {
+    "targeted": 443,
+    "files": 35,
+    "build": "pass",
+    "lint": "pass",
+    "fullSuite": "spice-heavy pnpm test exit 0"
+  },
+  "commands": [
+    "pnpm install --frozen-lockfile",
+    "pnpm build",
+    "pnpm lint",
+    "pnpm -C packages/core exec vitest run src/mna/charge-context-allocation.test.ts (RED)",
+    "pnpm -C packages/core exec vitest run src/mna src/solver src/devices/vbic src/analysis/companion",
+    "spice-heavy pnpm test",
+    "spice-heavy node benchmarks/performance/dff-1310.mjs 3",
+    "spice-heavy node --heap-prof --heap-prof-dir=<scratch>/<phase> --cpu-prof --cpu-prof-dir=<scratch>/<phase> --cpu-prof-name=cpu.cpuprofile benchmarks/performance/dff-1310.mjs 1",
+    "PROFILE_OUT=<scratch>/<phase>/allocation.json spice-heavy node <scratch>/sample.mjs"
+  ]
+}

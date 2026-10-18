@@ -1,0 +1,18 @@
+XSPICE synchronous SR flip-flop timing regression
+* Original spice-ts fixture, MIT. Same deck used by both simulators.
+vclk clk 0 PULSE(0 1 10n 1n 1n 8n 20n)
+vs s 0 PULSE(0 1 1n 1n 1n 38n 80n)
+vr r 0 PULSE(0 1 21n 1n 1n 38n 80n)
+vset set 0 PULSE(0 1 65n 1n 1n 4n 200n)
+vreset reset 0 PULSE(0 1 85n 1n 1n 4n 200n)
+rclk clk 0 1k
+rs s 0 1k
+rr r 0 1k
+rset set 0 1k
+rreset reset 0 1k
+aadc [clk s r set reset] [c ds dr aset areset] adc
+.model adc adc_bridge(in_low=0.5 in_high=0.5)
+aff ds dr c aset areset q nq ff
+.model ff d_srff(ic=1 clk_delay=2n set_delay=3n reset_delay=4n rise_delay=1n fall_delay=2n)
+.tran 1n 100n
+.end

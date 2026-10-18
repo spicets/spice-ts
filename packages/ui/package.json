@@ -1,12 +1,12 @@
 {
   "name": "@spice-ts/ui",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Waveform viewer for spice-ts simulation results",
   "license": "MIT",
   "author": "Mattia Fiumara",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mfiumara/spice-ts.git",
+    "url": "https://github.com/spicets/spice-ts.git",
     "directory": "packages/ui"
   },
   "engines": {
@@ -40,7 +40,7 @@
     "d3-scale": "^4.0.2"
   },
   "peerDependencies": {
-    "@spice-ts/core": "^0.3.0 || ^0.4.0",
+    "@spice-ts/core": "^0.3.0 || ^0.4.0 || ^0.5.0",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
   },

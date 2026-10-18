@@ -44,15 +44,15 @@
       "unsupported": 12
     },
     "spiceTs": {
-      "success": 141,
+      "success": 144,
       "failed": 13,
-      "unsupported": 182
+      "unsupported": 179
     },
     "outcomes": {
       "matched": 60,
-      "mismatch": 17,
-      "not-compared": 64,
-      "spice-ts-loss": 165,
+      "mismatch": 18,
+      "not-compared": 66,
+      "spice-ts-loss": 162,
       "ngspice-failed": 0,
       "both-failed": 30
     }
@@ -60,8 +60,8 @@
   "gapBuckets": [
     {
       "bucket": "parse: other unsupported syntax",
-      "fixtures": 57,
-      "ngspiceSuccess": 52,
+      "fixtures": 55,
+      "ngspiceSuccess": 50,
       "ids": [
         "examples-control-structs-foreach-bjt-ft-sp",
         "examples-digital-auto-bridge-shared-line-cir",
@@ -82,7 +82,6 @@
         "examples-various-bjt-ac-par-sp",
         "examples-vbic-dff-y-ecl-sp",
         "examples-vdmos-self-heating-sp",
-        "examples-xspice-delay-analog-delay1-cir",
         "examples-xspice-ghdl-mc-cir",
         "examples-xspice-ghdl-pwm-cir",
         "examples-xspice-icarus-verilog-delay-cir",
@@ -103,7 +102,6 @@
         "examples-xspice-original-examples-digital-models4-deck",
         "examples-xspice-original-examples-io-types-deck",
         "examples-xspice-original-examples-mixed-mode-deck",
-        "examples-xspice-original-examples-supply-ramping-deck",
         "examples-xspice-original-examples-user-defined-nodes-deck",
         "examples-xspice-pwm-osc-pwm-sin-cir",
         "examples-xspice-transmission-lines-cpline-ac-cir",
@@ -170,8 +168,8 @@
     },
     {
       "bucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)",
-      "fixtures": 25,
-      "ngspiceSuccess": 23,
+      "fixtures": 24,
+      "ngspiceSuccess": 22,
       "ids": [
         "examples-control-structs-new-check-4-sp",
         "examples-control-structs-s-param-cir",
@@ -196,8 +194,7 @@
         "examples-various-mtimeavg-test-cir",
         "examples-vdmos-100w-wingspread-sp",
         "examples-vdmos-100w-sp",
-        "examples-xspice-table-table-generator-q-2d-sp",
-        "tests-regression-misc-bugs-2-cir"
+        "examples-xspice-table-table-generator-q-2d-sp"
       ],
       "issue": "https://github.com/mfiumara/spice-ts/issues/488"
     },
@@ -5694,16 +5691,25 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 7: XSPICE code model 'delay' (.model 'newdelay') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_inver"
+        "status": "success",
+        "analyses": [
+          "tran:10224"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 1,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax"
+      "outcome": "not-compared",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "unavailable",
+        "tmax": [],
+        "reason": "no .tran card outside .control",
+        "headline": null,
+        "spiceTsVsFine": null,
+        "ngspiceDefaultVsFine": null
+      }
     },
     {
       "id": "examples-xspice-ghdl-mc-cir",
@@ -7394,16 +7400,35 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 14: XSPICE code model 'capacitoric' (.model 'cap') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_inv"
+        "status": "success",
+        "analyses": [
+          "tran:126"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax"
+      "comparedAnalyses": 1,
+      "comparedSignals": 7,
+      "worstNormalizedError": 0.0588,
+      "worstSignal": "tran v(1)",
+      "outcome": "mismatch",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "0.01"
+        ],
+        "headline": {
+          "worst": 0.0588,
+          "signal": "v(1)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.0427,
+          "signal": "v(1)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.0155,
+          "signal": "v(1)"
+        }
+      }
     },
     {
       "id": "examples-xspice-original-examples-user-defined-nodes-deck",
@@ -9197,16 +9222,17 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 14: Unsupported .control command 'let': saved device-parameter vector '@v1[dc]' is not produced by spice-ts analyses let foo = @v1[dc]"
+        "status": "success",
+        "analyses": [
+          "dc:5"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 1,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)"
+      "outcome": "not-compared",
+      "gapBucket": null
     },
     {
       "id": "tests-regression-misc-convergence-cir",
@@ -10371,5 +10397,5 @@
       "gapBucket": "parse: other unsupported syntax"
     }
   ],
-  "outcomeSha256": "dd0ab8d11e4e625f7d5afa746949d203bacdf64e7c75519eadb1a497f01b0eaf"
+  "outcomeSha256": "ec2cf390642ae99b140d6e0bf5d95c9c507e89d4f61a4416a497d9310dca2a88"
 }

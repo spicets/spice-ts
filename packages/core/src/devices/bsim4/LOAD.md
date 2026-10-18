@@ -5,7 +5,60 @@ Pinned ngspice-47 `bsim4/` at
 The supervisor retarget supersedes the decomposed cards' bsim4v7/BSD wording.
 This is a bounded static OP/DC implementation, not full BSIM4 or corpus parity.
 
+## IGCMOD=1 extension
+
+The generated load kernel additionally ports b4ld.c:2527-2801: oxide voltage,
+Igc partition into Igcs/Igcd (automatic or given PIGCD), physical Igs/Igd
+overlap currents, exponential limiting, and their analytic derivatives.
+Temperature preprocessing adds b4temp.c:1363-1379,1401-1405 (ToxRatio,
+ToxRatioEdge, Aechvb/Bechvb and source/drain edge prefactors). Negative
+DLCIG/DLCIGD corrections are rejected rather than silently reset.
+The 4.8.0 and later prefactor formulas coincide for nonnegative overlaps.
+Enabled NIGC/POXEDGE/PIGCD fatal domains follow b4check.c:331-347.
+
+Operating-point fields igcs/igcd are gate-to-oriented-source/drain currents;
+igs/igd belong to physical terminals, independent of mode. All include NF,
+not M/MULT_I. gigcs*/gigcd* are derivatives with respect to oriented
+Vgs/Vds/Vbs; gigsg/gigdg are physical overlap gate conductances.
+The device stamps conservative terminal pairs, matching the forward/reverse
+gate-current assembly at b4ld.c:4764-4800,4855-4891. Tests check KCL and the
+complete four-terminal Jacobian by finite differences, in both polarities and
+orientations with NF/M/MULT_I scaling.
+
+Self-authored `benchmarks/bsim4-igc/*.cir` provide 164 native ngspice-47 sweep
+points, including negative gate bias, asymmetric overlaps, given PIGCD,
+poly depletion and nonnominal temperature. Run:
+
+    spice-heavy python3 benchmarks/bsim4-igc/generate.py
+    pnpm -C packages/core exec vitest run src/devices/bsim4
+
+The parity tests read the native oracle and print maximum normalized gate and
+drain branch-current errors. Before this extension the same IGCMOD=1 cards
+throw UnsupportedModelParameterError. IGCMOD=2, nonbaseline RBODYMOD
+and RGATEMOD remain unsupported; there is no transient charge extension.
+
 ## Data and registration
+
+### IGBMOD=1 extension (#1321)
+
+`generate-load.py` also extracts b4ld.c:2803-2921, without changing equation
+order. This adds Igbacc/Igbinv, exponential limiting and the native analytic
+derivatives. Existing b4temp ToxRatio and L/W/P binning are reused.
+`igb` includes NF, not M/MULT_I, and is polarity-normalized. `gigbg/gigbd/gigbb`
+refer to oriented Vgs/Vds/Vbs. The MNA pair always connects physical gate
+and bulk, with derivatives remapped for reverse Vds (b4ld.c:4801-4811,
+4892-4902). IGBMOD=0 does not add a terminal stamp. Nonpositive enabled
+NIGBACC/NIGBINV fail per b4check.c:319-330.
+
+Run `spice-heavy python3 benchmarks/bsim4-igb/generate.py` and the BSIM4
+tests for the four identical-deck ngspice-47 current sweeps. Run
+`python3 packages/core/src/devices/bsim4/verify-load.py SOURCE` to compare
+IGB and derivatives directly with unmodified C, including reverse mode,
+both polarities, NF, temperature and simultaneous IGCMOD.
+The native bulk derivative applies dVbseff/dVb to the raw (Vgs - Vbs)
+prefactor as well as the effective-bias terms. We preserve that approximate
+Jacobian rather than change ngspice's law. Resistor-loaded gate tests check
+Newton convergence; existing IGCMOD finite-difference tests remain strict.
 
 `evaluateBsim4(preprocessed, originalModelGiven, bias, gmin?)` returns an immutable
 `Bsim4OperatingPoint`. Input Vgs/Vds/Vbs is polarity-normalized relative to the
@@ -69,7 +122,7 @@ use InvalidCircuitError.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,
   MTRLCOMPATMOD, CVCHARGEMOD, GIDLMOD, WPEMOD, FNOIMOD or TNOIMOD selectors.
   Baselines are recorded in SETUP.md; static acceptance is not noise/CV support.
-- IGCMOD/IGBMOD != 0. Nonzero effective binned AGIDL/AGISL conservatively reject
+- IGCMOD/IGBMOD outside 0/1. Nonzero effective binned AGIDL/AGISL conservatively reject
   GIDL/GISL currents even when another activation coefficient would disable them.
   Substrate impact ionization is fully ported and stamped, not silently dropped.
 - Nondefault stress/WPE model fields and instance SA/SB/SD/SCA/SCB/SCC/SC;

@@ -9,6 +9,9 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_convert`: convert `{ netlist: string }` to `{ circuitJson, diagnostics, lossy: false }`, or `{ circuitJson: [...] }` to `{ netlist, diagnostics, lossy: false }`.
 - `spice_simulate`: one bounded protocol-v1 simulation.
 - `spice_measure`: run the same simulation request once and return scalar measurements only.
+- `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
+- `spice_compare`: compare two waveform sets or completed simulation results without solving again.
+- `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, and loop stability margins without vectors.
 - `spice_simulation_start`: start a bounded simulation worker and return its opaque job cursor before solving completes.
 - `spice_simulation_read`: pull a replayable chunk containing at most 256 points by default (caller-selectable from 1 through the hard cap of 1024).
 - `spice_simulation_cancel`: idempotently stop delivery and return the protocol-v1 cancelled terminal with partial analysis counts and `partialEventSha256`.
@@ -16,6 +19,58 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 The validation, one-shot simulation, and stream-start tools accept `{ "request": SimulationRequestV1 }`. Successful results are returned as MCP `structuredContent` and as compact JSON text. Failures set `isError` and return `{ "error": SpiceApiErrorV1 }`; implementation backend names are removed from public errors.
 
 The server supports protocol-v1 `spice`, `spice-ts`, and `circuit-json` inputs and `op`, `dc`, `tran`, and `ac` analyses. For Circuit JSON, use `input: { format: 'circuit-json', circuit, analyses }`. Conversion is performed by `@spice-ts/circuit-json` before validation or worker execution; its supported element set applies (currently R/C/M/Q, not independent sources). Fatal conversion diagnostics are returned in `error.details.diagnostics`, with `UNSUPPORTED_ELEMENT` for unsupported elements. Nonfatal conversion diagnostics (including ignored layout elements) are exposed in the MCP result's `_meta.conversionDiagnostics` by all three request tools, without changing the protocol simulation result shape.
+
+## Parameter overrides
+
+`spice_simulate` and `spice_simulation_start` accept an optional sibling of
+`request`: `params: Record<string, number>`, for example
+`{ request, params: { rval: 3000 } }`. This overrides declared top-level `.param`
+values in `request.input.source` before elaboration, including dependent expressions
+and conditional selection. Names are case-insensitive. The input must use
+`format: 'spice'`; JSON circuit formats do not have `.param` declarations.
+Subcircuit-local parameters, control variables, and declarations only in virtual
+include files are not override targets. Omission or an empty object preserves defaults.
+
+Values must be finite numbers. Malformed values, duplicate case-insensitive keys,
+and non-SPICE inputs return `INVALID_REQUEST`. Unknown names return the MCP-local
+error code `UNKNOWN_PARAMETER` with `details.unknown` and `details.available`
+(sorted, lower-case available names). This extends the MCP error surface, not the
+protocol-v1 error-code set. `spice_capabilities.parameterOverrides` describes this
+contract. Neither the caller's request nor its source string is mutated.
+
+## Parameter sweeps
+
+Call `spice_sweep` with `{ request: SimulationRequestV1, parameter, values, measurements? }`.
+`request` supplies the netlist, analyses and solver options, just as for `spice_measure`.
+`parameter` is `{ kind: 'param', name: 'rval' }` for declared top-level SPICE
+`.param` overrides, or `{ kind: 'component', name: 'R1' }` for a top-level R/C/L
+scalar value. Component targets support SPICE text and native `spice-ts` JSON IR;
+Circuit JSON and other component types are not sweep targets in this version.
+Names are case-insensitive. Includes and subcircuit-local targets are not supported.
+The original request is not mutated, and each point starts from that original.
+
+Provide exactly one of a nonempty finite-number `values` list or
+`range: { scale: 'lin' | 'dec', start, stop, points }`.
+For `lin`, `points` is the total integer sample count including both endpoints
+(one point requires equal endpoints; descending ranges are supported).
+For `dec`, `points` is a positive integer samples-per-decade count, with
+`0 < start <= stop`; the exact stop is included for partial decades too.
+There is a hard cap of 100 sweep points, checked before allocation or solving.
+Exceeding it returns `RESOURCE_LIMIT` with `details.limit: 'maxSweepPoints'`,
+`maximum: 100`, and `actual`. Malformed sweep arguments return `INVALID_REQUEST`.
+
+Example for an RC low-pass with an existing AC analysis and 1 V AC input:
+`{ request, parameter: { kind: 'param', name: 'rval' }, values: [1000, 2000, 3000], measurements: [{ kind: 'cross', signal: 'db(v(out))', analysis: 0, value: -3.010299956639812, edge: 'falling' }] }`.
+
+The response is `{ parameter, points: [{ value, status: 'complete', measurements? } | { value, status: 'failed', error }] }`.
+Points preserve input order and duplicates. Measurements use the `spice_measure`
+contract, including independent measurement errors. Without measurements, the tool
+returns simulation status only, never vectors. A simulation failure retains its
+public failure-envelope code, phase, retryability and details, and does not stop
+later points. Invalid targets fail the whole tool. Cancellation, the shared
+wall-time budget and aggregate response-byte limit fail the whole tool rather
+than returning a misleading partial table. Each point uses existing simulation
+limits, worker termination and concurrency quotas. Sweeps execute sequentially.
 
 ## Topology preflight warnings
 
@@ -65,13 +120,17 @@ Interpolation is linear in the published axis and signal, including AC Hz/dB.
 Window boundaries are interpolated. `avg` is axis-weighted; `rms` integrates the
 square of the piecewise-linear signal, not the mean square of unevenly spaced samples.
 Descending DC axes are supported. OP reductions treat the signal as one sample at
-coordinate 0; OP crossings are unavailable. Stepped results with repeated analysis
-indices return `AMBIGUOUS_ANALYSIS`; run steps separately.
+coordinate 0; OP crossings are unavailable. Optional `step` is a nonnegative integer
+matching the zero-based `step.index` metadata in `SimulationResultV1`. Select each
+corner in the same request, for example `{ kind: 'max', signal: 'v(out)', analysis: 0, step: 2 }`.
+Omitting `step` for repeated analysis indices returns `AMBIGUOUS_ANALYSIS` with the
+available step count. An unavailable step returns `UNKNOWN_STEP`. Unstepped analyses
+accept an omitted `step` or `step: 0` and reject other indices with `UNKNOWN_STEP`.
 
 The response is `{ measurements: [{ value, unit } | { error: { code, message } }] }`,
 in request order, never vectors. Units are V/A/dB for signal values and s/Hz/the DC
 source unit for crossings. Per-item codes include `INVALID_MEASUREMENT`,
-`UNKNOWN_SIGNAL`, `UNKNOWN_ANALYSIS`, `AMBIGUOUS_ANALYSIS`, `OUT_OF_RANGE`,
+`UNKNOWN_SIGNAL`, `UNKNOWN_ANALYSIS`, `AMBIGUOUS_ANALYSIS`, `UNKNOWN_STEP`, `OUT_OF_RANGE`,
 `NO_CROSSING`, and `NON_FINITE_RESULT` (including dB of zero).
 Malformed lists fail the tool with `INVALID_REQUEST`; simulation failures use the
 usual tool error. Lists contain 1 through 128 items, signals at most 256 characters.
@@ -82,13 +141,112 @@ concurrency quota and the same Circuit JSON conversion/diagnostic path.
 Example measurement for an AC low-pass with 1 V input:
 `{ kind: 'cross', signal: 'db(v(out))', analysis: 0, value: -3.010299956639812, edge: 'falling' }`.
 
+## Waveform comparison
+
+Call `spice_compare` with `{ reference, actual, signals: ['v(out)'], absTolerance: 0,
+relTolerance: 0, phaseToleranceDegrees: 0 }`. Tolerances are optional, nonnegative,
+finite, and default to zero. Each source is one of:
+
+- `{ x: [0, 1, 2], signals: { 'v(out)': [0, 1, 2] }, axisUnit: 's' }`.
+  `axisUnit` is optional; when both sources specify it, units must match.
+- `{ result: SimulationResultV1, analysis: 0 }` for a complete protocol-v1 result.
+  Signal names are `v(node)` and `i(branch)`, exactly as spelled in the result.
+- `{ jobId: '...', analysis: 0 }` for a completed job in this server session.
+  Drain `spice_simulation_read` until complete first. Pending, failed, cancelled,
+  unknown, and expired jobs are not usable. Comparing does not consume job events.
+
+`analysis` is a zero-based analysis index. Repeated indices in stepped results
+return `AMBIGUOUS_ANALYSIS`; absent indices return `UNKNOWN_ANALYSIS`.
+Unlike `spice_measure`, comparison accepts stored results, not a simulation request.
+
+Axes must be finite and strictly increasing. The tool linearly interpolates each
+signal onto the sorted union of both axes, restricted to their inclusive overlap.
+It never extrapolates; a single shared endpoint is a valid one-point comparison.
+The reference peak is the maximum absolute reference value on this common grid.
+A sample fails when `abs(actual - reference) > absTolerance + relTolerance * peak`.
+
+The response contains `pass`, `overlap: [from, to]`, `pointsCompared` (grid size),
+and `comparisons` in selection order. Each comparison has `signal`, `maxAbsError`,
+`maxRelError` (maximum error divided by reference peak), `xAtWorstError` (earliest
+sample on ties), `firstExceededX` (first failing grid sample, or null), and `pass`.
+These are sampled metrics, not continuous threshold-crossing locations.
+Zero peak with zero error gives relative error 0; an undefined or unrepresentable
+relative error is JSON null, never Infinity or NaN. An ordinary tolerance failure
+is a successful tool response with `pass: false`, not `isError`.
+
+Complex AC samples use protocol-v1 `{ magnitude, phaseDegrees }` objects.
+Magnitude and unwrapped phase are interpolated separately, linearly in x (Hz for
+AC, not log Hz). Phase unwrapping takes the shortest arc, with 180-degree ties
+resolved toward -180. Phase differences wrap to [-180, 180) degrees. Magnitude
+uses the normal absolute/relative tolerances. The additional `phase` metrics use
+`phaseToleranceDegrees` as an absolute tolerance; their relative error is reported
+against peak absolute unwrapped reference phase. Both magnitude and phase must pass.
+Phase is compared as supplied even at zero magnitude. Real/complex mixing is rejected.
+
+Invalid comparisons set `isError` with `{ error: { code, message, phase: 'validation',
+retryable: false, details: {} } }`. Codes include `AXIS_MISMATCH` (lengths, units,
+or real/complex shape), `UNKNOWN_SIGNAL`, `NON_MONOTONIC_AXIS`, `EMPTY_OVERLAP`,
+and `INVALID_REQUEST` (malformed/nonfinite data or tolerances).
+Select 1 through 128 unique signals, each at most 256 characters. Input/output
+byte limits apply; union grid size times selected signal count is bounded by
+`maxResultPoints`, returning `RESOURCE_LIMIT` when exceeded. No solver or benchmark
+semantics are changed by this tool.
+
+## AC metrics
+
+Call `spice_ac_metrics` with the same `request` as `spice_simulate`, a required
+`output` voltage node name, optional `input` voltage node name, and optional
+zero-based `analysis` index. Names are case-insensitive, without `v(...)` wrappers.
+Without an input node the output is relative to 1 V; with one it uses the complex
+ratio V(output)/V(input). By default exactly one AC analysis must exist. Select an
+index when there are multiple analyses; run stepped analyses separately.
+
+Example tool arguments:
+
+```json
+{
+  "request": {
+    "apiVersion": "1",
+    "input": {
+      "format": "spice",
+      "source": "V1 in 0 DC 0 AC 1\nR1 in out 1k\nC1 out 0 1u\n.ac dec 100 0.1 100k\n.end"
+    }
+  },
+  "output": "out",
+  "input": "in"
+}
+```
+
+The response contains `dcGainDb`, `f3dbHz`, `unityGainHz`, `phaseMarginDeg`,
+`gainMarginDb`, `referenceFrequencyHz`, and `reasons`. Despite its conventional
+name, `dcGainDb` is explicitly the gain at the lowest sampled frequency, reported
+in `referenceFrequencyHz`, NOT an extrapolation to DC. Start sufficiently below
+the first pole to estimate DC gain; high-pass/band-pass sweeps have no inferred
+DC plateau. `f3dbHz` is the first descending half-power crossing (3.0103 dB below
+that reference gain). The RC example gives approximately 159.15 Hz.
+
+Crossings interpolate dB and unwrapped phase linearly in log-frequency, never
+outside the sweep. Unity gain uses the first descending 0 dB crossing; phase
+margin is 180 degrees plus phase there. Gain margin is minus the dB gain at the
+first descending -180 degree unwrapped-phase crossing. These are conventional
+negative-feedback loop-gain metrics: supply a loop-gain transfer function to
+interpret them as stability margins, not an arbitrary closed-loop response.
+Phase starts on [-180, 180) and unwraps between adjacent samples; sample densely
+enough to avoid phase aliasing. Exact target samples at either endpoint count
+when part of a strictly descending segment; flat or rising segments do not.
+Missing or non-finite metrics are `null` with a matching string in
+`reasons`, not infinity or extrapolated values. Unknown nodes produce the usual
+structured `INVALID_REQUEST` error with `details.reason: "UNKNOWN_NODE"` and
+`details.node`; a zero input phasor produces `UNDEFINED_TRANSFER`. Simulation,
+worker time, concurrency, point, and response byte limits still apply.
+
 ## Run over stdio
 
 Build the workspace, then configure an MCP client to execute:
 
     node /absolute/path/to/spice-ts/packages/mcp/dist/stdio.js
 
-The package's scripts do not rebuild `@spice-ts/core` or `@spice-ts/protocol`; they rely on the workspace build order (`pnpm build` at the root builds dependencies first). To build only this package plus its workspace dependencies, use `pnpm --filter @spice-ts/mcp... build`.
+The package's scripts do not rebuild `@spice-ts/core`; they rely on the workspace build order (`pnpm build` at the root builds dependencies first). To build only this package plus its workspace dependencies, use `pnpm --filter @spice-ts/mcp... build`.
 
 For the executable bounded-agent workflow:
 
@@ -117,7 +275,7 @@ The default simulation ceilings are:
 
 Streaming applies the same document, analysis, point, serialized-result, and wall-time ceilings. Request limits are checked before a job is retained, then result limits are checked when its worker finishes. Read chunks are point-counted rather than time- or byte-timed. The default chunk is 256 points and `maxPoints` cannot exceed 1024. Each server retains at most 16 jobs; starting a seventeenth evicts the oldest terminal job or returns `RESOURCE_LIMIT` when all retained jobs are unfinished. At most 2 jobs solve at once per server (`streaming.maxConcurrentJobs`): live stream jobs and in-flight `spice_simulate` calls share the quota, and `spice_validate` does not use it. A start or one-shot simulation beyond it fails before any worker starts with a retryable `RESOURCE_LIMIT` (`phase: "transport"`, `details: { limit: "maxConcurrentJobs", configured: 2, observed: 3, maximum: 2, actual: 3 }`). A slot frees as soon as the job completes, fails, is cancelled, or expires, whether or not its data has been read. A cursor is job-scoped, forward-only, and replayable: once it emits a chunk, the same cursor returns the identical chunk even if a later call supplies a different `maxPoints`.
 
-Each running job has a 30000 ms TTL. Completion, failure, cancellation, or running-job expiry starts a 300000 ms terminal-retention TTL. These values and the reasons for them are documented in [docs/architecture/ai-native-api.md section 8](https://github.com/mfiumara/spice-ts/blob/main/docs/architecture/ai-native-api.md#8-cancellation-isolation-and-resource-limits), which `spice_capabilities` matches. During that window, existing cursors and idempotent cancellation remain replayable. After it expires, reads and cancellation return the same `INVALID_REQUEST` used for an unknown job. Running expiry aborts and terminates isolated worker work, then returns a `RESOURCE_LIMIT` terminal with `details.limit: "runningJobTtlMs"`. Its partial counts and `partialEventSha256` cover only events already delivered to the caller.
+Each running job has a 30000 ms TTL. Completion, failure, cancellation, or running-job expiry starts a 300000 ms terminal-retention TTL. These values and the reasons for them are documented in [docs/architecture/ai-native-api.md section 8](https://github.com/spicets/spice-ts/blob/main/docs/architecture/ai-native-api.md#8-cancellation-isolation-and-resource-limits), which `spice_capabilities` matches. During that window, existing cursors and idempotent cancellation remain replayable. After it expires, reads and cancellation return the same `INVALID_REQUEST` used for an unknown job. Running expiry aborts and terminates isolated worker work, then returns a `RESOURCE_LIMIT` terminal with `details.limit: "runningJobTtlMs"`. Its partial counts and `partialEventSha256` cover only events already delivered to the caller.
 
 Unread retention is capped per job at 256 events and 1048576 UTF-8 bytes. Bytes are the sum of compact `JSON.stringify(event)` byte lengths. A live worker offers one canonical batch at a time and receives its acknowledgement only after that batch is read. A batch that would exceed either ceiling is rejected before any event in it is retained or delivered. The job ends with `RESOURCE_LIMIT`, `details.limit` set to `maxUnreadEvents` or `maxUnreadBytes`, and exact `maximum` and attempted `actual` values. Cancellation and TTL expiry release blocked producers and terminate the worker. They never acknowledge or expose the unread batch.
 
