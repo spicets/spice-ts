@@ -79,10 +79,12 @@ export class XspiceDevice implements DeviceModel {
     warnings: readonly string[] = [],
     untruncated = false,
   ) {
+    // Stateless models have no cm_analog_integrate states for MIFtrunc.
+    // The shared accept hook must not make their nodes take voltage LTE.
     // cm_square computes phase arithmetically; cm_oneshot stores clock/corner
     // times. Neither uses cm_analog_integrate. Their prescribed finite edges
     // are bounded by model breakpoints, not node-voltage LTE.
-    if (untruncated || codeModel === 'square' || codeModel === 'oneshot') this.storesCharge = false;
+    if (!behavior.stateful || untruncated || codeModel === 'square' || codeModel === 'oneshot') this.storesCharge = false;
     const nodes = new Set<number>();
     for (const port of [...inputPorts, ...outputPorts]) {
       nodes.add(port.positive);
