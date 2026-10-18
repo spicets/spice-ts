@@ -1,5 +1,9 @@
 # BSIM4 stage-3 static load and integration
 
+The original stage-3 static contract below is extended by the #1367
+quasi-static transient section. OP/DC restrictions not explicitly extended
+there remain in force.
+
 Pinned ngspice-47 `bsim4/` at
 `a80f6e3e95d51534905b1f23410a951802666656`, VERSION=4.8/default.
 The supervisor retarget supersedes the decomposed cards' bsim4v7/BSD wording.
@@ -35,7 +39,7 @@ poly depletion and nonnominal temperature. Run:
 The parity tests read the native oracle and print maximum normalized gate and
 drain branch-current errors. Before this extension the same IGCMOD=1 cards
 throw UnsupportedModelParameterError. IGCMOD=2, nonbaseline RBODYMOD
-and RGATEMOD=2/3 remain unsupported; there is no transient charge extension.
+and RGATEMOD=2/3 remain unsupported; see below for the transient charge extension.
 
 ### RGATEMOD=1 extension (#1370)
 
@@ -133,8 +137,37 @@ All use existing UnsupportedModelParameterError, alias `UnsupportedModel`,
 code `UNSUPPORTED_MODEL_PARAMETER`. Invalid numeric/physical domains instead
 use InvalidCircuitError.
 
-- Capacitance, charge, transient, AC/small-signal, noise and other non-OP/DC
+- Direct capacitance/charge introspection, AC/small-signal, noise and other non-OP/DC/TRAN
   analyses (including PZ/TF/sensitivity/distortion/SP). No zero dynamic stamps.
+
+## Quasi-static transient extension (#1367)
+
+The device now integrates physical gate, drain and bulk charge using the shared
+TransientChargeState (BE, trapezoidal and Gear history, acceptance and truncation).
+The generated kernel additionally ports b4ld.c:3339-3913, guarded by a charge-only
+flag; the public adapter permits only capMod=2. Both rows and columns reverse
+with channel orientation. Charge uses M*MULT_Q; current uses M*MULT_I.
+Overlap/fringe follows b4ld.c:4149-4177 including CF, CGSL/CGDL and CKAPPAS/D.
+Bulk junction charge follows b4ld.c:3947-4128 with temperature-scaled bottom,
+sidewall and gate-sidewall capacitances. This is not AC/NQS/noise support.
+
+charge.test.ts checks finite-difference Jacobians, NF, both orientations,
+charge conservation, the unchanged FD corpus deck through 1ns, and inverter
+voltages against the committed native ngspice-47 grid. The voltage peak floor
+is 100uV and the acceptance criterion is the uniform corpus-f 1%, not a widened
+inverter tolerance. The input and supply voltages pass; the output remains a
+known 3.372941% peak-normalized mismatch, recorded with `it.fails`. Run with
+`ISSUE1367_RED=1` to expose that failure as an ordinary failing test. Simulation
+and finite-value checks run outside the expected-failure assertion.
+The native reference is generated from the identical inverter string with
+`ngspice -b -r inverter.raw inverter.cir`, ASCII raw output. It is not synthetic.
+This uses the card's bounded-slice fallback, not full circuit parity: inverter
+output voltage and gate/supply currents, and FD input currents, remain above
+the shared 1% corpus threshold. See #1367 for every signal and runtime; the
+remaining waveform/current parity work is not solved by charge integration alone.
+
+Other unsupported selectors and model paths:
+
 - TRNQSMOD/ACNQSMOD != 0; RDSMOD/RBODYMOD != 0, RGATEMOD=2/3,
   and positive RSH with given positive NRD/NRS.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,
