@@ -97,6 +97,8 @@ export interface ChargeTruncation {
    * raise the order.
    */
   readonly order?: 1 | 2;
+  /** CKTintegrateMethod for error coefficients, independent of a BE companion. */
+  readonly method?: ChargeIntegration['method'];
 }
 
 /** Newton convergence tolerances (ngspice RELTOL, ABSTOL, VNTOL). */

@@ -986,6 +986,9 @@ class TransientSimImpl implements TransientSim {
     const { reltol, abstol, chgtol, trtol } = this.options;
     const truncation = {
       deltas: [dt, this.prevDt, this.prevPrevDt] as const, reltol, abstol, chgtol, trtol, order,
+      // CKTterr selects coefficients by CKTintegrateMethod, not CKTorder.
+      // A Gear order-two trial after BE still uses 2/9, not trap's 1/12.
+      method: this.integrationMethod,
       // CKTterr (src/spicelib/analysis/cktterr.c:46-79) needs order+1
       // intervals for divided differences, then takes the order-th root.
       olderDelta: this.olderDt,
