@@ -164,6 +164,9 @@ export async function parseRawLinesInto<C>(
       }
       continue;
     }
+    // INTERP startup may repeat the variable table and Values marker before
+    // numeric output. Like parseNgspiceRaw, retain the final values section.
+    if (state === 'values' && /^Values:/.test(line)) { startValues(); continue; }
     if (state !== 'values' || !plot || line.trim() === '' || point >= plot.points) continue;
     const token = variable === 0 ? line.replace(/^\s*\d+\s+/, '').trim() : line.trim();
     const value = parseValue(token);

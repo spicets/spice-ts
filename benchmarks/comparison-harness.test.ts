@@ -19,6 +19,7 @@ import { compareExecutions } from './aggregate-report.js';
 import { runNativeNgspice, runNativeSpiceTs, type ClassicCircuit } from './corpus/classic/report.js';
 import './corpus/classic/report.test.js';
 import './plot-export.test.js';
+import './corpus/corpus-f/raw-interp-1434.test.js';
 
 const real = (values: number[]) => values.map(re => ({ re, im: 0 }));
 const hasNgspice = spawnSync('ngspice', ['--version'], { encoding: 'utf8' }).status === 0;
