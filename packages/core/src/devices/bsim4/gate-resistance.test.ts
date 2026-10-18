@@ -13,10 +13,10 @@ const base = new URL('./__fixtures__/rgatemod1/', import.meta.url);
 const reference = JSON.parse(readFileSync(new URL('ngspice-47.json', base), 'utf8')) as { cases: ReferenceCase[] };
 
 describe('BSIM4 RGATEMOD=1 static gate resistance', () => {
-  for (const polarity of [1, -1] as const) for (const vds of [0.7, -0.7]) {
-    it(`conserves five-node currents/Jacobian: polarity=${polarity}, Vds=${vds}`, () => {
+  for (const rgatemod of [1, 2]) for (const polarity of [1, -1] as const) for (const vds of [0.7, -0.7]) {
+    it(`conserves five-node currents/Jacobian: RGATEMOD=${rgatemod}, polarity=${polarity}, Vds=${vds}`, () => {
       const device = new BSIM4('M1', [0, 1, 2, 3, 4],
-        { LEVEL: 54, RGATEMOD: 1, RSHG: 1e6, XGW: 20e-9, XGL: 10e-9, NGCON: 2, IGCMOD: 1, TOXE: 1e-9 },
+        { LEVEL: 54, RGATEMOD: rgatemod, RSHG: 1e6, XGW: 20e-9, XGL: 10e-9, NGCON: 2, IGCMOD: 1, TOXE: 1e-9 },
         { L: 1e-6, W: 10e-6, NF: 2, M: 3, MULT_I: 2 }, polarity);
       const voltage = [0.4 + polarity * vds, 0.4 + polarity * 1.5, 0.4, 0.2, 0.4 + polarity * 1.4];
       function stamp(v: number[]) {
@@ -80,7 +80,7 @@ describe('BSIM4 RGATEMOD=1 static gate resistance', () => {
       console.info(`${item.deck}: ${JSON.stringify(errors)}`);
     });
   }
-  for (const [key, value] of [['RGATEMOD', 2], ['RGATEMOD', 3], ['RBODYMOD', 2]] as const) {
+  for (const [key, value] of [['RGATEMOD', 3], ['RBODYMOD', 2]] as const) {
     for (const location of ['model', 'instance']) {
       it(`rejects ${location} ${key}=${value} explicitly`, () => {
         const deck = `Unsupported BSIM4 selector

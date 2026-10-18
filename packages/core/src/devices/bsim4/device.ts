@@ -81,7 +81,7 @@ export class BSIM4 implements DeviceModel {
     // Setup uses native C node numbering (ground=0); MNA uses ground=-1.
     this.instance = setupBsim4Instance(this.model, instance,
       { d: nodes[0] + 1, g: nodes[1] + 1, s: nodes[2] + 1, b: nodes[3] + 1 });
-    const gate = this.instance.values.rgatemod === 1;
+    const gate = this.instance.values.rgatemod !== 0;
     const body = this.instance.values.rbodymod === 1;
     if (nodes.length !== 4 + Number(gate) + 3 * Number(body)) {
       throw new InvalidCircuitError('BSIM4 requires internal nodes for enabled RGATEMOD/RBODYMOD');
@@ -135,6 +135,7 @@ export class BSIM4 implements DeviceModel {
   }
   resetTransient(): void { this.chargeState.reset(); }
   private terminalCharges(read: (node: number) => number) {
+    if (this.instance.values.rgatemod === 2) this.unsupported('RGATEMOD=2 transient charge');
     if (this.bodyNodes.length) this.unsupported('RBODYMOD=1 transient charge');
     const p = this.model.values.type;
     // RGATEMOD=1 stores charge behind the gate resistor, at GP, just as
@@ -226,7 +227,7 @@ export class BSIM4 implements DeviceModel {
       this.limited = changed(vgs, raw.vgs) || changed(vds, raw.vds) || changed(vbs, raw.vbs);
       // b4ld.c:304-312 MODEINITJCT: seed a floating intrinsic gate away
       // from the artificial low-Vgs tunneling branch on the first OP/DC point.
-      if (this.initializeGate && this.instance.values.rgatemod === 1
+      if (this.initializeGate && this.instance.values.rgatemod !== 0
         && raw.vgs === 0 && raw.vds === 0 && raw.vbs === 0) {
         vgs = p * this.processed.instance.vth0 + 0.1;
         vds = 0.1;
@@ -266,13 +267,13 @@ export class BSIM4 implements DeviceModel {
         }
       }
     }
-    if (this.instance.values.rgatemod === 1) {
+    if (this.instance.values.rgatemod !== 0) {
       const { model, size, instance } = this.processed;
       // ngspice-47 b4temp.c:1926-1938: constant electrode conductance,
       // using junction width per finger and Lnew (not Leff).
       const resistance = model.rshg * (instance.xgw + size.weffCJ / (3 * instance.ngcon))
         / (instance.ngcon * instance.nf * (instance.l + model.xl - model.xgl));
-      const conductance = mult * (resistance > 0 ? 1 / resistance : 1e3);
+      const conductance = mult * (instance.rgatemod === 2 ? op.gcrg : resistance > 0 ? 1 / resistance : 1e3);
       // b4ld.c:5074-5085 (and serial stamp): intrinsic gate tunneling is
       // on GP; the external gate sees only this conservative resistor.
       const external = this.nodes[1];
@@ -281,6 +282,23 @@ export class BSIM4 implements DeviceModel {
       if (external >= 0 && g >= 0) {
         ctx.stampG(external, g, -conductance);
         ctx.stampG(g, external, -conductance);
+      }
+      if (instance.rgatemod === 2) {
+        // b4ld/b4acld: d[G(V)*(Vge-Vgp)]/dV. Derivatives follow
+        // channel orientation; the gate-resistor current does not.
+        const drop = (external < 0 ? 0 : ctx.getVoltage(external)) - voltage[1];
+        const gradient = op.mode > 0
+          ? [op.gcrgd, op.gcrgg, op.gcrgs, op.gcrgb]
+          : [op.gcrgs, op.gcrgg, op.gcrgd, op.gcrgb];
+        let equivalent = 0;
+        for (let column = 0; column < 4; column++) {
+          const derivative = mult * p * drop * gradient[column];
+          if (external >= 0 && nodes[column] >= 0) ctx.stampG(external, nodes[column], derivative);
+          if (g >= 0 && nodes[column] >= 0) ctx.stampG(g, nodes[column], -derivative);
+          equivalent += derivative * voltage[column];
+        }
+        if (!smallSignal && external >= 0) ctx.stampB(external, equivalent);
+        if (!smallSignal && g >= 0) ctx.stampB(g, -equivalent);
       }
     }
     // Stamp I(V) between two terminals using the analytic Jacobian. This is
