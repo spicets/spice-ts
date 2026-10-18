@@ -1,5 +1,6 @@
 import { real, type BehaviorFactory, type CodeModelBehavior, type CodeModelCall, type ResolvedXspiceParams } from './models.js';
 import type { XspiceCodeModelSpec } from './spec.js';
+import { gear3Coefficients } from '../gear3.js';
 
 /** ngspice xtradev/{capacitor,inductor}/ifspec.ifs: a single differential inout port. */
 export const REACTIVE_IC_SPECS: readonly XspiceCodeModelSpec[] = [
@@ -18,7 +19,7 @@ export const REACTIVE_IC_SPECS: readonly XspiceCodeModelSpec[] = [
  * Public Domain ngspice-47 xtradev/{capacitor,inductor}/cfunc.mod:
  * https://github.com/imr/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/xspice/icm/xtradev
  * Both use cm_analog_integrate:
- * TRAP is right-endpoint integration (including order 2); GEAR uses BDF2.
+ * TRAP is right-endpoint integration (including order 2); GEAR uses BDF2/3.
  * The inductor's AC_GAIN is j*omega*l in ngspice, despite its transient integral.
  */
 function reactive(params: ResolvedXspiceParams, capacitor: boolean): CodeModelBehavior {
@@ -32,6 +33,12 @@ function reactive(params: ResolvedXspiceParams, capacitor: boolean): CodeModelBe
     const factor = ramp(call);
     if (call.analysis === 'dc' || call.time === 0 || factor < 1) return { out: ic * factor, partial: 0 };
     const integration = call.integration;
+    if (integration?.method === 'gear2' && integration.order === 3
+      && integration.prevDt !== undefined && integration.prevPrevDt !== undefined && count >= 3) {
+      const [a0, a1, a2, a3] = gear3Coefficients(integration.dt, integration.prevDt, integration.prevPrevDt);
+      return { out: (call.inputs[0] / value - a1 * history[0] - a2 * history[1] - a3 * history[2]) / a0,
+        partial: 1 / (a0 * value) };
+    }
     if (integration?.method === 'gear2' && integration.prevDt !== undefined && count >= 2) {
       const dt = integration.dt;
       const alpha = integration.prevDt / dt;
