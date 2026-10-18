@@ -6,11 +6,11 @@ Every deck below is byte-identical to Xyce_Regression `7bb7e98f0ed3a81a7d1cf1d10
 
 ## Totals
 
-- Fixtures: 128. Outcome SHA-256: `21c7d723c541ff6027d78884294c5976d53175d8bf94fc6c270fd6dac12ce2c8`.
+- Fixtures: 128. Outcome SHA-256: `0a18c74fcd1328443022ee185005626e3f0cba9473c8e7b83c69830a85722f9e`.
 - ngspice (ngspice-47): 128 success, 0 failed, 0 unsupported.
-- spice-ts (0.4.0): 124 success, 2 failed, 2 unsupported.
-- Outcomes: matched 108, mismatch 14, not-compared 2, spice-ts-loss 4, ngspice-failed 0, both-failed 0.
-- Of the 128 decks ngspice runs successfully, spice-ts matches 108, mismatches 14, produces no comparable result for 2 and fails 4.
+- spice-ts (0.4.0): 125 success, 1 failed, 2 unsupported.
+- Outcomes: matched 109, mismatch 14, not-compared 2, spice-ts-loss 3, ngspice-failed 0, both-failed 0.
+- Of the 128 decks ngspice runs successfully, spice-ts matches 109, mismatches 14, produces no comparable result for 2 and fails 3.
 
 ## Method
 
@@ -37,11 +37,10 @@ Grouped from spice-ts's own first error line (corpus-g rules, then corpus-f rule
 | Bucket | Fixtures | ngspice ok | Issue |
 |---|---|---|---|
 | convergence | 1 | 1 | none filed |
-| execution: other failure | 1 | 1 | none filed |
 | model: compact MOSFET model B3SOI (LEVEL=10) | 1 | 1 | https://github.com/mfiumara/spice-ts/issues/747 |
 | parse: other unsupported syntax | 1 | 1 | none filed |
 
-## Losses (20)
+## Losses (19)
 
 Every fixture that is not matched: spice-ts failures, mismatches above the threshold, and results that could not be compared.
 
@@ -54,7 +53,6 @@ Every fixture that is not matched: spice-ts failures, mismatches above the thres
 | [INIT_CONDS/inv1xIC.cir](fixtures/INIT_CONDS/inv1xIC.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: MOSFET 'XINV1.MN1' references unknown model '0' |
 | [LTRA/ltra1.cir](fixtures/LTRA/ltra1.cir) | success | success | mismatch | 0.45 | tran v(4) |  |
 | [MCNC_BJT_LATCH/latch.cir](fixtures/MCNC_BJT_LATCH/latch.cir) | success | success | mismatch | 0.0222 | tran i(vset) |  |
-| [Message/Device/Core_SafeBarrier_1.cir](fixtures/Message/Device/Core_SafeBarrier_1.cir) | success | failed | spice-ts-loss |  |  | spice-ts: .noise output node '13' does not exist |
 | [MOS13_IC/invert42_mos3.cir](fixtures/MOS13_IC/invert42_mos3.cir) | success | success | mismatch | 0.744 | tran i(vdddev) |  |
 | [MOSFET_ParamAliases/invert1_alt.cir](fixtures/MOSFET_ParamAliases/invert1_alt.cir) | success | success | mismatch | 0.209 | tran v(vout) |  |
 | [MPDE/invert1.cir](fixtures/MPDE/invert1.cir) | success | success | mismatch | 0.0448 | tran i(vin1) |  |
@@ -68,7 +66,7 @@ Every fixture that is not matched: spice-ts failures, mismatches above the thres
 | [TIA/ERROROPTION/erroroption.cir](fixtures/TIA/ERROROPTION/erroroption.cir) | success | success | mismatch | 0.224 | tran i(vin1) |  |
 | [WAMPDE/BLOCKING/simple_single_channel.cir](fixtures/WAMPDE/BLOCKING/simple_single_channel.cir) | success | success | mismatch | 2.47 | tran i(l2) |  |
 
-## Wins (108)
+## Wins (109)
 
 Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every common signal.
 
@@ -135,6 +133,7 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 | [MEASURE_DC/AvgTest2DC.cir](fixtures/MEASURE_DC/AvgTest2DC.cir) | success | success | matched | 0 | dc i(vsrc1) |  |
 | [MEASURE_NOISE/DotOpNoNoise.cir](fixtures/MEASURE_NOISE/DotOpNoNoise.cir) | success | success | matched | 1.63e-8 | op i(eamp) |  |
 | [MEASURE/bad_dot_measure_line5.cir](fixtures/MEASURE/bad_dot_measure_line5.cir) | success | success | matched | 0.0000907 | tran i(vdd) |  |
+| [Message/Device/Core_SafeBarrier_1.cir](fixtures/Message/Device/Core_SafeBarrier_1.cir) | success | success | matched | 0 | noise inoise_spectrum |  |
 | [MEXTRAM/acFreq_Gbb_noFlip_P.cir](fixtures/MEXTRAM/acFreq_Gbb_noFlip_P.cir) | success | success | matched | 1.11e-8 | ac i(v_e_b) |  |
 | [MINDUCTORS/InductorICBug.cir](fixtures/MINDUCTORS/InductorICBug.cir) | success | success | matched | 3.08e-14 | tran i(l2) |  |
 | [MODEL_BINNING/comparatorBaseline_forGlobal.cir](fixtures/MODEL_BINNING/comparatorBaseline_forGlobal.cir) | success | success | matched | 0.00034 | tran v(9) |  |
