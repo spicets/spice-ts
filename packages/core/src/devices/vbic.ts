@@ -350,24 +350,31 @@ function diode(voltage: Dual, current: number, ideality: number, vt: number): Du
 
 // ngspice-47 vbicload.c:2238-2283 (BE), 2482-2543 (BC), revision
 // a80f6e3e95d51534905b1f23410a951802666656. AJE/AJC/AJS <= 0.
-function depletionCharge(voltage: Dual, potential: number, grading: number, fc: number): Dual {
-  const workspace = voltage.workspace;
+function depletionCharge(voltage: Dual, potential: number, grading: number, fc: number, branchIndex: number): Dual {
+  // Only called on an independent branch voltage, never a composed Dual.
+  // Compute the one nonzero partial directly, then scatter it once. This
+  // replaces 8-14 N-wide Dual operations per depletion integral. Retain the
+  // original value/partial arithmetic order for round-9 numerical identity.
+  const result = voltage.workspace.take(0);
+  result.derivative.fill(0);
   const delta = voltage.value - potential * fc;
   if (delta > 0) {
     const pw = Math.pow(1 - fc, -1 - grading);
     const constant = potential * (1 - pw * (1 - fc) * (1 - fc)) / (1 - grading);
-    return add(c(constant, workspace), scale(
-      mul(
-        sub(voltage, c(potential * fc, workspace)),
-        add(c(1 - fc, workspace), scale(sub(voltage, c(potential * fc, workspace)), 0.5 * grading / potential)),
-      ),
-      pw,
-    ));
+    const slope = 0.5 * grading / potential;
+    const linear = (1 - fc) + delta * slope;
+    result.value = constant + (delta * linear) * pw;
+    result.derivative[branchIndex] = 0 + ((1 - 0) * linear + delta * (0 + (1 - 0) * slope)) * pw;
+  } else {
+    const inverse = 1 / potential;
+    const base = Math.max(1 - voltage.value * inverse, Number.EPSILON);
+    const exponent = 1 - grading;
+    const slope = exponent * Math.pow(base, exponent - 1);
+    const factor = potential / exponent;
+    result.value = (1 - Math.pow(base, exponent)) * factor;
+    result.derivative[branchIndex] = (0 - ((0 - 1 * inverse) * slope)) * factor;
   }
-  return scale(
-    sub(c(1, workspace), pow(sub(c(1, workspace), scale(voltage, 1 / potential)), 1 - grading)),
-    potential / (1 - grading),
-  );
+  return result;
 }
 
 /** Per local node; derivatives are with respect to the {@link BRANCHES} voltages. */
@@ -442,8 +449,8 @@ function evaluate(
 
   const ifi = diode(vbei, thermal.IS, params.NF, vt);
   const iri = diode(vbci, thermal.IS, params.NR, vt);
-  const qdbe = depletionCharge(vbei, PE, ME, params.FC);
-  const qdbc = depletionCharge(vbci, PC, MC, params.FC);
+  const qdbe = depletionCharge(vbei, PE, ME, params.FC, 0);
+  const qdbc = depletionCharge(vbci, PC, MC, params.FC, 2);
   const q1z = addConstant(add(
     scale(qdbe, reciprocalOrZero(params.VER)),
     scale(qdbc, reciprocalOrZero(params.VEF)),
@@ -519,11 +526,11 @@ function evaluate(
   // ngspice-47 vbicload.c:3874-3896: partition depletion only; forward
   // diffusion remains intrinsic. The extrinsic integral uses Vbex, not Vbei.
   const qbe = add(scale(qdbe, thermal.CJE * params.WBE), div(mul(tff, ifi), qb));
-  const qbex = scale(depletionCharge(vbex, PE, ME, params.FC), thermal.CJE * (1 - params.WBE));
+  const qbex = scale(depletionCharge(vbex, PE, ME, params.FC, 1), thermal.CJE * (1 - params.WBE));
   const qbc = add(add(scale(qdbc, thermal.CJC), scale(iri, params.TR)), scale(kbci, params.QCO));
   const qbcx = scale(kbcx, params.QCO);
-  const qbep = add(scale(depletionCharge(vbep, PC, MC, params.FC), thermal.CJEP), scale(ifp, params.TR));
-  const qbcp = thermal.CJCP > 0 ? scale(depletionCharge(vbcp, PS, MS, params.FC), thermal.CJCP) : c(0, workspace);
+  const qbep = add(scale(depletionCharge(vbep, PC, MC, params.FC, 4), thermal.CJEP), scale(ifp, params.TR));
+  const qbcp = thermal.CJCP > 0 ? scale(depletionCharge(vbcp, PS, MS, params.FC, 5), thermal.CJCP) : c(0, workspace);
 
   const residual = Array.from({ length: nodeCount }, () => c(0, workspace));
   const charge = Array.from({ length: nodeCount }, () => c(0, workspace));
