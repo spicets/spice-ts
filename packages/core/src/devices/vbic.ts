@@ -111,7 +111,12 @@ const DEFAULTS: VBICParams = {
   TNOM: NOMINAL_TEMPERATURE_C,
 };
 
-/** Resolve the bounded, isothermal VBIC 1.2 subset used by NPN/PNP LEVEL=4. */
+/** ngspice-47 inpdomod.c:58-65 routes BJT levels 4 and 9 to the same VBIC model. */
+export function isVBICLevel(level: number | undefined): boolean {
+  return level === 4 || level === 9;
+}
+
+/** Resolve the bounded, isothermal VBIC 1.2 subset used by NPN/PNP LEVEL=4/9. */
 export function resolveVBICParams(
   supplied: Record<string, number>,
   polarity: number,
@@ -121,7 +126,7 @@ export function resolveVBICParams(
       throw new InvalidCircuitError(`Unsupported bounded VBIC DC model parameter: '${name}'`);
     }
   }
-  if ((supplied.LEVEL ?? 4) !== 4) {
+  if (!isVBICLevel(supplied.LEVEL ?? 4)) {
     throw new InvalidCircuitError(`Unsupported bounded VBIC model level: ${supplied.LEVEL}`);
   }
   if (polarity !== 1 && polarity !== -1) {

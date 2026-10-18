@@ -17,7 +17,7 @@ import { Inductor } from './devices/inductor.js';
 import { MutualInductor } from './devices/mutual-inductor.js';
 import { Diode, canonicalDiodeModelParams, diodeZeroBiasCapacitance } from './devices/diode.js';
 import { BJT, hasBiasDependentBaseResistance } from './devices/bjt.js';
-import { VBIC, resolveVBICParams, vbicNodeCount } from './devices/vbic.js';
+import { VBIC, isVBICLevel, resolveVBICParams, vbicNodeCount } from './devices/vbic.js';
 import { MOSFET } from './devices/mosfet.js';
 import { EKV26 } from './devices/ekv.js';
 import { MOS2, mos2SeriesResistances, resolveMOS2Model } from './devices/mos2.js';
@@ -2170,7 +2170,7 @@ export class Circuit {
     }
 
     const hasBoundedVBIC = expandedDescriptors.some(desc =>
-      desc.type === 'Q' && this._models.get(desc.modelName!)?.params.LEVEL === 4);
+      desc.type === 'Q' && isVBICLevel(this._models.get(desc.modelName!)?.params.LEVEL));
     if (hasBoundedVBIC) {
       const unsupportedStep = this._steps.find(step => step.param.toUpperCase() === 'TEMP');
       if (unsupportedStep) {
@@ -2454,7 +2454,7 @@ export class Circuit {
           }
           const modelParams = model.params;
           const polarity = model.type === 'PNP' ? -1 : 1;
-          if (modelParams.LEVEL === 4) {
+          if (isVBICLevel(modelParams.LEVEL)) {
             if (desc.params?.ICVBE !== undefined || desc.params?.ICVCE !== undefined) {
               throw new InvalidCircuitError(`VBIC '${desc.name}' does not support instance IC`);
             }
@@ -2996,12 +2996,12 @@ export class Circuit {
 
       if (desc.type === 'Q') {
         const model = this._models.get(desc.modelName!);
-        const isVBIC = (model?.type === 'NPN' || model?.type === 'PNP') && model.params.LEVEL === 4;
+        const isVBIC = (model?.type === 'NPN' || model?.type === 'PNP') && isVBICLevel(model.params.LEVEL);
         if (desc.nodes.length > 4) {
           // ngspice-47 accepts a fifth (thermal) node only for VBIC/HICUM.
           throw new InvalidCircuitError(isVBIC
             ? `Unsupported VBIC thermal node on '${desc.name}': self-heating (5-terminal instance) is not implemented`
-            : `BJT '${desc.name}' has a thermal node, but only VBIC (LEVEL=4) instances accept a fifth terminal`);
+            : `BJT '${desc.name}' has a thermal node, but only VBIC (LEVEL=4/9) instances accept a fifth terminal`);
         }
         // VBIC and the Gummel-Poon BJT both stamp the substrate terminal
         // (ngspice bjtload.c substrate junction); omitted, it is ground.
@@ -3010,7 +3010,7 @@ export class Circuit {
         // area, bjtload.c m; vbicload.c SCALE), i.e. divides the resistance.
         const instanceScale = bjtInstanceScale(desc.params);
         if (model?.type === 'NPN' || model?.type === 'PNP') {
-          if (model.params.LEVEL === 4) {
+          if (isVBICLevel(model.params.LEVEL)) {
             const polarity = model.type === 'PNP' ? -1 : 1;
             const params = resolveVBICParams(model.params, polarity);
             let [collector, base, emitter] = terminals;
