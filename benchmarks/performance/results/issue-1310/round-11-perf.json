@@ -1,0 +1,1021 @@
+{
+  "issue": 1310,
+  "round": 11,
+  "base_sha": "5db8e29000d27848bee5c3251b1accad1d371c4a",
+  "command": "spice-heavy node benchmarks/performance/dff-1310.mjs 1",
+  "series": {
+    "initial_fill": {
+      "runs": [
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 15.604874708999999,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 0,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.321061166,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 0,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.267494,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 1,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 15.575712709,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 1,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 15.614047917,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 2,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.21161075,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 2,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.328674542,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 3,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.20863775,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 3,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.293241125,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 4,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 17.047932708,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 4,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 17.217536625,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 5,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.371158375,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 5,
+          "variant": "base"
+        }
+      ],
+      "medians_seconds": {
+        "base": 15.911342833500001,
+        "head": 16.324867854
+      },
+      "median_change_percent": 2.598932251207353,
+      "pairwise_losses": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "final_loop": {
+      "runs": [
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.382846375,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 0,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.331580042,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 0,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.285259875,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 1,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.453287792,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 1,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.715819875,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 2,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.875891333,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 2,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.931421167,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 3,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 16.96076125,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 3,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 17.040164666,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 4,
+          "variant": "base"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 17.243519957999997,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 4,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 17.467105459,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 5,
+          "variant": "head"
+        },
+        {
+          "run": 0,
+          "node": "v22.23.1",
+          "tstop": "10n",
+          "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+          "seconds": 17.572941208,
+          "rows": 40545,
+          "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+          "convergence": {
+            "dc": {
+              "newtonIterations": 31,
+              "acceptedSolves": 1,
+              "rejectedSolves": 0,
+              "sourceStepAttempts": 0,
+              "sourceStepFailures": 0,
+              "gminStepAttempts": 0,
+              "gminStepFailures": 0,
+              "failure": null
+            },
+            "transient": {
+              "acceptedSteps": 40544,
+              "rejectedSteps": 0,
+              "newtonIterations": 85851,
+              "nrRetries": 0,
+              "lteRetries": 0,
+              "minimumAcceptedTimestep": 2.5e-15,
+              "failure": null
+            }
+          },
+          "pair": 5,
+          "variant": "base"
+        }
+      ],
+      "medians_seconds": {
+        "base": 16.8382905625,
+        "head": 16.903656249999997
+      },
+      "median_change_percent": 0.38819669524869926,
+      "pairwise_losses": [
+        2,
+        4
+      ]
+    }
+  },
+  "profiles_unweighted_samples": {
+    "base": {
+      "total": 3407,
+      "inclusive": {
+        "evaluate": 2136,
+        "diode": 139
+      },
+      "topSelf": [
+        [
+          "evaluate",
+          468
+        ],
+        [
+          "",
+          379
+        ],
+        [
+          "(garbage collector)",
+          284
+        ],
+        [
+          "scale",
+          274
+        ],
+        [
+          "stamp",
+          180
+        ],
+        [
+          "add",
+          165
+        ],
+        [
+          "set TextDecoder",
+          153
+        ],
+        [
+          "diode",
+          139
+        ],
+        [
+          "d",
+          132
+        ],
+        [
+          "depletionCharge",
+          115
+        ],
+        [
+          "constant",
+          107
+        ],
+        [
+          "addConstant",
+          101
+        ],
+        [
+          "stampTransientCharge",
+          86
+        ],
+        [
+          "mul",
+          84
+        ],
+        [
+          "nodeJacobian",
+          62
+        ],
+        [
+          "refactorWithPivots",
+          57
+        ],
+        [
+          "div",
+          55
+        ],
+        [
+          "addInto",
+          50
+        ]
+      ]
+    },
+    "head": {
+      "total": 3593,
+      "inclusive": {
+        "evaluate": 2243,
+        "diode": 118
+      },
+      "topSelf": [
+        [
+          "evaluate",
+          481
+        ],
+        [
+          "",
+          388
+        ],
+        [
+          "(garbage collector)",
+          298
+        ],
+        [
+          "scale",
+          284
+        ],
+        [
+          "stamp",
+          187
+        ],
+        [
+          "add",
+          165
+        ],
+        [
+          "set TextDecoder",
+          150
+        ],
+        [
+          "d",
+          150
+        ],
+        [
+          "addConstant",
+          123
+        ],
+        [
+          "diode",
+          118
+        ],
+        [
+          "mul",
+          114
+        ],
+        [
+          "constant",
+          111
+        ],
+        [
+          "depletionCharge",
+          108
+        ],
+        [
+          "stampTransientCharge",
+          100
+        ],
+        [
+          "nodeJacobian",
+          71
+        ],
+        [
+          "refactorWithPivots",
+          68
+        ],
+        [
+          "div",
+          59
+        ],
+        [
+          "subInto",
+          49
+        ]
+      ]
+    }
+  },
+  "oracle": {
+    "points_per_slice": 10800,
+    "comparisons_per_slice": 2754000,
+    "slices": [
+      "diode",
+      "depletion"
+    ],
+    "worst_relative_error": 0,
+    "worst_absolute_error": 0,
+    "relative_tolerance": 1e-12,
+    "absolute_floor": 1e-42
+  },
+  "identity": {
+    "verified_outputs": 27,
+    "output_sha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+    "fixture_sha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+    "rows": 40545,
+    "convergence": {
+      "dc": {
+        "newtonIterations": 31,
+        "acceptedSolves": 1,
+        "rejectedSolves": 0,
+        "sourceStepAttempts": 0,
+        "sourceStepFailures": 0,
+        "gminStepAttempts": 0,
+        "gminStepFailures": 0,
+        "failure": null
+      },
+      "transient": {
+        "acceptedSteps": 40544,
+        "rejectedSteps": 0,
+        "newtonIterations": 85851,
+        "nrRetries": 0,
+        "lteRetries": 0,
+        "minimumAcceptedTimestep": 2.5e-15,
+        "failure": null
+      }
+    }
+  },
+  "tests": {
+    "targeted": "333 passed, 24 files",
+    "build": "passed base and final head",
+    "lint": "passed final head",
+    "full_suite": "spice-heavy pnpm test passed, exit 0: core 5592 passed, 10 expected failures, 8 skipped; other workspace suites passed; root Node 221 passed, 4 skipped, 0 failed"
+  },
+  "limitations": [
+    "No measured speedup: final median is 0.3882% slower.",
+    "Initial fill variant regressed 2.5989%; every run retained.",
+    "Shared uncontrolled host; independent replication required.",
+    "No new ngspice comparison; waveform is bit-identical to baseline."
+  ]
+}

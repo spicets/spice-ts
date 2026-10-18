@@ -330,10 +330,10 @@ function reciprocalOrZero(value: number): number {
   return value > 0 ? 1 / value : 0;
 }
 
-function diode(voltage: Dual, current: number, ideality: number, vt: number): Dual {
-  // Fuse scale -> exp -> subtract one -> scale without allocating the four
-  // intermediate Duals/derivative arrays. Keep every floating-point operation
-  // in its original order (including subtracting +0 and multiplying by zero).
+function diode(voltage: Dual, current: number, ideality: number, vt: number, branchIndex: number): Dual {
+  // Every caller supplies an independent branch voltage. Evaluate its one
+  // partial directly and scatter once, rather than running the chain rule on
+  // all coordinates. Preserve the clamp and original arithmetic order.
   const inverse = 1 / (ideality * vt);
   const argument = voltage.value * inverse;
   const limited = Math.min(80, Math.max(-80, argument));
@@ -341,9 +341,9 @@ function diode(voltage: Dual, current: number, ideality: number, vt: number): Du
   const slope = argument === limited ? exponential : 0;
   const result = voltage.workspace.take(0);
   const derivative = result.derivative;
-  for (let i = 0; i < derivative.length; i++) {
-    derivative[i] = ((voltage.derivative[i] * inverse) * slope - 0) * current;
-  }
+  const inactive = ((0 * inverse) * slope - 0) * current;
+  for (let i = 0; i < derivative.length; i++) derivative[i] = inactive;
+  derivative[branchIndex] = ((1 * inverse) * slope - 0) * current;
   result.value = (exponential - 1) * current;
   return result;
 }
@@ -447,8 +447,8 @@ function evaluate(
   const xf1 = b[BRANCHES.length];
   const xf2 = b[BRANCHES.length + 1];
 
-  const ifi = diode(vbei, thermal.IS, params.NF, vt);
-  const iri = diode(vbci, thermal.IS, params.NR, vt);
+  const ifi = diode(vbei, thermal.IS, params.NF, vt, 0);
+  const iri = diode(vbci, thermal.IS, params.NR, vt, 2);
   const qdbe = depletionCharge(vbei, PE, ME, params.FC, 0);
   const qdbc = depletionCharge(vbci, PC, MC, params.FC, 2);
   const q1z = addConstant(add(
@@ -463,12 +463,12 @@ function evaluate(
   const itzr = div(iri, qb);
   const transport = sub(itzf, itzr);
 
-  const ibe = scale(add(diode(vbei, thermal.IBEI, params.NEI, vt), diode(vbei, thermal.IBEN, params.NEN, vt)), params.WBE);
-  const ibex = scale(add(diode(vbex, thermal.IBEI, params.NEI, vt), diode(vbex, thermal.IBEN, params.NEN, vt)), 1 - params.WBE);
-  const ibcj = add(diode(vbci, thermal.IBCI, params.NCI, vt), diode(vbci, thermal.IBCN, params.NCN, vt));
-  const ibcp = add(diode(vbcp, thermal.IBCIP, params.NCIP, vt), diode(vbcp, thermal.IBCNP, params.NCNP, vt));
+  const ibe = scale(add(diode(vbei, thermal.IBEI, params.NEI, vt, 0), diode(vbei, thermal.IBEN, params.NEN, vt, 0)), params.WBE);
+  const ibex = scale(add(diode(vbex, thermal.IBEI, params.NEI, vt, 1), diode(vbex, thermal.IBEN, params.NEN, vt, 1)), 1 - params.WBE);
+  const ibcj = add(diode(vbci, thermal.IBCI, params.NCI, vt, 2), diode(vbci, thermal.IBCN, params.NCN, vt, 2));
+  const ibcp = add(diode(vbcp, thermal.IBCIP, params.NCIP, vt, 5), diode(vbcp, thermal.IBCNP, params.NCNP, vt, 5));
   // ngspice vbicload.c:3566-3598 uses the collector emission coefficients.
-  const ibep = add(diode(vbep, thermal.IBEIP, params.NCI, vt), diode(vbep, thermal.IBENP, params.NCN, vt));
+  const ibep = add(diode(vbep, thermal.IBEIP, params.NCI, vt, 4), diode(vbep, thermal.IBENP, params.NCN, vt, 4));
   const avalancheVoltage = scale(add(
     sqrt(addConstant(mul(constantSub(PC, vbci), constantSub(PC, vbci)), 0.01)),
     constantSub(PC, vbci),
@@ -482,11 +482,11 @@ function evaluate(
   // ngspice-47 vbicload.c:3221-3285 mixes exponentials of Vbep and
   // Vbci, not their voltages. The same Ifp drives qbp, Iccp and Qbep.
   // Keep the default arithmetic path bit-identical.
-  const ifp = params.WSP === 1 ? diode(vbep, thermal.ISP, params.NFP, vt) : add(
-    scale(diode(vbep, thermal.ISP, params.NFP, vt), params.WSP),
-    scale(diode(vbci, thermal.ISP, params.NFP, vt), 1 - params.WSP),
+  const ifp = params.WSP === 1 ? diode(vbep, thermal.ISP, params.NFP, vt, 4) : add(
+    scale(diode(vbep, thermal.ISP, params.NFP, vt, 4), params.WSP),
+    scale(diode(vbci, thermal.ISP, params.NFP, vt, 2), 1 - params.WSP),
   );
-  const irp = diode(vbcp, thermal.ISP, params.NFP, vt);
+  const irp = diode(vbcp, thermal.ISP, params.NFP, vt, 5);
   const qbp = scale(addConstant(sqrt(addConstant(scale(ifp, 4 * reciprocalOrZero(params.IKP)), 1)), 1), 0.5);
   const iccp = div(sub(ifp, irp), qbp);
 
