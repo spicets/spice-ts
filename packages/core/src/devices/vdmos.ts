@@ -646,6 +646,23 @@ export class VDMOS implements DeviceModel {
     return { charge: t.transitTime * cd + deplcharge, capacitance: t.transitTime * gd + deplcap };
   }
 
+  /** ngspice-47 vdmosask.c: channel current (mode*cdrain, no type sign or
+   * displacement/body current), full gate capacitances and VDIOcap.
+   */
+  outputOperatingPoint(solution: Float64Array): { id: number; cgd: number; cgs: number; cds: number } {
+    const voltage = (node: number) => node >= 0 ? solution[node] : 0;
+    if (this.thermal) this.applyTemperature(Math.max(-200, voltage(this.nodes[7])));
+    const [vgs, vds] = this.channelVoltages(voltage);
+    const { mode, cdrain } = this.evaluateChannel(vgs, vds);
+    const vd = this.model.type * (voltage(this.nodes[BP]) - voltage(this.nodes[D]));
+    return {
+      id: mode * cdrain,
+      cgd: this.gateDrainCapacitance(vgs - vds),
+      cgs: this.instance.M * this.model.cgs,
+      cds: this.bodyDiodeCharge(vd).capacitance,
+    };
+  }
+
   /** DevCapVDMOS: the full (not halved) gate-drain capacitance at polarity-domain vgd. */
   private gateDrainCapacitance(vgd: number): number {
     const m = this.instance.M;

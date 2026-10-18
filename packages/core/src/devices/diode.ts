@@ -677,6 +677,20 @@ export class Diode implements DeviceModel {
     };
   }
 
+  /** ngspice-47 dioask.c DIO_CAP (`cd`): depletion + diffusion dQ/dV,
+   * at the inner junction voltage, not the terminal voltage behind RS.
+   */
+  outputCapacitance(solution: Float64Array, gmin = DEVICE_GMIN): number {
+    if (this.selfHeating) {
+      this.temperature = this.ambientTemperature + solution[this.nodes[2]];
+      this.applyTemperature();
+    }
+    const [nA, nK] = this.nodes;
+    const voltage = (nA >= 0 ? solution[nA] : 0) - (nK >= 0 ? solution[nK] : 0);
+    const { junctionVoltage } = diodeCurrent(voltage, this.junction(), this.params.RS);
+    return this.junctionCharge(junctionVoltage, gmin).capacitance;
+  }
+
   private ambientTemperature = 27;
 
   private get selfHeating(): boolean {

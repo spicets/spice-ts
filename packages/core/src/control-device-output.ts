@@ -4,6 +4,7 @@ import type { SimulationResult } from './results.js';
 import type { DeviceModel } from './devices/device.js';
 import { Resistor } from './devices/resistor.js';
 import { Diode } from './devices/diode.js';
+import { VDMOS } from './devices/vdmos.js';
 import { CurrentSource } from './devices/current-source.js';
 import { VoltageSource } from './devices/voltage-source.js';
 import { BehavioralCurrentSource, BehavioralVoltageSource } from './devices/behavioral-source.js';
@@ -102,6 +103,10 @@ export function deviceOutputVector(
   const branch = (index: number): number => solution[nodeCount + index];
   if (device instanceof Diode && (key === 'id' || key === 'i')) {
     return [device.noiseOperatingPoint(solution, state.deviceGmin).current];
+  }
+  if (device instanceof Diode && key === 'cd') return [device.outputCapacitance(solution, state.deviceGmin)];
+  if (device instanceof VDMOS && (key === 'id' || key === 'cgd' || key === 'cgs' || key === 'cds')) {
+    return [device.outputOperatingPoint(solution)[key]];
   }
   if (device instanceof Resistor && key === 'i') {
     const [positive, negative] = device.nodes;
