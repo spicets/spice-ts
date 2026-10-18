@@ -256,7 +256,7 @@ describe('XSPICE event-driven digital models against ngspice-47 (#553 slice 3)',
   it('keeps the other digital code models typed-unsupported', async () => {
     await expect(simulate([
       'dff', 'v1 1 0 1', 'a1 [1] [d] adc', '.model adc adc_bridge',
-      'a2 d d d null q nq ff', '.model ff d_dlatch', '.tran 1n 10n', '.end',
+      'a2 d d d null q nq ff', '.model ff d_state', '.tran 1n 10n', '.end',
     ].join('\n'))).rejects.toThrow(UnsupportedCodeModelError);
   });
 
