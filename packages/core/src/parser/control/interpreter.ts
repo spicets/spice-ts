@@ -265,7 +265,7 @@ class ControlInterpreter {
     const text = this.substitute(line.text, line);
     const rest = text.slice(/^\s*[^\s=(]*/.exec(text)![0].length).trim();
     switch (name) {
-      case 'op': case 'dc': case 'ac': case 'tran': case 'noise': case 'sp': case 'sens': {
+      case 'op': case 'dc': case 'ac': case 'tran': case 'noise': case 'sp': case 'sens': case 'pz': {
         const tokens = tokenizeNetlist(text)[0]?.tokens ?? [];
         const run = this.host.runAnalysis([`.${name.toUpperCase()}`, ...tokens.slice(1)], line, [...this.savedDeviceVectors]);
         this.recordRun(run);
@@ -1016,6 +1016,16 @@ class ControlInterpreter {
   private plotFor(run: ControlHostRun, saves: Set<string>): Plot {
     const { directive, result } = run;
     switch (directive.type) {
+      case 'pz': {
+        const plot = this.newPlot('pz', 'Pole-Zero Analysis', undefined, saves);
+        for (const [kind, roots] of [['pole', result.poleZero?.poles], ['zero', result.poleZero?.zeros]] as const) {
+          roots?.forEach((root, index) => {
+            const name = `${kind}(${index + 1})`;
+            plot.vectors.set(name, complexVector(name, [root.real], [root.imaginary]));
+          });
+        }
+        return plot;
+      }
       case 'op': {
         const plot = this.newPlot('op', 'Operating Point', undefined, saves);
         for (const [node, value] of result.dc?.voltages ?? []) plot.vectors.set(node.toLowerCase(), scalar(value, node));

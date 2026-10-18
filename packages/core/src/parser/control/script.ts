@@ -24,7 +24,7 @@ export interface ControlScript {
 }
 
 /** Analysis commands; each runs one analysis and creates one plot (noise: two). */
-export const CONTROL_ANALYSIS_COMMANDS = new Set(['op', 'dc', 'ac', 'tran', 'noise', 'sp', 'sens']);
+export const CONTROL_ANALYSIS_COMMANDS = new Set(['op', 'dc', 'ac', 'tran', 'noise', 'sp', 'sens', 'pz']);
 
 /**
  * Commands that only format, display, save or report already-computed vectors,
@@ -53,7 +53,6 @@ const UNSUPPORTED_REASONS: Record<string, string> = {
   label: 'goto/label jumps are not implemented',
   source: 'sourcing further netlists or scripts is not implemented',
   shell: 'shell commands are not executed',
-  pz: 'control-language pole-zero analysis is not implemented',
   tf: 'control-language transfer-function analysis is not implemented',
   disto: 'control-language distortion analysis is not implemented',
   pss: 'periodic steady-state analysis is not implemented',

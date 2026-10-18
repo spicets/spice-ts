@@ -44,7 +44,7 @@ import { parseXspiceInstance, parseXspiceModelCard, xspiceModelType } from './xs
 import { isPspiceSwitchModel, translatePspiceSwitchModel } from './pspice-switch.js';
 import { isNgspiceOptionField, splitXyceOptionPackage } from './xyce-option-packages.js';
 import { parseNgbehavior } from './ngbehavior.js';
-import type { AnalysisDirective, IncludeResolver, IntegrationMethod, SimulationOptions } from '../types.js';
+import type { AnalysisDirective, IncludeResolver, IntegrationMethod, PoleZeroAnalysis, SimulationOptions } from '../types.js';
 import type { ProtocolExecutionGuard } from '../protocol/execution-guard.js';
 import { measureCard } from '../measure/dot-measure.js';
 import { addMeasureCard, measureCards } from '../measure/registry.js';
@@ -378,10 +378,10 @@ function parseAnalysisCard(circuit: Circuit, tokens: string[], lineNumber: numbe
  * @internal Parse an analysis given as dot-card tokens (`['.TRAN', '1n', '1u']`)
  * for the control-language interpreter.
  */
-export function parseControlAnalysisCard(tokens: string[], lineNumber: number, context: string): AnalysisDirective {
+export function parseControlAnalysisCard(tokens: string[], lineNumber: number, context: string): AnalysisDirective | PoleZeroAnalysis {
   const scratch = new Circuit();
   parseAnalysisCard(scratch, tokens, lineNumber, context);
-  const analysis = scratch.analyses[0];
+  const analysis = scratch.analyses[0] ?? scratch.poleZeroAnalyses[0];
   if (!analysis) throw new ParseError(`'${tokens[0].toLowerCase()}' did not define an analysis`, lineNumber, context);
   return analysis;
 }
