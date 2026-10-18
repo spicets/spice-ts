@@ -12,6 +12,7 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, and loop stability margins without vectors.
+- `spice_tran_metrics`: run a transient step and return rise/fall time, overshoot/undershoot, settling time and peak without vectors.
 - `spice_simulation_start`: start a bounded simulation worker and return its opaque job cursor before solving completes.
 - `spice_simulation_read`: pull a replayable chunk containing at most 256 points by default (caller-selectable from 1 through the hard cap of 1024).
 - `spice_simulation_cancel`: idempotently stop delivery and return the protocol-v1 cancelled terminal with partial analysis counts and `partialEventSha256`.
@@ -191,6 +192,56 @@ Select 1 through 128 unique signals, each at most 256 characters. Input/output
 byte limits apply; union grid size times selected signal count is bounded by
 `maxResultPoints`, returning `RESOURCE_LIMIT` when exceeded. No solver or benchmark
 semantics are changed by this tool.
+
+## Transient step metrics
+
+Call `spice_tran_metrics` with `{ request, signal: "v(out)" }`. The request is the
+same `SimulationRequestV1` used by `spice_simulate`. Signals are case-insensitive
+`v(node)` or `i(branch)`. Optional `analysis` is a zero-based analysis index;
+otherwise exactly one transient analysis must exist. Run stepped analyses separately.
+
+Example tool arguments:
+
+```json
+{
+  "request": {
+    "apiVersion": "1",
+    "input": {
+      "format": "spice",
+      "source": "V1 in 0 PWL(0 0 100u 0 100.001u 1)\nR1 in out 1k\nC1 out 0 1u\n.tran 5u 15m\n.end"
+    }
+  },
+  "signal": "v(out)",
+  "finalValue": 1,
+  "settlingBandPercent": 2
+}
+```
+
+The response contains `initialValue`, `finalValue`, `unit` (`V` or `A`),
+`riseTimeS`, `fallTimeS`, `overshootPercent`, `undershootPercent`, `settlingTimeS`,
+`peakValue`, and `peakTimeS`. The RC example has about 2.197 ms rise time.
+Rise/fall times use the first directed 10% and 90% crossings with linear time
+interpolation; the opposite direction's field is `null`. Overshoot is excursion
+beyond the final level and undershoot is excursion behind the initial level,
+both normalized to the absolute step amplitude. Peak is the maximum excursion
+in the step direction (minimum value for a falling step), at the first sampled
+extremum. `peakTimeS` and `settlingTimeS` are absolute times on the simulation
+axis, not durations measured from an inferred stimulus onset.
+
+Optional `initialValue` and `finalValue` specify known step levels. Defaults are
+the first and last samples, not extrapolated DC levels. Use a sufficiently long
+single-step trace, or provide known levels; endpoint estimates cannot prove a
+truncated response has reached its true asymptote. Settling is the final entry
+into a band of `settlingBandPercent` of the step amplitude (default 2, strictly
+between 0 and 100), interpolated after the last out-of-band sample. The trace
+must remain in band for at least the final 10% of its sampled duration.
+
+Metric failures set MCP `isError` and return `{ error: { code, message } }` with
+`NOT_TRANSIENT` (no unique transient selection), `SIGNAL_NOT_FOUND`,
+`NO_TRANSITION` (equal levels or missing ordered 10/90 crossings), `NOT_SETTLED`
+(insufficient in-band hold), or `INVALID_DATA` (invalid vectors/arithmetic).
+Malformed arguments and simulation/resource failures retain the standard API
+error shape. This tool changes no solver or benchmark semantics.
 
 ## AC metrics
 
