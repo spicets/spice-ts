@@ -405,6 +405,14 @@ The machine-readable catalogue is `benchmarks/corpus/ngspice/manifest.json`.
 
 ## BSIM4 implementation source (#3), static OP/DC subset
 
+The #1367 quasi-static capMod=2 extension uses the same pinned ECL-2.0 source
+below: b4ld.c:3339-3913 (intrinsic CTM), 4149-4177 (overlap/fringe),
+3947-4128 (junction charge), and the corresponding b4temp.c charge preprocessing.
+The original inverter in `bsim4/charge.test.ts` is project-authored (repository
+licence); `inverter-reference.json` is actual ngspice-47 output consumed by that
+test, not an upstream circuit. The corpus-g FD fixture is unchanged and retains
+its existing source/licence/hash provenance. Dynamic residuals are reported in #1367.
+
 | Port destination / upstream subset | Pinned upstream revision | Licence / notices |
 | --- | --- | --- |
 | `packages/core/src/devices/bsim4/` and `bsim4-junction.ts`: full ordered model defaults/instance setup from `src/spicelib/devices/bsim4/b4set.c`, baseline silicon size/binning/TEMPMOD=0 preprocessing from `b4temp.c`, GEOMOD=0 junction geometry from `b4geo.c:28-88`, relevant DC fatal checks and rejection of unported PARAMCHK correction domains from `b4check.c`, DIOMOD=1 junction currents and channel Ids/gm/gds/gmbs including substrate current from `b4ld.c:1004-2189,5413-5431`. Registered LEVEL=14/54 static subset, not full BSIM4 or dynamic support. Detailed inventories in SETUP.md, TEMPERATURE.md and LOAD.md. | [ngspice-47 bsim4/](https://github.com/imr/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/bsim4), SHA `a80f6e3e95d51534905b1f23410a951802666656` | ECL-2.0, Copyright (c) 2025 University of California. Original per-file notices retained in generated ports and `NOTICE-BSIM4.txt`, with a TypeScript modification notice. Full licence in `packages/core/src/devices/bsim4/LICENSE-ECL-2.0`, obtained from [SPDX licence text](https://github.com/spdx/license-list-data/blob/main/text/ECL-2.0.txt). The per-file ECL notice overrides ngspice's project-level BSD default for these files. |

@@ -34,7 +34,7 @@ describe('BSIM4 DC device integration', () => {
       expect(result.dc!.current('Vd')).toBeCloseTo(-p * (op.ids + op.isub - op.cbd), 12);
     });
   }
-  for (const analysis of ['.tran 1n 10n', '.ac dec 2 1 1meg', '.noise V(d) Vg dec 2 1 1meg']) {
+  for (const analysis of ['.ac dec 2 1 1meg', '.noise V(d) Vg dec 2 1 1meg']) {
     it(`rejects ${analysis} with UnsupportedModel`, () => {
       expect(() => parse(deck(54, 'NMOS', analysis)).compile()).toThrow(UnsupportedModel);
     });
@@ -44,7 +44,7 @@ describe('BSIM4 DC device integration', () => {
     expect(() => device.capacitances()).toThrow(UnsupportedModel);
     expect(() => device.stampDynamic()).toThrow(UnsupportedModel);
     expect(() => device.stampSmallSignal()).toThrow(UnsupportedModel);
-    expect(() => device.resetTransient()).toThrow(UnsupportedModel);
+    expect(() => device.resetTransient()).not.toThrow();
     expect(() => device.noise()).toThrow(UnsupportedModel);
     expect(() => device.charges()).toThrow(UnsupportedModel);
   });

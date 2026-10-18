@@ -27,7 +27,7 @@ standard can be found at: http://www.si2.org/cmc
 import type { Bsim4ModelValues, Bsim4ModelParameter } from './params.js';
 import type { Bsim4InstanceValues } from './instance-params.js';
 export type Bsim4TemperatureModel = Bsim4ModelValues & Record<'DjctGateSidewallTempSatCurDensity' | 'DjctSidewallTempSatCurDensity' | 'DjctTempSatCurDensity' | 'Eg0' | 'PhiBD' | 'PhiBS' | 'PhiBSWD' | 'PhiBSWGD' | 'PhiBSWGS' | 'PhiBSWS' | 'SjctGateSidewallTempSatCurDensity' | 'SjctSidewallTempSatCurDensity' | 'SjctTempSatCurDensity' | 'coxe' | 'coxp' | 'factor1' | 'vcrit' | 'vtm' | 'vtm0', number>;
-export type Bsim4Size = Record<'Xdep0' | 'a0' | 'a1' | 'a2' | 'acde' | 'agidl' | 'agisl' | 'ags' | 'aigbacc' | 'aigbinv' | 'aigc' | 'aigd' | 'aigs' | 'aigsd' | 'alpha0' | 'alpha1' | 'at' | 'b0' | 'b1' | 'beta0' | 'bgidl' | 'bgisl' | 'bigbacc' | 'bigbinv' | 'bigc' | 'bigd' | 'bigs' | 'bigsd' | 'cdep0' | 'cdsc' | 'cdscb' | 'cdscd' | 'cf' | 'cgdl' | 'cgidl' | 'cgisl' | 'cgsl' | 'cigbacc' | 'cigbinv' | 'cigc' | 'cigd' | 'cigs' | 'cigsd' | 'cit' | 'ckappad' | 'ckappas' | 'clc' | 'cle' | 'delta' | 'dl' | 'dlc' | 'drout' | 'dsub' | 'dvt0' | 'dvt0w' | 'dvt1' | 'dvt1w' | 'dvt2' | 'dvt2w' | 'dvtp0' | 'dvtp1' | 'dvtp2' | 'dvtp2factor' | 'dvtp3' | 'dvtp4' | 'dvtp5' | 'dw' | 'dwb' | 'dwc' | 'dwg' | 'dwj' | 'egidl' | 'egisl' | 'eigbinv' | 'eta0' | 'etab' | 'eu' | 'fgidl' | 'fgisl' | 'fprout' | 'gamma1' | 'gamma2' | 'k1' | 'k1ox' | 'k2' | 'k2we' | 'k3' | 'k3b' | 'keta' | 'ketac' | 'kgidl' | 'kgisl' | 'kt1' | 'kt1l' | 'kt2' | 'ku0we' | 'kvth0we' | 'lambda' | 'lc' | 'ldeb' | 'leff' | 'leffCV' | 'litl' | 'lp' | 'lpe0' | 'lpeb' | 'minv' | 'minvcv' | 'moin' | 'mstar' | 'ndep' | 'nfactor' | 'ngate' | 'nigbacc' | 'nigbinv' | 'nigc' | 'noff' | 'nsd' | 'nsub' | 'ntox' | 'pclm' | 'pdibl1' | 'pdibl2' | 'pdiblb' | 'pdits' | 'pditsd' | 'phi' | 'phin' | 'phis3' | 'pigcd' | 'poxedge' | 'prt' | 'prwb' | 'prwg' | 'pscbe1' | 'pscbe2' | 'pvag' | 'rds0' | 'rdsw' | 'rdswmin' | 'rdw' | 'rgidl' | 'rgisl' | 'rsw' | 'sqrtPhi' | 'sqrtXdep0' | 'teta0' | 'tfactor' | 'theta0vb0' | 'thetaRout' | 'tnfactor' | 'tvfbsdoff' | 'tvoff' | 'tvoffcv' | 'u0' | 'u0temp' | 'ua' | 'ua1' | 'ub' | 'ub1' | 'uc' | 'uc1' | 'ucs' | 'ucste' | 'ud' | 'ud1' | 'up' | 'ute' | 'vbi' | 'vbm' | 'vbx' | 'vfb' | 'vfbcv' | 'vfbsd' | 'vfbsdoff' | 'vfbzbfactor' | 'voff' | 'voffcbn' | 'voffcv' | 'vsat' | 'vsattemp' | 'vth0' | 'vtl' | 'w0' | 'weff' | 'weffCJ' | 'weffCV' | 'wr' | 'xj' | 'xn' | 'xrcrg1' | 'xrcrg2' | 'xt', number>;
+export type Bsim4Size = Record<'Xdep0' | 'a0' | 'a1' | 'a2' | 'abulkCVfactor' | 'acde' | 'agidl' | 'agisl' | 'ags' | 'aigbacc' | 'aigbinv' | 'aigc' | 'aigd' | 'aigs' | 'aigsd' | 'alpha0' | 'alpha1' | 'at' | 'b0' | 'b1' | 'beta0' | 'bgidl' | 'bgisl' | 'bigbacc' | 'bigbinv' | 'bigc' | 'bigd' | 'bigs' | 'bigsd' | 'cdep0' | 'cdsc' | 'cdscb' | 'cdscd' | 'cf' | 'cgbo' | 'cgdl' | 'cgdo' | 'cgidl' | 'cgisl' | 'cgsl' | 'cgso' | 'cigbacc' | 'cigbinv' | 'cigc' | 'cigd' | 'cigs' | 'cigsd' | 'cit' | 'ckappad' | 'ckappas' | 'clc' | 'cle' | 'delta' | 'dl' | 'dlc' | 'drout' | 'dsub' | 'dvt0' | 'dvt0w' | 'dvt1' | 'dvt1w' | 'dvt2' | 'dvt2w' | 'dvtp0' | 'dvtp1' | 'dvtp2' | 'dvtp2factor' | 'dvtp3' | 'dvtp4' | 'dvtp5' | 'dw' | 'dwb' | 'dwc' | 'dwg' | 'dwj' | 'egidl' | 'egisl' | 'eigbinv' | 'eta0' | 'etab' | 'eu' | 'fgidl' | 'fgisl' | 'fprout' | 'gamma1' | 'gamma2' | 'k1' | 'k1ox' | 'k2' | 'k2we' | 'k3' | 'k3b' | 'keta' | 'ketac' | 'kgidl' | 'kgisl' | 'kt1' | 'kt1l' | 'kt2' | 'ku0we' | 'kvth0we' | 'lambda' | 'lc' | 'ldeb' | 'leff' | 'leffCV' | 'litl' | 'lp' | 'lpe0' | 'lpeb' | 'minv' | 'minvcv' | 'moin' | 'mstar' | 'mstarcv' | 'ndep' | 'nfactor' | 'ngate' | 'nigbacc' | 'nigbinv' | 'nigc' | 'noff' | 'nsd' | 'nsub' | 'ntox' | 'pclm' | 'pdibl1' | 'pdibl2' | 'pdiblb' | 'pdits' | 'pditsd' | 'phi' | 'phin' | 'phis3' | 'pigcd' | 'poxedge' | 'prt' | 'prwb' | 'prwg' | 'pscbe1' | 'pscbe2' | 'pvag' | 'rds0' | 'rdsw' | 'rdswmin' | 'rdw' | 'rgidl' | 'rgisl' | 'rsw' | 'sqrtPhi' | 'sqrtXdep0' | 'teta0' | 'tfactor' | 'theta0vb0' | 'thetaRout' | 'tnfactor' | 'tvfbsdoff' | 'tvoff' | 'tvoffcv' | 'u0' | 'u0temp' | 'ua' | 'ua1' | 'ub' | 'ub1' | 'uc' | 'uc1' | 'ucs' | 'ucste' | 'ud' | 'ud1' | 'up' | 'ute' | 'vbi' | 'vbm' | 'vbx' | 'vfb' | 'vfbcv' | 'vfbsd' | 'vfbsdoff' | 'vfbzbfactor' | 'voff' | 'voffcbn' | 'voffcv' | 'vsat' | 'vsattemp' | 'vth0' | 'vtl' | 'w0' | 'weff' | 'weffCJ' | 'weffCV' | 'wr' | 'xj' | 'xn' | 'xrcrg1' | 'xrcrg2' | 'xt', number>;
 export type Bsim4TemperatureInstance = { -readonly [K in keyof Bsim4InstanceValues]: Bsim4InstanceValues[K] } & Record<'coxp' | 'eta0' | 'k2' | 'k2ox' | 'toxp' | 'u0temp' | 'vbsc' | 'vfb' | 'vfbzb' | 'vsattemp' | 'vtfbphi1' | 'vtfbphi2' | 'vth0', number>;
 const KboQ = 8.617087e-5, EPS0 = 8.85418e-12, EPSSI = 1.03594e-10;
 const PI = 3.141592654, Charge_q = 1.60219e-19;
@@ -105,8 +105,25 @@ export function applyTemperature(
   // b4temp.c:177-177
   model.coxe = epsrox * EPS0 / toxe;
 
-  // b4temp.c:179-179
+  // b4temp.c:179-196
   model.coxp = model.epsrox * EPS0 / model.toxp;
+
+  if (!given.has('cgdo'))
+  {   if (given.has('dlc') && (model.dlc > 0.0))
+  model.cgdo = model.dlc * model.coxe
+  - model.cgdl ;
+  else
+  model.cgdo = 0.6 * model.xj * model.coxe;
+  }
+  if (!given.has('cgso'))
+  {   if (given.has('dlc') && (model.dlc > 0.0))
+  model.cgso = model.dlc * model.coxe
+  - model.cgsl ;
+  else
+  model.cgso = 0.6 * model.xj * model.coxe;
+  }
+  if (!given.has('cgbo'))
+  model.cgbo = 2.0 * model.dwc * model.coxe;
 
   // b4temp.c:200-213
   Tnom = model.tnom;
@@ -274,7 +291,7 @@ export function applyTemperature(
   // b4temp.c:512-512
   pParam.weffCJ = Wnew - 2.0 * pParam.dwj;
 
-  // b4temp.c:522-1180
+  // b4temp.c:522-1183
   if (model.binunit == 1)
   {   Inv_L = 1.0e-6 / pParam.leff;
   Inv_W = 1.0e-6 / pParam.weff;
@@ -934,6 +951,9 @@ export function applyTemperature(
   + model.lku0we * Inv_L
   + model.wku0we * Inv_W
   + model.pku0we * Inv_LW;
+  pParam.abulkCVfactor = 1.0 + Math.pow((pParam.clc
+  / pParam.leffCV),
+  pParam.cle);
 
   // b4temp.c:1185-1213
   T0 = (TRatio - 1.0);
@@ -1000,7 +1020,13 @@ export function applyTemperature(
   pParam.tfactor = (1.0 - T0) / (1.0 + T0 );
   }
 
-  // b4temp.c:1307-1314
+  // b4temp.c:1301-1314
+  pParam.cgdo = (model.cgdo + pParam.cf)
+  * pParam.weffCV;
+  pParam.cgso = (model.cgso + pParam.cf)
+  * pParam.weffCV;
+  pParam.cgbo = model.cgbo * pParam.leffCV * here.nf;
+
   if (!given.has('ndep') && given.has('gamma1'))
   {   T0 = pParam.gamma1 * model.coxe;
   pParam.ndep = 3.01248e22 * T0 * T0;
@@ -1042,15 +1068,15 @@ export function applyTemperature(
   * pParam.ndep * 1.0e6 / 2.0
   / pParam.phi);
 
-  // b4temp.c:1410-1410
+  // b4temp.c:1410-1412
   pParam.mstar = 0.5 + Math.atan(pParam.minv) / PI;
-
-  // b4temp.c:1412-1412
+  pParam.mstarcv = 0.5 + Math.atan(pParam.minvcv) / PI;
   pParam.voffcbn =  pParam.voff + model.voffl / pParam.leff;
 
-  // b4temp.c:1415-1416
+  // b4temp.c:1415-1417
   pParam.ldeb = Math.sqrt(epssub * Vtm0 / (Charge_q
   * pParam.ndep * 1.0e6)) / 3.0;
+  pParam.acde *= Math.pow((pParam.ndep / 2.0e16), -0.25);
 
   // b4temp.c:1420-1499
   if (given.has('k1') || given.has('k2'))

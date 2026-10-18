@@ -1,5 +1,9 @@
 # BSIM4 stage-3 static load and integration
 
+The original stage-3 static contract below is extended by the #1367
+quasi-static transient section. OP/DC restrictions not explicitly extended
+there remain in force.
+
 Pinned ngspice-47 `bsim4/` at
 `a80f6e3e95d51534905b1f23410a951802666656`, VERSION=4.8/default.
 The supervisor retarget supersedes the decomposed cards' bsim4v7/BSD wording.
@@ -62,8 +66,30 @@ All use existing UnsupportedModelParameterError, alias `UnsupportedModel`,
 code `UNSUPPORTED_MODEL_PARAMETER`. Invalid numeric/physical domains instead
 use InvalidCircuitError.
 
-- Capacitance, charge, transient, AC/small-signal, noise and other non-OP/DC
+- Direct capacitance/charge introspection, AC/small-signal, noise and other non-OP/DC/TRAN
   analyses (including PZ/TF/sensitivity/distortion/SP). No zero dynamic stamps.
+
+## Quasi-static transient extension (#1367)
+
+The device now integrates physical gate, drain and bulk charge using the shared
+TransientChargeState (BE, trapezoidal and Gear history, acceptance and truncation).
+The generated kernel additionally ports b4ld.c:3339-3913, guarded by a charge-only
+flag; the public adapter permits only capMod=2. Both rows and columns reverse
+with channel orientation. Charge uses M*MULT_Q; current uses M*MULT_I.
+Overlap/fringe follows b4ld.c:4149-4177 including CF, CGSL/CGDL and CKAPPAS/D.
+Bulk junction charge follows b4ld.c:3947-4128 with temperature-scaled bottom,
+sidewall and gate-sidewall capacitances. This is not AC/NQS/noise support.
+
+charge.test.ts checks finite-difference Jacobians, NF, both orientations,
+charge conservation, the unchanged FD corpus deck through 1ns, and all inverter
+voltages against the committed native ngspice-47 grid (shared 5% peak bound).
+The native reference is generated from the identical inverter string with
+`ngspice -b -r inverter.raw inverter.cir`, ASCII raw output. It is not synthetic.
+Full circuit parity is not claimed: gate/supply currents remain above the
+shared corpus threshold; see the #1367 issue evidence for every signal and runtime.
+
+Other unsupported selectors and model paths:
+
 - TRNQSMOD/ACNQSMOD != 0; body/gate/external resistance network modes,
   RDSMOD/RBODYMOD/RGATEMOD != 0, and positive RSH with given positive NRD/NRS.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,

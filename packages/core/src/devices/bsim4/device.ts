@@ -23,7 +23,9 @@ standard can be found at: http://www.si2.org/cmc
 */
 
 // Modified/ported to TypeScript by spice-ts. Static b4ld limiting and MNA adapter.
-import type { DeviceModel, StampContext } from '../device.js';
+import type { ChargeIntegration, ChargeTruncation, DeviceModel, StampContext } from '../device.js';
+import { stampChargeCurrent, TransientChargeState } from '../charge-state.js';
+import { evaluateBsim4Charges } from './charge.js';
 import { DEVICE_GMIN } from '../device.js';
 import { fetlim, limvds, pnjlim } from '../devsup.js';
 import { InvalidCircuitError, UnsupportedModelParameterError } from '../../errors.js';
@@ -45,8 +47,11 @@ function lowercaseCard(card: Readonly<Record<string, number | string | undefined
   return result;
 }
 
-/** DC-only BSIM4 baseline. No alternate-level fallback or dynamic zero stamps. */
+/** BSIM4 static and quasi-static capMod=2 transient adapter; no alternate-level fallback. */
 export class BSIM4 implements DeviceModel {
+  readonly integratesTransientCharge = true;
+  readonly truncationCoversCharges = true;
+  private readonly chargeState = new TransientChargeState(3);
   readonly branches: number[] = [];
   readonly isNonlinear = true;
   private readonly model: Bsim4ModelSetup;
@@ -74,10 +79,13 @@ export class BSIM4 implements DeviceModel {
     this.von = this.evaluate(this.previous).von; // enforce all DC guards at construction
   }
   private unsupported(request: string): never {
-    throw new UnsupportedModelParameterError(this.name, request, 'BSIM4 supports only static OP/DC in this slice', { model: 'BSIM4' });
+    throw new UnsupportedModelParameterError(this.name, request, 'BSIM4 supports OP/DC and quasi-static capMod=2 transient only', { model: 'BSIM4' });
   }
   assertAnalyses(analyses: readonly string[]): void {
-    for (const analysis of analyses) if (analysis !== 'op' && analysis !== 'dc') this.unsupported(analysis);
+    for (const analysis of analyses) {
+      if (analysis === 'tran') this.terminalCharges(() => 0);
+      else if (analysis !== 'op' && analysis !== 'dc') this.unsupported(analysis);
+    }
   }
   capacitances(): never { return this.unsupported('capacitances'); }
   charges(): never { return this.unsupported('charge'); }
@@ -85,10 +93,48 @@ export class BSIM4 implements DeviceModel {
   stampSmallSignal(): never { return this.unsupported('ac'); }
   stampDynamic(): never { return this.unsupported('capacitances'); }
   stampAC(): never { return this.unsupported('ac'); }
-  resetTransient(): never { return this.unsupported('tran'); }
-  setTransientTimestep(): never { return this.unsupported('tran'); }
-  beginTransientNewton(): never { return this.unsupported('tran'); }
-  stampTransientCharge(): never { return this.unsupported('charge'); }
+  resetTransient(): void { this.chargeState.reset(); }
+  private terminalCharges(read: (node: number) => number) {
+    const p = this.model.values.type;
+    const v = this.nodes.map(node => node < 0 ? 0 : read(node));
+    return evaluateBsim4Charges(this.processed, this.model.given,
+      { vgs: p * (v[1] - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) });
+  }
+  stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {
+    const tc = this.terminalCharges(node => ctx.getVoltage(node));
+    const state = this.chargeState;
+    state.begin(integration);
+    const mult = this.instance.values.m * this.instance.values.mult_q;
+    for (let index = 0; index < 3; index++) {
+      const row = [1, 0, 3][index];
+      const into = this.nodes[row], source = this.nodes[2];
+      let equivalent = state.current(index, mult * this.model.values.type * tc.q[row]);
+      for (let col = 0; col < 4; col++) {
+        const node = this.nodes[col];
+        if (node < 0) continue;
+        const g = state.factor * mult * tc.jacobian[4 * row + col];
+        equivalent -= g * ctx.getVoltage(node);
+        if (into >= 0) ctx.stampG(into, node, g);
+        if (source >= 0) ctx.stampG(source, node, -g);
+      }
+      if (into >= 0) ctx.stampB(into, -equivalent);
+      if (source >= 0) ctx.stampB(source, equivalent);
+    }
+  }
+  stampAcceptedChargeCurrent(ctx: StampContext): void {
+    for (let index = 0; index < 3; index++) {
+      stampChargeCurrent(ctx, this.nodes[[1, 0, 3][index]], this.nodes[2], this.chargeState.acceptedChargeCurrent(index));
+    }
+  }
+  acceptTransientStep(ctx: StampContext): void {
+    const tc = this.terminalCharges(node => ctx.getVoltage(node));
+    const scale = this.instance.values.m * this.instance.values.mult_q * this.model.values.type;
+    for (let index = 0; index < 3; index++) this.chargeState.accept(index, scale * tc.q[[1, 0, 3][index]]);
+    this.chargeState.commit();
+  }
+  truncateTransientStep(ctx: StampContext, truncation: ChargeTruncation): number {
+    return this.chargeState.truncationTimestep(truncation, () => this.acceptTransientStep(ctx));
+  }
   evaluate(bias: Bsim4Bias, gmin = DEVICE_GMIN): Bsim4OperatingPoint {
     return evaluateBsim4(this.processed, this.model.given, bias, gmin);
   }
@@ -108,7 +154,6 @@ export class BSIM4 implements DeviceModel {
   limitedLastStamp(): boolean { return this.limited; }
 
   stamp(ctx: StampContext): void {
-    if (ctx.dt !== 0) this.unsupported('tran');
     const p = this.model.values.type;
     const [d, g, s, b] = this.nodes;
     const read = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);
