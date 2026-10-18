@@ -172,6 +172,11 @@ export function parseXspiceModelCard(raw: string, line: number): XspiceModelCard
       warnings.push(`MIF: unrecognized parameter (${token.text}) - ignored`);
       continue;
     }
+    // Numparam string substitution retains quotes through subcircuit calls.
+    // Only a declared vector consumer interprets the bracketed payload.
+    if (param.vector && tokens[i]?.kind === 'string' && tokens[i].text.trim().startsWith('[')) {
+      tokens.splice(i, 1, ...tokenizeXspice(tokens[i].text));
+    }
     const read = readParamValue(param, tokens, i, line, raw, name);
     i = read.next;
     params.set(param.name, clampToLimits(param, read.values, name, warnings));

@@ -1,9 +1,21 @@
-/** Numparam strings stay distinct from numbers, including digit-only LUT tables. */
+import { parseNumber } from './tokenizer.js';
+
+/** Numparam strings stay distinct from numbers, including LUT tables and vector text. */
 export type ParameterScope = Record<string, number | string>;
 
 /** Resolve string atoms and .param concatenation; undefined means a numeric expression. */
 export function stringParameter(expression: string, scope: ParameterScope): string | undefined {
   const text = expression.trim();
+  // ngspice vector parameters are bracketed text, passed through string
+  // aliases and subcircuit actuals until a vector-valued consumer reads them.
+  const vector = text.startsWith('"') && text.endsWith('"') ? text.slice(1, -1).trim() : text;
+  if (vector.startsWith('[')) {
+    if (!/^\[[^\[\]]+\]$/.test(vector)) throw new Error('Unsupported vector parameter form');
+    const elements = vector.slice(1, -1).trim().split(/\s+/);
+    if (!elements[0]) throw new Error('Empty vector parameter');
+    for (const element of elements) parseNumber(element);
+    return vector;
+  }
   const atoms = text.match(/"[^"]*"|\{[^{}]*\}|[A-Za-z_]\w*/g);
   // xpressn.c string_expr: adjacent atoms only, with no intervening space.
   if (!atoms || atoms.join('') !== text) return undefined;
