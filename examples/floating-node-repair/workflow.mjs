@@ -27,6 +27,7 @@ try {
     'spice_convert',
     'spice_simulate',
     'spice_measure',
+    'spice_dc_metrics',
     'spice_simulation_start',
     'spice_simulation_read',
     'spice_simulation_cancel',
