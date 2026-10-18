@@ -28,6 +28,8 @@ import type { ParameterOverrideApiError } from './params.js';
 import { runSweep, sweepProperties } from './sweep.js';
 import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } from './ac-metrics.js';
 import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProperties } from './tran-metrics.js';
+import { noiseMetrics, noiseMetricsArgs, noiseMetricsOutputSchema, noiseMetricsProperties } from './noise-metrics.js';
+import type { NoiseResult } from '@spice-ts/core';
 
 export interface McpLimits {
   maxDocumentBytes: number;
@@ -90,7 +92,7 @@ interface WorkerReply {
 }
 
 interface WorkerRequest {
-  operation: 'validate' | 'simulate' | 'stream';
+  operation: 'validate' | 'simulate' | 'stream' | 'noise';
   request: SimulationRequestV1;
   coreModulePath: string;
 }
@@ -307,6 +309,18 @@ export const MCP_TOOLS = Object.freeze([
     },
   },
   {
+    name: 'spice_noise_metrics',
+    description: 'Simulate exactly one unstepped .noise analysis. Integrate PSD by linear-frequency trapezoids over optional bandHz; interpolate spotFrequenciesHz densities in log-frequency without extrapolation. SPICE text input; native JSON IR does not yet support noise directives.',
+    inputSchema: {
+      ...requestInputSchema,
+      properties: { ...requestInputSchema.properties, ...noiseMetricsProperties },
+    },
+    outputSchema: {
+      type: 'object', oneOf: [noiseMetricsOutputSchema, toolFailureOutputSchema],
+      $defs: commonSchemaV1.$defs,
+    },
+  },
+  {
     name: 'spice_measure',
     description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; optional step selects the zero-based SimulationResultV1 step.index (required for multiple steps). Unstepped analyses accept step 0 only. Signals are v(node), i(branch), mag(v(node)), or db(v(node)). Cross/when return the first matching axis coordinate.',
     inputSchema: {
@@ -424,12 +438,13 @@ async function executeToolWithStore(
     }
     if (name === 'spice_simulation_read') return success(streamStore.read(streamReadArgs(args)));
     if (name === 'spice_simulation_cancel') return success(streamStore.cancel(streamCancelArgs(args)));
-    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_ac_metrics' && name !== 'spice_tran_metrics' && name !== 'spice_simulation_start') {
+    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_ac_metrics' && name !== 'spice_tran_metrics' && name !== 'spice_noise_metrics' && name !== 'spice_simulation_start') {
       return failure(apiError('INVALID_REQUEST', 'Unknown tool', 'transport', {}));
     }
 
     const selectors = name === 'spice_ac_metrics' ? acMetricsArgs(args) : undefined;
     const tranSelectors = name === 'spice_tran_metrics' ? tranMetricsArgs(args) : undefined;
+    const noiseSelectors = name === 'spice_noise_metrics' ? noiseMetricsArgs(args) : undefined;
     const measurements = name === 'spice_measure' && isRecord(args) ? args.measurements : undefined;
     if (name === 'spice_measure' && (!Array.isArray(measurements) || measurements.length < 1 || measurements.length > 128)) {
       throw apiError('INVALID_REQUEST', 'Expected 1 through 128 measurements', 'validation', {});
@@ -464,6 +479,12 @@ async function executeToolWithStore(
     }
     const release = streamStore.acquireOneShotSlot();
     try {
+      if (noiseSelectors) {
+        const spectrum = await runInWorker<NoiseResult>('noise', bounded, effective.maxWallTimeMs, options);
+        const metrics = noiseMetrics(spectrum, noiseSelectors);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(metrics)), 'transport');
+        return success(metrics, diagnostics);
+      }
       const result = options.simulate
         ? await boundedCall(() => options.simulate!(bounded), effective.maxWallTimeMs, options.signal)
         : await runInWorker<SimulationResultV1>('simulate', bounded, effective.maxWallTimeMs, options);
@@ -1329,6 +1350,7 @@ parentPort.once('message', async ({ operation, request, coreModulePath }) => {
     if (operation === 'stream') await streamProtocol(core, request);
     const result = operation === 'validate'
       ? await core.validateProtocolV1(request, { topologyWarnings: true })
+      : operation === 'noise' ? await core.simulateNoiseProtocolV1(request)
       : await core.simulateProtocolV1(request);
     parentPort.postMessage({ type: 'result', result });
   } catch (error) {
@@ -1410,7 +1432,7 @@ async function runStreamingWorker(
 }
 
 async function runInWorker<T>(
-  operation: 'validate' | 'simulate',
+  operation: 'validate' | 'simulate' | 'noise',
   request: SimulationRequestV1,
   wallTimeMs: number,
   options: ToolExecutionOptions,

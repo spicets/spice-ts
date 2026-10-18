@@ -13,6 +13,7 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, and loop stability margins without vectors.
 - `spice_tran_metrics`: run a transient step and return rise/fall time, overshoot/undershoot, settling time and peak without vectors.
+- `spice_noise_metrics`: run one unstepped `.noise` analysis and return integrated output/input noise and spot densities without vectors.
 - `spice_simulation_start`: start a bounded simulation worker and return its opaque job cursor before solving completes.
 - `spice_simulation_read`: pull a replayable chunk containing at most 256 points by default (caller-selectable from 1 through the hard cap of 1024).
 - `spice_simulation_cancel`: idempotently stop delivery and return the protocol-v1 cancelled terminal with partial analysis counts and `partialEventSha256`.
@@ -192,6 +193,29 @@ Select 1 through 128 unique signals, each at most 256 characters. Input/output
 byte limits apply; union grid size times selected signal count is bounded by
 `maxResultPoints`, returning `RESOURCE_LIMIT` when exceeded. No solver or benchmark
 semantics are changed by this tool.
+
+## Noise metrics
+
+Call `spice_noise_metrics` with `{ request, bandHz: [10, 100000], spotFrequenciesHz: [10, 1000] }`.
+Both selectors are optional. The default band is the entire simulated sweep;
+at most 128 positive spot frequencies are accepted. The request must contain
+exactly one unstepped `.noise` directive. Currently this requires SPICE text:
+the native JSON IR does not yet define noise analyses. Other analysis directives
+are not executed by this tool. Includes, netlist temperature/options, request
+overrides, worker cancellation, wall-time limits and resource limits are retained.
+
+`integratedOutputNoiseVrms` is output RMS voltage. `integratedInputNoiseRms`
+is RMS in `inputUnit` (`V` for voltage-source input, `A` for current-source input).
+Integration squares the density samples to PSD, clips segments to `bandHz`
+with linear PSD interpolation, sums trapezoids in linear frequency, then takes
+the square root. This differs from core's native noise integration method.
+Each `spots` entry contains `frequencyHz`, `outputNoiseVPerSqrtHz`,
+`inputNoisePerSqrtHz`, and `outOfRange`. Densities interpolate linearly against
+log frequency, including zero density; spots outside the sweep return null
+densities and `outOfRange: true`, never extrapolation. `method` records these
+choices. SPICE rejects `.step` with `.noise` as a structured `PARSE_ERROR`.
+Missing/ambiguous noise analyses, malformed selectors, and a
+band outside the sweep return the standard structured `INVALID_REQUEST` error.
 
 ## Transient step metrics
 
