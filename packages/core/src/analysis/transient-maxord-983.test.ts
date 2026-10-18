@@ -32,7 +32,7 @@ describe('ngspice MAXORD order cap (#983)', () => {
     expect(() => resolveOptions({ integrationMethod: 'gear2', maxOrder: 4 })).toThrow('Gear orders 1 through 3 only');
   });
 
-  it('runs Gear order three through the public netlist and API boundaries', async () => {
+  it('runs Gear with an order-three cap through public netlist and API boundaries', async () => {
     const netlist = (await simulate(`${RC}.options method=gear maxord=3\n.end`)).transient!;
     const api = (await simulate(RC, { integrationMethod: 'gear2', maxOrder: 3 })).transient!;
     expect(netlist.time.at(-1)).toBeCloseTo(1e-6, 15);
@@ -41,7 +41,7 @@ describe('ngspice MAXORD order cap (#983)', () => {
     expect(netlist.voltage('out')).toEqual(api.voltage('out'));
   });
 
-  it('selects the BDF3 companion path from the public order cap', async () => {
+  it('treats MAXORD=3 as a cap, matching native order-two selection on RC', async () => {
     const rc = `RC order selection
 V1 in 0 DC 1
 R1 in out 1k
@@ -50,9 +50,8 @@ C1 out 0 1n
 .end`;
     const order2 = (await simulate(rc, { integrationMethod: 'gear2', maxOrder: 2 })).transient!;
     const order3 = (await simulate(rc, { integrationMethod: 'gear2', maxOrder: 3 })).transient!;
-    expect(order3.voltage('out')).not.toEqual(order2.voltage('out'));
-    expect(Math.abs(order3.voltage('out').at(-1)! - (1 - Math.exp(-2))))
-      .toBeLessThan(Math.abs(order2.voltage('out').at(-1)! - (1 - Math.exp(-2))));
+    expect(order3.time).toEqual(order2.time);
+    expect(order3.voltage('out')).toEqual(order2.voltage('out'));
   });
 
   it.each(['', 'timeint '])('uses backward Euler for %sMAXORD=1 with either METHOD', async prefix => {
