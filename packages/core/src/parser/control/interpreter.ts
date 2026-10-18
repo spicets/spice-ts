@@ -13,7 +13,7 @@ import {
   ExpressionError, UnsupportedExpressionFeature, evaluateVectorExpression, parseControlNumber, parseVectorExpression, splitVectorExpressions,
   type ExpressionEnvironment, type ExpressionNode,
 } from './vector-expression.js';
-import { ngspiceFft, ngspiceLinearInterpolate, ngspicePsd, spectrumWindow } from './spectrum.js';
+import { complexDft, ngspiceFft, ngspiceLinearInterpolate, ngspicePsd, spectrumWindow } from './spectrum.js';
 import { ngspiceFourier } from './fourier.js';
 import type { FourierResult } from '../../results.js';
 import {
@@ -949,6 +949,53 @@ class ControlInterpreter {
     this.current = plot;
   }
 
+  /** cmath4.c cx_fft/cx_ifft (FFTW3), not the com_fft defaults or frequency span. */
+  private spectralTransform(name: 'fft' | 'ifft', arg: ControlVector): ControlVector {
+    const plotScale = this.current.scale;
+    const length = arg.re.length;
+    if (!plotScale || plotScale.re.length < 2 || length < 2) {
+      throw new ExpressionError(`${name}() needs a plot scale and at least two points`);
+    }
+    const span = plotScale.re[plotScale.re.length - 1] - plotScale.re[0];
+    if (name === 'ifft') {
+      if (!arg.im) throw new ExpressionError('ifft() needs complex input');
+      const outputLength = plotScale.name === 'frequency' ? plotScale.re.length : length;
+      if (length > outputLength) throw new ExpressionError('ifft() input exceeds the frequency scale length');
+      const scale = realVector('ifft_scale', Array.from({ length: outputLength }, (_, i) =>
+        plotScale.name === 'frequency' ? i / span : i));
+      const re = new Float64Array(outputLength);
+      const im = new Float64Array(outputLength);
+      re.set(arg.re);
+      im.set(arg.im.map(value => -value));
+      const result = complexDft(re, im);
+      this.current.vectors.set(scale.name, scale);
+      return complexVector('result', result.re, result.im.map(value => -value), scale);
+    }
+    if (plotScale.re.length !== length) throw new ExpressionError('fft() needs a matching plot scale');
+    const time = plotScale.name === 'time' ? plotScale.re : Float64Array.from({ length }, (_, i) =>
+      plotScale.name === 'frequency' ? i / span : i);
+    const windowSpan = time[length - 1] - time[0];
+    const setting = this.variables.get('specwindow');
+    const window = typeof setting === 'string' ? setting : 'none';
+    const orderSetting = Number(this.variables.get('specwindoworder'));
+    const order = Number.isFinite(orderSetting) ? Math.max(2, Math.trunc(orderSetting)) : 2;
+    const weights = spectrumWindow(window, time, time[length - 1], windowSpan, order);
+    if (!weights) throw new ExpressionError(`fft(): unknown window type ${window}`);
+    const bins = arg.im ? length : Math.floor(length / 2) + 1;
+    const scale = realVector('fft_scale', Array.from({ length: bins }, (_, i) =>
+      plotScale.name === 'time' ? i / span : plotScale.name === 'frequency' ? plotScale.re[i] : i));
+    let result: { re: Float64Array; im: Float64Array };
+    if (arg.im) {
+      result = complexDft(arg.re.map((value, i) => value * weights[i]), arg.im.map((value, i) => value * weights[i]));
+      result.re = result.re.map(value => value / length);
+      result.im = result.im.map(value => value / length);
+    } else {
+      result = ngspiceFft(time, [arg.re], weights).vectors[0];
+    }
+    this.current.vectors.set(scale.name, scale);
+    return complexVector('result', result.re, result.im, scale);
+  }
+
   /** ngspice vec_fromplot: a vector of one plot by name, `v(node)` or `i(device)`, with its key. */
   private plotVector(plot: Plot, rawName: string): [string, ControlVector] | undefined {
     const name = rawName.toLowerCase();
@@ -1135,6 +1182,7 @@ class ControlInterpreter {
     return {
       lookup: name => this.lookup(name),
       scale: () => this.current.scale,
+      spectralTransform: (name, arg) => this.spectralTransform(name, arg),
       movingAverageWindow: () => {
         const setting = this.variables.get('mtimeavgwindow');
         return typeof setting === 'string'
