@@ -248,7 +248,7 @@ export class TransientChargeState {
     const factor = this.factor;
     const a2 = this.a2;
     const a3 = this.a3;
-    const coefficient = (method === 'gear2' ? GEAR_COEFFICIENTS : TRAP_COEFFICIENTS)[order - 1];
+    const coefficient = ((truncation.method ?? method) === 'gear2' ? GEAR_COEFFICIENTS : TRAP_COEFFICIENTS)[order - 1];
     const d0 = deltas[0];
     const d1 = deltas[1];
     const d2 = deltas[2];
@@ -378,7 +378,7 @@ export function chargeTruncationTimestep(
   older: number,
   current: number,
   acceptedCurrent: number,
-  { deltas, reltol, abstol, chgtol, trtol }: ChargeTruncation,
+  { deltas, reltol, abstol, chgtol, trtol, method: truncationMethod }: ChargeTruncation,
 ): number {
   const currentTolerance = abstol + reltol * Math.max(Math.abs(current), Math.abs(acceptedCurrent));
   const chargeTolerance = reltol * Math.max(Math.abs(charge), Math.abs(accepted), chgtol) / deltas[0];
@@ -404,7 +404,7 @@ export function chargeTruncationTimestep(
     const second1 = (first1 - first2) / span1;
     diff0 = (second0 - second1) / (span1 + d0);
   }
-  const factor = (method === 'gear2' ? GEAR_COEFFICIENTS : TRAP_COEFFICIENTS)[order - 1];
+  const factor = ((truncationMethod ?? method) === 'gear2' ? GEAR_COEFFICIENTS : TRAP_COEFFICIENTS)[order - 1];
   const bound = trtol * tolerance / Math.max(abstol, factor * Math.abs(diff0));
   return order === 2 ? Math.sqrt(bound) : bound;
 }

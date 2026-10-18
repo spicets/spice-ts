@@ -5,6 +5,7 @@ import { resolveOptions } from '../types.js';
 import { createDriverFromCompiled } from './transient-driver.js';
 import * as stepping from './transient-step.js';
 import { LinearReactiveTruncation } from './transient-reactive-truncation.js';
+import { TransientChargeState } from '../devices/charge-state.js';
 
 // ngspice-47 a80f6e3, dctran.c:793-835: only 1 -> 2 is tried,
 // and only if the order-2 bound exceeds 1.05 * delta. No 2 -> 3 raise.
@@ -27,6 +28,24 @@ function order(attempt: stepping.StepAttempt): number {
 }
 
 describe('literal ngspice-47 Gear order policy', () => {
+  it('uses the Gear CKTterr coefficient when trialling order two after BE', () => {
+    const state = new TransientChargeState(1);
+    for (const q of [-1, 0, 1, 8]) {
+      state.begin({ method: 'euler', dt: 1 });
+      state.acceptAll(new Float64Array([q]));
+    }
+    state.begin({ method: 'euler', dt: 1 });
+    const options = {
+      deltas: [1, 1, 1] as const, reltol: 1e-3, abstol: 1e-12, chgtol: 1e-14,
+      trtol: 7, order: 2 as const, method: 'gear2' as const,
+    };
+    // q=t^3 has third divided difference 1. The current remains the BE
+    // current (27-8), not a recomputed order-two companion current.
+    const expected = Math.sqrt(7 * 0.027 / 0.2222222222);
+    expect(state.truncationTimestepAll(options, new Float64Array([27]))).toBeCloseTo(expected, 12);
+    expect(state.truncationTimestep(options, () => state.accept(0, 27))).toBeCloseTo(expected, 12);
+  });
+
   it.each([2, 3] as const)('matches the native RC UIC endpoint and point count (maxord=%s)', cap => {
     const deck = readFileSync(new URL('../../../../benchmarks/gear-order-policy/rc.cir', import.meta.url), 'utf8');
     const compiled = parse(deck).compile();
@@ -63,6 +82,8 @@ describe('literal ngspice-47 Gear order policy', () => {
       for (let i = 0; i < 6; i++) sim.advance();
       expect(spy.mock.calls.map(call => order(call[1]))).toEqual([1, 1, 1, 1, 1, 1]);
       expect(trunc.mock.calls.some(call => call[2].order === 2)).toBe(true);
+      expect(trunc.mock.calls.filter(call => call[2].order === 2)
+        .every(call => call[2].method === 'gear2')).toBe(true);
       trunc.mockImplementation(() => Infinity);
       sim.advance();
       sim.advance();

@@ -198,6 +198,7 @@ jobs:
             benchmarks/corpus/corpus-d/validate.test.mjs \
             benchmarks/corpus/corpus-g/corpus-g.test.ts \
             benchmarks/corpus/corpus-h/corpus-h.test.ts \
+            benchmarks/corpus/corpus-h/triage-791.test.ts \
             benchmarks/corpus/corpus-i/corpus-i.test.ts \
             benchmarks/corpus/ngspice-bugs/ngspice-bugs.test.ts \
             benchmarks/results/issue-1049/option-audit.test.ts \
