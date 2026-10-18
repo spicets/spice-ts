@@ -1,6 +1,6 @@
 export { simulate, simulateStream, simulateStepStream, createSimulator } from './simulate.js';
 export {
-  simulateProtocolV1, validateProtocolV1, mapProtocolErrorV1, estimateProtocolResultPointsV1,
+  simulateProtocolV1, simulateNoiseProtocolV1, validateProtocolV1, mapProtocolErrorV1, estimateProtocolResultPointsV1,
 } from './protocol/adapter.js';
 export type { ProtocolValidationResultV1 } from './protocol/adapter.js';
 export { executeProtocolV1, protocolCapabilitiesV1 } from './protocol/envelopes.js';
@@ -31,7 +31,7 @@ export {
 export type {
   SimulationResult, DotAnalysisRun, StepResult, PoleZeroValue, SensitivityEntry, ComplexSensitivityValue,
   ComplexDistortionValue, ComplexValue, DistortionOrder, DistortionIntermodulationProduct, DistortionProduct,
-  ControlScriptResult, ControlScriptRun, MeasurementResult,
+  ControlScriptResult, ControlScriptRun, MeasurementResult, FourierResult,
 } from './results.js';
 export type {
   SimulationOptions,

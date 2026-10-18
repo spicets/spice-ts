@@ -6,16 +6,19 @@ import {
 } from '../validation/sensitivity.js';
 import { parseNumber } from './tokenizer.js';
 
-/** Parse bounded single-ended/differential DC or DEC/OCT/LIN AC `.sens` forms. */
+/** Parse voltage/current output DC or DEC/OCT/LIN AC `.sens` forms. */
 export function parseSensitivity(tokens: string[], lineNumber: number): SensitivityAnalysis {
   // The shared tokenizer treats commas as whitespace, as in other node lists.
   const close = tokens.indexOf(')', 3);
   const isVoltageOutput = tokens[1]?.toUpperCase() === 'V'
     && tokens[2] === '('
     && (close === 4 || close === 5);
-  if (!isVoltageOutput) throw unsupported(tokens, lineNumber);
+  const isCurrentOutput = tokens[1]?.toUpperCase() === 'I'
+    && tokens[2] === '(' && close === 4;
+  if (!isVoltageOutput && !isCurrentOutput) throw unsupported(tokens, lineNumber);
   const output = {
     outputNode: tokens[3],
+    ...(isCurrentOutput ? { outputType: 'current' as const } : {}),
     ...(close === 5 ? { outputReferenceNode: tokens[4] } : {}),
   };
   const rest = tokens.slice(close + 1);

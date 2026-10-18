@@ -1,0 +1,11 @@
+Authored MIT BSIM4 body-network OP/AC regression
+.model DUT PMOS level=54 version=4.8.3 rbodymod=0 rgatemod=1 rshg=1000 rbpb=50000 rbpd=60000 rbps=70000 rbdb=80000 rbsb=90000
+M1 d g s b DUT l=1u w=10u ad=1p as=2p rbodymod=1 rbpb=30000
+Vd d 0 -1 ac 0.1
+Vg g 0 -1 ac 0.3
+Vb b 0 0.1 ac 1
+Vs s 0 0
+.options abstol=1e-15 reltol=1e-10 vntol=1e-12
+.op
+.ac dec 2 1k 1meg
+.end

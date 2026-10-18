@@ -13,8 +13,7 @@
   "dependencies": {
     "@spice-ts/circuit-json": "workspace:*",
     "@spice-ts/core": "workspace:*",
-    "@spice-ts/mcp": "workspace:*",
-    "@spice-ts/protocol": "workspace:*"
+    "@spice-ts/mcp": "workspace:*"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

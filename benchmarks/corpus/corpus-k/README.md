@@ -6,15 +6,15 @@ Every deck below is byte-identical to its pinned upstream revision (xyce `7bb7e9
 
 ## Totals
 
-- Fixtures: 20. Outcome SHA-256: `ec361624678ead747dcf404180adb4c1a052c06e90a7c90bbb6b0528cab4db22`.
+- Fixtures: 20. Outcome SHA-256: `d4fad48d53712b661e2d1823f7c89a205e5d259fc7fab1b2b551a0f6d578bc67`.
 - ngspice (ngspice-47): 19 success, 1 failed, 0 unsupported.
-- spice-ts (0.3.0): 5 success, 14 failed, 1 unsupported.
-- Outcomes: matched 5, mismatch 0, not-compared 0, spice-ts-loss 14, ngspice-failed 0, both-failed 1.
-- Of the 19 decks ngspice runs successfully, spice-ts matches 5, mismatches 0, produces no comparable result for 0 and fails 14.
+- spice-ts (0.4.0): 19 success, 1 failed, 0 unsupported.
+- Outcomes: matched 17, mismatch 2, not-compared 0, spice-ts-loss 0, ngspice-failed 0, both-failed 1.
+- Of the 19 decks ngspice runs successfully, spice-ts matches 17, mismatches 2, produces no comparable result for 0 and fails 0.
 
 | Source | Fixtures | Matched | Mismatch | Not compared | spice-ts loss | ngspice failed | Both failed |
 |---|---|---|---|---|---|---|---|
-| `xyce` | 20 | 5 | 0 | 0 | 14 | 0 | 1 |
+| `xyce` | 20 | 17 | 2 | 0 | 0 | 0 | 1 |
 
 ## Method
 
@@ -37,39 +37,38 @@ Grouped from spice-ts's own first error line (corpus-k rules, then corpus-i/h/f 
 
 | Bucket | Fixtures | ngspice ok | Issue |
 |---|---|---|---|
-| MOS2: drain/source series resistance | 14 | 13 | https://github.com/mfiumara/spice-ts/issues/982 |
-| integration: MAXORD=1 unsupported | 1 | 1 | https://github.com/mfiumara/spice-ts/issues/983 |
+| convergence | 1 | 0 | none: ngspice also fails every fixture in this bucket |
 
-## Losses (15)
+## Losses (3)
 
 Every fixture that is not matched: spice-ts failures, mismatches above the threshold, and results that could not be compared.
 
 | Fixture | ngspice | spice-ts | Outcome | Worst | Worst signal | First error line (ngspice / spice-ts) |
 |---|---|---|---|---|---|---|
-| [xyce/Netlists/ACtests/mos/opamp-ol.cir](fixtures/xyce/Netlists/ACtests/mos/opamp-ol.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'cmosn': series resistance parameter RSH is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/ab_ac.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/ab_ac.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'penh': series resistance parameter RSH is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/ab_integ.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/ab_integ.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'penh': series resistance parameter RSH is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/ab_opamp.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/ab_opamp.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'penh': series resistance parameter RSH is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/cram.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/cram.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'penh': series resistance parameter RSH is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/e1480.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/e1480.cir) | failed | failed | both-failed |  |  | ngspice: doAnalyses: TRAN: Timestep too small; initial timepoint: trouble with nnl2-instance m.x2.mn13 / spice-ts: MOSFET level 2 model 'pnl1': series resistance parameter RD is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/g1310.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/g1310.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'pchnl1': series resistance parameter RD is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/gm6.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/gm6.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'prad6': series resistance parameter RD is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/mosrect.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/mosrect.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'nenh': series resistance parameter RSH is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/mux8.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/mux8.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'penh': series resistance parameter RSH is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/nand.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/nand.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'penh': series resistance parameter RSH is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/pump.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/pump.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: Parse error at line 53: Unsupported .options maxord value: '1' (order-1-only integration is not implemented) .options timeint maxord=1 |
-| [xyce/Netlists/CircuitSim90/MOS2/ring.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/ring.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'penh': series resistance parameter RSH is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/schmitfast.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/schmitfast.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'penh': series resistance parameter RD is not supported |
-| [xyce/Netlists/CircuitSim90/MOS2/schmitslow.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/schmitslow.cir) | success | failed | spice-ts-loss |  |  | spice-ts: MOSFET level 2 model 'penh': series resistance parameter RD is not supported |
+| [xyce/Netlists/CircuitSim90/MOS2/e1480.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/e1480.cir) | failed | failed | both-failed |  |  | ngspice: doAnalyses: TRAN: Timestep too small; initial timepoint: trouble with nnl2-instance m.x2.mn13 / spice-ts: Timestep too small at t=0: dt=6.103515625000001e-16 |
+| [xyce/Netlists/CircuitSim90/MOS2/mux8.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/mux8.cir) | success | success | mismatch | 0.0398 | tran i(vvdd) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/pump.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/pump.cir) | success | success | mismatch | 0.063 | tran i(vnin) |  |
 
-## Wins (5)
+## Wins (17)
 
 Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every common signal.
 
 | Fixture | ngspice | spice-ts | Outcome | Worst | Worst signal | First error line (ngspice / spice-ts) |
 |---|---|---|---|---|---|---|
-| [xyce/Netlists/CircuitSim90/MOS2/hussamp.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/hussamp.cir) | success | success | matched | 0.000234 | tran i(vdd) |  |
+| [xyce/Netlists/ACtests/mos/opamp-ol.cir](fixtures/xyce/Netlists/ACtests/mos/opamp-ol.cir) | success | success | matched | 0.0000091 | ac i(vdd) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/ab_ac.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/ab_ac.cir) | success | success | matched | 0.00000109 | ac i(vdd) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/ab_integ.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/ab_integ.cir) | success | success | matched | 6.59e-7 | op v(18) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/ab_opamp.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/ab_opamp.cir) | success | success | matched | 0.000536 | tran i(vin) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/cram.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/cram.cir) | success | success | matched | 0.0027 | tran i(vprecharg) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/g1310.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/g1310.cir) | success | success | matched | 0.00293 | tran v(x7.9) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/gm6.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/gm6.cir) | success | success | matched | 0.000169 | tran i(vnen) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/hussamp.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/hussamp.cir) | success | success | matched | 0.00023 | tran i(vdd) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/mosrect.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/mosrect.cir) | success | success | matched | 0.000148 | tran i(l2) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/nand.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/nand.cir) | success | success | matched | 0.000207 | tran i(vdd) |  |
 | [xyce/Netlists/CircuitSim90/MOS2/reg0.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/reg0.cir) | success | success | matched | 3.78e-11 | ac v(12) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/ring.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/ring.cir) | success | success | matched | 0.000116 | tran v(7) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/schmitfast.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/schmitfast.cir) | success | success | matched | 0.0000294 | dc v(2) |  |
+| [xyce/Netlists/CircuitSim90/MOS2/schmitslow.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/schmitslow.cir) | success | success | matched | 0.0000823 | dc v(6) |  |
 | [xyce/Netlists/CircuitSim90/MOS2/slowlatch.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/slowlatch.cir) | success | success | matched | 0.000501 | tran i(vseu2) |  |
 | [xyce/Netlists/CircuitSim90/MOS2/toronto.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2/toronto.cir) | success | success | matched | 0.00911 | tran i(vneg) |  |
 | [xyce/Netlists/WAMPDE/HARTLEY/hartley.cir](fixtures/xyce/Netlists/WAMPDE/HARTLEY/hartley.cir) | success | success | matched | 0.000321 | tran i(vdc5) |  |

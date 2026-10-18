@@ -170,12 +170,12 @@ describe('preprocessor', () => {
       expect(text).toContain('.model d1 d is=2.700000000000000e-11');
     });
 
-    it('accepts an unused string .param and rejects one that is used (vector_param.cir)', async () => {
+    it('accepts an unused vector .param and rejects its scalar use', async () => {
       await expect(preprocess('.param actual_vec="[1.3e-3 2e-3]"\nR1 1 0 1k\n.op')).resolves.toContain('R1 1 0 1k');
-      const failure = await preprocess('T\n.param actual_vec="[1.3e-3 2e-3]"\nR1 1 0 {actual_vec}\n.op')
+      const failure = await preprocess('T\n.param actual_vec="[1.3e-3 2e-3]"\nR1 1 0 {actual_vec+0}\n.op')
         .catch((e: unknown) => e);
       expect(failure).toBeInstanceOf(ParseError);
-      expect((failure as ParseError).message).toContain("String-valued .param 'ACTUAL_VEC' is not supported");
+      expect((failure as ParseError).line).toBe(3);
     });
 
     it('rewrites a node-voltage dependent resistor into an ngspice B-source (tmp-noise.cir)', async () => {

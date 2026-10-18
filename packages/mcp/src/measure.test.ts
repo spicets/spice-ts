@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { SimulationRequestV1 } from '@spice-ts/protocol';
+import type { SimulationRequestV1 } from '@spice-ts/core/protocol';
 import { executeTool } from './server.js';
-import { measureResult } from './measure.js';
+import { measurementListSchema, measureResult } from './measure.js';
 
 const request = (source: string): SimulationRequestV1 => ({ apiVersion: '1', input: { format: 'spice', source } });
 const rcTran = '* Original MIT RC measurement probe\nV1 in 0 PULSE(0 1 0 1n 1n 10m 20m)\nR1 in out 1k\nC1 out 0 1u\n.tran 1u 5m\n.end\n';
@@ -14,6 +14,49 @@ async function measure(source: string, measurements: unknown[]) {
 }
 
 describe('spice_measure', () => {
+  const steppedRc = rcAc.replace('R1 in out 1k', 'r in out 1k').replace('.end', '.step param r 1k 3k 1k\n.end');
+  const cutoff = { kind: 'cross', signal: 'db(v(out))', analysis: 0, value: -10 * Math.log10(2), edge: 'falling' };
+
+  it('measures each RC step identically to separate unstepped runs', async () => {
+    const stepped = await measure(steppedRc, [0, 1, 2].map(step => ({ ...cutoff, step })));
+    const separate: Awaited<ReturnType<typeof measure>>[] = [];
+    for (const r of ['1k', '2k', '3k']) separate.push(await measure(rcAc.replace('R1 in out 1k', `R1 in out ${r}`), [cutoff]));
+    const values = stepped.measurements.map((m, i) => {
+      expect(m.error).toBeUndefined();
+      expect(m.unit).toBe('Hz');
+      expect(Math.abs(m.value! / separate[i].measurements[0].value! - 1)).toBeLessThanOrEqual(1e-12);
+      return m.value;
+    });
+    expect(new Set(values).size).toBe(3);
+  });
+
+  it('reports step count for ambiguous selections and rejects unknown steps independently', async () => {
+    const result = await measure(steppedRc, [cutoff, ...[3, 99].map(step => ({ ...cutoff, step }))]);
+    expect(result.measurements).toMatchObject([
+      { error: { code: 'AMBIGUOUS_ANALYSIS', message: expect.stringContaining('3 steps') } },
+      { error: { code: 'UNKNOWN_STEP' } }, { error: { code: 'UNKNOWN_STEP' } },
+    ]);
+    const single = await measure(rcAc, [cutoff, { ...cutoff, step: 0 }, { ...cutoff, step: 1 }]);
+    expect(single.measurements[1]).toEqual(single.measurements[0]);
+    expect(single.measurements[2]).toMatchObject({ error: { code: 'UNKNOWN_STEP' } });
+  });
+
+  it('validates the optional step as a nonnegative integer', async () => {
+    expect(measurementListSchema.items.properties).toMatchObject({ step: { type: 'integer', minimum: 0 } });
+    const result = await measure(rcAc, [-1, 0.5, '0', null, NaN, Infinity].map(step => ({ ...cutoff, step })));
+    expect(result.measurements).toMatchObject(Array(6).fill({ error: { code: 'INVALID_MEASUREMENT' } }));
+  });
+
+  it('selects step metadata rather than array position, including a single stepped result', () => {
+    const analysis = { type: 'op' as const, analysisIndex: 0, voltagesV: { out: 2 }, currentsA: {}, step: { index: 1, parameter: 'r', value: 2000 } };
+    const result = { status: 'complete' as const, analyses: [analysis, { ...analysis, voltagesV: { out: 1 }, step: { ...analysis.step, index: 0, value: 1000 } }] };
+    const item = { kind: 'max', signal: 'v(out)', analysis: 0, step: 1 };
+    expect(measureResult(result, [item]).measurements).toEqual([{ value: 2, unit: 'V' }]);
+    expect(measureResult({ ...result, analyses: [analysis] }, [item, { ...item, step: 0 }]).measurements).toMatchObject([
+      { value: 2, unit: 'V' }, { error: { code: 'UNKNOWN_STEP' } },
+    ]);
+  });
+
   it('measures RC tau without returning vectors and isolates unknown signals and missing crossings', async () => {
     const result = await measure(rcTran, [
       { kind: 'cross', signal: 'v(out)', analysis: 0, value: 1 - Math.exp(-1), edge: 'rising' },

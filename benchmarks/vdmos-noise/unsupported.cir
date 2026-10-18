@@ -1,0 +1,13 @@
+VDMOS noise rejection reproducer (#1348)
+VDD vdd 0 DC 10
+Vgate gate 0 DC 3 AC 1
+Rload vdd out 10
+M1 out gate 0 power
+.model power VDMOS (VTO=1 KP=0.1 LAMBDA=0.02)
+.noise v(out) Vgate lin 3 100 300
+.control
+run
+setplot noise1
+print onoise_spectrum inoise_spectrum
+.endc
+.end

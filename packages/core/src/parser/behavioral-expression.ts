@@ -488,7 +488,7 @@ class Parser {
  * parenthesised sub-expression, with its parameters substituted.
  * `params` is keyed by upper-case name. Other cards are returned unchanged.
  */
-export function substituteBehavioralParameters(raw: string, params: Record<string, number>): string {
+export function substituteBehavioralParameters(raw: string, params: Record<string, number | string>): string {
   const card = B_CARD_HEAD.exec(raw);
   if (!card) return raw;
   return card[1] + card[2] + substituteBehavioralText(card[3], params);
@@ -502,7 +502,7 @@ export const BEHAVIORAL_RUNTIME_EXPRESSION = new RegExp(
   `\\b(?:${BEHAVIORAL_FUNCTIONS.join('|')})\\s*\\(|\\bhertz\\b`, 'i',
 );
 
-function substituteBehavioralText(body: string, params: Record<string, number>): string {
+function substituteBehavioralText(body: string, params: Record<string, number | string>): string {
   const format = (value: number) => (value < 0 ? `(${value})` : String(value));
   let out = '';
   let i = 0;
@@ -535,7 +535,11 @@ function substituteBehavioralText(body: string, params: Record<string, number>):
         continue;
       }
       const key = identifier[0].toUpperCase();
-      out += key !== 'HERTZ' && !/^\s*[(=]/.test(after) && key in params ? format(params[key]) : identifier[0];
+      if (key !== 'HERTZ' && !/^\s*[(=]/.test(after) && key in params) {
+        const value = params[key];
+        if (typeof value !== 'number') throw new Error(`String parameter '${key}' used in a numeric expression`);
+        out += format(value);
+      } else out += identifier[0];
       i += identifier[0].length;
     } else {
       out += char;

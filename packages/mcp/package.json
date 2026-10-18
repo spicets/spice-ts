@@ -1,12 +1,12 @@
 {
   "name": "@spice-ts/mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Bounded MCP server for the spice-ts protocol v1 adapter",
   "license": "MIT",
   "author": "Mattia Fiumara",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mfiumara/spice-ts.git",
+    "url": "https://github.com/spicets/spice-ts.git",
     "directory": "packages/mcp"
   },
   "engines": {
@@ -42,8 +42,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@spice-ts/circuit-json": "workspace:*",
-    "@spice-ts/core": "workspace:*",
-    "@spice-ts/protocol": "workspace:*"
+    "@spice-ts/core": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.21.0",

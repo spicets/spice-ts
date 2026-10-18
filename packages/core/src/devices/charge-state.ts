@@ -1,4 +1,5 @@
 import type { ChargeIntegration, ChargeTruncation, StampContext } from './device.js';
+import { gear3Coefficients } from './gear3.js';
 
 /** ngspice cktterr.c error coefficients, indexed by integration order - 1. */
 const TRAP_COEFFICIENTS = [0.5, 0.08333333333];
@@ -22,12 +23,14 @@ export class TransientChargeState {
   private readonly previousCharge: Float64Array;
   /** q(n-2): the extra point TRAP/Gear-2 truncation error needs (ngspice CKTstate3). */
   private readonly olderCharge: Float64Array;
+  /** q(n-3), needed only by the order-3 truncation estimate. */
+  private readonly oldestCharge: Float64Array;
   private readonly acceptedCurrent: Float64Array;
   private readonly acceptedVoltage: Float64Array;
   private readonly acceptedCapacitance: Float64Array;
   private hasAccepted = false;
   private hasPrevious = false;
-  /** Accepted timepoints held in the charge history, capped at 3 (q(n), q(n-1), q(n-2)). */
+  /** Accepted timepoints held in the charge history, capped at 4. */
   private historyLength = 0;
   /** Set while {@link truncationTimestep} evaluates the trial charges. */
   private truncation: ChargeTruncation | undefined;
@@ -38,6 +41,9 @@ export class TransientChargeState {
   private method: ChargeIntegration['method'] = 'euler';
   private a2 = 0;
   private a3 = 0;
+  private a4 = 0;
+  private gearOrder: 2 | 3 = 2;
+  private currentWeight = 1;
   /** dI/dQ of the active rule (ngspice CKTag[0]). */
   factor = 0;
 
@@ -45,6 +51,7 @@ export class TransientChargeState {
     this.acceptedCharge = new Float64Array(size);
     this.previousCharge = new Float64Array(size);
     this.olderCharge = new Float64Array(size);
+    this.oldestCharge = new Float64Array(size);
     this.acceptedCurrent = new Float64Array(size);
     this.acceptedVoltage = new Float64Array(size);
     this.acceptedCapacitance = new Float64Array(size);
@@ -61,9 +68,13 @@ export class TransientChargeState {
     if (!this.hasAccepted) return 0;
     const previous = this.acceptedCharge[index];
     if (this.method === 'trapezoidal') {
-      return this.factor * (charge - previous) - this.acceptedCurrent[index];
+      return this.factor * (charge - previous) - this.currentWeight * this.acceptedCurrent[index];
     }
     if (this.method === 'gear2') {
+      if (this.gearOrder === 3) {
+        return this.factor * charge - this.a2 * previous + this.a3 * this.previousCharge[index]
+          - this.a4 * this.olderCharge[index];
+      }
       return this.factor * charge - this.a2 * previous + this.a3 * this.previousCharge[index];
     }
     return this.factor * (charge - previous);
@@ -120,6 +131,7 @@ export class TransientChargeState {
       this.select(integration);
       current = this.current(index, charge);
     }
+    this.oldestCharge[index] = this.olderCharge[index];
     this.olderCharge[index] = this.previousCharge[index];
     this.previousCharge[index] = this.acceptedCharge[index];
     this.acceptedCharge[index] = charge;
@@ -131,7 +143,7 @@ export class TransientChargeState {
   /** Finish an accepted timepoint after every charge was {@link accept}ed. */
   commit(): void {
     if (this.truncation !== undefined) return;
-    this.historyLength = Math.min(this.historyLength + 1, 3);
+    this.historyLength = Math.min(this.historyLength + 1, 4);
     this.hasPrevious = this.hasAccepted && this.pending !== undefined;
     this.hasAccepted = true;
     this.pending = undefined;
@@ -146,6 +158,7 @@ export class TransientChargeState {
     this.acceptedCharge.fill(0);
     this.previousCharge.fill(0);
     this.olderCharge.fill(0);
+    this.oldestCharge.fill(0);
     this.acceptedCurrent.fill(0);
     this.acceptedVoltage.fill(0);
     this.acceptedCapacitance.fill(0);
@@ -198,6 +211,7 @@ export class TransientChargeState {
     for (let index = 0; index < size; index++) {
       const charge = charges[index];
       const current = integrate ? this.current(index, charge) : 0;
+      this.oldestCharge[index] = this.olderCharge[index];
       this.olderCharge[index] = this.previousCharge[index];
       this.previousCharge[index] = this.acceptedCharge[index];
       this.acceptedCharge[index] = charge;
@@ -224,6 +238,13 @@ export class TransientChargeState {
     const { deltas, reltol, abstol, chgtol, trtol } = truncation;
     const method = this.method;
     const order = this.truncationOrder(truncation);
+    if (order === 3) {
+      let bound = Infinity;
+      for (let index = 0; index < this.size; index++) {
+        bound = Math.min(bound, this.chargeTruncation(index, charges[index], truncation));
+      }
+      return bound;
+    }
     const factor = this.factor;
     const a2 = this.a2;
     const a3 = this.a3;
@@ -242,9 +263,9 @@ export class TransientChargeState {
       const previous = previousCharge[index];
       const priorCurrent = acceptedCurrent[index];
       const current = method === 'trapezoidal'
-        ? factor * (charge - accepted) - priorCurrent
+        ? factor * (charge - accepted) - this.currentWeight * priorCurrent
         : method === 'gear2'
-          ? factor * charge - a2 * accepted + a3 * previous
+          ? this.gearOrder === 3 ? this.current(index, charge) : factor * charge - a2 * accepted + a3 * previous
           : factor * (charge - accepted);
       const currentTolerance = abstol + reltol * Math.max(Math.abs(current), Math.abs(priorCurrent));
       const chargeTolerance = reltol * Math.max(Math.abs(charge), Math.abs(accepted), chgtol) / d0;
@@ -268,28 +289,62 @@ export class TransientChargeState {
   }
 
   /** Order CKTterr evaluates at: `truncation.order`, else that of the active rule. */
-  private truncationOrder(truncation: ChargeTruncation): 1 | 2 {
+  private truncationOrder(truncation: ChargeTruncation): 1 | 2 | 3 {
     return truncation.order ?? this.order();
   }
 
   /** Integration order of the active rule. */
-  private order(): 1 | 2 {
-    return this.method === 'euler' ? 1 : 2;
+  private order(): 1 | 2 | 3 {
+    return this.method === 'euler' ? 1 : this.method === 'gear2' ? this.gearOrder : 2;
   }
 
   /** ngspice CKTterr for one charge at trial value `charge`. */
   private chargeTruncation(index: number, charge: number, truncation: ChargeTruncation): number {
+    const order = this.truncationOrder(truncation);
+    if (order === 3) {
+      if (truncation.olderDelta === undefined) return Infinity;
+      const { deltas, reltol, abstol, chgtol, trtol } = truncation;
+      const intervals = [...deltas, truncation.olderDelta];
+      const accepted = this.acceptedCharge[index];
+      const currentTolerance = abstol + reltol * Math.max(Math.abs(this.current(index, charge)), Math.abs(this.acceptedCurrent[index]));
+      const chargeTolerance = reltol * Math.max(Math.abs(charge), Math.abs(accepted), chgtol) / deltas[0];
+      const diff = [charge, accepted, this.previousCharge[index], this.olderCharge[index], this.oldestCharge[index]];
+      // CKTterr's fourth divided difference. Only the order-3 path allocates.
+      for (let level = 1; level <= 4; level++) {
+        for (let i = 0; i < 5 - level; i++) {
+          let span = 0;
+          for (let j = i; j < i + level; j++) span += intervals[j];
+          diff[i] = (diff[i] - diff[i + 1]) / span;
+        }
+      }
+      return Math.cbrt(trtol * Math.max(currentTolerance, chargeTolerance)
+        / Math.max(abstol, 0.1363636364 * Math.abs(diff[0])));
+    }
     return chargeTruncationTimestep(
-      this.method, this.truncationOrder(truncation),
+      this.method, order,
       charge, this.acceptedCharge[index], this.previousCharge[index], this.olderCharge[index],
       this.current(index, charge), this.acceptedCurrent[index], truncation,
     );
   }
 
-  private select({ method, dt, prevDt }: ChargeIntegration): void {
+  private select({ method, dt, prevDt, prevPrevDt, order, xmu = 0.5 }: ChargeIntegration): void {
+    this.gearOrder = 2;
+    if (method === 'gear2' && order === 3 && this.historyLength >= 3
+      && prevDt !== undefined && prevPrevDt !== undefined) {
+      const [a1, a2, a3, a4] = gear3Coefficients(dt, prevDt, prevPrevDt);
+      this.method = 'gear2';
+      this.gearOrder = 3;
+      this.factor = a1;
+      this.a2 = -a2;
+      this.a3 = a3;
+      this.a4 = -a4;
+      return;
+    }
     if (method === 'trapezoidal') {
       this.method = 'trapezoidal';
-      this.factor = 2 / dt;
+      // nicomcof.c:43-44. Retain the original operation order at the default.
+      this.factor = xmu === 0.5 ? 2 / dt : 1 / dt / (1 - xmu);
+      this.currentWeight = xmu / (1 - xmu);
       return;
     }
     if (method === 'gear2' && prevDt !== undefined && this.hasPrevious) {

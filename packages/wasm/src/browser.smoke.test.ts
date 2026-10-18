@@ -5,8 +5,8 @@ import { extname, join, relative, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { build } from 'vite';
 import WebSocket from 'ws';
-import negative from '../../protocol/fixtures/negative-v1.json';
-import positive from '../../protocol/fixtures/positive-v1.json';
+import negative from '../../core/protocol/fixtures/negative-v1.json';
+import positive from '../../core/protocol/fixtures/positive-v1.json';
 import { spawnProcessTree, terminateProcessTree } from './test-support/browser-process.js';
 
 const temporaryDirectories: string[] = [];
@@ -119,7 +119,7 @@ describe('browser protocol-v1 worker facade', () => {
     const packageRoot = resolve(import.meta.dirname, '..');
     const entry = relative(root, join(packageRoot, 'src/index.ts')).replaceAll('\\', '/');
     const importPath = entry.startsWith('.') ? entry : `./${entry}`;
-    const protocolEntry = relative(root, join(packageRoot, '../protocol/src/index.ts')).replaceAll('\\', '/');
+    const protocolEntry = relative(root, join(packageRoot, '../core/src/protocol/wire/index.ts')).replaceAll('\\', '/');
     const protocolImportPath = protocolEntry.startsWith('.') ? protocolEntry : `./${protocolEntry}`;
 
     await writeFile(join(root, 'index.html'), '<main id="result">pending</main><script type="module" src="/main.js"></script>');

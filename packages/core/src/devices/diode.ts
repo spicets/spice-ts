@@ -4,6 +4,7 @@ import {
   DEVICE_GMIN, type ChargeIntegration, type ChargeTruncation, type DeviceModel, type StampContext,
 } from './device.js';
 import { chargeTruncationTimestep } from './charge-state.js';
+import { gear3Coefficients } from './gear3.js';
 import { assertNoUnsupportedTemperatureParameters, temperatureJunction } from './junction-temperature.js';
 import { pnjlim } from './devsup.js';
 
@@ -68,6 +69,8 @@ export interface DiodeParams {
   EG?: number;
   /** Saturation-current temperature exponent; ngspice default 3. */
   XTI?: number;
+  RTH0?: number;
+  CTH0?: number;
 }
 
 /**
@@ -296,6 +299,8 @@ export class Diode implements DeviceModel {
   private previousAcceptedCharge: number | undefined;
   /** q(n-2), the extra point the order-2 truncation error needs (ngspice CKTstate3). */
   private olderAcceptedCharge: number | undefined;
+  /** q(n-3), needed by order-3 CKTterr (ngspice CKTstate4). */
+  private oldestAcceptedCharge: number | undefined;
   private acceptedChargeCurrent = 0;
   /** Integration rule of the most recent charge stamp, committed on acceptance. */
   private pendingIntegration: ChargeIntegration | undefined;
@@ -340,6 +345,10 @@ export class Diode implements DeviceModel {
     }
     this.modelWarnings = warnings;
     this.suppliedParams = params;
+    if (instanceParams.THERMAL && nodes.length === 3 && params.RTH0 !== undefined
+      && ((params.CJO ?? 0) !== 0 || (params.CJSW ?? 0) !== 0 || (params.TT ?? 0) !== 0)) {
+      throw new InvalidCircuitError('Self-heating diode junction charge is not implemented');
+    }
     const effectiveArea = (instanceParams.AREA ?? 1) * (instanceParams.M ?? 1);
     const effectivePerimeter = (instanceParams.PJ ?? 0) * (instanceParams.M ?? 1);
     this.params = {
@@ -389,7 +398,7 @@ export class Diode implements DeviceModel {
       RS: this.params.RS,
     };
     this.separateSidewall = params.NS !== undefined && params.JSW !== undefined;
-    this.applyTemperature();
+    this.setTemperature(27);
     this.limitsOwnJunctions = this.params.RS === 0;
     this.storesCharge = Boolean(this.params.CJ0 || this.params.CJSW || this.params.TT);
     // A two-terminal RS fallback cannot carry the internal junction charge, so
@@ -469,12 +478,16 @@ export class Diode implements DeviceModel {
     this.acceptedCharge = undefined;
     this.previousAcceptedCharge = undefined;
     this.olderAcceptedCharge = undefined;
+    this.oldestAcceptedCharge = undefined;
     this.acceptedChargeCurrent = 0;
     this.pendingIntegration = undefined;
   }
 
   setTemperature(value: number): void {
-    this.temperature = value;
+    // ngspice-47 dio.c:14-15, dioparam.c:51-57, diotemp.c:291-296:
+    // TEMP replaces CKTtemp and DTEMP, including for self-heating instances.
+    this.ambientTemperature = this.instanceParams.TEMP ?? value + (this.instanceParams.DTEMP ?? 0);
+    this.temperature = this.ambientTemperature;
     this.applyTemperature();
   }
 
@@ -640,13 +653,17 @@ export class Diode implements DeviceModel {
     };
   }
 
-  /** DC junction current used by the small-signal shot/flicker noise model. */
+  /** DC junction current for device readouts and small-signal shot/flicker noise. */
   noiseOperatingPoint(solution: Float64Array, gmin = DEVICE_GMIN): {
     current: number;
     flickerCoefficient: number;
     flickerExponent: number;
     parallelMultiplier: number;
   } {
+    if (this.selfHeating) {
+      this.temperature = this.ambientTemperature + solution[this.nodes[2]];
+      this.applyTemperature();
+    }
     const [nA, nK] = this.nodes;
     const terminalVoltage = (nA >= 0 ? solution[nA] : 0) - (nK >= 0 ? solution[nK] : 0);
     const { RS, KF, AF } = this.params;
@@ -660,7 +677,23 @@ export class Diode implements DeviceModel {
     };
   }
 
+  private ambientTemperature = 27;
+
+  private get selfHeating(): boolean {
+    return (this.nodes[2] ?? -1) >= 0 && this.instanceParams.THERMAL === 1
+      && this.suppliedParams.RTH0 !== undefined;
+  }
+
+  stampSmallSignal(ctx: StampContext): void {
+    if (this.selfHeating) throw new InvalidCircuitError('Self-heating diode AC/noise is not implemented');
+    this.stamp(ctx);
+  }
+
   stamp(ctx: StampContext): void {
+    if (this.selfHeating) {
+      this.stampThermal(ctx);
+      return;
+    }
     const [nA, nK] = this.nodes;
     const vA = nA >= 0 ? ctx.getVoltage(nA) : 0;
     const vK = nK >= 0 ? ctx.getVoltage(nK) : 0;
@@ -707,6 +740,42 @@ export class Diode implements DeviceModel {
 
     if (nA >= 0) ctx.stampB(nA, -ieq);
     if (nK >= 0) ctx.stampB(nK, ieq);
+  }
+
+  /** Reduced RS/junction system with temperature-dependent current and power. */
+  private stampThermal(ctx: StampContext): void {
+    const [a, k, t] = this.nodes;
+    const voltage = (a >= 0 ? ctx.getVoltage(a) : 0) - (k >= 0 ? ctx.getVoltage(k) : 0);
+    const rise = ctx.getVoltage(t);
+    const temperature = this.ambientTemperature + rise;
+    const evaluate = (temp: number) => {
+      this.temperature = temp;
+      this.applyTemperature();
+      return diodeCurrent(voltage, this.junction(), this.params.RS);
+    };
+    // Central difference includes both the junction law and RS(TRS1,TRS2).
+    const delta = 1e-3;
+    const plus = evaluate(temperature + delta).current;
+    const minus = evaluate(temperature - delta).current;
+    const point = evaluate(temperature);
+    const current = point.current;
+    const conductance = point.conductance;
+    const dIdT = (plus - minus) / (2 * delta);
+    const ieq = current - conductance * voltage - dIdT * rise;
+    for (const [row, sign] of [[a, 1], [k, -1]]) {
+      if (row < 0) continue;
+      if (a >= 0) ctx.stampG(row, a, sign * conductance);
+      if (k >= 0) ctx.stampG(row, k, -sign * conductance);
+      ctx.stampG(row, t, sign * dIdT);
+      ctx.stampB(row, -sign * ieq);
+    }
+    // ngspice-47 dioload.c:749-759: junction heat plus RS Joule heat = V*I.
+    const dPdV = current + voltage * conductance;
+    const dPdT = voltage * dIdT;
+    if (a >= 0) ctx.stampG(t, a, -dPdV);
+    if (k >= 0) ctx.stampG(t, k, dPdV);
+    ctx.stampG(t, t, 1 / this.suppliedParams.RTH0! - dPdT);
+    ctx.stampB(t, voltage * current - dPdV * voltage - dPdT * rise);
   }
 
   stampDynamic(ctx: StampContext): void {
@@ -793,10 +862,12 @@ export class Diode implements DeviceModel {
       this.acceptedCharge = charge;
       this.previousAcceptedCharge = undefined;
       this.olderAcceptedCharge = undefined;
+      this.oldestAcceptedCharge = undefined;
       this.acceptedChargeCurrent = 0;
       return;
     }
     this.acceptedChargeCurrent = this.integrateCharge(charge, capacitance, integration).current;
+    this.oldestAcceptedCharge = this.olderAcceptedCharge;
     this.olderAcceptedCharge = this.previousAcceptedCharge;
     this.previousAcceptedCharge = this.acceptedCharge;
     this.acceptedCharge = charge;
@@ -828,6 +899,24 @@ export class Diode implements DeviceModel {
     const voltage = (nA >= 0 ? ctx.getVoltage(nA) : 0) - (nK >= 0 ? ctx.getVoltage(nK) : 0);
     const { charge, capacitance } = this.junctionCharge(voltage, ctx.gmin ?? DEVICE_GMIN);
     const { current } = this.integrateCharge(charge, capacitance, integration);
+    if (truncation.order === undefined && this.usesGear3(integration)) {
+      if (this.oldestAcceptedCharge === undefined || truncation.olderDelta === undefined) return Infinity;
+      const { deltas, reltol, abstol, chgtol, trtol } = truncation;
+      const intervals = [...deltas, truncation.olderDelta];
+      const diff = [charge, accepted, previous, this.olderAcceptedCharge!, this.oldestAcceptedCharge];
+      // CKTterr's fourth divided difference, matching the shared charge kernel.
+      for (let level = 1; level <= 4; level++) {
+        for (let i = 0; i < 5 - level; i++) {
+          let span = 0;
+          for (let j = i; j < i + level; j++) span += intervals[j];
+          diff[i] = (diff[i] - diff[i + 1]) / span;
+        }
+      }
+      const currentTolerance = abstol + reltol * Math.max(Math.abs(current), Math.abs(this.acceptedChargeCurrent));
+      const chargeTolerance = reltol * Math.max(Math.abs(charge), Math.abs(accepted), chgtol) / deltas[0];
+      return Math.cbrt(trtol * Math.max(currentTolerance, chargeTolerance)
+        / Math.max(abstol, 0.1363636364 * Math.abs(diff[0])));
+    }
     return chargeTruncationTimestep(
       secondOrder ? integration.method : 'euler', secondOrder ? 2 : 1,
       charge, accepted, previous, this.olderAcceptedCharge ?? 0,
@@ -857,13 +946,27 @@ export class Diode implements DeviceModel {
     return { charge, capacitance };
   }
 
+  private usesGear3(integration: ChargeIntegration): boolean {
+    return integration.method === 'gear2' && integration.order === 3
+      && integration.prevDt !== undefined && integration.prevPrevDt !== undefined
+      && this.previousAcceptedCharge !== undefined && this.olderAcceptedCharge !== undefined;
+  }
+
   /** ngspice NIintegrate for one charge: returns the capacitor current and its dI/dV. */
   private integrateCharge(
     charge: number,
     capacitance: number,
-    { method, dt, prevDt }: ChargeIntegration,
+    integration: ChargeIntegration,
   ): { current: number; conductance: number } {
+    const { method, dt, prevDt, prevPrevDt } = integration;
     const previous = this.acceptedCharge ?? charge;
+    if (this.usesGear3(integration)) {
+      const [a1, a2, a3, a4] = gear3Coefficients(dt, prevDt!, prevPrevDt!);
+      return {
+        current: a1 * charge + a2 * previous + a3 * this.previousAcceptedCharge! + a4 * this.olderAcceptedCharge!,
+        conductance: a1 * capacitance,
+      };
+    }
     if (method === 'trapezoidal') {
       const factor = 2 / dt;
       return {

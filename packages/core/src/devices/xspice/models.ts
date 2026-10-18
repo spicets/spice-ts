@@ -1,6 +1,8 @@
 import type { ChargeIntegration, ChargeTruncation } from '../device.js';
+import { gear3Coefficients } from '../gear3.js';
 import type { XspiceConnection } from './connections.js';
 import type { XspiceParamValue } from './spec.js';
+import { pwlts } from './pwlts.js';
 
 /**
  * One call of a code model function (ngspice cm_<model>(ARGS)). Inputs,
@@ -51,6 +53,10 @@ export type CodeModelACForm =
   | { readonly kind: 'integrator'; readonly gain: number };
 
 export interface CodeModelBehavior {
+  /** ngspice TSTEP/TSTOP, supplied before transient initialization. */
+  setTransientTimestep?(timestep: number, stopTime?: number): void;
+  /** RAMPTIME configured for transient OP and subsequent transient loads. */
+  setRampTime?(time: number): void;
   /** True when the model keeps transient state (cm_analog_alloc). */
   readonly stateful: boolean;
   readonly ac: CodeModelACForm;
@@ -442,6 +448,11 @@ export function integrator(params: ResolvedXspiceParams): CodeModelBehavior {
   const integrate = (call: CodeModelCall): { out: number; partial: number } => {
     const integrand = k * (call.inputs[0] + inOffset);
     const integration = call.integration;
+    if (integration?.method === 'gear2' && integration.order === 3
+      && integration.prevDt !== undefined && integration.prevPrevDt !== undefined && historyLength >= 3) {
+      const [a0, a1, a2, a3] = gear3Coefficients(integration.dt, integration.prevDt, integration.prevPrevDt);
+      return { out: (integrand - a1 * history[0] - a2 * history[1] - a3 * history[2]) / a0, partial: 1 / a0 };
+    }
     if (
       integration?.method === 'gear2' && integration.prevDt !== undefined && historyLength >= 2
     ) {
@@ -547,6 +558,7 @@ export const XSPICE_BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<st
   ['mult', mult],
   ['divide', divide],
   ['pwl', pwl],
+  ['pwlts', pwlts],
   ['limit', limit],
   ['int', integrator],
   ['d_dt', differentiator],

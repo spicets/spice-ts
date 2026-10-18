@@ -1,0 +1,69 @@
+{
+  "issue": 1310,
+  "baseSha": "e620ed8614da1c8afd2a8f0657a73857b58cbc98",
+  "environment": "Node v22.23.1, Apple M5 Pro, macOS 27.0.1 arm64, shared uncontrolled host load",
+  "fixture": "benchmarks/corpus/corpus-f/fixtures/examples/vbic/DFF_Y_ECL.sp",
+  "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+  "beforeSeconds": [46.638647082999995, 53.435783083000004, 93.213099583],
+  "afterSeconds": [69.46703883300002, 54.498113792000005, 39.839490999999995],
+  "beforeMedianSeconds": 53.435783083000004,
+  "afterMedianSeconds": 54.498113792000005,
+  "runtimeChangePercent": 1.9880511666684475,
+  "runtimeLoss": true,
+  "identityVerifiedAcrossAllSixRuns": true,
+  "outputSha256AllSixRuns": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+  "rowsAllSixRuns": 43273,
+  "convergenceAllSixRuns": {
+    "dc": {"newtonIterations": 31, "acceptedSolves": 1, "rejectedSolves": 0, "sourceStepAttempts": 0, "sourceStepFailures": 0, "gminStepAttempts": 0, "gminStepFailures": 0, "failure": null},
+    "transient": {"acceptedSteps": 43272, "rejectedSteps": 3139, "newtonIterations": 100724, "nrRetries": 0, "lteRetries": 3139, "minimumAcceptedTimestep": 2.5e-15, "failure": null}
+  },
+  "profile": {
+    "simulateSeconds": 47.171665042,
+    "totalSampledSeconds": 47.529125,
+    "intervalMicroseconds": 1000,
+    "scope": "Whole process, unlike the simulate timer. Includes startup/hashing. timeDelta-weighted stack samples under uncontrolled scheduling, not CPU-cycle accounting.",
+    "buckets": [
+      {"bucket": "VBIC evaluate/derivatives", "seconds": 31.834691, "percent": 66.97933319832839},
+      {"bucket": "GC", "seconds": 7.683529, "percent": 16.165938253649735},
+      {"bucket": "Stamping", "seconds": 3.59082, "percent": 7.554988651695145},
+      {"bucket": "Accepted-point/charge work", "seconds": 2.073742, "percent": 4.363097363984715},
+      {"bucket": "Other/startup/driver", "seconds": 1.730305, "percent": 3.6405151578111314},
+      {"bucket": "Matrix factor/solve", "seconds": 0.616038, "percent": 1.2961273745308797},
+      {"bucket": "Output/result construction", "seconds": 0, "percent": 0},
+      {"bucket": "Harness hashing (outside simulate)", "seconds": 0, "percent": 0}
+    ],
+    "classification": "Decode bundled function start coordinates via baseline build source map, before rebuilding changes (which deletes old chunks/maps). Sum timeDeltas once with precedence: GC leaf; any vbic.ts frame in baseline lines 171-475 => evaluation; VBIC charge method or line >=684 => charge work excluding nested evaluation; VBIC stamp/nodeJacobian or any stamp-prefixed frame => stamping; solver/matrix/sparse source or solve/refactorWithPivots => matrix; harness line >=16 => hashing; result/output source or pushResults function => output; remainder other. Output/hash had no separately attributable samples, not proof of zero work. Unresolved/inlined/native work remains other. GC cannot be attributed causally to an allocating subsystem. Evaluation includes arithmetic and allocation, not a separate allocation-only measurement.",
+    "topSelfFrames": [
+      {"source": "devices/vbic.ts", "line": 191, "function": "add", "seconds": 4.870474},
+      {"source": "devices/vbic.ts", "line": 174, "function": "constant", "seconds": 4.300059},
+      {"source": "devices/vbic.ts", "line": 197, "function": "sub", "seconds": 4.179266},
+      {"source": "devices/vbic.ts", "line": 330, "function": "evaluate", "seconds": 3.703863},
+      {"source": "devices/vbic.ts", "line": 253, "function": "diode", "seconds": 2.648963}
+    ]
+  },
+  "tests": {
+    "targetedFiles": 16,
+    "targetedTests": 227,
+    "red": "Before production edits, baseline stamp hash passed; allocation test failed (81440 >=70000).",
+    "green": "Both new tests and all existing VBIC tests pass.",
+    "allocationMeasurement": "Explicit numeric-length Array constructions in public-device workload, not all heap allocations or bytes.",
+    "redArrayConstructions": 81440,
+    "greenArrayConstructionsExclusiveBound": 70000,
+    "stampSha256": "3324cdb29c46ea0b0be79f64b9a06a767eba5549d997e193df9221f0634944db"
+  },
+  "commands": [
+    "pnpm install --frozen-lockfile",
+    "pnpm build",
+    "spice-heavy node --cpu-prof --cpu-prof-dir=<scratch>/r4-profile benchmarks/performance/dff-1310.mjs 1",
+    "spice-heavy node benchmarks/performance/dff-1310.mjs 3 # baseline and rebuilt changed core",
+    "pnpm -C packages/core exec vitest run src/devices/vbic-allocation.test.ts # RED on baseline",
+    "pnpm -C packages/core exec vitest run src/devices/vbic # GREEN",
+    "pnpm lint",
+    "spice-heavy pnpm test"
+  ],
+  "losses": [
+    "After median is 1.9881% slower, not a demonstrated full-deck speedup. Sequential groups and wide run spreads on shared host confound throughput attribution.",
+    "Existing V(Q) parity loss #1309 and 43273 versus ngspice 40545 rows remain.",
+    "Historical round-3 ngspice median 1.73808 s is not a fresh same-session timing. After is 31.35535406425481x slower against that historical reference."
+  ]
+}

@@ -193,6 +193,23 @@ const QG = 0;
 const QB = 1;
 const QD = 2;
 
+// Shared helpers avoid allocating/naming closures on every Newton load.
+function solutionVoltage(solution: Float64Array, node: number): number {
+  return node >= 0 ? solution[node] : 0;
+}
+
+function contextVoltage(ctx: StampContext, node: number): number {
+  return node >= 0 ? ctx.getVoltage(node) : 0;
+}
+
+function stampConductance(ctx: StampContext, m: number, row: number, col: number, value: number): void {
+  if (row >= 0 && col >= 0) ctx.stampG(row, col, m * value);
+}
+
+function stampRhs(ctx: StampContext, m: number, row: number, value: number): void {
+  if (row >= 0) ctx.stampB(row, m * value);
+}
+
 /** The limited polarity-domain voltages and DC results of the last load. */
 interface LoadState {
   vgs: number;
@@ -240,6 +257,21 @@ export class ClassicBsimMosfet implements DeviceModel {
   /** Unlimited polarity-domain voltages the last load read (ngspice CKTrhsOld). */
   private loadVoltages = { vgs: 0, vds: 0, vbs: 0 };
 
+  private dcSweepStamp: { ctx: StampContext; values: Float64Array; rhs: Float64Array; slots: Int32Array } | undefined;
+
+  /** Bind only a locked DC sweep topology; other contexts retain generic stamping. */
+  bindDCSweepStamp(binding?: {
+    ctx: StampContext; values: Float64Array; rhs: Float64Array;
+    index(row: number, col: number): number;
+  }): void {
+    this.dcSweepStamp = undefined;
+    if (!binding) return;
+    const [d, g, s, b] = this.nodes;
+    const pairs = [[b, b], [d, d], [s, s], [b, d], [b, s], [d, g], [d, b], [d, s], [s, g], [s, b], [s, d]];
+    const slots = Int32Array.from(pairs, ([row, col]) => row >= 0 && col >= 0 ? binding.index(row, col) : -1);
+    this.dcSweepStamp = { ctx: binding.ctx, values: binding.values, rhs: binding.rhs, slots };
+  }
+
   constructor(
     readonly name: string,
     /** [drain', gate, source', bulk]: the prime nodes behind any RSH resistors. */
@@ -277,9 +309,14 @@ export class ClassicBsimMosfet implements DeviceModel {
   }
 
   limitNewtonStep(previous: Float64Array, candidate: Float64Array): number {
-    const read = (solution: Float64Array) => (node: number) => (node >= 0 ? solution[node] : 0);
-    const [vgsOld, vdsOld] = this.terminalVoltages(read(previous));
-    const [vgsNew, vdsNew] = this.terminalVoltages(read(candidate));
+    const [nD, nG, nS] = this.nodes;
+    const type = this.setup.polarity;
+    const sOld = solutionVoltage(previous, nS);
+    const sNew = solutionVoltage(candidate, nS);
+    const vgsOld = type * (solutionVoltage(previous, nG) - sOld);
+    const vdsOld = type * (solutionVoltage(previous, nD) - sOld);
+    const vgsNew = type * (solutionVoltage(candidate, nG) - sNew);
+    const vdsNew = type * (solutionVoltage(candidate, nD) - sNew);
     const vgdOld = vgsOld - vdsOld;
     const vgdNew = vgsNew - vdsNew;
     const von = this.lastVon;
@@ -340,7 +377,10 @@ export class ClassicBsimMosfet implements DeviceModel {
     const m = this.instance.M;
     const gmin = ctx.gmin ?? DEVICE_GMIN;
     const [nD, nG, nS, nB] = this.nodes;
-    const [vgs, vds, vbsRaw] = this.terminalVoltages(node => (node >= 0 ? ctx.getVoltage(node) : 0));
+    const vS = contextVoltage(ctx, nS);
+    const vgs = type * (contextVoltage(ctx, nG) - vS);
+    const vds = type * (contextVoltage(ctx, nD) - vS);
+    const vbsRaw = type * (contextVoltage(ctx, nB) - vS);
     this.loadVoltages = { vgs, vds, vbs: vbsRaw };
 
     // b1ld.c junction limiting against CKTstate0 (DEVfetlim/DEVlimvds act through limitNewtonStep).
@@ -395,27 +435,42 @@ export class ClassicBsimMosfet implements DeviceModel {
       ? type * (cdrain - gds * vds - gm * vgs - gmbs * vbs)
       : -type * (cdrain + gds * vds - gm * vgd - gmbs * vbd);
 
-    const g = (row: number, col: number, value: number) => {
-      if (row >= 0 && col >= 0) ctx.stampG(row, col, m * value);
-    };
-    const b = (row: number, value: number) => {
-      if (row >= 0) ctx.stampB(row, m * value);
-    };
-    b(nB, -(ceqbs + ceqbd));
-    b(nD, ceqbd - cdreq);
-    b(nS, cdreq + ceqbs);
+    const bound = this.dcSweepStamp;
+    if (bound?.ctx === ctx) {
+      const { values, rhs, slots } = bound;
+      if (nB >= 0) rhs[nB] += m * -(ceqbs + ceqbd);
+      if (nD >= 0) rhs[nD] += m * (ceqbd - cdreq);
+      if (nS >= 0) rhs[nS] += m * (cdreq + ceqbs);
+      // Preserve the generic stamp's addition order, even when nodes alias.
+      if (slots[0] >= 0) values[slots[0]] += m * (gbd + gbs);
+      if (slots[1] >= 0) values[slots[1]] += m * (gds + gbd + xrev * (gm + gmbs));
+      if (slots[2] >= 0) values[slots[2]] += m * (gds + gbs + xnrm * (gm + gmbs));
+      if (slots[3] >= 0) values[slots[3]] += m * -gbd;
+      if (slots[4] >= 0) values[slots[4]] += m * -gbs;
+      if (slots[5] >= 0) values[slots[5]] += m * ((xnrm - xrev) * gm);
+      if (slots[6] >= 0) values[slots[6]] += m * (-gbd + (xnrm - xrev) * gmbs);
+      if (slots[7] >= 0) values[slots[7]] += m * (-gds - xnrm * (gm + gmbs));
+      if (slots[8] >= 0) values[slots[8]] += m * (-(xnrm - xrev) * gm);
+      if (slots[9] >= 0) values[slots[9]] += m * (-gbs - (xnrm - xrev) * gmbs);
+      if (slots[10] >= 0) values[slots[10]] += m * (-gds - xrev * (gm + gmbs));
+      return;
+    }
 
-    g(nB, nB, gbd + gbs);
-    g(nD, nD, gds + gbd + xrev * (gm + gmbs));
-    g(nS, nS, gds + gbs + xnrm * (gm + gmbs));
-    g(nB, nD, -gbd);
-    g(nB, nS, -gbs);
-    g(nD, nG, (xnrm - xrev) * gm);
-    g(nD, nB, -gbd + (xnrm - xrev) * gmbs);
-    g(nD, nS, -gds - xnrm * (gm + gmbs));
-    g(nS, nG, -(xnrm - xrev) * gm);
-    g(nS, nB, -gbs - (xnrm - xrev) * gmbs);
-    g(nS, nD, -gds - xrev * (gm + gmbs));
+    stampRhs(ctx, m, nB, -(ceqbs + ceqbd));
+    stampRhs(ctx, m, nD, ceqbd - cdreq);
+    stampRhs(ctx, m, nS, cdreq + ceqbs);
+
+    stampConductance(ctx, m, nB, nB, gbd + gbs);
+    stampConductance(ctx, m, nD, nD, gds + gbd + xrev * (gm + gmbs));
+    stampConductance(ctx, m, nS, nS, gds + gbs + xnrm * (gm + gmbs));
+    stampConductance(ctx, m, nB, nD, -gbd);
+    stampConductance(ctx, m, nB, nS, -gbs);
+    stampConductance(ctx, m, nD, nG, (xnrm - xrev) * gm);
+    stampConductance(ctx, m, nD, nB, -gbd + (xnrm - xrev) * gmbs);
+    stampConductance(ctx, m, nD, nS, -gds - xnrm * (gm + gmbs));
+    stampConductance(ctx, m, nS, nG, -(xnrm - xrev) * gm);
+    stampConductance(ctx, m, nS, nB, -gbs - (xnrm - xrev) * gmbs);
+    stampConductance(ctx, m, nS, nD, -gds - xrev * (gm + gmbs));
   }
 
   /**

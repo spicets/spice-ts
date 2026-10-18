@@ -51,9 +51,13 @@ export function controlledOscillator(pwm: boolean): DigitalModelFactory {
           const { period, duty } = timing();
           const delta = period * (state.last === ONE ? duty : 1 - duty);
           let when = state.lastTime + delta;
-          // The event API cannot request ngspice's temporary analog rollback
-          // breakpoint. A missed edge is emitted now (the source's fallback).
-          if (call.time >= when) when = call.time;
+          if (call.time >= when) {
+            if (call.setTemporaryBreakpoint(state.lastTime + .8 * delta)) return;
+            if (when > call.previousTime
+              && call.setTemporaryBreakpoint((call.previousTime + when) / 2)) return;
+            // The transition is already in the fixed past (ngspice fallback).
+            when = call.time;
+          }
           if (call.time >= state.lastTime + .75 * delta) {
             state.lastTime = when;
             state.last ^= ONE;

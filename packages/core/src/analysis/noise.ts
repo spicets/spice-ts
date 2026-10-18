@@ -13,7 +13,9 @@ import { Resistor } from '../devices/resistor.js';
 import { SwitchBase } from '../devices/switch.js';
 import { VoltageSource } from '../devices/voltage-source.js';
 import { otaNoiseSources } from '../devices/xspice/ota-model.js';
+import { gainNoiseSources } from '../devices/xspice/gain-noise.js';
 import { VBIC } from '../devices/vbic.js';
+import { VDMOS } from '../devices/vdmos.js';
 import { InvalidCircuitError } from '../errors.js';
 import { createMatrixVariableIdentities, MNAAssembler } from '../mna/assembler.js';
 import { NoiseResult } from '../results.js';
@@ -38,11 +40,11 @@ const N_MINGAIN = 1e-20;
  * junction only act through the operating point and the substrate capacitance;
  * TNOM, XTI, XTB and EG move the bjttemp.c parameters those solves use,
  * including the temperature-adjusted currents used by shot/flicker noise.
- * RBM/IRB (bias-dependent gx noise) stay rejected.
+ * RBM/IRB use the same operating-point gx as the small-signal stamp.
  */
 const BJT_NOISE_MODEL_PARAMETERS = new Set([
   'LEVEL', 'BF', 'BR', 'IS', 'NF', 'NR', 'VAF', 'VA', 'IKF', 'IK', 'ISE', 'C2', 'NE',
-  'VAR', 'VB', 'IKR', 'ISC', 'C4', 'NC', 'NKF', 'NK', 'RB', 'RC', 'RE', 'KF', 'AF',
+  'VAR', 'VB', 'IKR', 'ISC', 'C4', 'NC', 'NKF', 'NK', 'RB', 'RBM', 'IRB', 'RC', 'RE', 'KF', 'AF',
   'CJE', 'VJE', 'PE', 'MJE', 'ME', 'TF', 'XTF', 'VTF', 'ITF',
   'CJC', 'VJC', 'PC', 'MJC', 'MC', 'XCJC', 'TR', 'FC',
   'XTI', 'XTB', 'EG', 'polarity',
@@ -76,31 +78,39 @@ export function assertNoiseDevicesSupported(compiled: CompiledCircuit): void {
     let kind: string | undefined;
     if (device instanceof BJT) {
       for (const parameter of Object.keys(device.suppliedParams)) {
-        if (!BJT_NOISE_MODEL_PARAMETERS.has(parameter)) {
+        if (!BJT_NOISE_MODEL_PARAMETERS.has(parameter)
+          && !(parameter === 'PTF' && device.suppliedParams.PTF === 0)) {
           throw new InvalidCircuitError(
             `.noise does not support BJT model parameter '${parameter}' for '${device.name}'`,
           );
         }
       }
-      // A BJT that stamps its own base resistance (RBM != RB, or XCJC < 1
-      // with RB > 0, #861) has no expanded RB resistor to carry the
-      // bjtnoise.c RB thermal noise; reject rather than drop that source.
-      if (device.nodes[4] !== undefined) {
-        throw new InvalidCircuitError(
-          `.noise does not support BJT base resistance with XCJC < 1 for '${device.name}'`,
-        );
-      }
-    } else if (device instanceof BSIM3v3) kind = 'MOSFET';
+    } else if (device instanceof BSIM3v3) {
+      device.assertQuasiStaticSmallSignal(false);
+      kind = 'MOSFET';
+    }
     // b1noi.c / b2noi.c are not ported; reject rather than treat the channel as noiseless.
     else if (device instanceof ClassicBsimMosfet) kind = `MOSFET ${device.setup.kind}`;
-    // mos2noi.c is not ported; reject rather than treat the MOS2 channel as noiseless.
-    else if (device instanceof MOS2) kind = 'MOSFET level 2';
-    // mos3noi.c / mos9noi.c are not ported either.
-    else if (device instanceof MOS3) kind = `MOSFET level ${device.model.level}`;
     // ngspice HFETA has no noise routine, so its RD/RS are noiseless; reject
     // rather than add thermal noise from the expanded series resistors.
     else if (device instanceof HFET1) kind = 'HFET';
+    else if (device instanceof VDMOS) {
+      if (!Number.isFinite(device.model.kf) || device.model.kf < 0 || !Number.isFinite(device.model.af)) {
+        throw new InvalidCircuitError(`.noise requires finite VDMOS KF >= 0 and AF for '${device.name}'`);
+      }
+    }
 
+    if (device instanceof MOS2 || device instanceof MOS3) {
+      const { KF, AF, NLEV, oxideCapFactor } = device.model;
+      const { length, width } = device.noiseOperatingPoint();
+      if (!(device instanceof MOS3 && device.model.level === 9) && ![0, 1, 2].includes(NLEV)) {
+        throw new InvalidCircuitError(`.noise only supports MOS2/MOS3 NLEV=0, 1 or 2 for '${device.name}'`);
+      }
+      if (![KF, AF, oxideCapFactor, length, width, device.instance.M].every(Number.isFinite)
+        || KF < 0 || oxideCapFactor <= 0 || length <= 0 || width <= 0 || device.instance.M <= 0) {
+        throw new InvalidCircuitError(`.noise requires finite MOS2/MOS3/MOS9 KF >= 0, AF and positive noise geometry, Cox and M for '${device.name}'`);
+      }
+    }
     if (device instanceof MOSFET) {
       if (device.getTemperature() !== 27) {
         throw new InvalidCircuitError(
@@ -157,7 +167,8 @@ export function assertNoiseDevicesSupported(compiled: CompiledCircuit): void {
  * restricted to ngspice's default 27 C circuit temperature):
  * resistor and S/W switch thermal noise, diode junction shot/flicker noise, BJT level-1
  * collector/base shot, base-current KF/AF flicker noise, and RB/RC/RE
- * thermal noise, VBIC thermal/shot/KFN noise, plus MOS1 channel thermal/KF/AF flicker noise.
+ * thermal noise, VBIC thermal/shot/KFN noise, MOS1/2/3/9 channel thermal/KF/AF flicker,
+ * and non-self-heated VDMOS RD/RS/channel thermal and KF/AF flicker noise.
  * Controlled and independent ideal sources are noiseless.
  */
 export function solveNoise(
@@ -221,8 +232,17 @@ export function solveNoise(
   const vbicSubstrateResistors = new Set(devices
     .filter((device): device is VBIC => device instanceof VBIC)
     .map(device => `${device.name}.RS`));
+  // Fixed RB is compiler-expanded, variable RB (or split CJC) is self-stamped.
+  // Both use bjtnoise.c's 4*k*T*gx source below, never a second resistor source.
+  const bjtBaseResistors = new Map(devices
+    .filter((device): device is Resistor => device instanceof Resistor)
+    .map(device => [device.name, device]));
+  const expandedBjtBaseNames = new Set(devices
+    .filter((device): device is BJT => device instanceof BJT && device.params.RB > 0)
+    .map(device => `${device.name}.RB`));
   const resistorSources = devices
-    .filter((device): device is Resistor => device instanceof Resistor && device.noisy)
+    .filter((device): device is Resistor => device instanceof Resistor && device.noisy
+      && !expandedBjtBaseNames.has(device.name))
     .map(resistor => {
       if (!(resistor.resistance > 0) || !Number.isFinite(resistor.resistance)) {
         throw new InvalidCircuitError(
@@ -276,10 +296,40 @@ export function solveNoise(
       }
       return sources;
     });
+  // ngspice-47 mos2noi.c/mos3noi.c/mos9noi.c. RD/RS/RSH sources are
+  // already carried by the compiler-expanded resistors, never counted twice.
+  const classicMosSources = devices
+    .filter((device): device is MOS2 | MOS3 => device instanceof MOS2 || device instanceof MOS3)
+    .flatMap(device => {
+      const { gm, cd, length, width } = device.noiseOperatingPoint();
+      const { KF, AF, NLEV, oxideCapFactor: cox } = device.model;
+      const { M } = device.instance;
+      const legacy = device instanceof MOS3 && device.model.level === 9;
+      const sources = [{
+        positive: device.nodes[0], negative: device.nodes[2],
+        currentPowerDensity: (_frequency: number) => 4 * BOLTZMANN_CONSTANT
+          * (device.getTemperature() + CELSIUS_TO_KELVIN) * (2 / 3) * Math.abs(gm),
+      }];
+      if (KF > 0) {
+        sources.push({
+          positive: device.nodes[0], negative: device.nodes[2],
+          currentPowerDensity: (frequency: number) => {
+            if (!legacy && NLEV === 2) {
+              return KF * gm * gm / (M * Math.pow(frequency, AF) * width * length * cox);
+            }
+            const area = !legacy && NLEV === 0 ? length * length : width * length;
+            return M * KF * Math.exp(AF * Math.log(Math.max(Math.abs(cd / M), 1e-38)))
+              / (frequency * area * cox * (legacy ? cox : 1));
+          },
+        });
+      }
+      return sources;
+    });
   const bjtSources = devices
     .filter((device): device is BJT => device instanceof BJT)
     .flatMap(bjt => {
       const operatingPoint = bjt.noiseOperatingPoint(dcSolution, options.deviceGmin);
+      const externalBase = bjt.nodes[4] ?? bjtBaseResistors.get(`${bjt.name}.RB`)?.nodes[0];
       const sources = [{
         positive: operatingPoint.collectorNode,
         negative: operatingPoint.emitterNode,
@@ -291,6 +341,14 @@ export function solveNoise(
         currentPowerDensity: (_frequency: number) => 2 * ELEMENTARY_CHARGE
           * operatingPoint.baseCurrent,
       }];
+      if (externalBase !== undefined && operatingPoint.baseConductance !== 0) {
+        sources.push({
+          positive: externalBase,
+          negative: operatingPoint.baseNode,
+          currentPowerDensity: (_frequency: number) => 4 * BOLTZMANN_CONSTANT
+            * (bjt.getTemperature() + CELSIUS_TO_KELVIN) * operatingPoint.baseConductance,
+        });
+      }
       if (bjt.params.KF > 0) {
         sources.push({
           positive: operatingPoint.baseNode,
@@ -353,7 +411,28 @@ export function solveNoise(
       currentPowerDensity: (frequency: number) =>
         source.flickerCoefficient / Math.pow(frequency, device.params.BFN),
     }]));
-  const noiseSources = [...resistorSources, ...switchSources, ...mosfetSources, ...bjtSources, ...vbicSources, ...devices.flatMap(otaNoiseSources)];
+  const vdmosSources = devices
+    .filter((device): device is VDMOS => device instanceof VDMOS)
+    .flatMap(device => {
+      const op = device.noiseOperatingPoint(dcSolution);
+      const [d, , s, dp, , sp] = device.nodes;
+      const thermalPower = 4 * BOLTZMANN_CONSTANT * op.temperatureKelvin;
+      // vdmosnoi.c assumes TOX=1e-7; no W/L or extra M normalization.
+      // The channel current already includes the parallel multiplier.
+      const cox = 3.9 * 8.854214871e-12 / 1e-7;
+      return [
+        { positive: dp, negative: d,
+          currentPowerDensity: (_frequency: number) => thermalPower * op.drainConductance },
+        { positive: sp, negative: s,
+          currentPowerDensity: (_frequency: number) => thermalPower * op.sourceConductance },
+        { positive: dp, negative: sp,
+          currentPowerDensity: (_frequency: number) => thermalPower * (2 / 3) * Math.abs(op.gm) },
+        { positive: dp, negative: sp,
+          currentPowerDensity: (frequency: number) => op.kf
+            * Math.exp(op.af * Math.log(Math.max(Math.abs(op.id), 1e-38))) / (frequency * cox * cox) },
+      ];
+    });
+  const noiseSources = [...resistorSources, ...switchSources, ...mosfetSources, ...classicMosSources, ...vdmosSources, ...bjtSources, ...vbicSources, ...devices.flatMap(otaNoiseSources), ...devices.flatMap(gainNoiseSources)];
 
   const frequencies = frequencyGrid(analysis, options.reltol, 'noise');
   const hasIntegratedTotals = analysis.stopFreq > analysis.startFreq;
@@ -390,12 +469,13 @@ export function solveNoise(
       const rhs = new Float64Array(systemSize);
       if (positive >= 0) rhs[positive] -= currentDensity;
       if (negative >= 0) rhs[negative] += currentDensity;
+      const source = noiseSources[index];
+      if ('branch' in source && typeof source.branch === 'number') rhs[nodeCount + source.branch] += currentDensity;
       const [real, imaginary] = solver.solve(rhs, zeroImaginary);
       const contribution = Math.sign(powerDensity) * differentialMagnitudeSquared(
         real, imaginary, outputIndex, outputReferenceIndex,
       );
       sourceOutputPowerDensity[index].push(contribution);
-      const source = noiseSources[index];
       if (!('excludeFromSpectrum' in source && source.excludeFromSpectrum)) {
         outputPowerDensity += contribution;
       }
@@ -448,6 +528,7 @@ export function solveNoise(
 
 function isSemiconductorNoiseDevice(device: CompiledCircuit['devices'][number]): boolean {
   return device instanceof Diode
+    || device instanceof VDMOS
     || device instanceof VBIC
     || device instanceof BJT
     || device instanceof JFET

@@ -41,7 +41,9 @@ export function solveSensitivity(
   options: ResolvedOptions,
   convergence?: ConvergenceTelemetry,
 ): SensitivityResult {
-  const outputIndex = findOutputIndex(compiled, analysis.outputNode);
+  const outputIndex = analysis.outputType === 'current'
+    ? findCurrentOutputIndex(compiled, analysis.outputNode)
+    : findOutputIndex(compiled, analysis.outputNode);
   const referenceIndex = analysis.outputReferenceNode === undefined
     ? -1 : findOutputIndex(compiled, analysis.outputReferenceNode);
   const targets = collectTargets(compiled, analysis.mode);
@@ -59,7 +61,7 @@ export function solveSensitivity(
         return voltageDifference(solution, outputIndex, referenceIndex);
       }),
     }));
-    return new SensitivityResult(analysis.outputNode, 'dc', [], entries, analysis.outputReferenceNode);
+    return new SensitivityResult(analysis.outputNode, 'dc', [], entries, analysis.outputReferenceNode, analysis.outputType);
   }
 
   // ngspice `.sens ac` steps its own grid (cktsens.c), not the stretched `.ac` grid.
@@ -72,16 +74,17 @@ export function solveSensitivity(
       return solveACAtOutput(compiled, frequencies, options, outputIndex, referenceIndex, convergence);
     }),
   }));
-  return new SensitivityResult(analysis.outputNode, 'ac', frequencies, entries, analysis.outputReferenceNode);
+  return new SensitivityResult(analysis.outputNode, 'ac', frequencies, entries, analysis.outputReferenceNode, analysis.outputType);
 }
 
 function assertSingleACExcitation(compiled: CompiledCircuit): void {
   const acSources = compiled.devices
     .filter((device): device is VoltageSource | CurrentSource =>
       (device instanceof VoltageSource || device instanceof CurrentSource)
-      && device.waveform.type === 'ac');
+      && (device.waveform.type === 'ac' || device.waveform.ac !== undefined));
   const excitations = acSources
-    .filter(device => device.waveform.type === 'ac' && device.waveform.magnitude !== 0)
+    .filter(device => (device.waveform.type === 'ac'
+      ? device.waveform.magnitude : device.waveform.ac!.magnitude) !== 0)
     .map(device => device.name)
     .sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' }));
   if (excitations.length > 1) {
@@ -177,52 +180,35 @@ function parameterTarget(device: DeviceModel, mode: 'dc' | 'ac'): ParameterTarge
     if (mode === 'dc') return null;
     return mutable(device, 'inductance', device.inductance, value => device.setParameter(value));
   }
-  if (device instanceof VoltageSource) {
+  if (device instanceof VoltageSource || device instanceof CurrentSource) {
+    const waveform = device.waveform;
     if (mode === 'ac') {
-      if (device.waveform.type !== 'ac') {
-        throw unsupported(device, 'AC sensitivity requires an AC voltage-source waveform');
+      const excitation = waveform.type === 'ac' ? waveform : waveform.ac;
+      if (!excitation) {
+        const kind = device instanceof VoltageSource ? 'voltage' : 'current';
+        throw unsupported(device, `AC sensitivity requires an AC ${kind}-source waveform`);
       }
       return mutable(
-        device, 'acMagnitude', device.waveform.magnitude,
-        value => {
-          if (device.waveform.type === 'ac') device.waveform.magnitude = value;
-        },
+        device, 'acMagnitude', excitation.magnitude,
+        value => { excitation.magnitude = value; },
       );
     }
-    if (device.waveform.type !== 'dc' && device.waveform.type !== 'ac') {
-      throw unsupported(device, 'DC sensitivity requires a DC-capable voltage source');
-    }
-    return mutable(device, 'dc', device.getParameter(), value => device.setParameter(value));
-  }
-  if (device instanceof CurrentSource) {
-    if (mode === 'ac') {
-      if (device.waveform.type !== 'ac') {
-        throw unsupported(device, 'AC sensitivity requires an AC current-source waveform');
-      }
+    if (waveform.type === 'ac' || (waveform.type !== 'dc' && waveform.dc !== undefined)) {
+      // Perturb the operating-point value, never the transient waveform's initial value.
       return mutable(
-        device, 'acMagnitude', device.waveform.magnitude,
-        value => {
-          if (device.waveform.type === 'ac') device.waveform.magnitude = value;
-        },
+        device, 'dc', waveform.dc ?? 0,
+        value => { waveform.dc = value; },
       );
     }
-    if (device.waveform.type === 'ac') {
-      // `dc=... ac=...`: the DC value is the waveform's `dc`, as for a voltage source.
-      return mutable(
-        device, 'dc', device.waveform.dc ?? 0,
-        value => {
-          if (device.waveform.type === 'ac') device.waveform.dc = value;
-        },
-      );
-    }
-    if (device.waveform.type !== 'dc') {
-      throw unsupported(device, 'DC current-source sensitivity requires a DC waveform');
+    if (waveform.type !== 'dc') {
+      const reason = device instanceof VoltageSource
+        ? 'DC sensitivity requires a DC-capable voltage source'
+        : 'DC current-source sensitivity requires a DC waveform';
+      throw unsupported(device, reason);
     }
     return mutable(
-      device, 'dc', device.waveform.value,
-      value => {
-        if (device.waveform.type === 'dc') device.waveform.value = value;
-      },
+      device, 'dc', waveform.value,
+      value => { waveform.value = value; },
     );
   }
   if (
@@ -319,4 +305,12 @@ function findOutputIndex(compiled: CompiledCircuit, name: string): number {
     if (nodeName.toLowerCase() === name.toLowerCase() && index >= 0) return index;
   }
   throw new InvalidCircuitError(`.sens output node '${name}' does not exist`);
+}
+
+function findCurrentOutputIndex(compiled: CompiledCircuit, name: string): number {
+  const source = compiled.devices.find(device => device.name.toLowerCase() === name.toLowerCase());
+  if (!(source instanceof VoltageSource)) {
+    throw new InvalidCircuitError(`.sens current output '${name}' must name an independent voltage source`);
+  }
+  return compiled.nodeCount + source.branchIndex;
 }

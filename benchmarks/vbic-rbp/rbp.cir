@@ -1,0 +1,13 @@
+VBIC open parasitic base resistor probe (project-authored MIT)
+VCC vcc 0 2
+RC vcc c 1k
+VB drive 0 DC 0.65 PWL(0 0.62 0.5n 0.62 1n 0.68 1.5n 0.68 2n 0.62)
+RB drive b 50
+VS s 0 -0.2
+Q1 c b 0 s QV
+.model QV NPN(LEVEL=4 RBP=0 RBX=20 RBI=100 IS=1e-16 IBEI=1e-18 ISP=1e-18 IKP=1e-5 IBEIP=1e-18 IBCIP=1e-18 CJE=2e-15 CJC=3e-15 CJEP=1e-15 CJCP=1e-15 TF=1e-12)
+.op
+.dc VB 0.6 0.7 0.025
+.tran 10p 2n
+.save v(c) v(b)
+.end

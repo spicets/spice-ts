@@ -134,10 +134,23 @@ export interface TransientSim {
   dispose(): void;
 }
 
+/** Debug-only rejected trial. Both LTE tests can fail on the same trial. */
+export interface TransientRejection {
+  reason: 'voltage-lte' | 'charge-lte' | 'voltage-and-charge-lte' | 'newton' | 'breakpoint';
+  /** Trial endpoint, not the last accepted time. */
+  time: number;
+  timestep: number;
+  nextTimestep: number;
+  voltageRatio?: number;
+  chargeBound?: number;
+}
+
 export interface TransientSimOptions extends SimulationOptions {
   stopTime?: number;
   timestep?: number;
   maxTimestep?: number;
+  /** Opt-in synchronous debug observer. No event is allocated when absent. */
+  onReject?: (rejection: TransientRejection) => void;
 }
 
 export async function createTransientSim(
@@ -182,7 +195,7 @@ export async function createTransientSim(
   const resolved = resolveOptions(effectiveOptions, stopTime);
 
   return new TransientSimImpl(compiled, resolved, {
-    stopTime, timestep, maxTimestep,
+    stopTime, timestep, maxTimestep, onReject: options?.onReject,
     initialSolution: tranAnalysis?.useInitialConditions
       ? computeUICInitialSolution(compiled)
       : undefined,
@@ -191,6 +204,9 @@ export async function createTransientSim(
 }
 
 interface InternalTransientConfig {
+  /** Internal history/companion experiment; not a public MAXORD option. */
+  experimentalGearOrder?: 3;
+  onReject?: (rejection: TransientRejection) => void;
   stopTime: number | undefined;
   timestep: number;
   maxTimestep: number;
@@ -234,6 +250,8 @@ class TransientSimImpl implements TransientSim {
   private prevB: Float64Array | undefined;
   private historyWorkspace: Float64Array | undefined;
   private secondPrevSol: Float64Array | undefined;
+  private thirdPrevSol: Float64Array | undefined;
+  private olderDt = 0;
   private prevDt: number;
   /** Accepted step before {@link prevDt} (ngspice CKTdeltaOld[2]). */
   private prevPrevDt: number;
@@ -295,7 +313,10 @@ class TransientSimImpl implements TransientSim {
     this.options = options;
     this.config = config;
     this.convergenceTelemetry = config.convergence ?? createConvergenceTelemetry();
-    for (const device of compiled.devices) device.setTransientTimestep?.(config.timestep, config.stopTime);
+    for (const device of compiled.devices) {
+      device.setTransientTimestep?.(config.timestep, config.stopTime);
+      device.setTransientRampTime?.(options.rampTime);
+    }
     // Voltage-dependent capacitances stamped as C(v) need charge state, which
     // the C-matrix companion does not keep. Preserve their established
     // companion history while using the exact static residual for constant-C
@@ -399,6 +420,8 @@ class TransientSimImpl implements TransientSim {
       this.events?.backup(nextTime);
 
       this.assembler.solution.set(prevSol);
+      const attemptIntegration = this.config.experimentalGearOrder === 3 && this.integrationMethod === 'gear2'
+        ? this.stepIntegration(actualDt) : undefined;
       const result = attemptStep(
         {
           compiled: this.compiled, assembler: this.assembler, options: this.options,
@@ -413,7 +436,10 @@ class TransientSimImpl implements TransientSim {
           voltageLimit: NR_VOLTAGE_LIMIT,
           prevPrevSolution: this.secondPrevSol,
           prevDt: this.secondPrevSol ? this.prevDt : undefined,
-          integrationMethod: this.integrationMethod,
+          thirdPrevSolution: this.thirdPrevSol,
+          prevPrevDt: this.prevPrevDt,
+          order: attemptIntegration?.order,
+          integrationMethod: attemptIntegration?.method ?? this.integrationMethod,
           staticCurrentHistory: this.useStaticCurrentHistory,
         },
       );
@@ -440,7 +466,9 @@ class TransientSimImpl implements TransientSim {
           this.integrationMethod = this.useDampedInductiveRecovery ? 'euler' : 'gear2';
           this.prevB = undefined;
           this.secondPrevSol = undefined;
+          this.thirdPrevSol = undefined;
           this.assembler.solution.set(prevSol);
+          this.config.onReject?.({ reason: 'newton', time: nextTime, timestep: actualDt, nextTimestep: this.dt });
           continue;
         }
         this.dt = this.dt / DT_CUT_FACTOR;
@@ -456,17 +484,21 @@ class TransientSimImpl implements TransientSim {
             // Subsequent steps retain history and resume LTE-controlled growth.
             this.prevB = undefined;
             this.secondPrevSol = undefined;
+            this.thirdPrevSol = undefined;
             const recoveryCeiling = Math.min(this.config.timestep, this.config.maxTimestep);
             this.dt = Math.max(recoveryCeiling / IMPLICIT_BREAK_DT_CUT, MIN_TIMESTEP);
             discontinuityRecoveryAttempted = true;
+            this.config.onReject?.({ reason: 'newton', time: nextTime, timestep: actualDt, nextTimestep: this.dt });
             continue;
           }
           this.convergenceTelemetry.transient.failure = 'dt-floor';
+          this.config.onReject?.({ reason: 'newton', time: nextTime, timestep: actualDt, nextTimestep: this.dt });
           throw new TimestepTooSmallError(
             this.time, this.dt, snapshotConvergenceTelemetry(this.convergenceTelemetry),
           );
         }
         this.assembler.solution.set(prevSol);
+        this.config.onReject?.({ reason: 'newton', time: nextTime, timestep: actualDt, nextTimestep: this.dt });
         continue;
       }
 
@@ -483,18 +515,39 @@ class TransientSimImpl implements TransientSim {
         this.progress.lteRejected();
         this.convergenceTelemetry.transient.rejectedSteps++;
         this.convergenceTelemetry.transient.lteRetries++;
+        this.config.onReject?.({
+          reason: lteRatio > 1
+            ? (chargeBound < CHARGE_LTE_ACCEPT_FRACTION * actualDt ? 'voltage-and-charge-lte' : 'voltage-lte')
+            : 'charge-lte',
+          time: nextTime, timestep: actualDt, nextTimestep: this.dt,
+          voltageRatio: lteRatio, chargeBound,
+        });
         continue;
       }
       this.lteRejectCount = 0;
       const firstStep = this.firstStepPending;
-      const next = this.orderAfterAcceptedStep(actualDt, integration, chargeBound);
 
       // Device-owned histories must observe only committed solutions. In
       // particular, NR/LTE retries and the stampPrevB restamp below are not
       // accepted timepoints and must remain side-effect free.
-      this.acceptTransientStep(nextTime, integration);
       // dctran.c: EVTcall_hybrids after the truncation check (not on the
       // first step, which skips it), then EVTaccept.
+      if (this.events) {
+        this.acceptingTime = nextTime;
+        const ctx = this.assembler.getStampContext();
+        for (const device of this.acceptingDevices) device.prepareTransientStep?.(ctx);
+      }
+      const retry = this.events?.prepareStep(nextTime, !firstStep);
+      if (retry !== undefined) {
+        this.dt = retry - this.time;
+        this.assembler.solution.set(prevSol);
+        this.convergenceTelemetry.transient.rejectedSteps++;
+        this.processEvents();
+        this.config.onReject?.({ reason: 'breakpoint', time: nextTime, timestep: actualDt, nextTimestep: this.dt });
+        continue;
+      }
+      const next = this.orderAfterAcceptedStep(actualDt, integration, chargeBound);
+      this.acceptTransientStep(nextTime, integration);
       this.events?.acceptStep(nextTime, !firstStep);
       // Update trapezoidal history.
       if (this.integrationMethod === 'trapezoidal') {
@@ -502,8 +555,10 @@ class TransientSimImpl implements TransientSim {
       }
       // A UIC seed is no predictor point: the next step gets no LTE check and,
       // under Gear-2, integrates at order 1, as after a breakpoint.
+      this.thirdPrevSol = this.config.experimentalGearOrder === 3 && !this.startsFromUICSeed ? this.secondPrevSol : undefined;
       this.secondPrevSol = this.startsFromUICSeed ? undefined : prevSol;
       this.startsFromUICSeed = false;
+      this.olderDt = this.prevPrevDt;
       this.prevPrevDt = this.prevDt;
       this.prevDt = actualDt;
       this.time = nextTime;
@@ -536,6 +591,7 @@ class TransientSimImpl implements TransientSim {
         // an explicit breakpoint but without cutting dt.
         this.orderOnePending = true;
         this.secondPrevSol = undefined;
+        this.thirdPrevSol = undefined;
       }
 
       const growFactor = lteRatio > 0.001 ? Math.min(2.0, 0.9 / Math.sqrt(lteRatio)) : 2.0;
@@ -572,6 +628,7 @@ class TransientSimImpl implements TransientSim {
       // Drop 2nd-order history: both prevB (trap) and secondPrevSol (gear2)
       // undefined makes the companion fall back to BE for one step.
       this.secondPrevSol = undefined;
+      this.thirdPrevSol = undefined;
       this.prevB = undefined;
       this.lteRejectCount = 0;
       const gap = this.nextBreakTarget() - this.time;
@@ -647,6 +704,8 @@ class TransientSimImpl implements TransientSim {
     this.trapNrRetries = 0;
     this.prevB = undefined;
     this.secondPrevSol = undefined;
+    this.thirdPrevSol = undefined;
+    this.olderDt = this.dt;
     this.lteRejectCount = 0;
     this.justCrossedBreakpoint = false;
     this.progress.reset();
@@ -696,7 +755,7 @@ class TransientSimImpl implements TransientSim {
     const times: number[] = [];
     // ngspice-47 dctran.c inserts RAMPTIME even in non-XSPICE_EXP builds,
     // where independent V/I sources are not ramped. capacitoric/inductoric
-    // code models that use the ramp factor remain explicitly unsupported.
+    // use the ramp factor for their initial conditions.
     if (this.options.rampTime > 0 && (stop === undefined || this.options.rampTime <= stop)) {
       times.push(this.options.rampTime);
     }
@@ -741,6 +800,17 @@ class TransientSimImpl implements TransientSim {
    * so the first step integrates at order 1 without it.
    */
   private acceptInitialPoint(): void {
+    if (this.events && this.config.useInitialConditions) {
+      // ngspice-47 dctran.c:223-234 still calls EVTop with MODEUIC.
+      // evtop.c:104-157 alternates event initialization and analog loads;
+      // niiter.c:41-46 loads the UIC seed once, without a Newton solve.
+      // Initialize afresh even on reset or after an earlier .op analysis.
+      this.events.operatingPoint(() => {
+        // This is a load of the supplied initial state, not a Newton
+        // iteration: do not limit inputs against a previous run's solution.
+        this.acceptTransientStep(this.time);
+      });
+    }
     if (this.config.operatingPoint) {
       // OPtran copies the last DC load's state0 into state1 before INITTRAN.
       const ctx = this.assembler.getStampContext();
@@ -753,9 +823,6 @@ class TransientSimImpl implements TransientSim {
       this.acceptTransientStep(this.time);
     }
     if (this.events) {
-      if (this.config.useInitialConditions) {
-        throw new InvalidCircuitError('XSPICE event-driven instances are not supported with transient UIC');
-      }
       this.events.beginTransient(time => this.breakpoints?.insert(time, this.time), MIN_BREAK);
     }
     this.startsFromUICSeed = this.config.useInitialConditions === true;
@@ -825,9 +892,15 @@ class TransientSimImpl implements TransientSim {
    */
   private stepIntegration(dt: number): ChargeIntegration {
     if (this.integrationMethod === 'trapezoidal' && !this.orderOnePending && this.prevB !== undefined) {
-      return { method: 'trapezoidal', dt };
+      return { method: 'trapezoidal', dt, xmu: this.options.xmu };
     }
     if (this.integrationMethod === 'gear2' && this.secondPrevSol !== undefined) {
+      if (this.config.experimentalGearOrder === 3) {
+        if (this.orderOnePending) return { method: 'euler', dt };
+        if (this.thirdPrevSol !== undefined) {
+          return { method: 'gear2', order: 3, dt, prevDt: this.prevDt, prevPrevDt: this.prevPrevDt };
+        }
+      }
       return { method: 'gear2', dt, prevDt: this.prevDt };
     }
     return { method: 'euler', dt };
@@ -913,6 +986,9 @@ class TransientSimImpl implements TransientSim {
     const { reltol, abstol, chgtol, trtol } = this.options;
     const truncation = {
       deltas: [dt, this.prevDt, this.prevPrevDt] as const, reltol, abstol, chgtol, trtol, order,
+      // CKTterr (src/spicelib/analysis/cktterr.c:46-79) needs order+1
+      // intervals for divided differences, then takes the order-th root.
+      olderDelta: this.olderDt,
     };
     let bound = this.reactiveTruncation.timestep(this.assembler.solution, integration, truncation);
     for (const device of this.truncatingDevices) {
@@ -961,6 +1037,9 @@ export function createDriverFromCompiled(
     operatingPoint?: { useDcSourceValue: boolean };
     convergence?: ConvergenceTelemetry;
     guard?: ProtocolExecutionGuard;
+    onReject?: (rejection: TransientRejection) => void;
+    /** Experimental BDF3 companion/history hook; adaptive order raising is not implemented. */
+    experimentalGearOrder?: 3;
   },
 ): TransientSim & {
   peekInitialStep(): TransientStep;
@@ -976,6 +1055,8 @@ export function createDriverFromCompiled(
     operatingPoint: config.operatingPoint,
     convergence: config.convergence,
     guard: config.guard,
+    onReject: config.onReject,
+    experimentalGearOrder: config.experimentalGearOrder,
   });
   return impl;
 }

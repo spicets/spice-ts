@@ -77,6 +77,7 @@ const FUNCTIONS: Record<string, (...args: number[]) => number> = {
   u: x => x < 0 ? 0 : x > 0 ? 1 : 0.5,
   u2: x => x <= 0 ? 0 : x <= 1 ? x : 1,
   uramp: x => x < 0 ? 0 : x,
+  pwl,
   int: Math.trunc,
   nint,
   floor: Math.floor,
@@ -104,7 +105,34 @@ function limit(...args: number[]): number {
   return a > b ? Math.max(Math.min(x, a), b) : Math.max(Math.min(x, b), a);
 }
 
-export function evaluateExpression(input: string, vars: Record<string, number>): number {
+/**
+ * Scalar counterpart of the B-source evaluator's ascending-point pwl table.
+ * ngspice 3ef069fb (47 corpus): inpptree.c:1032-1110 prepares the table;
+ * ptfuncs.c:342-401 selects the right segment at knots and extrapolates both
+ * ends, rather than clamping. The Newton derivative lives in the behavioral
+ * evaluator; this path also accepts evaluated parameter expressions as points.
+ */
+function pwl(x: number, ...points: number[]): number {
+  if (points.length < 4 || points.length % 2 !== 0) {
+    throw new Error('pwl() needs at least two pairs of points');
+  }
+  for (let i = 2; i < points.length; i += 2) {
+    if (!(points[i] > points[i - 2])) {
+      throw new Error('pwl() point abscissas must be strictly ascending');
+    }
+  }
+  let low = 0;
+  let high = points.length / 2 - 1;
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (points[2 * middle] > x) high = middle;
+    else low = middle;
+  }
+  const slope = (points[2 * high + 1] - points[2 * low + 1]) / (points[2 * high] - points[2 * low]);
+  return points[2 * low + 1] + slope * (x - points[2 * low]);
+}
+
+export function evaluateExpression(input: string, vars: Record<string, number | string>): number {
   const parser = new ExprParser(input.trim(), vars);
   const result = parser.parseFormula();
   parser.skipWhitespace();
@@ -123,7 +151,7 @@ class ExprParser {
 
   constructor(
     public readonly src: string,
-    private readonly vars: Record<string, number>,
+    private readonly vars: Record<string, number | string>,
   ) {}
 
   /**
@@ -313,8 +341,11 @@ class ExprParser {
       const name = varMatch[1];
       this.pos += name.length;
       const upper = name.toUpperCase();
-      if (upper in this.vars) return this.vars[upper];
-      if (name in this.vars) return this.vars[name];
+      if (upper in this.vars || name in this.vars) {
+        const value = this.vars[upper in this.vars ? upper : name];
+        if (typeof value !== 'number') throw new Error(`String parameter '${name}' used in a numeric expression`);
+        return value;
+      }
       throw new Error(`Undefined variable '${name}'`);
     }
 

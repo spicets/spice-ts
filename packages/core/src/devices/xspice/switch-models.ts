@@ -10,7 +10,9 @@ import { STATIC, flag, real, type CodeModelBehavior, type ResolvedXspiceParams }
 const AUTO_PARTIAL_EPSILON = 1.0e-6;
 
 /**
- * xtradev/pswitch/cfunc.mod cm_pswitch: a resistor between the `out` ports
+ * ngspice-47 src/xspice/icm/xtradev/pswitch/cfunc.mod:172-282 (cm_pswitch):
+ * https://sourceforge.net/p/ngspice/ngspice/ci/3ef069fb1f04177a153f342a32d941fc20ff047e/tree/src/xspice/icm/xtradev/pswitch/cfunc.mod
+ * A resistor between the `out` ports
  * whose value moves from r_off to r_on as the control voltage crosses from
  * cntl_off to cntl_on, log-linearly by a cubic (log = TRUE) or linearly, plus
  * an r_cntl_in load on the control port.

@@ -60,10 +60,16 @@ export interface TransientBreakpointSink {
  */
 export interface ChargeIntegration {
   readonly method: 'euler' | 'trapezoidal' | 'gear2';
+  /** ngspice XMU, used only by second-order trapezoidal integration. */
+  readonly xmu?: number;
   /** Step being solved, t(n+1) - t(n). */
   readonly dt: number;
   /** Previous accepted step t(n) - t(n-1); required for `gear2`. */
   readonly prevDt?: number;
+  /** BDF order for TransientChargeState. Public transient MAXORD=3 is not yet supported. */
+  readonly order?: 2 | 3;
+  /** Second previous accepted step, required by the shared BDF3 charge kernel. */
+  readonly prevPrevDt?: number;
 }
 
 /**
@@ -76,6 +82,8 @@ export interface ChargeTruncation {
    * t(n+1) - t(n), then t(n) - t(n-1) and t(n-1) - t(n-2).
    */
   readonly deltas: readonly [number, number, number];
+  /** Fourth interval for the shared order-3 charge truncation kernel. */
+  readonly olderDelta?: number;
   readonly reltol: number;
   /** Current tolerance (A). */
   readonly abstol: number;
@@ -179,6 +187,8 @@ export interface DeviceModel {
    * accepted state creates later in the run (ngspice DEVaccept + CKTsetBreak).
    */
   acceptTransientStep?(ctx: StampContext, breakpoints?: TransientBreakpointSink): void;
+  /** Refresh trial hybrid inputs from the converged solution, without accepting history. */
+  prepareTransientStep?(ctx: StampContext): void;
   /**
    * ngspice DEVtrunc: the largest next timestep the truncation error of the
    * device's integrated charges allows, evaluated at the converged but not yet
@@ -254,6 +264,8 @@ export interface DeviceModel {
    * `stopTime` is undefined for an open-ended stepping run.
    */
   setTransientTimestep?(timestep: number, stopTime?: number): void;
+  /** Configure XSPICE RAMPTIME, including the transient operating point; zero for plain DC. */
+  setTransientRampTime?(rampTime: number): void;
   /** Clear device-owned transient history before restarting at t=0. */
   resetTransient?(): void;
   /** Whether this device requires Newton-Raphson iteration (nonlinear). */
@@ -304,6 +316,8 @@ export interface EventDrivenNetwork {
   processEvents(time: number, now: number): void;
   /** EVTbackup: drop every event processed after `time`. */
   backup(time: number): void;
-  /** An accepted point: EVTcall_hybrids (unless the first step), then EVTaccept. */
+  /** Trial hybrid calls. Returns a temporary breakpoint on rejection without committing history. */
+  prepareStep(time: number, callHybrids: boolean): number | undefined;
+  /** Commit event history after the analog devices have accepted the point. */
   acceptStep(time: number, callHybrids: boolean): void;
 }

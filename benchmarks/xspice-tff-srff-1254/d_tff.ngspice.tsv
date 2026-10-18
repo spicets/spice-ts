@@ -1,0 +1,13 @@
+# ngspice-47 eprint q nq; reproduction command in benchmarks/SOURCES.md (#1254)
+# eprint time q nq (s = strong, U = unknown)
+0.000000000e+00 0s 1s
+1.465000000e-08 1s 1s
+1.565000000e-08 1s 0s
+3.465000000e-08 1s 1s
+3.565000000e-08 0s 1s
+4.065000000e-08 1s 1s
+4.165000000e-08 1s 0s
+5.465000000e-08 1s 1s
+5.565000000e-08 0s 1s
+9.465000000e-08 1s 1s
+9.565000000e-08 1s 0s

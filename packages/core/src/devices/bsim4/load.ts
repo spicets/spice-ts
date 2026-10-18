@@ -41,6 +41,11 @@ export interface Bsim4OperatingPoint {
   readonly isub: number; readonly gbgs: number; readonly gbds: number; readonly gbbs: number;
   readonly cbs: number; readonly cbd: number; readonly gbs: number; readonly gbd: number;
   readonly von: number; readonly vdsat: number; readonly vdseff: number;
+  readonly igcs: number; readonly igcd: number; readonly igs: number; readonly igd: number;
+  readonly gigcsg: number; readonly gigcsd: number; readonly gigcsb: number;
+  readonly gigcdg: number; readonly gigcdd: number; readonly gigcdb: number;
+  readonly gigsg: number; readonly gigdg: number;
+  readonly igb: number; readonly gigbg: number; readonly gigbd: number; readonly gigbb: number;
 }
 function unsupported(parameter: string, reason: string): never {
   throw new UnsupportedModelParameterError('', parameter, reason, { model: 'BSIM4 static load' });
@@ -51,6 +56,14 @@ function unsupported(parameter: string, reason: string): never {
  */
 function checkDc(p: Bsim4Preprocessed, given: ReadonlySet<Bsim4ModelParameter>): void {
   const { model: m, size: s, instance: i } = p;
+  // b4check.c:319-330; binned accumulation/inversion slope factors.
+  if (m.igbmod === 1 && (s.nigbacc <= 0 || s.nigbinv <= 0)) {
+    throw new InvalidCircuitError('BSIM4 NIGBACC and NIGBINV must be positive with IGBMOD=1');
+  }
+  // b4check.c:331-347; enabled gate-current fatal domains.
+  if (m.igcmod === 1 && (s.nigc <= 0 || s.poxedge <= 0 || s.pigcd <= 0)) {
+    throw new InvalidCircuitError('BSIM4 NIGC, POXEDGE and PIGCD must be positive with IGCMOD=1');
+  }
   for (const key of ['off', 'icvgs', 'icvds', 'icvbs'] as const) {
     if (i[key] !== 0) unsupported(key, 'nondefault instance initialization is not ported');
   }
@@ -103,6 +116,12 @@ export function evaluateBsim4(
     isub: here.csub * here.nf, gbgs: here.gbgs * here.nf, gbds: here.gbds * here.nf, gbbs: here.gbbs * here.nf,
     cbs: source.current, cbd: drain.current, gbs: source.conductance, gbd: drain.conductance,
     von: here.von, vdsat: here.vdsat, vdseff: here.Vdseff,
+    igcs: here.Igcs * here.nf, igcd: here.Igcd * here.nf, igs: here.Igs * here.nf, igd: here.Igd * here.nf,
+    gigcsg: here.gIgcsg * here.nf, gigcsd: here.gIgcsd * here.nf, gigcsb: here.gIgcsb * here.nf,
+    gigcdg: here.gIgcdg * here.nf, gigcdd: here.gIgcdd * here.nf, gigcdb: here.gIgcdb * here.nf,
+    gigsg: here.gIgsg * here.nf, gigdg: here.gIgdg * here.nf,
+    igb: here.Igb * here.nf, gigbg: here.gIgbg * here.nf,
+    gigbd: here.gIgbd * here.nf, gigbb: here.gIgbb * here.nf,
   };
   if (!Object.values(result).every(Number.isFinite)) throw new InvalidCircuitError('BSIM4 nonfinite DC evaluation');
   return Object.freeze(result);

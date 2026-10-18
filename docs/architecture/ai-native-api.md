@@ -16,7 +16,7 @@ The first implementation must preserve the existing `@spice-ts/core` analysis se
 The dependency direction is fixed:
 
 ```text
-@spice-ts/protocol              JSON-safe types, JSON Schemas, canonicalization
+@spice-ts/core/protocol         JSON-safe types, JSON Schemas, canonicalization
           ^                                  ^
           |                                  |
 @spice-ts/core          @spice-ts/circuit-json (#35)
@@ -25,10 +25,10 @@ The dependency direction is fixed:
                      |
               @spice-ts/mcp
 
-@spice-ts/wasm -> @spice-ts/protocol + a pinned core/WASM build
+@spice-ts/wasm -> @spice-ts/core/protocol + a pinned core/WASM build
 ```
 
-- `@spice-ts/protocol` is environment-neutral and has no runtime dependencies. It owns protocol version `1`, JSON Schema 2020-12 documents, canonical JSON rules, request/result/event types, error codes, and conformance fixtures. It does not import core types; structurally compatible protocol types prevent a dependency cycle.
+- `@spice-ts/core/protocol` is an environment-neutral subpath with no runtime dependencies. It owns protocol version `1`, JSON Schema 2020-12 documents, canonical JSON rules, request/result/event types, error codes, and conformance fixtures. It does not import simulator types; structurally compatible protocol types keep this entry point independent of the simulator.
 - `@spice-ts/core` remains the source of parser and simulator behavior. A protocol adapter in core maps protocol documents to the current `CircuitIR`, analyses, models, and subcircuits and maps `Map`/typed-array results into JSON-safe values. Existing TypeScript return types remain source-compatible.
 - `@spice-ts/circuit-json` remains exactly the adapter proposed by #35 and is the only package that depends on `circuit-json` or Zod. It maps `circuit-json` to/from `CircuitIR`; it does not own analyses, simulation, MCP, or the native schema. #35 must add conversion diagnostics so unsupported elements are never silently discarded.
 - `@spice-ts/mcp` is Node-only. It depends on the official MCP TypeScript SDK, protocol, core, and circuit-json adapter. It owns tool registration, job storage, worker isolation, quotas, and stdio transport. HTTP authentication/deployment is out of scope for M3.

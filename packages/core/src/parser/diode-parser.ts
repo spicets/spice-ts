@@ -4,11 +4,28 @@ export interface DiodeInstanceParams {
   AREA?: number;
   PJ?: number;
   M?: number;
+  THERMAL?: number;
+  /** Absolute instance temperature in Celsius, taking precedence over DTEMP. */
+  TEMP?: number;
+  /** Offset from circuit temperature in Celsius when TEMP is absent. */
+  DTEMP?: number;
 }
 
-const GEOMETRY_PARAMETERS = new Set(['AREA', 'PJ', 'M']);
+/** Optional third node precedes the model; geometry/flags follow it. */
+export function diodeModelIndex(tokens: string[]): number {
+  const next = tokens[4];
+  // Match the entire positional SPICE number, not just its initial digit.
+  // A model such as 1N4148 is a name, not an AREA starting with "1".
+  const isArea = next !== undefined
+    && /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?(?:meg|mil|[tgkmunpfa])?[a-z]*$/i.test(next);
+  return next !== undefined && !next.includes('=')
+    && !['THERMAL', 'OFF'].includes(next.toUpperCase())
+    && !isArea ? 4 : 3;
+}
 
-/** Parse the supported ngspice diode geometry fields without ignoring tokens. */
+const INSTANCE_PARAMETERS = new Set(['AREA', 'PJ', 'M', 'TEMP', 'DTEMP']);
+
+/** Parse supported ngspice diode instance fields without ignoring tokens. */
 export function parseDiodeInstanceParams(
   tokens: string[],
   startIdx: number,
@@ -21,9 +38,8 @@ export function parseDiodeInstanceParams(
 
     if (eqIdx < 0) {
       if (token.toUpperCase() === 'THERMAL') {
-        throw new Error(
-          "Unsupported diode instance flag: 'THERMAL' (diode self-heating is not implemented)",
-        );
+        params.THERMAL = 1;
+        continue;
       }
       if (i === startIdx && token.toUpperCase() !== 'OFF' && !/^[+-]?(?:\d|\.\d)/.test(token)) {
         // ngspice-47 `Dname n+ n- tj model ...`: a bare name after the third
@@ -45,7 +61,7 @@ export function parseDiodeInstanceParams(
     }
 
     const key = token.slice(0, eqIdx).toUpperCase();
-    if (!GEOMETRY_PARAMETERS.has(key)) {
+    if (!INSTANCE_PARAMETERS.has(key)) {
       throw new Error(`Unsupported diode parameter: '${token}'`);
     }
     params[key as keyof DiodeInstanceParams] = parseNumber(token.slice(eqIdx + 1));

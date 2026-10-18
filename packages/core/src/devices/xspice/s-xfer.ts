@@ -1,5 +1,6 @@
 import { InvalidCircuitError } from '../../errors.js';
 import type { ChargeTruncation, StampContext } from '../device.js';
+import { gear3Coefficients } from '../gear3.js';
 import type { CodeModelBehavior, CodeModelCall, ResolvedXspiceParams } from './models.js';
 import { real, reals, STATIC } from './models.js';
 import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xspice-device.js';
@@ -52,7 +53,11 @@ export function sTransferBehavior(model: STransfer): CodeModelBehavior {
     if (call.analysis !== 'dc' && call.time !== 0) {
       for (let i = order; i > 0; i--) {
         const integration = call.integration;
-        if (integration?.method === 'gear2' && integration.prevDt !== undefined && length >= 2) {
+        if (integration?.method === 'gear2' && integration.order === 3
+          && integration.prevDt !== undefined && integration.prevPrevDt !== undefined && length >= 3) {
+          const [a0, a1, a2, a3] = gear3Coefficients(integration.dt, integration.prevDt, integration.prevPrevDt);
+          states[i - 1] = (states[i] - a1 * history[0][i - 1] - a2 * history[1][i - 1] - a3 * history[2][i - 1]) / a0;
+        } else if (integration?.method === 'gear2' && integration.prevDt !== undefined && length >= 2) {
           const dt = integration.dt;
           const alpha = integration.prevDt / dt;
           const a1 = (2 + alpha) / ((1 + alpha) * dt);

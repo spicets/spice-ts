@@ -1,0 +1,402 @@
+{
+  "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+  "probes": [
+    {
+      "sourcePath": "Netlists/SANDLER24/sandler24.cir",
+      "sha256": "0ca28700edb921db7ce3a211a0e338dcb690d471f09e0ef5e8de33cf82c6820f",
+      "wallMs": 667.0526669999999,
+      "status": "unsupported",
+      "firstErrorLine": "Error: no such function 'poly' at line 67",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/SANDLER28/sandler28.cir",
+      "sha256": "c93ff25b878786efbd8df3ab5f740147158be1262fecf7bb85aaf26e7c600acd",
+      "wallMs": 605.2062500000006,
+      "status": "unsupported",
+      "firstErrorLine": "Error: no such function 'poly' at line 55",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/TL431/TL431.cir",
+      "sha256": "0144d0b70a7234606fff487608a5fd6ec6bf3dadc1d18443a02457e09f9f72e0",
+      "wallMs": 644.0209580000001,
+      "status": "unsupported",
+      "firstErrorLine": "Error on line 10 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/ACtests/bsim3/step-op-amp.cir",
+      "sha256": "705443e029bde0e72d440db118991e38e9af319353cf916089e193ab36c4018f",
+      "wallMs": 586.0620410000001,
+      "status": "unsupported",
+      "firstErrorLine": "Error on line 32 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/ACtests/test1.cir",
+      "sha256": "22d734223b90d7e9c3147680b5a92418c7e39cef36c7abf2acdeda256a9681c1",
+      "wallMs": 600.7714999999998,
+      "status": "unsupported",
+      "firstErrorLine": "Error: no such function 'if' at line 7",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/NOISE/commonEmitterBjt_ngspice.cir",
+      "sha256": "cff4fd7c9f9edb1a78c1d985ded41df53250e8ca2886f8262acc788b0d956bfd",
+      "wallMs": 671.4394999999995,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/NOISE/commonEmitterBjt.cir",
+      "sha256": "9439fdb50af115647cfc50cc6718d0b7d49a1935cb78b141b66d1c87d803ce13",
+      "wallMs": 666.708541,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:167",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/NOISE/gain-stage_b3.cir",
+      "sha256": "2c174bb54d3c2b941a74e1d89463cd13699b08ab4ea033b4b1121773bbccca71",
+      "wallMs": 588.8946669999996,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:71",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/NOISE/gain-stage1.cir",
+      "sha256": "6a12a9b6172cb9785513add28988697f19c87054ca55f6554e14fe994f8dcd21",
+      "wallMs": 572.7070829999993,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:71",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/NOISE/gain-stage2.cir",
+      "sha256": "6c00479b8bccb873d392b1d98cb88c97048fed31a6e6377f6ef1513cf29f1699",
+      "wallMs": 572.6187919999993,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:71",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/NOISE/gain-stage3.cir",
+      "sha256": "216f8ae59be39170031b3a275725e613d4df502e9049ba8e5ffe27bd086f1bf0",
+      "wallMs": 649.022167000001,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:71",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/NOISE/invalid_device.cir",
+      "sha256": "f17e7d674551d40e41a106e4cc7bf5f20ff482dca077222948c0d4149f5177ef",
+      "wallMs": 770.8649999999998,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:21",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/NOISE/noiseBjt1.cir",
+      "sha256": "8f1d4d782a4ab80802291808a279275eeaeadfd7869f79820e5050fafb1e2209",
+      "wallMs": 721.1620419999999,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:21",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/NOISE/noiseBjt2.cir",
+      "sha256": "2d32fef5b0f3e3929a84798a55e837547765b8535285585c9d220f257887f2f4",
+      "wallMs": 703.1740829999999,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:1429",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/NOISE/res_noise_ngspice.cir",
+      "sha256": "5f90a7de42b73c0c465c2c38931beb573bc067f20f9fd3a96c11fa4a736f6bd0",
+      "wallMs": 622.9639169999991,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/NOISE/res_noise.cir",
+      "sha256": "8f283f9f84ae85d45dfb0ad9f0dee39309f2e026ef359ddfe47aae7b180caaad",
+      "wallMs": 615.8273750000008,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:31",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/NOISE/unsupported_analysis_mode.cir",
+      "sha256": "646915368df7cd2307ebc33b859de29b822c7842bc61286a73b2b690f42cdbc4",
+      "wallMs": 645.3348339999993,
+      "status": "failed",
+      "firstErrorLine": "Error on line 12 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/VANOISE/bsim6_acnoise1d_sw.cir",
+      "sha256": "0a3c8f3f0f31aabc9816f026d35a4c26ea1ee2c6c0c37fafc5c798eec921a4e2",
+      "wallMs": 688.2526249999992,
+      "status": "unsupported",
+      "firstErrorLine": "Error on line 16 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/VANOISE/commonEmitterBjt_vbic13_3T.cir",
+      "sha256": "cd22ef3324a330512c8b6f43d4be7963e0bafda9fc395b0a00828a9659c9919b",
+      "wallMs": 754.1695420000015,
+      "status": "failed",
+      "firstErrorLine": "Error on line 57 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/VANOISE/commonEmitterBjt_vbic13.cir",
+      "sha256": "77ec667281db9ea69c57f8a2b8be95b51454d214def049593a61a551378522ca",
+      "wallMs": 724.074458000001,
+      "status": "failed",
+      "firstErrorLine": "Error on line 61 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/VANOISE/gain-stage1_psp.cir",
+      "sha256": "f718a5f43ad0be650bd713e5551aed00add0b343b9c05f90232dc9d7c9458873",
+      "wallMs": 612.5925000000007,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:71",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/BJT_ANALYTIC/ramp_test2.cir",
+      "sha256": "4117823840f391e2e11481991d86efd58583043bbfa1e93f20808d8d77f89ef2",
+      "wallMs": 1078.317500000001,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "tran:100008"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/BJT_EXTNODE/npn_rb_rc_re_2.cir",
+      "sha256": "e827701a14ba46d2dd287f2e7a831c284fc127bac1bbeb2961f48e27f9c9bed1",
+      "wallMs": 563.6943749999991,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "dc:12"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/BJT_EXTNODE/npn_rb_rc_re_3.cir",
+      "sha256": "3b66d2324ffe2d10f23b13c933da8005e78a35242d45105c665be827b73ea940",
+      "wallMs": 573.7447079999984,
+      "status": "unsupported",
+      "firstErrorLine": "Error on line 14 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/BJT_EXTNODE/npn_rc_re_1.cir",
+      "sha256": "b222125ff7ca5ba305bcf6d8c0451cd02208b61a818e9de7b39432caa335b940",
+      "wallMs": 574.710500000001,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "dc:12"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/BJT_EXTNODE/npn_rc_re_2.cir",
+      "sha256": "c7bd3fa322552650009684c9cd4c7229507485f251e9945b1bd568ad93fc3913",
+      "wallMs": 653.903709000002,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "dc:12"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/BJT_EXTNODE/npn_rc_re_3.cir",
+      "sha256": "353fdff6a19b2b432460ab99d0ace357636e66b8917974cef69fab473ef56a03",
+      "wallMs": 563.9375,
+      "status": "unsupported",
+      "firstErrorLine": "Error on line 14 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/BJT_EXTNODE/npn1.cir",
+      "sha256": "faea2b9386a9cc2e351d8e69f4e2896d309926d2c9f64d5409ac6cb111752fea",
+      "wallMs": 1092.399042000001,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "dc:12"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/BJT_EXTNODE/npn2.cir",
+      "sha256": "54089a56e1b919d6b91f7da6528bc14a235bf05079488dbf73db762dfa7df287",
+      "wallMs": 1095.5357919999988,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "dc:12"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/DIODE_ANALYTIC/breakdown_model.cir",
+      "sha256": "c428a046c15bce99cb0f75a8346327a2becc1adb4c37b175c6d07da133159249",
+      "wallMs": 54181.802125,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "tran:10000008"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/DIODE_ANALYTIC/forward_model.cir",
+      "sha256": "f5e090a36963633e2be6dc76dee709dc51efb4b9fa97dc5d93667c25b64dca9c",
+      "wallMs": 48630.395040999996,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "tran:10000008"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/DIODE_CMC/DiodeClipper_DC.cir",
+      "sha256": "574f4b63a33c5a2d735258cdb4ca04e36a5a43f34b57d618a8eace385ca9196c",
+      "wallMs": 535.6833749999932,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "dc:26"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/DIODE_CMC/DiodeClipper_noise.cir",
+      "sha256": "debcbb8af4074b23d7a6a1e7eafd433ea646e4fd8d47a9db058102180f3bdf98",
+      "wallMs": 553.8454579999961,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "noise:31",
+        "noise:1"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/DIODE_CMC/DiodeClipper.cir",
+      "sha256": "828853fea5596b82de27b603fef5b28a879cd8b8ffc71c0bb3b908fe21ba7e39",
+      "wallMs": 7957.828041999979,
+      "status": "success",
+      "firstErrorLine": null,
+      "analyses": [
+        "tran:1000008"
+      ]
+    },
+    {
+      "sourcePath": "Netlists/DIODE/diode_with_sidewall_temp.cir",
+      "sha256": "fc7398f74d7726637ec379138a8893d8ca05b764c7fdac947934a81db414f907",
+      "wallMs": 440.20779100002255,
+      "status": "unsupported",
+      "firstErrorLine": "Error on line 7 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/GSWITCH/gswitch.cir",
+      "sha256": "2147c1dd490f9d1c785407d33c591ed5a7109adf48e33485744bbae18bcdef21",
+      "wallMs": 478.137625000003,
+      "status": "unsupported",
+      "firstErrorLine": "Error in netlist line no. 9, new internal line no. 9:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/GSWITCH/gswitchHyst1.cir",
+      "sha256": "103a190f09f7e646e11d942e25669255570d9d87947e19b11a5c4ea432d1abdd",
+      "wallMs": 435.8703749999986,
+      "status": "unsupported",
+      "firstErrorLine": "Error in netlist line no. 9, new internal line no. 10:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/ISWITCH/iswitch_spice.cir",
+      "sha256": "05d0e68e32e91b3f7c83d0ef179bc1db880d845046b6686f7cd12624d86bc812",
+      "wallMs": 499.63329200001317,
+      "status": "failed",
+      "firstErrorLine": "Error on line 8 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/ISWITCH/iswitch.cir",
+      "sha256": "599bc9fe9e53e4f7537710f24ff4c9776e3eec32d754abb73c07c3a6395f836e",
+      "wallMs": 467.0641670000041,
+      "status": "unsupported",
+      "firstErrorLine": "Error in netlist line no. 9, new internal line no. 8:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/ISWITCH/iswitchHyst1.cir",
+      "sha256": "385b36f181600ffe94b126bc0f581e472972c0f62d6823e598f43366f6097098",
+      "wallMs": 437.6161659999925,
+      "status": "unsupported",
+      "firstErrorLine": "Error in netlist line no. 4, new internal line no. 4:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/VSWITCH/Vswitch_A1.cir",
+      "sha256": "0c17c61046d65bd9bd3ff4abc36ebbd3eb2541b64043ea6981af52d416f66edc",
+      "wallMs": 435.970708000008,
+      "status": "failed",
+      "firstErrorLine": "Error on line 36 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/VSWITCH/Vswitch_B1.cir",
+      "sha256": "f0b0fa5a88971a9d98dbdc398310c36fb3564927cc79720c917a95b64aeb0774",
+      "wallMs": 427.821958000015,
+      "status": "failed",
+      "firstErrorLine": "Error on line 4 or its substitute:",
+      "analyses": []
+    },
+    {
+      "sourcePath": "Netlists/VSWITCH/VswitchHyst1.cir",
+      "sha256": "748a199e99df33d80db66a007225b9eb2d4c63ad5399c0c83173a03b84a39e16",
+      "wallMs": 434.4181249999965,
+      "status": "failed",
+      "firstErrorLine": "Error on line 4 or its substitute:",
+      "analyses": []
+    }
+  ]
+}
