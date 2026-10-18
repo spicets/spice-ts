@@ -35,20 +35,38 @@ interface Evaluator {
 }
 const source = readFileSync(new URL('./vbic.ts', import.meta.url), 'utf8');
 const body = source.slice(source.indexOf('class Dual {'), source.indexOf('/** Number of device nodes:'));
-function compile(oracle: boolean): Evaluator {
-  const text = oracle ? body.replace(/function depletionCharge\([\s\S]*?(?=\/\*\* Per local node;)/, dualDepletion + '\n') : body;
+const dualLinear = `function map(a: Dual, value: number, slope: number): Dual {
+  const result = a.workspace.take(value);
+  const derivative = result.derivative;
+  for (let i = 0; i < derivative.length; i++) derivative[i] = a.derivative[i] * slope;
+  return result;
+}
+function add(a: Dual, b: Dual): Dual {
+  const result = a.workspace.take(0);
+  const derivative = result.derivative;
+  for (let i = 0; i < derivative.length; i++) derivative[i] = a.derivative[i] + b.derivative[i];
+  result.value = a.value + b.value;
+  return result;
+}
+`;
+function compile(oracle: boolean, linear = false): Evaluator {
+  const text = linear ? body.replace(/function map\([\s\S]*?(?=\/\/ Fuse constant operands)/, dualLinear + '\n')
+    : oracle ? body.replace(/function depletionCharge\([\s\S]*?(?=\/\*\* Per local node;)/, dualDepletion + '\n') : body;
+  if (linear && text === body) throw new Error('Dual oracle substitution did not match the linear helpers');
   if (oracle && text === body) throw new Error('Dual oracle substitution did not match the depletion integral');
   const js = ts.transpileModule(text, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
   return new Function(js + '\nreturn { evaluate, DualWorkspace };')() as Evaluator;
 }
 const analytic = compile(false);
 const oracle = compile(true);
+const linearOracle = compile(false, true);
 
 describe('VBIC analytic depletion in the complete Dual evaluator', () => {
-  it('matches every value and derivative, including junction boundaries and inactive branches', () => {
+  it.each([['depletion', oracle], ['linear passes', linearOracle]] as const)('matches every value and derivative for %s, including junction boundaries and inactive branches', (_name, reference) => {
     let seed = 1310;
     const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
     let worst = 0;
+    let worstAbsolute = 0;
     let comparisons = 0;
     for (const polarity of [1, -1]) for (const temperature of [-40, 27, 125]) for (const rich of [false, true]) for (const grading of [0, 0.33, 0.95]) {
       const p = resolveVBICParams({ ...(rich ? {
@@ -60,7 +78,7 @@ describe('VBIC analytic depletion in the complete Dual evaluator', () => {
       } : {}), ME: grading, MC: grading, MS: grading, FC: grading === 0 ? 0 : grading === 0.95 ? 0.99 : 0.9 }, polarity);
       const t = resolveVBICTemperature(p, temperature);
       const size = p.TD > 0 ? 11 : 9;
-      const wa = new analytic.DualWorkspace(size), wo = new oracle.DualWorkspace(size);
+      const wa = new analytic.DualWorkspace(size), wo = new reference.DualWorkspace(size);
       const edges = [-3, -0.7, -1e-15, -0, 0, 1e-15, 0.65, 0.85, 2.5,
         ...[t.PE, t.PC, t.PS].flatMap(potential => [-1e-15, 0, 1e-15].map(e => potential * p.FC + e))];
       for (let point = 0; point < 300; point++) {
@@ -68,22 +86,24 @@ describe('VBIC analytic depletion in the complete Dual evaluator', () => {
         // Both are evaluated in normalized junction-voltage coordinates, exactly
         // as VBIC does after the NPN/PNP transformation and junction limiting.
         const a = analytic.evaluate(v, p, t, 2, 1e-12, wa);
-        const o = oracle.evaluate(v, p, t, 2, 1e-12, wo);
+        const o = reference.evaluate(v, p, t, 2, 1e-12, wo);
         const aq = [...a.residual, ...a.charge, ...Object.values(a.noise)];
         const oq = [...o.residual, ...o.charge, ...Object.values(o.noise)];
         for (let i = 0; i < aq.length; i++) {
           const av = [aq[i].value, ...aq[i].derivative], ov = [oq[i].value, ...oq[i].derivative];
           for (let j = 0; j < av.length; j++) {
-            if (!Number.isFinite(av[j])) throw new Error(`Nonfinite value at ${point}/${i}/${j}`);
-            const error = Math.abs(av[j] - ov[j]) / Math.max(1e-30, Math.abs(ov[j]));
+            if (!Number.isFinite(av[j]) || !Number.isFinite(ov[j])) throw new Error(`Nonfinite value at ${point}/${i}/${j}`);
+            const absolute = Math.abs(av[j] - ov[j]);
+            const error = absolute / Math.max(1e-42, Math.abs(ov[j]));
             worst = Math.max(worst, error);
-            if (error > 1e-12) throw new Error(`Oracle error ${error} at ${point}/${i}/${j}`);
+            worstAbsolute = Math.max(worstAbsolute, absolute);
+            if (absolute > Math.max(1e-42, 1e-12 * Math.abs(ov[j]))) throw new Error(`Oracle error ${error} at ${point}/${i}/${j}`);
             comparisons++;
           }
         }
       }
     }
     expect(worst).toBeLessThanOrEqual(1e-12);
-    console.log(JSON.stringify({ vbicOracleComparisons: comparisons, worstRelativeError: worst, absoluteFloor: 1e-42 }));
+    console.log(JSON.stringify({ oracle: _name, vbicOracleComparisons: comparisons, worstRelativeError: worst, worstAbsoluteError: worstAbsolute, absoluteFloor: 1e-42 }));
   });
 });

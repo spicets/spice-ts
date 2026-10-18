@@ -1,0 +1,44 @@
+{
+  "base_sha": "5db8e29000d27848bee5c3251b1accad1d371c4a",
+  "go_no_go": "go",
+  "slice": "Unroll N-wide linear map/scale and add derivative passes for model-wide 9/11 branch dimensions",
+  "base_seconds": [17.319900375, 15.909531042, 16.665618875, 24.676463292, 44.382541874999994, 24.307345042],
+  "head_seconds": [16.260154334, 15.801471584, 15.952420832999998, 17.328863125, 21.347230584000002, 23.552517166999998],
+  "pair_orders": ["base/head", "head/base", "base/head", "head/base", "base/head", "head/base"],
+  "base_median": 20.8136227085,
+  "head_median": 16.794508729500002,
+  "median_change_percent": -19.310016498755147,
+  "pairwise_losses": 0,
+  "discarded_runs": 0,
+  "profile": {
+    "method": "Unweighted inclusive CPU samples, resolved with matching dist source maps. Linear bucket unions map, scale and add once per sample within evaluate.",
+    "base": {"process_samples": 5361, "evaluate": 3484, "linear_union": 720, "linear_share": 0.2066590126291619, "scale": 472, "add": 264, "map": 82, "seconds": 23.224072125},
+    "head": {"process_samples": 4274, "evaluate": 2695, "linear_union": 527, "linear_share": 0.19554730983302412, "scale": 305, "add": 237, "map": 79, "seconds": 18.905166458},
+    "unchanged_transport_extraction": {"process_samples": 4912, "evaluate": 3139, "transport": 239, "note": "Below 15% selection gate. Count captured against matching extraction maps before later build removed temporary dist. Not used as timing baseline."}
+  },
+  "identity": {
+    "balanced_runs_checked": 12,
+    "profile_runs_checked": 3,
+    "output_sha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+    "fixture_sha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+    "rows": 40545,
+    "dc_newton": 31,
+    "transient_newton": 85851,
+    "accepted": 40544,
+    "rejected": 0,
+    "nr_retries": 0,
+    "lte_retries": 0
+  },
+  "oracle": {
+    "oracles": ["pre-change linear map/add expressions substituted into full evaluator", "prior depletion oracle"],
+    "points_per_oracle": 10800,
+    "comparisons_per_oracle": 2754000,
+    "worst_absolute_error": 0,
+    "worst_relative_error": 0,
+    "relative_tolerance": 1e-12,
+    "absolute_floor": 1e-42,
+    "coverage": "Seeded independent biases, forward/reverse/zero/signed zero, 2.5V high injection, both polarities, -40/27/125 C, default/substrate-rich models, 9/11 dimensions"
+  },
+  "tests": {"frozen_install": "passed", "base_head_build": "passed", "lint": "passed", "targeted": "333 passed / 24 files", "full_suite": "started through spice-heavy; final status in PR/card"},
+  "limitations": ["Shared uncontrolled host and substantial timing variance. All runs retained; independent replication required.", "No new ngspice run because waveform and counters remain identical; prior ngspice losses unchanged.", "Performance change, not a correctness bug fix; no RED correctness claim.", "Transport, avalanche and quasi-saturation equations unchanged. No per-circuit tuning."]
+}

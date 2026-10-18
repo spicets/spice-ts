@@ -224,14 +224,42 @@ class DualWorkspace {
 function map(a: Dual, value: number, slope: number): Dual {
   const result = a.workspace.take(value);
   const derivative = result.derivative;
-  for (let i = 0; i < derivative.length; i++) derivative[i] = a.derivative[i] * slope;
+  const input = a.derivative;
+  // Evaluation has nine independent branches, or eleven with excess phase.
+  // Unroll the hot linear passes without changing any scalar arithmetic.
+  derivative[0] = input[0] * slope;
+  derivative[1] = input[1] * slope;
+  derivative[2] = input[2] * slope;
+  derivative[3] = input[3] * slope;
+  derivative[4] = input[4] * slope;
+  derivative[5] = input[5] * slope;
+  derivative[6] = input[6] * slope;
+  derivative[7] = input[7] * slope;
+  derivative[8] = input[8] * slope;
+  if (derivative.length === 11) {
+    derivative[9] = input[9] * slope;
+    derivative[10] = input[10] * slope;
+  }
   return result;
 }
 
 function add(a: Dual, b: Dual): Dual {
   const result = a.workspace.take(0);
   const derivative = result.derivative;
-  for (let i = 0; i < derivative.length; i++) derivative[i] = a.derivative[i] + b.derivative[i];
+  const left = a.derivative, right = b.derivative;
+  derivative[0] = left[0] + right[0];
+  derivative[1] = left[1] + right[1];
+  derivative[2] = left[2] + right[2];
+  derivative[3] = left[3] + right[3];
+  derivative[4] = left[4] + right[4];
+  derivative[5] = left[5] + right[5];
+  derivative[6] = left[6] + right[6];
+  derivative[7] = left[7] + right[7];
+  derivative[8] = left[8] + right[8];
+  if (derivative.length === 11) {
+    derivative[9] = left[9] + right[9];
+    derivative[10] = left[10] + right[10];
+  }
   result.value = a.value + b.value;
   return result;
 }
