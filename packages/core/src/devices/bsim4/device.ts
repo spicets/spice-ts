@@ -102,7 +102,9 @@ export class BSIM4 implements DeviceModel {
   resetTransient(): void { this.chargeState.reset(); }
   private terminalCharges(read: (node: number) => number) {
     const p = this.model.values.type;
-    const v = this.nodes.map(node => node < 0 ? 0 : read(node));
+    // RGATEMOD=1 stores charge behind the gate resistor, at GP, just as
+    // the static channel stamp does. This also governs acceptance and LTE.
+    const v = this.intrinsicNodes.map(node => node < 0 ? 0 : read(node));
     return evaluateBsim4Charges(this.processed, this.model.given,
       { vgs: p * (v[1] - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) });
   }
@@ -113,10 +115,10 @@ export class BSIM4 implements DeviceModel {
     const mult = this.instance.values.m * this.instance.values.mult_q;
     for (let index = 0; index < 3; index++) {
       const row = [1, 0, 3][index];
-      const into = this.nodes[row], source = this.nodes[2];
+      const into = this.intrinsicNodes[row], source = this.intrinsicNodes[2];
       let equivalent = state.current(index, mult * this.model.values.type * tc.q[row]);
       for (let col = 0; col < 4; col++) {
-        const node = this.nodes[col];
+        const node = this.intrinsicNodes[col];
         if (node < 0) continue;
         const g = state.factor * mult * tc.jacobian[4 * row + col];
         equivalent -= g * ctx.getVoltage(node);
@@ -129,7 +131,7 @@ export class BSIM4 implements DeviceModel {
   }
   stampAcceptedChargeCurrent(ctx: StampContext): void {
     for (let index = 0; index < 3; index++) {
-      stampChargeCurrent(ctx, this.nodes[[1, 0, 3][index]], this.nodes[2], this.chargeState.acceptedChargeCurrent(index));
+      stampChargeCurrent(ctx, this.intrinsicNodes[[1, 0, 3][index]], this.intrinsicNodes[2], this.chargeState.acceptedChargeCurrent(index));
     }
   }
   acceptTransientStep(ctx: StampContext): void {
