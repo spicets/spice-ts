@@ -14,10 +14,24 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, sampled peaking, and loop stability margins without vectors.
 - `spice_tran_metrics`: run a transient step and return rise/fall time, overshoot/undershoot, settling time and peak without vectors.
+- `spice_fourier`: return DC, harmonic magnitudes/phases and THD percent from the last transient period.
 - `spice_noise_metrics`: run one unstepped `.noise` analysis and return integrated output/input noise and spot densities without vectors.
 - `spice_simulation_start`: start a bounded simulation worker and return its opaque job cursor before solving completes.
 - `spice_simulation_read`: pull a replayable chunk containing at most 256 points by default (caller-selectable from 1 through the hard cap of 1024).
 - `spice_simulation_cancel`: idempotently stop delivery and return the protocol-v1 cancelled terminal with partial analysis counts and `partialEventSha256`.
+
+### Fourier analysis
+
+Call `spice_fourier` with `{ request: SimulationRequestV1, signal: "v(out)", fundamentalHz: 1000 }`.
+The same input formats and resource limits as `spice_tran_metrics` apply, including circuit-json conversion restrictions.
+Optional `analysis` selects one transient by zero-based index; stepped or ambiguous results must be split into separate requests.
+Signals are case-insensitive `v(node)` or `i(branch)`. `harmonicCount` counts positive harmonics, defaults to 9 and is bounded to 1 through 64.
+The result contains signed `dc`, `unit` (V or A), `thdPercent` and `harmonics` numbered 1 through the requested count.
+Each row has `frequency` in Hz, `magnitude`, sine-referenced `phase` in degrees, `normalizedMagnitude` and `normalizedPhase` relative to the fundamental.
+Like ngspice's default `.four`, it uses a 200-point grid excluding the endpoint and linear interpolation over the last period ending at the last sample.
+Optional `windowStartS` is an eligibility lower bound, not a new Fourier origin; the full last period must fit after it. Earlier samples remain interpolation support.
+THD includes only the requested harmonics. Zero/non-finite fundamental arithmetic returns `INVALID_DATA`, not JSON nulls.
+Domain errors set `isError` with `UNKNOWN_SIGNAL`, `NO_TRANSIENT`, `INSUFFICIENT_PERIOD` or `INVALID_DATA`; request and resource failures retain the standard API envelope.
 
 ### DC transfer metrics
 

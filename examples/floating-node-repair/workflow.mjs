@@ -29,6 +29,7 @@ try {
     'spice_sweep',
     'spice_ac_metrics',
     'spice_tran_metrics',
+    'spice_fourier',
     'spice_noise_metrics',
     'spice_measure',
     'spice_dc_metrics',

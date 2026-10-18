@@ -15,6 +15,7 @@ export type {
 export { preflightTopology, TopologyPreflightError } from './validation/topology-preflight.js';
 export type { TopologyFailureKind, TopologySourcePath } from './validation/topology-preflight.js';
 export { frequencyGrid, frequencyPointCount } from './analysis/frequency-grid.js';
+export { ngspiceFourier } from './parser/control/fourier.js';
 export type { FrequencySweepKind } from './analysis/frequency-grid.js';
 export { createTransientSim } from './analysis/transient-driver.js';
 export type { TransientSim, TransientSimOptions } from './analysis/transient-driver.js';
