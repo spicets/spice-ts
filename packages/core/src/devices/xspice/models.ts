@@ -434,7 +434,7 @@ const GEAR_COEFFICIENTS = [0.5, 0.2222222222];
  * and uses -ag[0]/2 * y(n)); GEAR uses the BDF coefficients. As in ngspice,
  * PARTIAL(out, in) is the integrator's dy/dx without the gain factor.
  */
-function integrator(params: ResolvedXspiceParams): CodeModelBehavior {
+export function integrator(params: ResolvedXspiceParams): CodeModelBehavior {
   const inOffset = real(params, 'in_offset');
   const k = real(params, 'gain');
   const lower = real(params, 'out_lower_limit');

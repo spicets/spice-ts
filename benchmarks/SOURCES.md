@@ -1,5 +1,19 @@
 # Benchmark sources
 
+## XSPICE memristor (#1404)
+
+`benchmarks/memristor-1404/compare.ts` sources the unchanged corpus-f
+`examples/memristor/memristor_x.sp` in ngspice-47 and spice-ts. Its pinned
+revision `3ef069fb1f04177a153f342a32d941fc20ff047e`, BSD-3-Clause licence and
+SHA-256 are recorded in `corpus/corpus-f/SOURCES.md`. The model follows
+[ngspice's memristor cfunc.mod and ifspec.ifs](https://sourceforge.net/p/ngspice/ngspice/ci/3ef069fb1f04177a153f342a32d941fc20ff047e/tree/src/xspice/icm/xtradev/memristor/)
+(Copyright 2012, ngspice team, BSD-3-Clause). New unit probes are project-authored MIT.
+The wrapper exports native electrical vectors only, avoiding `write all` padding
+from the fixture's cross-plot calculated resistance vectors. No fixture bytes,
+solver tolerances or MATCH_THRESHOLD are changed. Run with `spice-heavy pnpm exec
+tsx benchmarks/memristor-1404/compare.ts` after `pnpm build`; errors above 1% remain
+visible in its JSON output, not relabelled as matches.
+
 ## Vector parameter consumer (#1405)
 
 `vector-param-compare.ts` sources the byte-identical corpus-f
