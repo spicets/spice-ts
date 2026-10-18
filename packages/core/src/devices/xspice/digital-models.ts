@@ -16,6 +16,7 @@ import { flag, real, STATIC, type CodeModelBehavior, type CodeModelCall, type Re
 import type { XspiceConnection } from './connections.js';
 import { flipFlop } from './flipflop-models.js';
 import { controlledOscillator } from './dosc-pwm-models.js';
+import { ram } from './ram-model.js';
 
 /** What a digital model factory sees of its instance besides parameters. */
 export interface DigitalModelContext {
@@ -463,6 +464,7 @@ function splitStep(
 
 /** Implemented digital code models keyed by lower-case ngspice Spice_Model_Name. */
 export const DIGITAL_MODELS: ReadonlyMap<string, DigitalModelFactory> = new Map<string, DigitalModelFactory>([
+  ['d_ram', ram],
   ['d_osc', controlledOscillator(false)],
   ['d_pwm', controlledOscillator(true)],
   ['d_jkff', flipFlop(true)],

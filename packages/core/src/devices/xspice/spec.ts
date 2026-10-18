@@ -467,6 +467,17 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
     CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH,
 
     ADC_BRIDGE, DAC_BRIDGE, pull('d_pulldown'), pull('d_pullup'),
+    {
+      name: 'd_ram',
+      connections: [digital('data_in', 'in', true, [1, undefined]), digital('data_out', 'out', true, [1, undefined]),
+        digital('address', 'in', true, [1, undefined]), digital('write_en', 'in'), digital('select', 'in', true, [1, 16])],
+      params: [
+        { name: 'select_value', type: 'int' as const, defaultValue: [1], limits: [0, 32767] as const, vector: false, nullAllowed: true },
+        { name: 'ic', type: 'int' as const, defaultValue: [2], limits: [0, 2] as const, vector: false, nullAllowed: true },
+        real('read_delay', 100e-9, { limits: [1e-12, undefined] }),
+        ...['data_load', 'address_load', 'select_load', 'enable_load'].map(param => real(param, 1e-12)),
+      ],
+    },
     controlledOscillator(false), controlledOscillator(true),
     flipFlop('d_jkff', ['j', 'k'], 'jk_load'), flipFlop('d_dff', ['data'], 'data_load'),
     unaryGate('d_buffer'), unaryGate('d_inverter'),
