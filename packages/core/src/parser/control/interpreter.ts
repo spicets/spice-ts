@@ -86,7 +86,7 @@ interface Plot {
 
 type VariableValue = string | string[] | true;
 
-type Flow = 'next' | 'break' | 'continue';
+type Flow = 'next' | 'break' | 'continue' | { target: string; line: ControlSourceLine };
 
 /** ngspice-47's batch-mode `edit` message ("Warning: " prefix dropped). */
 const EDIT_DISABLED_WARNING = "`edit' is disabled because 'interactive' has not been set";
@@ -162,6 +162,7 @@ class ControlInterpreter {
   private readonly warnings: string[] = [];
   private readonly fourierResults: FourierResult[] = [];
   private fourierCount = 0;
+  private gotoIterations = 0;
   /** inpcom.c `replaceno`: numbers the `vexprint<n>` vectors of `meas` operands. */
   private measureExpressionCount = 1;
   /**
@@ -184,7 +185,10 @@ class ControlInterpreter {
       this.plots[0].vectors.set(name, scalar(value, name));
     }
     try {
-      this.block(script.statements);
+      const flow = this.block(script.statements);
+      if (typeof flow === 'object') {
+        throw new ControlScriptError(`label ${flow.target} not found`, flow.line.lineNumber, flow.line.text);
+      }
     } catch (signal) {
       if (!(signal instanceof QuitSignal)) throw signal;
       if (signal.status !== 0) throw new ControlScriptExitError(signal.status, signal.line.lineNumber, this.output);
@@ -197,8 +201,17 @@ class ControlInterpreter {
   // Statements
 
   private block(statements: ControlStatement[]): Flow {
-    for (const statement of statements) {
-      const flow = this.statement(statement);
+    // ngspice-47 src/frontend/control.c findlabel/doblock: search siblings
+    // first, then propagate outward. Never search children or an else branch.
+    for (let index = 0; index < statements.length; index++) {
+      const flow = this.statement(statements[index]);
+      if (typeof flow === 'object') {
+        const target = statements.findIndex(statement => statement.kind === 'label'
+          && splitWords(statement.target)[0] === flow.target);
+        if (target < 0) return flow;
+        index = target;
+        continue;
+      }
       if (flow !== 'next') return flow;
     }
     return 'next';
@@ -206,6 +219,17 @@ class ControlInterpreter {
 
   private statement(statement: ControlStatement): Flow {
     switch (statement.kind) {
+      case 'label':
+        if (!splitWords(statement.target)[0]) {
+          throw new ControlScriptError('missing label', statement.line.lineNumber, statement.line.text);
+        }
+        return 'next';
+      case 'goto': {
+        const target = splitWords(this.substitute(statement.target, statement.line))[0];
+        if (!target) throw new ControlScriptError('missing label', statement.line.lineNumber, statement.line.text);
+        this.countIteration(++this.gotoIterations, statement.line);
+        return { target, line: statement.line };
+      }
       case 'command':
         this.command(statement.name, statement.line);
         return 'next';
@@ -221,7 +245,9 @@ class ControlInterpreter {
         while (first || this.condition(statement.condition, statement.line)) {
           first = false;
           this.countIteration(++iterations, statement.line);
-          if (this.block(statement.body) === 'break') break;
+          const flow = this.block(statement.body);
+          if (typeof flow === 'object') return flow;
+          if (flow === 'break') break;
         }
         return 'next';
       }
@@ -235,7 +261,9 @@ class ControlInterpreter {
         const count = this.evaluate(text, statement.line).re[0];
         for (let iteration = 0; iteration < count; iteration++) {
           this.countIteration(iteration + 1, statement.line);
-          if (this.block(statement.body) === 'break') break;
+          const flow = this.block(statement.body);
+          if (typeof flow === 'object') return flow;
+          if (flow === 'break') break;
         }
         return 'next';
       }
@@ -243,7 +271,9 @@ class ControlInterpreter {
         const values = splitWords(this.substitute(statement.values, statement.line)).map(unquote);
         for (const value of values) {
           this.variables.set(statement.variable.toLowerCase(), value);
-          if (this.block(statement.body) === 'break') break;
+          const flow = this.block(statement.body);
+          if (typeof flow === 'object') return flow;
+          if (flow === 'break') break;
         }
         return 'next';
       }
