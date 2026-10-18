@@ -397,7 +397,10 @@ class ControlInterpreter {
       plot.vectors.set(name, updated);
       return;
     }
-    if (!/^[A-Za-z_][\w#.@:-]*$/.test(target)) {
+    // ngspice let names are not expression identifiers: punctuation (including
+    // v(/22), v(+22), and quoted-expression names with spaces) is legal.
+    // '[' belongs to indexed assignment; '@', numeric prefixes and all are reserved.
+    if (!target || /^\d/.test(target) || /[@[]/.test(target) || target.toLowerCase() === 'all') {
       throw new ControlScriptError(`invalid vector name '${target}'`, line.lineNumber, line.text);
     }
     this.assignmentPlot(target.toLowerCase()).vectors.set(target.toLowerCase(), renamed(value, target));
@@ -1214,15 +1217,17 @@ class ControlInterpreter {
       const plot = this.plots.find(candidate => candidate.name === name.slice(0, dot));
       if (plot) return this.lookupIn(plot, name.slice(dot + 1), rawName);
     }
-    const local = this.current.vectors.get(name);
+    const local = this.current.vectors.get(name) ?? this.current.vectors.get(`v(${name})`);
     if (local) return local;
-    const constant = this.plots[0].vectors.get(name);
+    const constant = this.plots[0].vectors.get(name) ?? this.plots[0].vectors.get(`v(${name})`);
     if (constant) return constant;
     return this.lookupIn(this.current, name, rawName);
   }
 
   private lookupIn(plot: Plot, name: string, rawName: string): ControlVector {
-    const vector = plot.vectors.get(name);
+    // Voltage probes normally look up their bare node name. A let target may
+    // instead be stored literally as v(node), as in ngspice's plainwrite deck.
+    const vector = plot.vectors.get(name) ?? plot.vectors.get(`v(${name})`);
     if (vector) return vector;
     if (name.startsWith('@')) {
       if (plot.unproducedSaves.has(name)) {
