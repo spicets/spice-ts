@@ -1,5 +1,20 @@
 # Benchmark sources
 
+## Vector parameter consumer (#1405)
+
+`vector-param-compare.ts` sources the byte-identical corpus-f
+`examples/numparam/vector_param.cir` fixture in both engines. Existing
+provenance and BSD-3-Clause licence remain in `corpus/corpus-f/SOURCES.md`.
+The reference driver only exports results after sourcing the unchanged deck.
+The `d_genlut` behavior follows the Public Domain ngspice-47
+[`cfunc.mod` and `ifspec.ifs`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/xspice/icm/digital/d_genlut/).
+New unit-test circuits and the comparison runner are project-authored (MIT).
+Run `spice-heavy pnpm exec tsx benchmarks/vector-param-compare.ts` from the
+repository root. It reports sine max/RMS absolute and peak-normalized errors
+after linear interpolation at reference times, and node3 state/strength and
+event-time errors. Process startup is included only in the ngspice timing;
+these single cold runs are not a speed benchmark. No fixture or tolerance changes.
+
 ## XSPICE real event nodes (#1382)
 
 The existing corpus-f `examples/xspice/original-examples/io_types.deck` and

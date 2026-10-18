@@ -535,6 +535,16 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
     },
     naryGate('d_and'), naryGate('d_nand'), naryGate('d_or'), naryGate('d_nor'), naryGate('d_xor'), naryGate('d_xnor'),
     {
+      name: 'd_genlut',
+      connections: [digital('in', 'in', true), digital('out', 'out', true)],
+      params: [
+        real('rise_delay', 1e-9, { vector: true, limits: [1e-12, undefined] }),
+        real('fall_delay', 1e-9, { vector: true, limits: [1e-12, undefined] }),
+        real('input_load', 1e-12, { vector: true }), real('input_delay', 0, { vector: true }),
+        { ...string('table_values'), nullAllowed: false },
+      ],
+    },
+    {
       name: 'd_lut',
       connections: [digital('in', 'in', true, [1, undefined]), digital('out', 'out')],
       params: [...DIGITAL_DELAYS, real('input_load', 1e-12), { ...string('table_values'), nullAllowed: false }],

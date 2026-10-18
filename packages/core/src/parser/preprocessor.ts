@@ -326,7 +326,7 @@ function commentedOutCard(line: string): { card: string; warn: boolean } | undef
   return UNUSUAL_LEADING_CHARACTERS.has(card[0]) ? { card, warn: true } : undefined;
 }
 
-const PARAM_ASSIGNMENT = /([A-Za-z_]\w*)\s*=\s*('[^']*'|(?:"[^"]*"|\{[^}]+\}|[^\s"{}])+)/g;
+const PARAM_ASSIGNMENT = /([A-Za-z_]\w*)\s*=\s*('[^']*'|\[[^\]]*\]|(?:"[^"]*"|\{[^}]+\}|[^\s"{}])+)/g;
 
 /**
  * ngspice-47 reads the whole rest of a single-assignment `.param` card as the
@@ -453,7 +453,7 @@ interface ParamDefinition {
   expression: string;
   line: number;
   context: string;
-  /** A quoted string literal (vectors retain the unsupported boundary). */
+  /** A quoted string literal. */
   stringValue?: boolean;
 }
 
@@ -578,14 +578,7 @@ function createParamScopes(
     const known = values.get(name);
     if (known !== undefined) return known;
     const definition = definitions.get(name)!;
-    if (definition.stringValue && /^"\s*\[/.test(definition.expression)) {
-      throw new ParseError(
-        `String-valued .param '${name}' is not supported: spice-ts parameters are numbers `
-        + '(ngspice string and vector parameters are not implemented)',
-        definition.line,
-        definition.context,
-      );
-    }
+
     if (resolving.includes(name)) {
       const cycle = [...resolving.slice(resolving.indexOf(name)), name].join(' -> ');
       throw new ParseError(`Circular .param dependency: ${cycle}`, definition.line, definition.context);

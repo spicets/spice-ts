@@ -19,6 +19,7 @@ import { controlledOscillator } from './dosc-pwm-models.js';
 import { ram } from './ram-model.js';
 import { tristate } from './d-tristate.js';
 import { bidiBridge } from './bidi-bridge.js';
+import { genlut } from './genlut.js';
 
 /** What a digital model factory sees of its instance besides parameters. */
 export interface DigitalModelContext {
@@ -468,6 +469,7 @@ function splitStep(
 export const DIGITAL_MODELS: ReadonlyMap<string, DigitalModelFactory> = new Map<string, DigitalModelFactory>([
   ['d_ram', ram],
   ['d_tristate', tristate],
+  ['d_genlut', genlut],
   ['d_osc', controlledOscillator(false)],
   ['d_pwm', controlledOscillator(true)],
   ['d_jkff', flipFlop('jk')],
