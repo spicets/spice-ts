@@ -6,9 +6,9 @@ Every deck below is byte-identical to its pinned upstream revision (xyce `7bb7e9
 
 ## Totals
 
-- Fixtures: 24. Outcome SHA-256: `1454689659fc383b931ab3cd754bf44cba61a06c58687ad8e650431c6db55cf2`.
+- Fixtures: 24. Outcome SHA-256: `3afcdd4da12846cfeb375d1052c14544ca966f17fcc36206700e4b4104db50fa`.
 - ngspice (ngspice-47): 24 success, 0 failed, 0 unsupported.
-- spice-ts (0.3.0): 23 success, 0 failed, 1 unsupported.
+- spice-ts (0.4.0): 23 success, 0 failed, 1 unsupported.
 - Outcomes: matched 15, mismatch 8, not-compared 0, spice-ts-loss 1, ngspice-failed 0, both-failed 0.
 - Of the 24 decks ngspice runs successfully, spice-ts matches 15, mismatches 8, produces no comparable result for 0 and fails 1.
 
@@ -46,7 +46,7 @@ Every fixture that is not matched: spice-ts failures, mismatches above the thres
 |---|---|---|---|---|---|---|
 | [xyce/Netlists/ACtests/bsim3/op-amp.cir](fixtures/xyce/Netlists/ACtests/bsim3/op-amp.cir) | success | success | mismatch | 0.637 | ac v(out) |  |
 | [xyce/Netlists/ACtests/bsim3soi/gain-stagesoi_default.cir](fixtures/xyce/Netlists/ACtests/bsim3soi/gain-stagesoi_default.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: MOSFET 'M1' (model 'nmos') uses unsupported model LEVEL=10 (supported MOSFET levels: 1, 2, 3, 4, 5, 6, 8, 9, 14, 49, 54, 260) |
-| [xyce/Netlists/MOSFET_ParamAliases/invert1.cir](fixtures/xyce/Netlists/MOSFET_ParamAliases/invert1.cir) | success | success | mismatch | 0.249 | tran i(vdddev) |  |
+| [xyce/Netlists/MOSFET_ParamAliases/invert1.cir](fixtures/xyce/Netlists/MOSFET_ParamAliases/invert1.cir) | success | success | mismatch | 0.209 | tran v(vout) |  |
 | [xyce/Netlists/MOSFET_ParamAliases/invert2.cir](fixtures/xyce/Netlists/MOSFET_ParamAliases/invert2.cir) | success | success | mismatch | 0.38 | tran v(vout) |  |
 | [xyce/Netlists/MOSFET_ParamAliases/invert2_alt.cir](fixtures/xyce/Netlists/MOSFET_ParamAliases/invert2_alt.cir) | success | success | mismatch | 0.38 | tran v(vout) |  |
 | [xyce/Netlists/MOSFET_ParamAliases/invert3.cir](fixtures/xyce/Netlists/MOSFET_ParamAliases/invert3.cir) | success | success | mismatch | 0.229 | tran i(vdddev) |  |

@@ -40,7 +40,7 @@
   "manifestSha256": "d4b4f9908ba59491a156a646aeb214b7b76b43f95492d17ab4e8ca645e4b0889",
   "tools": {
     "ngspice": "ngspice-47",
-    "spiceTs": "0.3.0",
+    "spiceTs": "0.4.0",
     "node": "v22.23.1"
   },
   "environment": {
@@ -83,16 +83,16 @@
     },
     "outcomes": {
       "matched": 40,
-      "mismatch": 11,
-      "not-compared": 0,
+      "mismatch": 8,
+      "not-compared": 3,
       "spice-ts-loss": 1,
       "ngspice-failed": 0,
       "both-failed": 0
     },
     "bySource": {
       "kicad": {
-        "matched": 2,
-        "mismatch": 2,
+        "matched": 3,
+        "mismatch": 1,
         "not-compared": 0,
         "spice-ts-loss": 1,
         "ngspice-failed": 0,
@@ -115,17 +115,17 @@
         "both-failed": 0
       },
       "spicesharpparser": {
-        "matched": 16,
-        "mismatch": 8,
+        "matched": 18,
+        "mismatch": 6,
         "not-compared": 0,
         "spice-ts-loss": 0,
         "ngspice-failed": 0,
         "both-failed": 0
       },
       "xictools": {
-        "matched": 12,
+        "matched": 9,
         "mismatch": 1,
-        "not-compared": 0,
+        "not-compared": 3,
         "spice-ts-loss": 0,
         "ngspice-failed": 0,
         "both-failed": 0
@@ -208,7 +208,7 @@
       "spiceTs": {
         "status": "unsupported",
         "analyses": [],
-        "firstErrorLine": "Parse error at line 22: .model 'ctest' has unsupported type 'CMETER' (supported: D, NPN, PNP, NJF, PJF, NMOS, PMOS, VDMOS, VDMOSN, VDMOSP, NHFET, NMF, R, RES, C, L, LTRA, TXL, CPL, SW, CSW) .model ctest cmeter(gain=1.0)"
+        "firstErrorLine": "Parse error at line 22: .model 'ctest' has unsupported type 'CMETER' (supported: D, NPN, PNP, NJF, PJF, NMOS, PMOS, VDMOS, VDMOSN, VDMOSP, NHFET, NMF, R, RES, C, L, LTRA, TXL, CPL, URC, SW, CSW) .model ctest cmeter(gain=1.0)"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
@@ -268,8 +268,8 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 27,
-      "worstNormalizedError": 3.54,
-      "worstSignal": "tran v(/itrrandom)",
+      "worstNormalizedError": 1.8,
+      "worstSignal": "tran v(/itrnoise)",
       "outcome": "mismatch",
       "gapBucket": null,
       "fineReference": {
@@ -278,15 +278,15 @@
           "1e-10"
         ],
         "headline": {
-          "worst": 3.54,
-          "signal": "v(/itrrandom)"
-        },
-        "spiceTsVsFine": {
-          "worst": 1.91,
+          "worst": 1.8,
           "signal": "v(/itrnoise)"
         },
+        "spiceTsVsFine": {
+          "worst": 2.1,
+          "signal": "v(/itrrandom)"
+        },
         "ngspiceDefaultVsFine": {
-          "worst": 1.87,
+          "worst": 1.84,
           "signal": "i(v8)"
         }
       }
@@ -309,14 +309,14 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:1753"
+          "tran:1126"
         ]
       },
       "comparedAnalyses": 1,
       "comparedSignals": 6,
-      "worstNormalizedError": 0.0453,
-      "worstSignal": "tran v(/z0_out)",
-      "outcome": "mismatch",
+      "worstNormalizedError": 5.46e-14,
+      "worstSignal": "tran i(vpulse1)",
+      "outcome": "matched",
       "gapBucket": null,
       "fineReference": {
         "status": "compared",
@@ -324,11 +324,11 @@
           "1e-7"
         ],
         "headline": {
-          "worst": 0.0453,
-          "signal": "v(/z0_out)"
+          "worst": 5.46e-14,
+          "signal": "i(vpulse1)"
         },
         "spiceTsVsFine": {
-          "worst": 0.00234,
+          "worst": 0.0433,
           "signal": "v(/rlgc_out)"
         },
         "ngspiceDefaultVsFine": {
@@ -826,7 +826,7 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:51266"
+          "tran:51203"
         ]
       },
       "comparedAnalyses": 1,
@@ -924,7 +924,7 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:11365"
+          "tran:11364"
         ]
       },
       "comparedAnalyses": 1,
@@ -943,8 +943,8 @@
           "signal": "v(collector)"
         },
         "spiceTsVsFine": {
-          "worst": 0.467,
-          "signal": "v(base)"
+          "worst": 0.385,
+          "signal": "v(collector)"
         },
         "ngspiceDefaultVsFine": {
           "worst": 0.385,
@@ -970,7 +970,7 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:30015"
+          "tran:30014"
         ]
       },
       "comparedAnalyses": 1,
@@ -989,8 +989,8 @@
           "signal": "v(diode_input)"
         },
         "spiceTsVsFine": {
-          "worst": 0.5,
-          "signal": "v(input)"
+          "worst": 0.000556,
+          "signal": "v(envelope)"
         },
         "ngspiceDefaultVsFine": {
           "worst": 0.000555,
@@ -1065,13 +1065,13 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:47612"
+          "tran:47452"
         ]
       },
       "comparedAnalyses": 1,
       "comparedSignals": 3,
-      "worstNormalizedError": 0.00033,
-      "worstSignal": "tran v(pole1)",
+      "worstNormalizedError": 3.47e-11,
+      "worstSignal": "tran v(pwm)",
       "outcome": "matched",
       "gapBucket": null,
       "fineReference": {
@@ -1080,11 +1080,11 @@
           "5e-8"
         ],
         "headline": {
-          "worst": 0.00033,
-          "signal": "v(pole1)"
+          "worst": 3.47e-11,
+          "signal": "v(pwm)"
         },
         "spiceTsVsFine": {
-          "worst": 0.0000034,
+          "worst": 0.000332,
           "signal": "v(pole1)"
         },
         "ngspiceDefaultVsFine": {
@@ -1160,7 +1160,7 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:15092"
+          "tran:15091"
         ]
       },
       "comparedAnalyses": 1,
@@ -1206,14 +1206,14 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:929"
+          "tran:819"
         ]
       },
       "comparedAnalyses": 1,
       "comparedSignals": 6,
-      "worstNormalizedError": 0.0625,
-      "worstSignal": "tran v(open_out)",
-      "outcome": "mismatch",
+      "worstNormalizedError": 5.29e-14,
+      "worstSignal": "tran v(match_out)",
+      "outcome": "matched",
       "gapBucket": null,
       "fineReference": {
         "status": "compared",
@@ -1221,11 +1221,11 @@
           "2.5e-11"
         ],
         "headline": {
-          "worst": 0.0625,
-          "signal": "v(open_out)"
+          "worst": 5.29e-14,
+          "signal": "v(match_out)"
         },
         "spiceTsVsFine": {
-          "worst": 0.0271,
+          "worst": 0.0563,
           "signal": "v(open_out)"
         },
         "ngspiceDefaultVsFine": {
@@ -1392,7 +1392,7 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:1012"
+          "tran:1011"
         ]
       },
       "comparedAnalyses": 1,
@@ -1520,9 +1520,9 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 3,
-      "worstNormalizedError": 1.15,
-      "worstSignal": "op v(n1)",
-      "outcome": "mismatch",
+      "worstNormalizedError": 2.36e-16,
+      "worstSignal": "op v(n2)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -1751,11 +1751,11 @@
           "noise:41"
         ]
       },
-      "comparedAnalyses": 2,
-      "comparedSignals": 4,
-      "worstNormalizedError": 1.51e-7,
-      "worstSignal": "noise onoise_spectrum",
-      "outcome": "matched",
+      "comparedAnalyses": 4,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "not-compared",
       "gapBucket": null
     },
     {
@@ -1785,11 +1785,11 @@
           "disto:101"
         ]
       },
-      "comparedAnalyses": 3,
-      "comparedSignals": 15,
-      "worstNormalizedError": 0.000162,
-      "worstSignal": "disto i(vcc)",
-      "outcome": "matched",
+      "comparedAnalyses": 6,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "not-compared",
       "gapBucket": null
     },
     {
@@ -1861,12 +1861,12 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:2735"
+          "tran:2612"
         ]
       },
       "comparedAnalyses": 1,
       "comparedSignals": 24,
-      "worstNormalizedError": 0.00627,
+      "worstNormalizedError": 0.00892,
       "worstSignal": "tran v(6)",
       "outcome": "matched",
       "gapBucket": null,
@@ -1876,11 +1876,11 @@
           "1e-8"
         ],
         "headline": {
-          "worst": 0.00627,
+          "worst": 0.00892,
           "signal": "v(6)"
         },
         "spiceTsVsFine": {
-          "worst": 0.028,
+          "worst": 0.0271,
           "signal": "v(6)"
         },
         "ngspiceDefaultVsFine": {
@@ -2025,11 +2025,11 @@
           "noise:41"
         ]
       },
-      "comparedAnalyses": 2,
-      "comparedSignals": 4,
-      "worstNormalizedError": 1.74e-7,
-      "worstSignal": "noise onoise_spectrum",
-      "outcome": "matched",
+      "comparedAnalyses": 4,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "not-compared",
       "gapBucket": null
     },
     {
@@ -2113,5 +2113,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "7fe7efbdb3b6c0596b46961ce6ed0ecf1005249a3eb779948beca090adfb3bfc"
+  "outcomeSha256": "8c718b9ddd4dca866f6c656be3dfb2febba2a00b2f26ff05b0e73e7c70a5b473"
 }
