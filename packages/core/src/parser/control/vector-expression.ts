@@ -54,6 +54,8 @@ export interface ExpressionEnvironment {
   degrees(): boolean;
   /** Current plot scale, including `setscale` on constructed vectors. */
   scale?(): ControlVector | undefined;
+  /** FFT functions also publish a named scale vector in the current plot. */
+  spectralTransform?(name: 'fft' | 'ifft', arg: ControlVector): ControlVector;
   /** mtimeavgwindow, or ten times the circuit's transient output timestep. */
   movingAverageWindow?(): number;
 }
@@ -514,7 +516,7 @@ function evaluateLogarithm(arg: ControlVector, { errorName, real }: Logarithm): 
 
 /** Functions of ngspice's front end that spice-ts deliberately does not evaluate. */
 const UNSUPPORTED_FUNCTIONS = new Set([
-  'interpolate', 'fft', 'ifft', 'avg', 'group_delay', 'cph', 'unwrap',
+  'interpolate', 'avg', 'group_delay', 'cph', 'unwrap',
   'sunif', 'sgauss', 'rnd', 'poisson', 'exponential', 'stddev', 'sum',
 ]);
 
@@ -639,6 +641,10 @@ function evaluateCall(node: Extract<ExpressionNode, { kind: 'call' }>, env: Expr
     throw new ExpressionError(`unknown function '${node.name}' with ${node.args.length} arguments`);
   }
   const arg = evaluateVectorExpression(node.args[0], env);
+  if (node.name === 'fft' || node.name === 'ifft') {
+    if (!env.spectralTransform) throw new ExpressionError(`${node.name}() needs a plot context`);
+    return env.spectralTransform(node.name, arg);
+  }
   if (node.name === 'mtimeavg') {
     return movingTimeAverage(arg, env.scale?.() ?? arg.scale, env.movingAverageWindow?.() ?? 1e-6);
   }

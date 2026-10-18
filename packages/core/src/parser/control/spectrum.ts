@@ -86,15 +86,21 @@ export function spectrumWindow(
 
 /** Forward DFT of real data: bins 0 .. floor(n/2) (FFTW r2c, unnormalized, e^{-2πi jk/n}). */
 export function realDft(input: ArrayLike<number>): { re: Float64Array; im: Float64Array } {
+  const { re, im } = complexDft(input);
+  const bins = Math.floor(input.length / 2) + 1;
+  return { re: re.slice(0, bins), im: im.slice(0, bins) };
+}
+
+/** Unnormalized forward complex DFT, sharing the command's arbitrary-length kernels. */
+export function complexDft(input: ArrayLike<number>, imaginary?: ArrayLike<number>): { re: Float64Array; im: Float64Array } {
   const n = input.length;
   const re = Float64Array.from(input);
-  const im = new Float64Array(n);
+  const im = imaginary ? Float64Array.from(imaginary) : new Float64Array(n);
   if (n > 1) {
     if ((n & (n - 1)) === 0) radix2(re, im);
     else bluestein(re, im);
   }
-  const bins = Math.floor(n / 2) + 1;
-  return { re: re.slice(0, bins), im: im.slice(0, bins) };
+  return { re, im };
 }
 
 /** In-place iterative radix-2 forward FFT; the length must be a power of two. */
