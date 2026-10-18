@@ -70,6 +70,11 @@ export function preprocessBsim4(
   positive('operating temperature Kelvin', temperatureK);
   const model = { ...setup.values } as Bsim4TemperatureModel;
   const here = { ...instanceSetup.values } as Bsim4StaticInstance;
+  // b4temp.c:1385-1397 resets negative overlaps in 4.8.3. Fail closed
+  // instead of silently applying an incomplete upstream correction.
+  if (model.igcmod === 1 && (model.dlcig < 0 || model.dlcigd < 0)) {
+    unsupported('dlcig/dlcigd', 'negative gate-overlap correction is outside the static subset');
+  }
   // b4check.c:797-806 corrects both resolved coefficients when PARAMCHK=1.
   // Reject before any temperature law: clamping here would change native
   // b4temp/b4check ordering. NJD inheritance is already resolved by setup.

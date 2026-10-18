@@ -1,0 +1,15 @@
+VDMOS inverse N-channel self heating with non-ground intrinsic source
+VDD vdd 0 DC 0.2
+Vgate gate 0 DC 3 AC 1
+Rload vdd out 1
+M1 0 gate out tj tc power thermal
+Vcase tc 0 27
+.model power VDMOS (VTO=1 KP=0.1 LAMBDA=0.02 RD=0.2 RS=0.3 RG=1 RB=1 KF=1e-20 AF=1.2 RTHJC=20 CTHJ=1m)
+.noise v(out) Vgate dec 1 1 1meg 1
+.control
+run
+setplot noise1
+set numdgt=16
+print all
+.endc
+.end

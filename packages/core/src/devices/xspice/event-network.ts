@@ -61,6 +61,8 @@ export interface EventCall<S> {
   readonly init: boolean;
   /** TIME: the event time (g_mif_info.circuit.evt_step); 0 in DC. */
   readonly time: number;
+  /** Last accepted analog time, T(1). */
+  readonly previousTime: number;
   /** cm_event_get_ptr(tag, 0): the state of this call. */
   readonly state: S;
   /** cm_event_get_ptr(tag, 1): the state before it (the same object when there is none). */
@@ -69,10 +71,16 @@ export interface EventCall<S> {
   inputState(port: number): number;
   inputReal(port: number): number;
   queue(time: number): void;
+  /** Full resolved digital input, including drive strength. */
+  inputValue(port: number): DigitalValue;
+  /** cm_probe_node: resolve this input without this instance's output driver(s). */
+  probeExternal(port: number): DigitalValue;
   /** Digital output ports, flattened; `changed` starts true as in EVTload. */
   readonly outputs: readonly EventOutput[];
   /** cm_analog_set_perm_bkpt(time). */
   setBreakpoint(time: number): void;
+  /** cm_analog_set_temp_bkpt. True if accepted; false for the fixed past/too close. */
+  setTemporaryBreakpoint(time: number): boolean;
   /** cm_schedule_output(out, port, delay, value): queue an extra output event (transient only). */
   scheduleOutput(port: number, delay: number, value: DigitalValue): void;
 }
@@ -93,6 +101,10 @@ export interface EventInstanceView<S> {
   readonly previous: S;
   inputState(port: number): number;
   inputReal(port: number): number;
+  /** Full resolved digital input, including drive strength. */
+  inputValue(port: number): DigitalValue;
+  /** cm_probe_node: resolve this input without this instance's output driver(s). */
+  probeExternal(port: number): DigitalValue;
   /** cm_event_queue(time) from an ANALOG call at `time` (the analog TIME). */
   queue(time: number): void;
   /** cm_analog_set_perm_bkpt(time) from an ANALOG call at TIME `now`. */
@@ -265,6 +277,8 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
   private minBreak = 0;
   /** CKTtime during an EVENT call: the last accepted analog time. */
   private analogTime = 0;
+  private acceptedTime = 0;
+  private temporaryBreakpoint = Infinity;
 
   private readonly changedOutputs = new Set<number>();
   private readonly toCall = new Set<number>();
@@ -350,11 +364,12 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
 
   beginTransient(breakpoint: (time: number) => void, minBreak: number): void {
     if (this.data === undefined) {
-      throw new InvalidCircuitError('XSPICE event-driven instances need the transient operating point (UIC is not supported)');
+      throw new InvalidCircuitError('XSPICE event-driven instances need initialization before transient analysis');
     }
     this.analysis = 'tran';
     this.breakpointSink = breakpoint;
     this.minBreak = minBreak;
+    this.acceptedTime = 0;
     this.collapseStates();
     this.checkpoints = [{ time: 0, data: structuredClone(this.data) }];
   }
@@ -380,6 +395,24 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
     this.data = structuredClone(this.checkpoints[index].data);
   }
 
+  prepareStep(time: number, callHybrids: boolean): number | undefined {
+    this.analogTime = time;
+    this.temporaryBreakpoint = Infinity;
+    const trial = structuredClone(this.data);
+    if (callHybrids) this.callHybrids(time);
+    if (this.temporaryBreakpoint < time) {
+      const retry = this.temporaryBreakpoint;
+      this.backup(this.acceptedTime);
+      this.changedOutputs.clear();
+      this.toCall.clear();
+      return retry;
+    }
+    // Analog accept hooks read the pre-hybrid event state. Replay hybrids only
+    // after those hooks commit, preserving EVTcall_hybrids/EVTaccept ordering.
+    this.data = trial;
+    return undefined;
+  }
+
   acceptStep(time: number, callHybrids: boolean): void {
     this.analogTime = time;
     if (callHybrids) this.callHybrids(time);
@@ -387,6 +420,7 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
     this.data.log = [];
     this.collapseStates();
     this.checkpoints = [{ time, data: structuredClone(this.data) }];
+    this.acceptedTime = time;
   }
 
   // ---------------------------------------------------------------- internals
@@ -538,13 +572,23 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
       analysis: this.analysis,
       init,
       time: tran ? time : 0,
+      previousTime: this.acceptedTime,
       state: states[states.length - 1],
       previous: states[Math.max(0, states.length - 2)],
       inputState: port => this.inputState(instance.inputs[port]),
       inputReal: port => this.inputReal(instance.inputs[port]),
       queue: time => this.queueInstance(index, time),
+      inputValue: port => this.inputValue(instance.inputs[port]),
+      probeExternal: port => this.probeExternal(instance, port),
       outputs,
       setBreakpoint: breakpoint => { if (tran) this.setBreakpoint(breakpoint, this.analogTime); },
+      setTemporaryBreakpoint: breakpoint => {
+        if (!tran || !Number.isFinite(breakpoint)
+          || breakpoint < this.acceptedTime + this.minBreak
+          || Math.abs(breakpoint - this.analogTime) < this.minBreak) return false;
+        this.temporaryBreakpoint = Math.min(this.temporaryBreakpoint, breakpoint);
+        return true;
+      },
       scheduleOutput: (port, delay, value) => {
         if (!tran || delay < 0) return;
         const output = instance.outputs[port];
@@ -576,6 +620,21 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
   private inputReal(port: PortRef): number {
     const node = this.data.nodes[port.node];
     return (port.invert ? node.inverted : node.value).real!;
+  }
+
+  private inputValue(port: PortRef): DigitalValue {
+    const node = this.data.nodes[port.node];
+    return { ...(port.invert ? node.inverted : node.value) };
+  }
+
+  private probeExternal(instance: InstanceInfo, port: number): DigitalValue {
+    const input = instance.inputs[port];
+    const node = this.data.nodes[input.node];
+    const own = new Set(instance.outputs.filter(output => output.node === input.node).map(output => output.sub));
+    const drivers = this.nodeInfo[input.node].drivers === 1 ? [node.value] : node.drivers;
+    const external = drivers.filter((_, sub) => !own.has(sub));
+    const value = external.length ? resolveDigital(external) : { state: UNKNOWN, strength: HI_IMPEDANCE };
+    return input.invert ? inverted(value) : { ...value };
   }
 
   /** EVTqueue_output: insert by time; every queued event at or after it is cancelled. */
@@ -621,6 +680,8 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
       },
       inputState: port => network.inputState(network.instances[index].inputs[port]),
       inputReal: port => network.inputReal(network.instances[index].inputs[port]),
+      inputValue: port => network.inputValue(network.instances[index].inputs[port]),
+      probeExternal: port => network.probeExternal(network.instances[index], port),
       queue: time => {
         // cm_event_queue rejects a time before the current event time; in
         // DC the call is queued at TIME = 0 for the first transient pass.

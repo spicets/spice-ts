@@ -31,7 +31,7 @@ export {
 export type {
   SimulationResult, DotAnalysisRun, StepResult, PoleZeroValue, SensitivityEntry, ComplexSensitivityValue,
   ComplexDistortionValue, ComplexValue, DistortionOrder, DistortionIntermodulationProduct, DistortionProduct,
-  ControlScriptResult, ControlScriptRun, MeasurementResult,
+  ControlScriptResult, ControlScriptRun, MeasurementResult, FourierResult,
 } from './results.js';
 export type {
   SimulationOptions,

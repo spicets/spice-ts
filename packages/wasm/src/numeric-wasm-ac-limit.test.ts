@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SimulationRequestV1 } from '@spice-ts/protocol';
+import type { SimulationRequestV1 } from '@spice-ts/core/protocol';
 
 // Spy on core's grid builder so the test can prove the point limit is enforced before any
 // frequency array is materialised (#409 review: `lin 3e7` used to allocate ~240 MB first).

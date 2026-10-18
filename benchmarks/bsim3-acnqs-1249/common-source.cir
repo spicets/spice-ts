@@ -1,0 +1,11 @@
+BSIM3 AC NQS common-source amplifier (project-authored MIT)
+VDD vdd 0 1.8
+VIN in 0 DC 0.9 AC 1
+RD vdd out 2k
+M1 out in 0 0 MOD W=10u L=0.5u AD=5p AS=5p PD=12u PS=12u
+.model MOD NMOS LEVEL=49 VERSION=3.3.0 ACNQSMOD=1
++ VTH0=0.5 K1=0.6 K2=-0.1 U0=400 TOX=4n VSAT=1.5e5
++ CGSO=2.5e-10 CGDO=2.5e-10 CJ=1e-3 CJSW=5e-10 MJ=0.5 PB=1
+.ac dec 10 1e6 1e12
+.save v(out)
+.end

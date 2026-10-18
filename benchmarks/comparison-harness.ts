@@ -273,6 +273,27 @@ export interface AlignmentOptions {
   breakpoints?: ReadonlySet<number>;
 }
 
+/** Reference-only work, reusable across target chunks without changing sample order. */
+export function prepareAlignmentReference(ngspice: SampleSeries) {
+  const segments = sweepSegments(ngspice).map(({ start, end, secondaryValue }) => {
+    const grid = ngspice.grid.slice(start, end);
+    const descending = grid.length > 1 && grid[0] > grid[grid.length - 1];
+    return { start, end, secondaryValue, descending, grid: descending ? grid.reverse() : grid };
+  });
+  const values = new Map<string, ComplexValue[][]>();
+  return { segments, valuesFor(name: string) {
+    let prepared = values.get(name);
+    if (prepared === undefined) {
+      prepared = segments.map(({ start, end, descending }) => {
+        const part = ngspice.signals[name].slice(start, end);
+        return descending ? part.reverse() : part;
+      });
+      values.set(name, prepared);
+    }
+    return prepared;
+  } };
+}
+
 /**
  * Compare on the spice-ts output points, linearly interpolating the ngspice reference.
  * With `breakpoints` the reference is not interpolated across a breakpoint
@@ -283,17 +304,14 @@ export function alignAndMeasure(
   ngspice: SampleSeries,
   requestedSignals: string[],
   options: AlignmentOptions = {},
+  preparedReference = prepareAlignmentReference(ngspice),
 ): ComparisonMetrics {
   // A two-source nested DC sweep restarts the primary grid for every secondary
   // value, so each engine's grid is a sequence of monotonic segments. Points are
   // only ever aligned within the segment with the same ordinal in both engines;
   // interpolating across the repeated grid would compare unrelated sweep points.
   const spiceSegments = sweepSegments(spiceTs);
-  const referenceSegments = sweepSegments(ngspice).map(({ start, end, secondaryValue }) => {
-    const grid = ngspice.grid.slice(start, end);
-    const descending = grid.length > 1 && grid[0] > grid[grid.length - 1];
-    return { start, end, secondaryValue, descending, grid: descending ? grid.reverse() : grid };
-  });
+  const referenceSegments = preparedReference.segments;
   const explicit = spiceTs.secondaryGrid !== undefined && ngspice.secondaryGrid !== undefined;
   const referenceCoordinates = new Map(referenceSegments.map((group, index) => [group.secondaryValue, index]));
   const ordinalFallback = !explicit && (spiceTs.secondaryGrid !== undefined || ngspice.secondaryGrid !== undefined || spiceSegments.length > 1 || referenceSegments.length > 1);
@@ -345,10 +363,7 @@ export function alignAndMeasure(
     const absoluteErrors: number[] = [];
     const relativeErrors: number[] = [];
     let excludedZeroReferences = 0;
-    const referenceValues = referenceSegments.map(({ start, end, descending }) => {
-      const values = ngspiceValues.slice(start, end);
-      return descending ? values.reverse() : values;
-    });
+    const referenceValues = preparedReference.valuesFor(name);
     for (const { point, index, segment } of targetIndexes) {
       const actual = spiceValues[index];
       const candidates = interpolate(referenceSegments[segment].grid, referenceValues[segment], point, breakpoints);

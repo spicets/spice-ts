@@ -46,17 +46,14 @@ interface HeldRowSlots {
 
 /** Remembered (row, col) -> value-slot sequence of one stamp pass kind. */
 interface StampTrace {
-  rows: Int32Array;
-  cols: Int32Array;
-  slots: Int32Array;
+  /** Interleaved row, column, value-slot triples. */
+  entries: Int32Array;
   length: number;
 }
 
 function createStampTrace(capacity: number): StampTrace {
   return {
-    rows: new Int32Array(capacity),
-    cols: new Int32Array(capacity),
-    slots: new Int32Array(capacity),
+    entries: new Int32Array(3 * capacity),
     length: 0,
   };
 }
@@ -425,34 +422,31 @@ export class MNAAssembler {
   private slotOf(row: number, col: number): number {
     const k = this._traceCursor++;
     const trace = this._trace!;
-    if (k < trace.length && trace.rows[k] === row && trace.cols[k] === col) {
-      return trace.slots[k];
+    const entries = trace.entries;
+    const p = 3 * k;
+    if (k < trace.length && entries[p] === row && entries[p + 1] === col) {
+      return entries[p + 2];
     }
     return this.recordSlot(trace, k, row, col);
   }
 
   private recordSlot(trace: StampTrace, k: number, row: number, col: number): number {
     const slot = this._stampIndex!(row, col);
+    const p = 3 * k;
     if (k < trace.length) {
-      trace.rows[k] = row;
-      trace.cols[k] = col;
-      trace.slots[k] = slot;
+      trace.entries[p] = row;
+      trace.entries[p + 1] = col;
+      trace.entries[p + 2] = slot;
     } else if (k === trace.length && k < this._traceLimit) {
-      if (k === trace.rows.length) {
+      if (p === trace.entries.length) {
         const capacity = Math.min(this._traceLimit, 2 * k + 64);
-        const rows = new Int32Array(capacity);
-        const cols = new Int32Array(capacity);
-        const slots = new Int32Array(capacity);
-        rows.set(trace.rows);
-        cols.set(trace.cols);
-        slots.set(trace.slots);
-        trace.rows = rows;
-        trace.cols = cols;
-        trace.slots = slots;
+        const entries = new Int32Array(3 * capacity);
+        entries.set(trace.entries);
+        trace.entries = entries;
       }
-      trace.rows[k] = row;
-      trace.cols[k] = col;
-      trace.slots[k] = slot;
+      trace.entries[p] = row;
+      trace.entries[p + 1] = col;
+      trace.entries[p + 2] = slot;
       trace.length = k + 1;
     }
     return slot;

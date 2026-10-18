@@ -1,0 +1,141 @@
+{
+  "source": "Original MIT regression decks; ngspice-47 bjtnoise.c / bjtload.c",
+  "command": "spice-heavy ngspice -b case.cir (append one command per line: .control; set numdgt=17; noise v(out) Vinput dec 1 100 1Meg; setplot noise1; print onoise_spectrum inoise_spectrum; setplot noise2; print onoise_total inoise_total; quit; .endc; .end)",
+  "cases": [
+    {
+      "name": "equal-irb",
+      "deck": "* Original MIT BJT gx noise regression (#1347)\nVDD vdd 0 DC 5\nVinput in 0 DC 0.75 AC 1\nRbase in base 100\nRload vdd out 1k\nQ1 out base 0 QMOD\n.model QMOD NPN (IS=1e-14 BF=100 BR=1 VAF=100 IKF=0.01 CJE=20p CJC=10p TF=0.3n RB=1000 RBM=1000 IRB=10u)\n.noise v(out) Vinput dec 1 100 1Meg\n",
+      "frequencies": [
+        100.0,
+        1000.0000000000002,
+        10000.000000000004,
+        100000.00000000006,
+        1000000.0000000008
+      ],
+      "output": [
+        2.14163181189083e-07,
+        2.141626934534135e-07,
+        2.141139367113488e-07,
+        2.0940030931007112e-07,
+        9.051755311297332e-08
+      ],
+      "input": [
+        6.173694281992926e-09,
+        6.173694283982417e-09,
+        6.173694482931275e-09,
+        6.173714377784467e-09,
+        6.1757035390277395e-09
+      ],
+      "onoise_total": 0.0001359598681338634,
+      "inoise_total": 8.315827738631063e-06
+    },
+    {
+      "name": "variable-qb",
+      "deck": "* Original MIT BJT gx noise regression (#1347)\nVDD vdd 0 DC 5\nVinput in 0 DC 0.75 AC 1\nRbase in base 100\nRload vdd out 1k\nQ1 out base 0 QMOD\n.model QMOD NPN (IS=1e-14 BF=100 BR=1 VAF=100 IKF=0.01 CJE=20p CJC=10p TF=0.3n RB=1000 RBM=100)\n.noise v(out) Vinput dec 1 100 1Meg\n",
+      "frequencies": [
+        100.0,
+        1000.0000000000002,
+        10000.000000000004,
+        100000.00000000006,
+        1000000.0000000008
+      ],
+      "output": [
+        2.1672953184937756e-07,
+        2.167289965544781e-07,
+        2.1667548708912146e-07,
+        2.115168072929601e-07,
+        8.857543460520402e-08
+      ],
+      "input": [
+        5.271143839193098e-09,
+        5.271143840611547e-09,
+        5.271143982456692e-09,
+        5.271158166951904e-09,
+        5.272576423443477e-09
+      ],
+      "onoise_total": 0.0001355611557257922,
+      "inoise_total": 7.196638152196831e-06
+    },
+    {
+      "name": "variable-irb",
+      "deck": "* Original MIT BJT gx noise regression (#1347)\nVDD vdd 0 DC 5\nVinput in 0 DC 0.75 AC 1\nRbase in base 100\nRload vdd out 1k\nQ1 out base 0 QMOD\n.model QMOD NPN (IS=1e-14 BF=100 BR=1 VAF=100 IKF=0.01 CJE=20p CJC=10p TF=0.3n RB=1000 RBM=100 IRB=10u)\n.noise v(out) Vinput dec 1 100 1Meg\n",
+      "frequencies": [
+        100.0,
+        1000.0000000000002,
+        10000.000000000004,
+        100000.00000000006,
+        1000000.0000000008
+      ],
+      "output": [
+        5.47282925574643e-09,
+        5.4728292457431985e-09,
+        5.4728282454201204e-09,
+        5.472728216179098e-09,
+        5.462755854306735e-09
+      ],
+      "input": [
+        3.4880887120385626e-09,
+        3.488088712566007e-09,
+        3.488088765310327e-09,
+        3.4880940397383374e-09,
+        3.488621442040775e-09
+      ],
+      "onoise_total": 5.466382959995409e-06,
+      "inoise_total": 3.490247996199984e-06
+    },
+    {
+      "name": "split-cjc",
+      "deck": "* Original MIT BJT gx noise regression (#1347)\nVDD vdd 0 DC 5\nVinput in 0 DC 0.75 AC 1\nRbase in base 100\nRload vdd out 1k\nQ1 out base 0 QMOD\n.model QMOD NPN (IS=1e-14 BF=100 BR=1 VAF=100 IKF=0.01 CJE=20p CJC=10p TF=0.3n RB=1000 RBM=1000 IRB=10u XCJC=0.9 PTF=0)\n.noise v(out) Vinput dec 1 100 1Meg\n",
+      "frequencies": [
+        100.0,
+        1000.0000000000002,
+        10000.000000000004,
+        100000.00000000006,
+        1000000.0000000008
+      ],
+      "output": [
+        2.1416318197274863e-07,
+        2.1416277181947923e-07,
+        2.1412176839165143e-07,
+        2.1013670521701282e-07,
+        9.708070458946659e-08
+      ],
+      "input": [
+        6.173694281991188e-09,
+        6.173694283808346e-09,
+        6.173694465524211e-09,
+        6.173712637075775e-09,
+        6.175529443785311e-09
+      ],
+      "onoise_total": 0.00014031897891033342,
+      "inoise_total": 8.08750646747083e-06
+    },
+    {
+      "name": "pnp-variable-irb",
+      "deck": "* Original MIT BJT gx noise regression (#1347)\nVDD vdd 0 DC -5\nVinput in 0 DC -0.75 AC 1\nRbase in base 100\nRload vdd out 1k\nQ1 out base 0 QMOD\n.model QMOD PNP (IS=1e-14 BF=100 BR=1 VAF=100 IKF=0.01 CJE=20p CJC=10p TF=0.3n RB=1000 RBM=100 IRB=10u XCJC=0.9 PTF=0)\n.noise v(out) Vinput dec 1 100 1Meg\n",
+      "frequencies": [
+        100.0,
+        1000.0000000000002,
+        10000.000000000004,
+        100000.00000000006,
+        1000000.0000000008
+      ],
+      "output": [
+        5.472829357825148e-09,
+        5.4728293492400045e-09,
+        5.472828490725887e-09,
+        5.472742641599154e-09,
+        5.464180512519302e-09
+      ],
+      "input": [
+        3.4880887094726533e-09,
+        3.488088709948395e-09,
+        3.4880887575225212e-09,
+        3.4880935149308123e-09,
+        3.488569212765628e-09
+      ],
+      "onoise_total": 5.467256007852182e-06,
+      "inoise_total": 3.4899383858523515e-06
+    }
+  ]
+}

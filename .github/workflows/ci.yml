@@ -41,7 +41,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm -C packages/protocol build && pnpm -C packages/core build && pnpm -C packages/circuit-json build
+      - run: pnpm -C packages/core build && pnpm -C packages/circuit-json build
 
       - name: Offline VDMOS comparison/export regression
         run: pnpm exec tsx --test benchmarks/vdmos-1106/comparison.test.ts

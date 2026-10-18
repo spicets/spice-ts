@@ -1,0 +1,28 @@
+NPN Bipolar Transistor Circuit Netlist
+**************************************************************
+VCC  4 0 DC 12V
+RC 3 4 2K
+RB 4 5 377K
+* Zero volt sources used as ammeters to measure the
+* base and collector currents, respectively
+VMON1 5 1 0
+VMON2 3 2 0
+Q 2 1 0 bfs17a 
+.MODEL bfs17a NPN(LEVEL=1 
+* Gummel-Poon BJT model parameters for Philips Semiconductor BFS17A
+* from M. Deveney, Dept. 1734 (BFS17aNeuNorm.lib)
++  IS = 2.25E-16      BF = 83        NF = 0.992 
++ VAF = 6            IKF = .1       ISE = 0 
++  NE = 2             BR = 1.175     NR = 1.067 
++ VAR = 12.82        IKR = 0.08     ISC = 6.792E-13 
++  NC = 1.177         RB = 0        IRB = 0.002132  
++ RBM = 0             RE = 0.001     RC = .2 
++ XTB = 1.177         EG = 1.02     XTI = 4.325
++ CJE = 2.062E-11    VJE = 0.7055   MJE = 0.3208 
++ CJC = 6.139E-12    VJC = 0.3342   MJC = 0.3344 
++  FC = 0.5           Nk = .667)
+
+.DC VCC 1 12 1
+.PRINT DC V(4) I(VMON1) I(VMON2) V(1) V(2) 
+
+.END

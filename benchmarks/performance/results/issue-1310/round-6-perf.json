@@ -1,0 +1,466 @@
+{
+  "issue": 1310,
+  "baseSha": "729b2b89291d072a1291ebde9bc0adc04fe3aeaf",
+  "environment": {
+    "node": "v22.23.1",
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "load": "Uncontrolled shared host; sequential groups; no extra warmup"
+  },
+  "slice": "Interleave stamp-trace row/column/slot triples in one Int32Array instead of three arrays. Same integer coordinates and floating-point additions; no changes to circuit or integration.",
+  "counter": {
+    "scope": "Int32Array constructions for one 400-stamp mixed G/C trace including two growths; not total heap allocations or bytes",
+    "red": 9,
+    "green": 3,
+    "replayAdditionalAllocations": 0,
+    "reductionPercent": 66.66666666666667,
+    "payloadBytesChange": 0
+  },
+  "beforeRuns": [
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 56.320261292000005,
+      "rows": 43273,
+      "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 43272,
+          "rejectedSteps": 3139,
+          "newtonIterations": 100724,
+          "nrRetries": 0,
+          "lteRetries": 3139,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      }
+    },
+    {
+      "run": 1,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 54.300635416999995,
+      "rows": 43273,
+      "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 43272,
+          "rejectedSteps": 3139,
+          "newtonIterations": 100724,
+          "nrRetries": 0,
+          "lteRetries": 3139,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      }
+    },
+    {
+      "run": 2,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 53.44406962499999,
+      "rows": 43273,
+      "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 43272,
+          "rejectedSteps": 3139,
+          "newtonIterations": 100724,
+          "nrRetries": 0,
+          "lteRetries": 3139,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      }
+    }
+  ],
+  "afterRuns": [
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 44.350986542,
+      "rows": 43273,
+      "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 43272,
+          "rejectedSteps": 3139,
+          "newtonIterations": 100724,
+          "nrRetries": 0,
+          "lteRetries": 3139,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      }
+    },
+    {
+      "run": 1,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 60.024070291,
+      "rows": 43273,
+      "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 43272,
+          "rejectedSteps": 3139,
+          "newtonIterations": 100724,
+          "nrRetries": 0,
+          "lteRetries": 3139,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      }
+    },
+    {
+      "run": 2,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 60.640548833999986,
+      "rows": 43273,
+      "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 43272,
+          "rejectedSteps": 3139,
+          "newtonIterations": 100724,
+          "nrRetries": 0,
+          "lteRetries": 3139,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      }
+    }
+  ],
+  "beforeMedianSeconds": 54.300635416999995,
+  "afterMedianSeconds": 60.024070291,
+  "runtimeChangePercent": 10.540272374433691,
+  "runtimeLoss": true,
+  "identityVerifiedAcrossAllSixRuns": true,
+  "stampSha256": "3324cdb29c46ea0b0be79f64b9a06a767eba5549d997e193df9221f0634944db",
+  "profiles": {
+    "before": {
+      "totalSampledSeconds": 98.502,
+      "simulateSeconds": 97.854989625,
+      "buckets": [
+        {
+          "bucket": "VBIC evaluate/derivatives",
+          "seconds": 52.157759,
+          "percent": 52.950964447422386
+        },
+        {
+          "bucket": "GC",
+          "seconds": 24.335332,
+          "percent": 24.705419179306006
+        },
+        {
+          "bucket": "Stamping/assembly",
+          "seconds": 10.577188,
+          "percent": 10.738043897585836
+        },
+        {
+          "bucket": "Accepted-point/charge work",
+          "seconds": 5.945429,
+          "percent": 6.0358459726706055
+        },
+        {
+          "bucket": "Matrix factor/solve",
+          "seconds": 4.859542,
+          "percent": 4.933445006192768
+        },
+        {
+          "bucket": "Other/startup/driver/hash",
+          "seconds": 0.62675,
+          "percent": 0.6362814968223995
+        }
+      ],
+      "mnaSelfFrames": [
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 376,
+          "name": "",
+          "us": 2294084,
+          "seconds": 2.294084
+        },
+        {
+          "source": "../src/mna/companion.ts",
+          "line": 89,
+          "name": "buildCompanionSystem",
+          "us": 996031,
+          "seconds": 0.996031
+        },
+        {
+          "source": "../src/mna/linear-stamp.ts",
+          "line": 232,
+          "name": "stampStaticDevices",
+          "us": 963416,
+          "seconds": 0.963416
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 383,
+          "name": "node",
+          "us": 593663,
+          "seconds": 0.593663
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 379,
+          "name": "",
+          "us": 269792,
+          "seconds": 0.269792
+        },
+        {
+          "source": "../src/mna/linear-stamp.ts",
+          "line": 187,
+          "name": "programFor",
+          "us": 196459,
+          "seconds": 0.196459
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 540,
+          "name": "",
+          "us": 89457,
+          "seconds": 0.089457
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 363,
+          "name": "",
+          "us": 61168,
+          "seconds": 0.061168
+        },
+        {
+          "source": "../src/mna/companion.ts",
+          "line": 30,
+          "name": "devicePlan",
+          "us": 25459,
+          "seconds": 0.025459
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 434,
+          "name": "",
+          "us": 6500,
+          "seconds": 0.0065
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 347,
+          "name": "",
+          "us": 5792,
+          "seconds": 0.005792
+        },
+        {
+          "source": "../src/mna/linear-stamp.ts",
+          "line": 136,
+          "name": "buildProgram",
+          "us": 4417,
+          "seconds": 0.004417
+        }
+      ]
+    },
+    "after": {
+      "totalSampledSeconds": 95.154167,
+      "simulateSeconds": 94.539116667,
+      "buckets": [
+        {
+          "bucket": "VBIC evaluate/derivatives",
+          "seconds": 49.338473,
+          "percent": 51.85109024179677
+        },
+        {
+          "bucket": "GC",
+          "seconds": 26.051786,
+          "percent": 27.378502509511748
+        },
+        {
+          "bucket": "Stamping/assembly",
+          "seconds": 9.736249,
+          "percent": 10.232078433307077
+        },
+        {
+          "bucket": "Accepted-point/charge work",
+          "seconds": 5.43196,
+          "percent": 5.708588673788716
+        },
+        {
+          "bucket": "Matrix factor/solve",
+          "seconds": 3.990573,
+          "percent": 4.193797419297465
+        },
+        {
+          "bucket": "Other/startup/driver/hash",
+          "seconds": 0.605126,
+          "percent": 0.6359427222982258
+        }
+      ],
+      "mnaSelfFrames": [
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 373,
+          "name": "Ub",
+          "us": 1967080,
+          "seconds": 1.96708
+        },
+        {
+          "source": "../src/mna/linear-stamp.ts",
+          "line": 232,
+          "name": "stampStaticDevices",
+          "us": 869583,
+          "seconds": 0.869583
+        },
+        {
+          "source": "../src/mna/companion.ts",
+          "line": 89,
+          "name": "buildCompanionSystem",
+          "us": 853748,
+          "seconds": 0.853748
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 380,
+          "name": "node",
+          "us": 430830,
+          "seconds": 0.43083
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 376,
+          "name": "Ub",
+          "us": 249499,
+          "seconds": 0.249499
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 534,
+          "name": "Ub",
+          "us": 209499,
+          "seconds": 0.209499
+        },
+        {
+          "source": "../src/mna/linear-stamp.ts",
+          "line": 280,
+          "name": "stampDynamicDevices",
+          "us": 64960,
+          "seconds": 0.06496
+        },
+        {
+          "source": "../src/mna/assembler.ts",
+          "line": 360,
+          "name": "Ub",
+          "us": 58125,
+          "seconds": 0.058125
+        },
+        {
+          "source": "../src/mna/linear-stamp.ts",
+          "line": 187,
+          "name": "programFor",
+          "us": 22375,
+          "seconds": 0.022375
+        },
+        {
+          "source": "../src/mna/companion.ts",
+          "line": 30,
+          "name": "devicePlan",
+          "us": 1791,
+          "seconds": 0.001791
+        }
+      ]
+    }
+  },
+  "profileMethod": "timeDelta-weighted whole-process stack samples including startup/hash. V8 function-start coordinates mapped by decoding each matching build source map before rebuilding. Precedence: GC leaf; any vbic.ts line 171-500 evaluation; VBIC line >=710 or Charge/Transient/accept named frame charge; any mna frame, stamp-prefixed frame or VBIC lines 600-709 stamping; solver path or solve/refactor name matrix; remainder other. Scheduling gaps may inflate samples. Not CPU-cycle accounting or causal allocation attribution.",
+  "tests": {
+    "targeted": "254 tests / 20 files passed (mna and vbic), including stamp fingerprint",
+    "install": "passed",
+    "build": "passed",
+    "lint": "passed",
+    "fullSuite": "spice-heavy pnpm test terminated at tool 420-second timeout during WASM tests; not claimed green; exact-head GitHub CI authoritative"
+  },
+  "commands": [
+    "pnpm install --frozen-lockfile",
+    "pnpm build",
+    "spice-heavy node --cpu-prof --cpu-prof-dir=<scratch>/r6-profiles --cpu-prof-name=before.cpuprofile benchmarks/performance/dff-1310.mjs 1",
+    "spice-heavy node benchmarks/performance/dff-1310.mjs 3 (before and after)",
+    "pnpm -C packages/core exec vitest run src/mna/stamp-trace-allocation.test.ts (RED)",
+    "pnpm -C packages/core exec vitest run src/mna src/devices/vbic (GREEN)",
+    "pnpm build",
+    "pnpm lint",
+    "spice-heavy node --cpu-prof --cpu-prof-dir=<scratch>/r6-profiles --cpu-prof-name=after.cpuprofile benchmarks/performance/dff-1310.mjs 1",
+    "spice-heavy pnpm test"
+  ],
+  "losses": [
+    "Median runtime increased; no demonstrated wall-time speedup. One after run is faster but both remaining after runs are slower than every before run.",
+    "Historical ngspice median 1.738080 s is not remeasured here; simulator remains much slower.",
+    "Known #1309 waveform mismatch versus ngspice remains; no correctness-parity claim."
+  ]
+}

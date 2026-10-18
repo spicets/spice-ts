@@ -1,0 +1,41 @@
+Test the diode model in the forward active region
+*******************************************************************
+* Tier: ?????
+* Directory/Circuit name:  DIODE_ANALYTIC/forward_model.cir
+* Description:  Runs a transient analysis to check operation of level 1 diode
+*		in the forward active region.
+* Input:  V1=V(1)
+* Output: V(2) (capacitor voltage) 
+*
+* Created by:  K. R. Santarelli 08/07
+*
+* We apply a step of amplitude V>0 across a series combination of a diode and 
+* capacitor.  When the initial capacitor voltage is 0, the output voltage 
+* profile should follow:
+*
+* Vout(t) = NVth * ln [exp(V/NVth) - (exp(V/NVth) - 1) * exp (-alpha*t)]
+*
+* where alpha = IS/CNVth.  
+*
+* NOTES:  We use a relatively small step voltage (0.2V) at the input.  Using
+* voltages much higher than this tends to cause numerical inaccuracies at the 
+* beginning of the transient simulation since the initial diode current is 
+* very, very large for even relatively small input voltages (applying a 1V 
+* volt step input yields an initial current of I=IS*(exp(1/(NVt))-1)=640A when
+* Is=1e-14), and, hence, the derivatives of the I-V characteristic are 
+* initially very large.  
+
+*comp V(2) reltol=1e-2 abstol=1e-12
+
+V1 1 0 0.2
+D1 1 2 Dmod
+C1 2 0 1p IC=0
+
+.model Dmod D LEVEL=1 RS=0
+.tran 1u 10s
+.print tran V(2)
+.options DEVICE gmin=0; normally gmin is 1e-12, and that changes analytical 
+* solution!!!
+.options TIMEINT reltol=1e-6 abstol=1e-6
+.end
+

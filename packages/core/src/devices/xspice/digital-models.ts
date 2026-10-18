@@ -16,6 +16,8 @@ import { flag, real, STATIC, type CodeModelBehavior, type CodeModelCall, type Re
 import type { XspiceConnection } from './connections.js';
 import { flipFlop } from './flipflop-models.js';
 import { controlledOscillator } from './dosc-pwm-models.js';
+import { tristate } from './d-tristate.js';
+import { bidiBridge } from './bidi-bridge.js';
 
 /** What a digital model factory sees of its instance besides parameters. */
 export interface DigitalModelContext {
@@ -463,10 +465,13 @@ function splitStep(
 
 /** Implemented digital code models keyed by lower-case ngspice Spice_Model_Name. */
 export const DIGITAL_MODELS: ReadonlyMap<string, DigitalModelFactory> = new Map<string, DigitalModelFactory>([
+  ['d_tristate', tristate],
   ['d_osc', controlledOscillator(false)],
   ['d_pwm', controlledOscillator(true)],
-  ['d_jkff', flipFlop(true)],
-  ['d_dff', flipFlop(false)],
+  ['d_jkff', flipFlop('jk')],
+  ['d_dff', flipFlop('d')],
+  ['d_tff', flipFlop('t')],
+  ['d_srff', flipFlop('sr')],
   ['d_pulldown', pull(ZERO)],
   ['d_pullup', pull(ONE)],
   ['d_buffer', gate(buffer)],
@@ -477,6 +482,20 @@ export const DIGITAL_MODELS: ReadonlyMap<string, DigitalModelFactory> = new Map<
   ['d_nor', gate(dominantGate(ONE, ZERO, ONE))],
   ['d_xor', gate(parityGate(ZERO))],
   ['d_xnor', gate(parityGate(ONE))],
+  // ngspice-47 digital/d_lut/cfunc.mod:168-183,195-223. Input 0 is the
+  // least-significant bit; missing entries and non-binary characters give U.
+  ['d_lut', (params, context) => {
+    const table = String(params.get('table_values')![0]);
+    return gate(inputs => {
+      let index = 0;
+      for (let i = 0; i < inputs.length; i++) {
+        if (inputs[i] === UNKNOWN) return UNKNOWN;
+        if (inputs[i] === ONE) index += 2 ** i;
+      }
+      return table[index] === '0' ? ZERO : table[index] === '1' ? ONE : UNKNOWN;
+    })(params, context);
+  }],
   ['adc_bridge', adcBridge],
+  ['bidi_bridge', bidiBridge],
   ['dac_bridge', dacBridge],
 ]);

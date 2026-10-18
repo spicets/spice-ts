@@ -84,6 +84,7 @@ Merged fixes do not refresh the aggregate or close unrelated parent gaps.
 | Issue | Scope and next verifiable delivery |
 |---|---|
 | [#890](https://github.com/mfiumara/spice-ts/issues/890) | Profile RC transient after merged #887; cache/stamp hot-path PR #898 remains pending at capture. Require identical-deck before/after receipts and controls. |
+| [#1310](https://github.com/mfiumara/spice-ts/issues/1310) | VBIC DFF_Y_ECL.sp transient perf; compare timestep/Newton counters against ngspice on the identical deck to split per-iteration cost from step/iteration count; require identical-deck before/after receipts and output hashes. |
 
 The [published M2 baseline](benchmarks/PERFORMANCE_BASELINE.md) and
 [raw matrix](benchmarks/performance/results/scaling-m2.json) run RC ladders, resistor mesh and
@@ -136,6 +137,29 @@ Later **merged** receipts qualify what has improved and what still loses:
   23541→20632 ms; paired gains only 1.043x / 1.030x / 1.028x with load-sensitive ranges.
   RC controls read **0.968x / 0.945x / 0.975x**; mesh 10k/50k **0.973x / 0.984x**.
   A rejected predictor implementation lost at 0.952x / 0.880x. All remain published.
+
+- [#1310 receipt](benchmarks/performance/results/issue-1310/README.md), merged PR
+  [#1326](https://github.com/mfiumara/spice-ts/pull/1326) (squash `8e148427`), reduces the full
+  unchanged `DFF_Y_ECL.sp` median from 994.508378 s to 76.027358 s (92.3553% reduction,
+  13.0809x speedup; three runs each under `spice-heavy`, shared host load uncontrolled).
+  All six runs have identical waveform SHA-256 and convergence counters, with 43273 rows.
+  [Independent review](https://github.com/mfiumara/spice-ts/pull/1326#pullrequestreview-5557546163)
+  repeated only the shortened 0.1 ns run: median 6.82→0.55 s, not a full-deck rerun.
+  The loss remains: the ngspice-47 reference is 1.3–3.9 s / 40545 rows, so spice-ts is still
+  roughly 20–58x slower and its row count differs (43273 versus 40545). This is not a new
+  ngspice measurement or a superiority claim; the known V(Q) parity gap remains tracked by #1309.
+
+- [#1310 round-2 receipt](benchmarks/performance/results/issue-1310/README.md#full-unchanged-deck-three-runs-per-revision),
+  merged PR [#1329](https://github.com/mfiumara/spice-ts/pull/1329) (squash `afefa01b`), reduces the
+  full unchanged `DFF_Y_ECL.sp` median from 51.971084 s to 37.015348 s (28.7770% reduction)
+  against the implementation lane's paired fresh baseline `8e148427`; three runs each under
+  `spice-heavy`, shared host load uncontrolled.
+  [Independent full-deck review](https://github.com/mfiumara/spice-ts/pull/1329#pullrequestreview-5557636767)
+  repeated 3+3 runs: medians 69.06→45.84 s (33.63% reduction).
+  All runs have identical waveform SHA-256
+  `fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc` (43273 rows)
+  and identical convergence counters. The loss remains: about 9.5–28.5x slower than the existing
+  ngspice-47 reference of 1.3–3.9 s. No fresh ngspice timing was taken; there is no superiority claim.
 
 These tables come from their cited artifacts, not a new measurement of the frozen head. Do not
 multiply isolated speedups or call #890's older 8.2x headline a newly reproduced main result.

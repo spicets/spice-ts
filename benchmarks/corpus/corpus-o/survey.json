@@ -1,0 +1,1374 @@
+{
+  "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+  "scope": "selectedFamily; application then AC/noise then device paths, en order within priority. First 24 ngspice successes. Remaining candidates deferred; spice-ts never consulted.",
+  "candidates": [
+    {
+      "path": "Netlists/ACtests/SANDLER16/sandler16.cir",
+      "sha256": "4559c5a5df102c1f471dab8b5b77d6d0856cc78c632586b1c4b46305f223344a",
+      "bytes": 2773,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/SANDLER7/sandler7.cir",
+      "sha256": "9ca67ca3b7eef3c1322936b9e4c6794f200237f781b714ec161dab1c35ab42f6",
+      "bytes": 2076,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/SANDLER8/sandler8.cir",
+      "sha256": "4bb0a1cea94ce0b097771edb78c5bd47234606ffad529b1aef2254cc0f864a7e",
+      "bytes": 1795,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/SANDLER9/sandler9.cir",
+      "sha256": "149ddd0a2d8b17106f791647236db84732d45bda01145284b8d0c85974171817",
+      "bytes": 1687,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/MCNC_BJT_LATCH/latch.cir",
+      "sha256": "41622f75dcc9297915a1b0614ad27cfe19850cb4e19817f02a8914644e4d6382",
+      "bytes": 759,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/MCNC_BJT_OPAMPAL/opampal.cir",
+      "sha256": "690904bc6bc2fc65367e1b13eed7625b647fa8d8131dff71687c558da2a9ca8b",
+      "bytes": 3720,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/MCNC_BJT_RCA/rca.cir",
+      "sha256": "a90dde190b244726972cfafabadeab0531357008dc0b3eda7d9c6a7ee42e11a3",
+      "bytes": 588,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/SANDLER1/sandler1.cir",
+      "sha256": "982b06886b9dd2578a55f52e0ebb3b8629f8914c7bb98d3d0034afbb6072c011",
+      "bytes": 1444,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/SANDLER2/sandler2.cir",
+      "sha256": "79214a89bdb03d96c2ae9119ae3c2ac122c47ab2376617c312bd8cf1b0d36b22",
+      "bytes": 1667,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/SANDLER21/sandler21.cir",
+      "sha256": "04f2b149b6ee09744b69b4bc9173e980fdf5eee7064738ca47334a5953a4fabb",
+      "bytes": 1998,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/SANDLER22/sandler22.cir",
+      "sha256": "f437228dd6af82c13025394ee827c917502d5454dac7df93ad2ee60bb4ad0c0b",
+      "bytes": 2557,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/SANDLER23/sandler23.cir",
+      "sha256": "f5d33650f1594325f38309ee229cc227032c1b48f8f1d41a2e8335a464e65d64",
+      "bytes": 1398,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/SANDLER24/sandler24.cir",
+      "sha256": "0ca28700edb921db7ce3a211a0e338dcb690d471f09e0ef5e8de33cf82c6820f",
+      "bytes": 2878,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/SANDLER25/sandler25.cir",
+      "sha256": "17b05fe703c11ba27232a55a9f7a7f629d79e9bb79c228e63bd0ebfdeb17b1c9",
+      "bytes": 2185,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/SANDLER28/sandler28.cir",
+      "sha256": "c93ff25b878786efbd8df3ab5f740147158be1262fecf7bb85aaf26e7c600acd",
+      "bytes": 1915,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/TL431/TL431.cir",
+      "sha256": "0144d0b70a7234606fff487608a5fd6ec6bf3dadc1d18443a02457e09f9f72e0",
+      "bytes": 1112,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/bsim3/gain-stage.cir",
+      "sha256": "0e5aa7cbfeb8b34c75c98a4a8be6763d299170d7a08aaf611197a36c4a33532e",
+      "bytes": 250,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/bsim3/gain-stage1.cir",
+      "sha256": "7e5543b02926b53ca4d7346f5f90934d6cf90dac99f9861e7b9b72868f5f3dea",
+      "bytes": 319,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/bsim3/op-amp.cir",
+      "sha256": "003a743c4b7e1194f03a7f182ad3708f59e83b6138d0dee76b3d07c94d7c1bb2",
+      "bytes": 646,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/bsim3/step-op-amp.cir",
+      "sha256": "705443e029bde0e72d440db118991e38e9af319353cf916089e193ab36c4018f",
+      "bytes": 760,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/bsim3soi/gain-stagesoi_default_spice.cir",
+      "sha256": "428d1d5136e9918fd03eb6de06e2dd544d20bf24454b77236ded5db8400494e7",
+      "bytes": 294,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/bsim3soi/gain-stagesoi_default.cir",
+      "sha256": "5b077be2cd8700ea04a265730b0d65b04aae5ce370b9e9c285f0bbb972a6b2bf",
+      "bytes": 231,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/bsim3soi/gain-stagesoi.cir",
+      "sha256": "fa96ab5e41a174691b4899234438c8c3331b4c331c019d214f7c63094057870e",
+      "bytes": 351,
+      "reason": "not-self-contained",
+      "verdict": {
+        "reason": "not-self-contained",
+        "detail": ".include nmos_3_2.mod; references Netlists/ACtests/bsim3soi/nmos_3_2.mod"
+      }
+    },
+    {
+      "path": "Netlists/ACtests/bsim4/gstage.cir",
+      "sha256": "ad0963e4db0138fd5db3f266b55da29928a12a72c2f71bb04042ea7fee81d173",
+      "bytes": 282,
+      "reason": "not-self-contained",
+      "verdict": {
+        "reason": "not-self-contained",
+        "detail": ".include modelcard.nmos; references Netlists/ACtests/bsim4/modelcard.nmos"
+      }
+    },
+    {
+      "path": "Netlists/ACtests/bsim4/opamp.cir",
+      "sha256": "7447f1fdbd9a87a43f25ca8182fc54f15568eee10fd7c3d58ef6f141c4d1cab4",
+      "bytes": 621,
+      "reason": "not-self-contained",
+      "verdict": {
+        "reason": "not-self-contained",
+        "detail": ".include modelcard.nmos; references Netlists/ACtests/bsim4/modelcard.nmos; references Netlists/ACtests/bsim4/modelcard.pmos"
+      }
+    },
+    {
+      "path": "Netlists/ACtests/diffpair_spiceMan.cir",
+      "sha256": "0780e3374389beeb6754c3423f43fa609c46f3d35537b7206e7e2014301038c1",
+      "bytes": 506,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/diffpair_spiceManLIN.cir",
+      "sha256": "70af53508eda159fac01125533814f6dab74ceacb885be6a9d42ed0b776c045f",
+      "bytes": 526,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/diffpair_spiceManOld.cir",
+      "sha256": "f7d00398679f273143abbffd547981003a3b7f488fce523a82062952d0c79c99",
+      "bytes": 526,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/gminstepping/opamp-vf-gstepping.cir",
+      "sha256": "028226bbf4b112415a3a0a619cdfe936510db3ede71c186185625424236cfce6",
+      "bytes": 1663,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/gminstepping/opamp-vf.cir",
+      "sha256": "957bd3affee194c864ec63b8a8c4d6c3cc8af5bdd490495c0af803f915a87856",
+      "bytes": 1705,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/lowpass_old.cir",
+      "sha256": "64e70fd6d088b03105a1bcb80b2286d7f7f2a521ab3d3ba8ca6a724fd7bb4269",
+      "bytes": 226,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/mos/gain-stage1.cir",
+      "sha256": "e184d407df6a9fb6bb8992fb050aa7e7f28ce0d5717c4ee6cd36db59105a5203",
+      "bytes": 255,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/mos/gain-stage2.cir",
+      "sha256": "5a5f3da6d8f18bb865059acbc34b1fc464c52deda5f5e0d5eb039da8973b4deb",
+      "bytes": 246,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/mos/gain-stage3.cir",
+      "sha256": "9294b82b1e587d14937b75e89067454f57c056a1a54ebaed666117a884b7f0ae",
+      "bytes": 246,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/mos/gain-stage6.cir",
+      "sha256": "1a8f881f5687036ab790a47ea24e56a8a1afc6dd42c1966eab92a4a36d657b3d",
+      "bytes": 255,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/mos/opamp-ol.cir",
+      "sha256": "602ee034438f846e8d9f80654133b0aa7571b07f843fcd0a7e933f5c04790511",
+      "bytes": 1910,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/RC_simple.cir",
+      "sha256": "e992eced2155febdb8b79922f0579a4798838385b7aa573dff5440719d9d7df9",
+      "bytes": 918,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/rca3040.cir",
+      "sha256": "bc9e9f061c34a0493f81e766541ac1ab2f46ba6e5ab4819908be532387ad9347",
+      "bytes": 1187,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/reg0.cir",
+      "sha256": "778becd53220f9f8a265d39f5a592afcd6b86ec413e32c3592a79b08aef83eb4",
+      "bytes": 1079,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ACtests/test1.cir",
+      "sha256": "22d734223b90d7e9c3147680b5a92418c7e39cef36c7abf2acdeda256a9681c1",
+      "bytes": 629,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/cascodeBjtNOISE.cir",
+      "sha256": "c4ee91f0678a12aa12244e7b75158634d5f6cd021395b5619dd35cf71089c9dc",
+      "bytes": 487,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/commonEmitterBjt_ngspice.cir",
+      "sha256": "cff4fd7c9f9edb1a78c1d985ded41df53250e8ca2886f8262acc788b0d956bfd",
+      "bytes": 1035,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/commonEmitterBjt.cir",
+      "sha256": "9439fdb50af115647cfc50cc6718d0b7d49a1935cb78b141b66d1c87d803ce13",
+      "bytes": 1633,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/gain-stage_b3.cir",
+      "sha256": "2c174bb54d3c2b941a74e1d89463cd13699b08ab4ea033b4b1121773bbccca71",
+      "bytes": 744,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/gain-stage1.cir",
+      "sha256": "6a12a9b6172cb9785513add28988697f19c87054ca55f6554e14fe994f8dcd21",
+      "bytes": 760,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/gain-stage2.cir",
+      "sha256": "6c00479b8bccb873d392b1d98cb88c97048fed31a6e6377f6ef1513cf29f1699",
+      "bytes": 747,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/gain-stage3.cir",
+      "sha256": "216f8ae59be39170031b3a275725e613d4df502e9049ba8e5ffe27bd086f1bf0",
+      "bytes": 744,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/invalid_device.cir",
+      "sha256": "f17e7d674551d40e41a106e4cc7bf5f20ff482dca077222948c0d4149f5177ef",
+      "bytes": 1032,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/noiseBjt1.cir",
+      "sha256": "8f1d4d782a4ab80802291808a279275eeaeadfd7869f79820e5050fafb1e2209",
+      "bytes": 1098,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/noiseBjt2.cir",
+      "sha256": "2d32fef5b0f3e3929a84798a55e837547765b8535285585c9d220f257887f2f4",
+      "bytes": 1442,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/res_noise_ngspice.cir",
+      "sha256": "5f90a7de42b73c0c465c2c38931beb573bc067f20f9fd3a96c11fa4a736f6bd0",
+      "bytes": 803,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/res_noise.cir",
+      "sha256": "8f283f9f84ae85d45dfb0ad9f0dee39309f2e026ef359ddfe47aae7b180caaad",
+      "bytes": 486,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/unsupported_analysis_mode.cir",
+      "sha256": "646915368df7cd2307ebc33b859de29b822c7842bc61286a73b2b690f42cdbc4",
+      "bytes": 307,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NOISE/unsupported_device_source.cir",
+      "sha256": "484be57f1f991c281e4cecb61461822dc09ae79f191be5da0cb96de8c671e677",
+      "bytes": 1072,
+      "reason": "licence",
+      "verdict": {
+        "reason": "licence",
+        "detail": "Test for DNI() and DNO() for a device (C) that does not"
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/bsim6_acnoise1d_sw.cir",
+      "sha256": "0a3c8f3f0f31aabc9816f026d35a4c26ea1ee2c6c0c37fafc5c798eec921a4e2",
+      "bytes": 4939,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/bsimcmg_noise_111_m_baseline.cir",
+      "sha256": "61ab8afec39531864ec24c4d8e1e77fe877095442e1b98776ab892595c7757a1",
+      "bytes": 812,
+      "reason": "not-self-contained",
+      "verdict": {
+        "reason": "not-self-contained",
+        "detail": ".include \"modelcard.nmos_xyce_111\"; references Netlists/VANOISE/modelcard.nmos_xyce_111"
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/bsimcmg_noise_111_m.cir",
+      "sha256": "14b7a3306084e6490218caecff42340632c42377ad25ca5a4e16449a7948b3ec",
+      "bytes": 508,
+      "reason": "not-self-contained",
+      "verdict": {
+        "reason": "not-self-contained",
+        "detail": ".include \"modelcard.nmos_xyce_111\"; references Netlists/VANOISE/modelcard.nmos_xyce_111"
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/bsimcmg_noise_111.cir",
+      "sha256": "a873008e4bd98c35e901e2a45a54f64ce89f0487162c5c5536a441c3049c57ce",
+      "bytes": 1844,
+      "reason": "not-self-contained",
+      "verdict": {
+        "reason": "not-self-contained",
+        "detail": ".include \"modelcard.nmos_xyce_111\"; references Netlists/VANOISE/modelcard.nmos_xyce_111"
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/bsimcmg_noise.cir",
+      "sha256": "69b4dcefe3eed1ce0239aba927360d5f9ea1d02000dca6cc458aa354e98da87e",
+      "bytes": 1368,
+      "reason": "not-self-contained",
+      "verdict": {
+        "reason": "not-self-contained",
+        "detail": ".include \"modelcard.nmos_xyce\"; references Netlists/VANOISE/modelcard.nmos_xyce"
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/commonEmitterBjt_mextram.cir",
+      "sha256": "60084d89571f491bb82e47223a7e1d0eb5345fbcd4e191cdd06e3c507397ab9c",
+      "bytes": 3956,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/commonEmitterBjt_vbic13_3T.cir",
+      "sha256": "cd22ef3324a330512c8b6f43d4be7963e0bafda9fc395b0a00828a9659c9919b",
+      "bytes": 2980,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/commonEmitterBjt_vbic13.cir",
+      "sha256": "77ec667281db9ea69c57f8a2b8be95b51454d214def049593a61a551378522ca",
+      "bytes": 3248,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/ekv_150nm_nmos_noise.cir",
+      "sha256": "ff5d912e784b0fdfdea23b34db2a65aba9bd017f78073129ead93bd6d560c33b",
+      "bytes": 1585,
+      "reason": "not-self-contained",
+      "verdict": {
+        "reason": "not-self-contained",
+        "detail": ".include \"150nm.mod\"; references Netlists/VANOISE/150nm.mod"
+      }
+    },
+    {
+      "path": "Netlists/VANOISE/gain-stage1_psp.cir",
+      "sha256": "f718a5f43ad0be650bd713e5551aed00add0b343b9c05f90232dc9d7c9458873",
+      "bytes": 5619,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_ANALYTIC/ramp_test1.cir",
+      "sha256": "f5bb4d0e330f0bbb2f5683a870e1312c1de364184dce6aafb147d87e940bf19e",
+      "bytes": 2906,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_ANALYTIC/ramp_test2.cir",
+      "sha256": "4117823840f391e2e11481991d86efd58583043bbfa1e93f20808d8d77f89ef2",
+      "bytes": 2788,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn_rb_rc_re_1.cir",
+      "sha256": "f50eb5ad28ae3c5a5a1b44aba7adf972bf89ea5c30632cbf6098624774044fb3",
+      "bytes": 1107,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn_rb_rc_re_2.cir",
+      "sha256": "e827701a14ba46d2dd287f2e7a831c284fc127bac1bbeb2961f48e27f9c9bed1",
+      "bytes": 1109,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn_rb_rc_re_3.cir",
+      "sha256": "3b66d2324ffe2d10f23b13c933da8005e78a35242d45105c665be827b73ea940",
+      "bytes": 1182,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn_rb_rc_re.cir",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reason": "no-analysis",
+      "verdict": {
+        "reason": "no-analysis",
+        "detail": "no analysis card or control-block analysis command"
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn_rc_re_1.cir",
+      "sha256": "b222125ff7ca5ba305bcf6d8c0451cd02208b61a818e9de7b39432caa335b940",
+      "bytes": 963,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn_rc_re_2.cir",
+      "sha256": "c7bd3fa322552650009684c9cd4c7229507485f251e9945b1bd568ad93fc3913",
+      "bytes": 965,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn_rc_re_3.cir",
+      "sha256": "353fdff6a19b2b432460ab99d0ace357636e66b8917974cef69fab473ef56a03",
+      "bytes": 1022,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn_rc_re.cir",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": "no-analysis",
+        "detail": "no analysis card or control-block analysis command"
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn.cir",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": "no-analysis",
+        "detail": "no analysis card or control-block analysis command"
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn1.cir",
+      "sha256": "faea2b9386a9cc2e351d8e69f4e2896d309926d2c9f64d5409ac6cb111752fea",
+      "bytes": 363,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_EXTNODE/npn2.cir",
+      "sha256": "54089a56e1b919d6b91f7da6528bc14a235bf05079488dbf73db762dfa7df287",
+      "bytes": 365,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_IC/bjt_ic_nonzero.cir",
+      "sha256": "ff51174099ac2601e5fcea3c65bcde943b404194272cedbd5afe05f085bd4462",
+      "bytes": 1302,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_IC/bjt_ic.cir",
+      "sha256": "b2f414dea73a0fb66b61335fe83320fecac2b7bbf1f12e0438b6893c363c5534",
+      "bytes": 1301,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_OFF/bjt_off.cir",
+      "sha256": "069958261bbae4661fc7bf23270569ae2722afeaabf0f13ed61c7d2115bd525e",
+      "bytes": 1368,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/BJT_PSPICE_NK/bjt_test_nk.cir",
+      "sha256": "64757a3938f2cfac44ead84d9b7245fbc10f588518c2153ba933596f877e7be1",
+      "bytes": 477,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE_ANALYTIC/breakdown_model.cir",
+      "sha256": "c428a046c15bce99cb0f75a8346327a2becc1adb4c37b175c6d07da133159249",
+      "bytes": 2337,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE_ANALYTIC/forward_model.cir",
+      "sha256": "f5e090a36963633e2be6dc76dee709dc51efb4b9fa97dc5d93667c25b64dca9c",
+      "bytes": 1442,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE_ANALYTIC/reverse_model.cir",
+      "sha256": "84ec00feef59479221276fd0c0b4421135b7ed62bfa0b8f36706acb67cdc63b4",
+      "bytes": 2553,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE_CMC/DiodeClipper_AC.cir",
+      "sha256": "76c3510fbf5962bda9db8cf37e4765c86b1917af409dda7454e5bb270925d36a",
+      "bytes": 381,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "ac"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE_CMC/DiodeClipper_DC.cir",
+      "sha256": "574f4b63a33c5a2d735258cdb4ca04e36a5a43f34b57d618a8eace385ca9196c",
+      "bytes": 365,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE_CMC/DiodeClipper_noise.cir",
+      "sha256": "debcbb8af4074b23d7a6a1e7eafd433ea646e4fd8d47a9db058102180f3bdf98",
+      "bytes": 576,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "noise"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE_CMC/DiodeClipper.cir",
+      "sha256": "828853fea5596b82de27b603fef5b28a879cd8b8ffc71c0bb3b908fe21ba7e39",
+      "bytes": 378,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/diode_with_sidewall_fcs.cir",
+      "sha256": "7dfb595eacc8071425df3cdea35238e114e7f41c774625e349569a38a0c3fd60",
+      "bytes": 189,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/diode_with_sidewall_mjsw.cir",
+      "sha256": "412a65ec4ff6660107a4c1e8e1bc49bff56bb6357f4c56cf40db4aae90112b59",
+      "bytes": 189,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/diode_with_sidewall_nbv.cir",
+      "sha256": "835b5917349283838014b07082eac9075fbeba36d492b11776af3b2ecddd15b1",
+      "bytes": 194,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/diode_with_sidewall_ns.cir",
+      "sha256": "52e718dc28c5fd15441c84091d2c1ddb8a3bb22172c75852a69e8f788ec15fc9",
+      "bytes": 188,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/diode_with_sidewall_php.cir",
+      "sha256": "3c06bbd3bde127cbe659f376720587feb270b56811306eb709e527d2f6ef0f7e",
+      "bytes": 188,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/diode_with_sidewall_temp.cir",
+      "sha256": "fc7398f74d7726637ec379138a8893d8ca05b764c7fdac947934a81db414f907",
+      "bytes": 251,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/diode_with_sidewall.cir",
+      "sha256": "fb7d40fe14305d830afa0c4477e68b2da541f428883cec677f4c8cb13906d658",
+      "bytes": 203,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/diode.cir",
+      "sha256": "334e2dde43335851dc96f76ba5e78ef3e0b1de142cca073b3c70f83937637d8c",
+      "bytes": 1755,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/Level2_Temp_Dep_Breakdown.cir",
+      "sha256": "9c52a577a2f0b0a7419160b6cd340894ed41ebc403023a3b3f1d809d171bee0e",
+      "bytes": 1467,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/DIODE/Zener_5229.cir",
+      "sha256": "aefc2180e4bb6a5b39e3f4105546f3c5ba22af3b74f003d2d4d3c55f45938e9e",
+      "bytes": 1102,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/GSWITCH/gswitch.cir",
+      "sha256": "2147c1dd490f9d1c785407d33c591ed5a7109adf48e33485744bbae18bcdef21",
+      "bytes": 262,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/GSWITCH/gswitchHyst1.cir",
+      "sha256": "103a190f09f7e646e11d942e25669255570d9d87947e19b11a5c4ea432d1abdd",
+      "bytes": 487,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ISWITCH/iswitch_spice.cir",
+      "sha256": "05d0e68e32e91b3f7c83d0ef179bc1db880d845046b6686f7cd12624d86bc812",
+      "bytes": 236,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ISWITCH/iswitch.cir",
+      "sha256": "599bc9fe9e53e4f7537710f24ff4c9776e3eec32d754abb73c07c3a6395f836e",
+      "bytes": 249,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/ISWITCH/iswitchHyst1.cir",
+      "sha256": "385b36f181600ffe94b126bc0f581e472972c0f62d6823e598f43366f6097098",
+      "bytes": 711,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/NPN_DC/npn1.cir",
+      "sha256": "8775a88a3f9c032ee047d770781a5a0cbcf21a2e28b7b6352e63636a7c9f1ce0",
+      "bytes": 1275,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/PNP_DC/pnp1.cir",
+      "sha256": "95796ac998eb051a535fcb498c259e715c1e8edd237e1e07add401fc6a1601df",
+      "bytes": 1404,
+      "reason": "already-in-corpus-or-earlier-candidate",
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "dc"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/VSWITCH/Vswitch_A1.cir",
+      "sha256": "0c17c61046d65bd9bd3ff4abc36ebbd3eb2541b64043ea6981af52d416f66edc",
+      "bytes": 1816,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/VSWITCH/Vswitch_B1.cir",
+      "sha256": "f0b0fa5a88971a9d98dbdc398310c36fb3564927cc79720c917a95b64aeb0774",
+      "bytes": 166,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    },
+    {
+      "path": "Netlists/VSWITCH/VswitchHyst1.cir",
+      "sha256": "748a199e99df33d80db66a007225b9eb2d4c63ad5399c0c83173a03b84a39e16",
+      "bytes": 563,
+      "reason": null,
+      "verdict": {
+        "reason": null,
+        "analyses": [
+          "tran"
+        ],
+        "unmappedAnalyses": []
+      }
+    }
+  ]
+}

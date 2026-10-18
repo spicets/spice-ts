@@ -1,0 +1,11 @@
+VBIC VTF transit-time probe (project-authored MIT)
+VCC cc 0 2
+RC cc c 1k
+VIN in 0 DC 0.7 AC 1 PWL(0 0.7 1n 0.7 1.2n 0.72 3n 0.72 3.2n 0.7)
+RB in b 100
+Q1 c b 0 QV
+.model QV NPN(LEVEL=4 IS=1e-16 IBEI=1e-18 CJE=2f CJC=3f TF=20p XTF=4 VTF=0.8 ITF=20u)
+.ac dec 2 100meg 10g
+.tran 5p 5n
+.save v(c) v(b)
+.end

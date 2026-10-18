@@ -1,0 +1,43 @@
+{
+  "baseSha": "931cd22563e5bfb0d557f638d0af9a063caa4d48",
+  "node": "v22.23.1",
+  "host": "macOS 27.0.1 arm64, Apple M5 Pro (shared host)",
+  "fixture": "benchmarks/corpus/corpus-f/fixtures/examples/vbic/DFF_Y_ECL.sp",
+  "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+  "tstop": "10n (unchanged)",
+  "beforeSeconds": [1028.6217980000001, 994.508378125, 726.3661382500001],
+  "afterSeconds": [72.579638208, 77.61162687499998, 76.027358416],
+  "beforeMedianSeconds": 994.508378125,
+  "afterMedianSeconds": 76.027358416,
+  "reductionPercent": 92.35528225922657,
+  "speedup": 13.08092769294093,
+  "gatePassed": true,
+  "allSixRuns": {
+    "rows": 43273,
+    "outputSha256": "fa930f7d1b79d8ce7f05a5de675090f44ff445b143b18a85075f530dd52b19fc",
+    "maxAbsoluteBeforeAfterDifference": 0,
+    "dcNewtonIterations": 31,
+    "acceptedSteps": 43272,
+    "rejectedSteps": 3139,
+    "transientNewtonIterations": 100724,
+    "newtonIterationsPerAcceptedStep": 2.327694583102237,
+    "nrRetries": 0,
+    "lteRetries": 3139,
+    "minimumAcceptedTimestep": 2.5e-15
+  },
+  "profileBefore": {
+    "tstop": "0.1n (profile only)",
+    "vbicEvaluateInclusivePercent": 83.3,
+    "topSelfPercent": {"map": 32.7, "add": 16.7, "sub": 12.1},
+    "topInclusivePercent": {"map": 35.6, "add": 19.2, "sub": 14.3},
+    "matrixSize": 122,
+    "structuralGCUnionNnz": 832,
+    "acceptedSteps": 437,
+    "rejectedSteps": 28,
+    "newtonIterations": 999,
+    "newtonIterationsPerAcceptedStep": 2.28604118993135,
+    "newtonIterationsPerAttemptedStep": 2.1483870967741936
+  },
+  "validation": {"build": "pass", "lint": "pass", "vbicTests": 217, "vbicTestFiles": 14},
+  "remainingLoss": "Known V(Q) parity loss is tracked by #1309; ngspice-47 issue reference is 1.3-3.9 seconds / 40545 rows, still much faster. No new ngspice measurement is claimed."
+}

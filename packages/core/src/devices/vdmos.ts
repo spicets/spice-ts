@@ -57,6 +57,20 @@ export interface VdmosInstanceParams {
   DTEMP: number;
 }
 
+/** vdmosnoi.c inputs, evaluated at the same bias/temperature as the AC stamp. */
+export interface VdmosNoiseOperatingPoint {
+  gm: number;
+  gds: number;
+  id: number;
+  drainConductance: number;
+  sourceConductance: number;
+  kf: number;
+  af: number;
+  /** Tj / circuit temperature for active self heating, otherwise one. */
+  temperatureRatio: number;
+  temperatureKelvin: number;
+}
+
 /** Temperature-dependent instance values (vdmostemp.c VDMOStempUpdate). */
 interface VdmosTemperatureState {
   temp: number;
@@ -337,6 +351,14 @@ export class VDMOS implements DeviceModel {
   }
 
   stamp(ctx: StampContext): void {
+    this.stampLoad(ctx, false);
+  }
+
+  stampSmallSignal(ctx: StampContext): void {
+    this.stampLoad(ctx, true);
+  }
+
+  private stampLoad(ctx: StampContext, smallSignal: boolean): void {
     if (this.thermal) this.applyTemperature(Math.max(-200, ctx.getVoltage(this.nodes[7])));
     const model = this.model;
     const type = model.type;
@@ -423,7 +445,58 @@ export class VDMOS implements DeviceModel {
     g(D, BP, -gd);
     g(BP, S, -gbpr);
     g(BP, D, -gd);
-    if (this.thermal) this.stampThermal(ctx);
+    if (this.thermal) {
+      if (smallSignal) this.stampThermalSmallSignal(ctx, vgs, vds);
+      else this.stampThermal(ctx);
+    }
+  }
+
+  /** ngspice-47 vdmosacld.c uses the channel thermal couplings, not the
+   * DC power Jacobian (which also includes series resistors and the diode).
+   * Its thermal row has the opposite power-derivative sign to vdmosload.c.
+   */
+  private stampThermalSmallSignal(ctx: StampContext, vgs: number, vds: number): void {
+    const model = this.model;
+    const t = this.temp;
+    const { mode, cdrain, gm, gds } = this.evaluateChannel(vgs, vds);
+    const overdrive = (mode === 1 ? vgs : vgs - vds) - t.vth * model.type;
+    const x = (overdrive - model.subshift) / t.ksubthres;
+    const vgst = t.ksubthres * (Math.max(x, 0) + Math.log1p(Math.exp(-Math.abs(x))));
+    const vdss = vds * model.mtriode * mode;
+    const t0 = 1 + model.lambda * vds;
+    const t1 = 1 + model.theta * Math.max(overdrive, 0);
+    const betap = t.beta * t0 / t1;
+    // vdmosload.c deliberately uses this derivative of the overdrive, even
+    // in weak inversion; differentiating our DC equations is not equivalent.
+    const dvgst = model.type * model.tcvth;
+    const dbeta = t.beta * model.mu / t.temp;
+    const dbetap = t0 * (t1 * dbeta - t.beta * model.theta * (vgst > 0 ? dvgst : 0)) / (t1 * t1);
+    const gmT = vgst <= vdss
+      ? 0.5 * dbetap * vgst * vgst + betap * vgst * dvgst
+      : vdss * (dbetap * vgst + betap * dvgst) - 0.5 * dbetap * vdss * vdss;
+    const g = (row: number, col: number, value: number) => {
+      if (this.nodes[row] >= 0 && this.nodes[col] >= 0) ctx.stampG(this.nodes[row], this.nodes[col], value);
+    };
+    const channelVds = mode * vds;
+    const gTg = mode * model.type * gm * channelVds;
+    const gTd = mode * model.type * (gds * channelVds + cdrain);
+    const gjc = this.instance.M / model.rthjc;
+    const gca = this.instance.M / model.rthca;
+    g(DP, 7, mode * model.type * gmT);
+    g(SP, 7, -mode * model.type * gmT);
+    g(7, GP, gTg);
+    g(7, DP, gTd);
+    // vdmosacld.c sums the already-negated couplings in inverse mode.
+    g(7, SP, -mode * (gTg + gTd));
+    g(7, 7, mode * gmT * channelVds + gjc);
+    g(7, 8, -gjc);
+    g(8, 7, -gjc);
+    g(8, 8, gjc + gca);
+    // vdmosacld.c reverses cTt in inverse mode. stampDynamic adds the
+    // positive CTHJ, so correct that AC-only entry here, never in TRAN.
+    if (mode < 0 && this.nodes[7] >= 0) ctx.stampC(this.nodes[7], this.nodes[7], -2 * this.instance.M * model.cthj);
+    // cgT and cdT in vdmosacld.c remain zero in ngspice-47. CTHJ is
+    // stamped by stampDynamic alongside the electrical capacitances.
   }
 
   /** vdmosload.c: channel, RD/RS, diode and RB dissipate into Tj.
@@ -434,7 +507,7 @@ export class VDMOS implements DeviceModel {
     const nodes = this.nodes;
     const tj = nodes[7];
     const tc = nodes[8];
-    let readVoltage = (node: number) => ctx.getVoltage(node);
+    const readVoltage = (node: number) => ctx.getVoltage(node);
     const voltage = (slot: number) => nodes[slot] < 0 ? 0 : readVoltage(nodes[slot]);
     const temperature = Math.max(-200, voltage(7));
     const branchSlots = [[DP, SP], [D, DP], [S, SP], [BP, D], [S, BP]];
@@ -474,21 +547,38 @@ export class VDMOS implements DeviceModel {
         ctx.stampB(nodes[slot], sign * derivative * temperature);
       }
     }
-    // Differentiate power with respect to each distinct electrical node.
+    // Differentiate I * V analytically, using the electrical load's gm/gds
+    // (as in vdmosload.c), not fourteen perturbed channel/diode evaluations
+    // per load. Stamp by slot so aliased external/intrinsic nodes accumulate.
     let rhs = power - dpdt * temperature;
-    for (const node of new Set(nodes.slice(0, 7))) {
-      if (node < 0) continue;
-      const base = ctx.getVoltage(node);
-      const powerAt = (offset: number) => {
-        readVoltage = n => n === node ? base + offset : ctx.getVoltage(n);
-        const values = currents();
-        return branchSlots.reduce((sum, [p, n], i) => sum + values[i] * (voltage(p) - voltage(n)), 0);
-      };
-      let derivative: number;
-      try { derivative = (powerAt(1e-5) - powerAt(-1e-5)) / 2e-5; }
-      finally { readVoltage = n => ctx.getVoltage(n); }
+    const powerDerivative = (slot: number, derivative: number) => {
+      const node = nodes[slot];
+      if (node < 0) return;
       if (tj >= 0) ctx.stampG(tj, node, -derivative);
-      rhs -= derivative * base;
+      rhs -= derivative * ctx.getVoltage(node);
+    };
+    const [vgs, vds] = this.channelVoltages(n => n < 0 ? 0 : readVoltage(n));
+    const channel = this.evaluateChannel(vgs, vds);
+    const channelVoltage = voltage(DP) - voltage(SP);
+    powerDerivative(DP, current[0] + channelVoltage * (channel.gds + (channel.mode === -1 ? channel.gm : 0)));
+    powerDerivative(GP, channelVoltage * channel.mode * channel.gm);
+    powerDerivative(SP, -current[0] - channelVoltage * (channel.gds + (channel.mode === 1 ? channel.gm : 0)));
+    for (const i of [1, 2, 4]) {
+      const [p, n] = branchSlots[i];
+      powerDerivative(p, 2 * current[i]);
+      powerDerivative(n, -2 * current[i]);
+    }
+    const diodeVoltage = voltage(BP) - voltage(D);
+    const diodeDerivative = current[3] + diodeVoltage * this.bodyDiodeCurrent(this.model.type * diodeVoltage).gd;
+    powerDerivative(BP, diodeDerivative);
+    powerDerivative(D, -diodeDerivative);
+    if (this.model.qsGiven && channel.mode === 1) {
+      const v = this.model.type * (voltage(D) - voltage(S));
+      const denominator = v + Math.abs(this.model.vq);
+      const drdv = this.model.type * this.temp.qsResistance * Math.abs(this.model.vq) / (denominator * denominator);
+      const derivative = -current[1] * current[1] * drdv;
+      powerDerivative(D, derivative);
+      powerDerivative(S, -derivative);
     }
     const gjc = this.instance.M / this.model.rthjc;
     const gca = this.instance.M / this.model.rthca;
@@ -659,6 +749,27 @@ export class VDMOS implements DeviceModel {
   /** vdmostrun.c: qgs, qgd and the body diode charge. */
   truncateTransientStep(ctx: StampContext, truncation: ChargeTruncation): number {
     return this.charges.truncationTimestep(truncation, () => this.acceptTransientStep(ctx));
+  }
+
+  get selfHeating(): boolean {
+    return this.thermal;
+  }
+
+  /** Read-only noise seam; does not change the electrical operating point. */
+  noiseOperatingPoint(solution: Float64Array): VdmosNoiseOperatingPoint {
+    const voltage = (node: number) => node < 0 ? 0 : solution[node];
+    const [vgs, vds] = this.channelVoltages(voltage);
+    const { mode, cdrain, gm, gds } = this.evaluateChannel(vgs, vds);
+    const ambient = this.circuitTemperature + CONSTCTOK;
+    // Non-self-heated instances use CKTtemp in NevalSrc, even with TEMP/DTEMP.
+    const temperatureRatio = this.thermal ? this.temp.temp / ambient : 1;
+    return {
+      gm, gds, id: mode * cdrain,
+      drainConductance: this.drainConductance,
+      sourceConductance: this.temp.sourceConductance,
+      kf: this.model.kf, af: this.model.af,
+      temperatureRatio, temperatureKelvin: ambient * temperatureRatio,
+    };
   }
 
   /** Channel state of the last load, for diagnostics and tests. */

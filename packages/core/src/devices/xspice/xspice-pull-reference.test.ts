@@ -118,7 +118,7 @@ describe.skipIf(process.env.NGSPICE_PULL_REFERENCE !== '1')('live ngspice-47 pul
       ['original.cir', '55ff9242f460e0b2967fc9a45c4a9057fdfe1988227d1e6d17746e2858065000'],
       ['original_cards.cir', '90ece1a650bf263896f8ea0307bd674c8038d08877b0f00912b737419e10089f'],
     ]) {
-      const url = `https://raw.githubusercontent.com/mfiumara/spice-ts/a521e9e221f4445639d899265589e5893a07e165/benchmarks/corpus/ngspice-bugs/tickets/398/${file}`;
+      const url = `https://raw.githubusercontent.com/spicets/spice-ts/a521e9e221f4445639d899265589e5893a07e165/benchmarks/corpus/ngspice-bugs/tickets/398/${file}`;
       const response = await fetch(url);
       expect(response.ok).toBe(true);
       const deck = await response.text();

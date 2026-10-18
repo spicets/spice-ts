@@ -1,4 +1,5 @@
 import { evaluateExpression } from './expression.js';
+import { stringParameter, substituteStringAssignments, type ParameterScope } from './string-param.js';
 import { endOfLineCommentStart } from './end-of-line-comment.js';
 import {
   braceBareParameters, conditionExpression, expandUserFunctions, paramCardAsFunc, parseFuncCard, type FunctionScope,
@@ -75,7 +76,7 @@ export interface PreprocessedDeck {
    * global scope). Parameters whose value cannot be evaluated are omitted;
    * referencing one from a subcircuit reports it as undefined.
    */
-  parameters: Record<string, number>;
+  parameters: ParameterScope;
   /** Evaluated `.csparam` scalars (lower-case names) for the control const plot. */
   controlConstants: Record<string, number>;
   /** Non-fatal preprocessing diagnostics, surfaced as circuit parse warnings. */
@@ -229,7 +230,7 @@ function* preprocessSteps(
     const text = statements.map(statement => statement.substitute
       ? substituteStatement(statement, scopes, measureNames)
       : statement.text).join('\n');
-    const parameters: Record<string, number> = {};
+    const parameters: ParameterScope = {};
     for (const name of definitions.keys()) {
       try {
         parameters[name] = scopes.numparam[name];
@@ -325,7 +326,7 @@ function commentedOutCard(line: string): { card: string; warn: boolean } | undef
   return UNUSUAL_LEADING_CHARACTERS.has(card[0]) ? { card, warn: true } : undefined;
 }
 
-const PARAM_ASSIGNMENT = /([A-Za-z_]\w*)\s*=\s*(\{[^}]+\}|'[^']*'|"[^"]*"|\S+)/g;
+const PARAM_ASSIGNMENT = /([A-Za-z_]\w*)\s*=\s*('[^']*'|(?:"[^"]*"|\{[^}]+\}|[^\s"{}])+)/g;
 
 /**
  * ngspice-47 reads the whole rest of a single-assignment `.param` card as the
@@ -452,7 +453,7 @@ interface ParamDefinition {
   expression: string;
   line: number;
   context: string;
-  /** A `"..."` string/vector value, which spice-ts cannot evaluate to a number. */
+  /** A quoted string literal (vectors retain the unsupported boundary). */
   stringValue?: boolean;
 }
 
@@ -474,8 +475,8 @@ interface PendingStatement {
  * and is used for B-cards, whose ASRC expressions evaluate `temper` themselves.
  */
 interface ParamScopes {
-  params: Record<string, number>;
-  numparam: Record<string, number>;
+  params: ParameterScope;
+  numparam: ParameterScope;
 }
 
 /** ngspice's default circuit temperature in Celsius. */
@@ -551,15 +552,15 @@ function createParamScopes(
   allowTemper = true,
   onTemper?: () => void,
 ): ParamScopes {
-  const values = new Map<string, number>();
+  const values = new Map<string, number | string>();
   const resolving: string[] = [];
   const isParam = (key: string | symbol): key is string => typeof key === 'string' && definitions.has(key);
-  const params: Record<string, number> = new Proxy({}, {
+  const params: ParameterScope = new Proxy({}, {
     has: (_target, key) => isParam(key),
     get: (_target, key) => (isParam(key) ? resolve(key) : undefined),
   });
   const isTemper = (key: string | symbol) => key === TEMPER && !definitions.has(TEMPER);
-  const numparam: Record<string, number> = new Proxy({}, {
+  const numparam: ParameterScope = new Proxy({}, {
     has: (_target, key) => isParam(key) || isTemper(key),
     get: (_target, key) => {
       if (isTemper(key)) return temper();
@@ -573,11 +574,11 @@ function createParamScopes(
     return temperature;
   }
 
-  function resolve(name: string): number {
+  function resolve(name: string): number | string {
     const known = values.get(name);
     if (known !== undefined) return known;
     const definition = definitions.get(name)!;
-    if (definition.stringValue) {
+    if (definition.stringValue && /^"\s*\[/.test(definition.expression)) {
       throw new ParseError(
         `String-valued .param '${name}' is not supported: spice-ts parameters are numbers `
         + '(ngspice string and vector parameters are not implemented)',
@@ -591,7 +592,8 @@ function createParamScopes(
     }
     resolving.push(name);
     try {
-      const value = evaluateParamExpression(definition, numparam, functions);
+      const value = stringParameter(definition.expression, numparam)
+        ?? evaluateParamExpression(definition, numparam, functions);
       values.set(name, value);
       return value;
     } finally {
@@ -604,7 +606,7 @@ function createParamScopes(
 
 function evaluateParamExpression(
   definition: ParamDefinition,
-  scope: Record<string, number>,
+  scope: ParameterScope,
   functions: FunctionScope = new Map(),
 ): number {
   try {
@@ -625,7 +627,7 @@ function substituteStatement(statement: PendingStatement, scopes: ParamScopes, m
   try {
     if (MEASURE_CARD.test(statement.text)) return substituteMeasureCard(statement.text, scopes, measureNames);
     const behavioralCard = behavioralCardAsBSource(statement.text);
-    const text = behavioralCard ?? statement.text;
+    const text = substituteStringAssignments(behavioralCard ?? statement.text, scopes.numparam);
     if (/^\s*b/i.test(text)) {
       // B-cards: `'...'`, `{...}` and bare `.param` names are substituted by
       // the B-card front end; `temper` stays a live ASRC variable.
@@ -670,7 +672,7 @@ function substituteMeasureCard(text: string, scopes: ParamScopes, measureNames: 
     const expression = card.slice(from).replace(/\b([A-Za-z_]\w*)\b(?!\s*\()/g, (match: string, name: string, offset: number, whole: string) => {
       const upper = name.toUpperCase();
       if (/[\d.]/.test(whole[offset - 1] ?? '') || measureNames.has(upper) || !(upper in scopes.numparam)) return match;
-      return `(${formatNumber(scopes.numparam[upper])})`;
+      return `(${formatNumber(evaluateExpression(upper, scopes.numparam))})`;
     });
     card = card.slice(0, from) + expression;
   } else {
@@ -1130,12 +1132,14 @@ function* collectStatements(
 // front end, which keeps them as ASRC sub-expressions.
 export function substituteExpressions(
   line: string,
-  params: Record<string, number>,
+  params: ParameterScope,
   keepNodeDependent = false,
   formatter: (value: number) => string = formatNumber,
 ): string {
   return line.replace(/\{([^}]+)\}/g, (match, expr: string) => {
     if (keepNodeDependent && (NODE_DEPENDENT_EXPRESSION.test(expr) || BEHAVIORAL_RUNTIME_EXPRESSION.test(expr))) return match;
+    const string = stringParameter(expr, params);
+    if (string !== undefined) return JSON.stringify(string);
     const value = evaluateExpression(expr, params);
     return formatter(value);
   });

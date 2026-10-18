@@ -1,0 +1,11 @@
+VBIC WBE partition probe (project-authored MIT)
+VCC cc 0 2
+RC cc c 1k
+VB b 0 DC 0.65 AC 1
+Q1 c b 0 QV
+.model QV NPN(LEVEL=4 IS=1e-16 IBEI=1e-18 IBEN=1e-16 RBI=1000 RBX=20 WBE=0.3 CJE=1p TF=0.1n)
+.op
+.dc VB 0.6 0.7 0.05
+.ac dec 1 1meg 100meg
+.save v(c) i(vb)
+.end

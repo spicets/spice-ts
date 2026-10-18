@@ -4,6 +4,8 @@ import type {
 } from '../types.js';
 import type { CompiledCircuit } from '../circuit.js';
 import { TransientResult } from '../results.js';
+import { deviceOutputVector } from '../control-device-output.js';
+import { InvalidCircuitError } from '../errors.js';
 import { createDriverFromCompiled } from './transient-driver.js';
 import { transientStepCap } from './max-timestep.js';
 
@@ -38,8 +40,12 @@ export function solveTransient(
   initialSolution?: Float64Array,
   convergence?: ConvergenceTelemetry,
   guard?: ProtocolExecutionGuard,
+  stopWhen?: (result: TransientResult) => boolean,
+  savedDeviceVectors: readonly string[] = [],
 ): TransientResult {
   const { nodeNames, branchNames } = compiled;
+  const saved = savedDeviceVectors;
+  const deviceArrays = new Map(saved.map(name => [name, [] as number[]]));
   const driver = createDriverFromCompiled(compiled, options, {
     stopTime: analysis.stopTime,
     timestep: analysis.timestep,
@@ -73,19 +79,34 @@ export function solveTransient(
   // Points are buffered in a typed chunk and appended a column at a time
   // (#609); the columns are complete once `flush()` runs below.
   const recorder = new ColumnRecorder(columns, slots);
-  const save = (time: number, solution: Float64Array): void => {
+  const save = (time: number, solution: Float64Array): boolean => {
     guard?.recordResultPoint();
     timePoints.push(time);
     recorder.record(solution);
+    for (const name of saved) {
+      const match = /^@([^\s[\]]+)\[([^\s[\]]+)\]$/.exec(name);
+      const values = match && deviceOutputVector({
+        devices: compiled.devices, solution, nodeCount: compiled.nodeCount, deviceGmin: options.gmin,
+      }, match[1], match[2]);
+      if (!values) throw new InvalidCircuitError(`Unsupported saved device vector '${name}'`);
+      deviceArrays.get(name)!.push(values[0]);
+    }
+    if (!stopWhen) return false;
+    // ngspice-47 dctran.c:430-435 checks autostop after an accepted point.
+    // Flush buffered columns before exposing the saved prefix; do not change
+    // the driver's stop time or timestep trajectory to reach measurements.
+    recorder.flush();
+    return stopWhen(new TransientResult(timePoints, voltageArrays, currentArrays));
   };
 
   try {
     // Seed with the DC operating point at t=0
-    if (isSavedTransientPoint(analysis, driver.simTime)) save(driver.simTime, driver.currentSolution());
-    while (!driver.isDone) {
+    let stopped = isSavedTransientPoint(analysis, driver.simTime)
+      && save(driver.simTime, driver.currentSolution());
+    while (!driver.isDone && !stopped) {
       guard?.checkpoint('solve:transient-step');
       const solution = driver.advanceSolution();
-      if (isSavedTransientPoint(analysis, driver.simTime)) save(driver.simTime, solution);
+      if (isSavedTransientPoint(analysis, driver.simTime)) stopped = save(driver.simTime, solution);
     }
   } finally {
     driver.dispose();
@@ -93,5 +114,6 @@ export function solveTransient(
   recorder.flush();
 
   const events = compiled.devices.find(device => device instanceof XspiceEventNetwork) as XspiceEventNetwork | undefined;
-  return new TransientResult(timePoints, voltageArrays, currentArrays, events?.nodeHistories());
+  return new TransientResult(timePoints, voltageArrays, currentArrays, events?.nodeHistories(),
+    new Map([...deviceArrays].map(([name, values]) => [name, Float64Array.from(values)])));
 }

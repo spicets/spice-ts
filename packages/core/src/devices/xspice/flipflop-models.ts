@@ -1,4 +1,4 @@
-/** ngspice-47 digital/{d_jkff,d_dff}/cfunc.mod (Public Domain).
+/** ngspice-47 digital/{d_jkff,d_dff,d_tff,d_srff}/cfunc.mod (Public Domain).
  * Source: https://github.com/imr/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/xspice/icm/digital
  */
 import type { DigitalModel, DigitalModelFactory } from './digital-models.js';
@@ -21,8 +21,8 @@ function jkResult(j: number, k: number, old: number): number {
   return k === ZERO ? ONE : complement(old);
 }
 
-/** Shared control/edge/delay logic, identical in the two ngspice models. */
-export function flipFlop(jk: boolean): DigitalModelFactory {
+/** Shared control/edge/delay logic, identical in the four ngspice models. */
+export function flipFlop(kind: 'jk' | 'd' | 't' | 'sr'): DigitalModelFactory {
   return (params, context) => {
     // NULL connections have no flattened event ports. Keep logical names here
     // rather than assuming set/reset or either output is connected.
@@ -65,7 +65,21 @@ export function flipFlop(jk: boolean): DigitalModelFactory {
           else if (state.set === ONE) value = ONE;
         } else if (state.clk !== old.clk && state.clk === ONE && state.set !== ONE && state.reset !== ONE) {
           delay = real(params, 'clk_delay');
-          value = jk ? jkResult(read('j'), read('k'), old.out) : read('data');
+          switch (kind) {
+            case 'jk': value = jkResult(read('j'), read('k'), old.out); break;
+            case 'd': value = read('data'); break;
+            case 't': {
+              const t = read('t');
+              value = t === UNKNOWN ? UNKNOWN : t === ONE ? complement(old.out) : old.out;
+              break;
+            }
+            case 'sr': {
+              const s = read('s'), r = read('r');
+              value = s === UNKNOWN || r === UNKNOWN || (s === ONE && r === ONE)
+                ? UNKNOWN : s === ONE ? ONE : r === ONE ? ZERO : old.out;
+              break;
+            }
+          }
         }
         state.out = value;
         for (let i = 0; i < outputs.length; i++) {

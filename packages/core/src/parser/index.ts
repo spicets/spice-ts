@@ -12,7 +12,7 @@ import {
   VOLTAGE_SOURCE_MULTIPLIER_ERROR,
 } from './waveform-parser.js';
 import { invalidPassiveInstanceLine, parsePassiveElement } from './passive-parser.js';
-import { parseDiodeInstanceParams } from './diode-parser.js';
+import { diodeModelIndex, parseDiodeInstanceParams } from './diode-parser.js';
 import { parseBJTInstance } from './bjt-parser.js';
 import { parseJFETInstance } from './jfet-parser.js';
 import { parsePoleZero } from './pole-zero-parser.js';
@@ -41,6 +41,7 @@ import { parseZInstance } from './z-device-parser.js';
 import { locateSubcircuitCall, parseSubcircuitCallParams, parseSubcircuitHeader, type SubcircuitHeader } from './subcircuit-syntax.js';
 import { parseSwitchInstance } from './switch-parser.js';
 import { parseXspiceInstance, parseXspiceModelCard, xspiceModelType } from './xspice-parser.js';
+import { DIGITAL_MODELS } from '../devices/xspice/digital-models.js';
 import { isPspiceSwitchModel, translatePspiceSwitchModel } from './pspice-switch.js';
 import { isNgspiceOptionField, splitXyceOptionPackage } from './xyce-option-packages.js';
 import { parseNgbehavior } from './ngbehavior.js';
@@ -124,7 +125,7 @@ function parseNetlist(
   firstLineIsTitle: boolean,
   guard?: ProtocolExecutionGuard,
   extractedBlocks: ControlSourceBlock[] = [],
-  parameters: Record<string, number> = {},
+  parameters: Record<string, number | string> = {},
   controlWarnings: ControlSourceWarning[] = [],
   controlConstants: Record<string, number> = {},
   atTemperature?: PreprocessedDeck['atTemperature'],
@@ -197,7 +198,8 @@ function parseNetlist(
               // Keep local code models in the body for instance-scoped resolution.
               // Parameter expressions can only be checked after expansion.
               if (!raw.includes('{')) parseXspiceModelCard(raw, lineNumber);
-              if (xspiceModelType(tokens) !== 'pwl') assertSupportedModelType(tokens, lineNumber, raw);
+              const codeModel = xspiceModelType(tokens);
+              if (codeModel !== 'pwl' && codeModel !== 'pswitch' && !DIGITAL_MODELS.has(codeModel ?? '')) assertSupportedModelType(tokens, lineNumber, raw);
             } else {
               assertSupportedModelType(tokens, lineNumber, raw);
               if (!raw.includes('{')) assertSupportedResistorModel(tokens, lineNumber, raw);
@@ -390,7 +392,9 @@ export function parseControlAnalysisCard(tokens: string[], lineNumber: number, c
 /** @internal Parse `.options` tokens for the control-language `option`/`set` commands. */
 export function parseControlOptions(tokens: string[], lineNumber: number, context: string): SimulationOptions {
   try {
-    return parseSimulationOptions(splitXyceOptionPackage(tokens).fields, lineNumber, context);
+    // Control splitWords retains spaces around '='; normalize assignments
+    // with the same tokenizer as dot cards (e.g. `option xmu = 0.49`).
+    return parseSimulationOptions(splitXyceOptionPackage(tokenizeLine(tokens.join(' '))).fields, lineNumber, context);
   } catch (e) {
     if (e instanceof ParseError) throw e;
     throw new ParseError((e as Error).message, lineNumber, context);
@@ -1017,6 +1021,12 @@ function parseSimulationOptions(
   for (const token of optionTokens) {
     const separator = token.indexOf('=');
     const name = token.slice(0, separator < 0 ? token.length : separator).toLowerCase();
+    if (name === 'savecurrents' || name === 'autostop') {
+      // These are ngspice boolean flags, not numeric or string-valued options.
+      if (separator >= 0) throw new ParseError(`Unsupported .options field: '${token}'`, lineNumber, context);
+      options[name] = true;
+      continue;
+    }
     if (OUTPUT_ONLY_OPTION_FLAGS.has(name) && separator < 0) continue;
     if (name === 'ngbehavior') {
       options.ngbehavior = parseNgbehavior(separator < 0 ? '' : token.slice(separator + 1), lineNumber, context);
@@ -1060,6 +1070,13 @@ function parseSimulationOptions(
     }
 
     const rawValue = token.slice(separator + 1);
+    if (name === 'xmu') {
+      // ngspice-47 cktsopt.c:120-122 assigns XMU with no range check.
+      const value = parseNumber(rawValue);
+      if (!Number.isFinite(value)) throw new Error(`Invalid .options xmu value: '${rawValue}'`);
+      options.xmu = value;
+      continue;
+    }
     if (name === 'scale') {
       options.scale = parseNumber(rawValue);
       continue;
@@ -1302,15 +1319,18 @@ function parseDevice(circuit: Circuit, tokens: string[], lineNumber: number, raw
       circuit.addCurrentSource(name, tokens[1], tokens[2], waveform, multiplier);
       break;
     }
-    case 'D':
+    case 'D': {
+      const modelIndex = diodeModelIndex(tokens);
       circuit.addDiode(
         name,
         tokens[1],
         tokens[2],
-        tokens[3],
-        parseDiodeInstanceParams(tokens, 4),
+        tokens[modelIndex],
+        parseDiodeInstanceParams(tokens, modelIndex + 1),
+        modelIndex === 4 ? tokens[3] : undefined,
       );
       break;
+    }
     case 'Q': {
       const instance = parseBJTInstance(tokens, lineNumber);
       circuit.addBJT(

@@ -1,0 +1,14 @@
+VDMOS RD RS channel and flicker noise (#1348)
+VDD vdd 0 DC 10
+Vgate gate 0 DC 3 AC 1
+Rload vdd out 10
+M1 out gate 0 power
+.model power VDMOS (VTO=1 KP=0.1 LAMBDA=0.02 RD=0.2 RS=0.3 RG=1 RB=1 KF=1e-20 AF=1.2)
+.noise v(out) Vgate dec 1 1 1meg 1
+.control
+run
+setplot noise1
+set numdgt=16
+print all
+.endc
+.end

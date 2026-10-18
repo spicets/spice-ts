@@ -57,7 +57,8 @@ describe('XSPICE real event nodes (ngspice-47 xtraevt)', () => {
     const prepared = prepareXspiceInstance(parseXspiceInstance('a1 d en r m', 0), parseXspiceModelCard('.model m d_to_real(zero=-3 one=5 delay=2n)', 0), false, '0');
     const model = REAL_MODELS.get('d_to_real')!(prepared.params, { connections: prepared.connections, given: new Set() });
     const out = { real: 0, state: ZERO, strength: STRONG, changed: true, delay: 0, load: 0 };
-    model.event.event({ analysis: 'tran', init: false, time: 1, state: null, previous: null, outputs: [out], inputState: i => i === 0 ? input : enable, inputReal: () => 0, queue() {}, setBreakpoint() {}, scheduleOutput() {} });
+    model.event.event({ analysis: 'tran', init: false, time: 1, previousTime: 0, state: null, previous: null, outputs: [out], inputState: i => i === 0 ? input : enable, inputReal: () => 0, queue() {}, setBreakpoint() {}, scheduleOutput() {}, setTemporaryBreakpoint: () => false,
+      inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); } });
     expect(out.real).toBe(expected);
     expect(out.delay).toBe(2e-9);
   });

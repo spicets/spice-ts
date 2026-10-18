@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 SHA = 'a80f6e3e95d51534905b1f23410a951802666656'
-RANGES = [(1004, 2189)]
+RANGES = [(1004, 2189), (2527, 2921)]
 
 
 def generate(source: Path) -> str:
@@ -81,7 +81,7 @@ def generate(source: Path) -> str:
     output += '''const MAX_EXP = 5.834617425e14, MIN_EXP = 1.713908431e-15, EXP_THRESHOLD = 34;
 const EPS0 = 8.85418e-12, EPSSI = 1.03594e-10, Charge_q = 1.60219e-19, MM = 3;
 // Historical ngspice const.h CHARGE, not the BSIM-local Charge_q.
-const CHARGE = 1.6021766208e-19;
+const CHARGE = 1.6021766208e-19, DELTA_3 = 0.02;
 function dexp(A: number): [number, number] {
   if (A > EXP_THRESHOLD) return [MAX_EXP * (1 + A - EXP_THRESHOLD), MAX_EXP];
   if (A < -EXP_THRESHOLD) return [MIN_EXP, 0];

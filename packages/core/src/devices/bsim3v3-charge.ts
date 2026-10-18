@@ -1085,6 +1085,7 @@ export function evaluateTerminalCharges(
   vbs: number,
   out: BSIM3TerminalCharges,
   inputs?: BSIM3v3ChargeInputs,
+  nonQuasiStatic = false,
 ): BSIM3TerminalCharges {
   const vbd = vbs - vds;
   const vgd = vgs - vds;
@@ -1118,21 +1119,23 @@ export function evaluateTerminalCharges(
   const cgbo = cp.cgbo;
   const qgb = cgbo * vgb;
 
-  const { cggb, cgdb, cgsb, cdgb, cddb, cdsb, cbgb, cbdb, cbsb } = ic;
-  const qgate = ic.qgate + qgdo + qgso + qgb;
-  const qbulk = ic.qbulk - qgb;
+  // b3ld.c:2613-2626,2668-2673: NQS integrates only overlap/junction
+  // charges here. Keep the intrinsic result for the channel relaxation state.
+  const { cggb, cgdb, cgsb, cdgb, cddb, cdsb, cbgb, cbdb, cbsb } = nonQuasiStatic ? ZERO_INTRINSIC : ic;
+  const qgate = (nonQuasiStatic ? 0 : ic.qgate) + qgdo + qgso + qgb;
+  const qbulk = (nonQuasiStatic ? 0 : ic.qbulk) - qgb;
   let qdrn: number;
   // Jacobian columns G, D, S (bulk reference) of the gate, drain and bulk
   // charges, as b3ld.c's gc**b terms without the CKTag[0] factor.
   let gg: number, gd: number, gs: number, dg: number, dd: number, ds: number;
   let bg: number, bd: number, bs: number;
   if (forward) {
-    qdrn = ic.qdrn - qgdo;
+    qdrn = (nonQuasiStatic ? 0 : ic.qdrn) - qgdo;
     gg = cggb + cgdo + cgso + cgbo; gd = cgdb - cgdo; gs = cgsb - cgso;
     dg = cdgb - cgdo; dd = cddb + capbd + cgdo; ds = cdsb;
     bg = cbgb - cgbo; bd = cbdb - capbd; bs = cbsb - capbs;
   } else {
-    const qsrc = ic.qdrn - qgso;
+    const qsrc = (nonQuasiStatic ? 0 : ic.qdrn) - qgso;
     qdrn = -(qgate + qbulk + qsrc);
     gg = cggb + cgdo + cgso + cgbo; gd = cgsb - cgdo; gs = cgdb - cgso;
     dg = -(cggb + cbgb + cdgb + cgdo); dd = capbd + cgdo - (cgsb + cbsb + cdsb); ds = -(cgdb + cbdb + cddb);
@@ -1157,3 +1160,5 @@ export function evaluateTerminalCharges(
   setRow(TERMINAL.S, -(gg + dg + bg), -(gd + dd + bd), -(gs + ds + bs));
   return out;
 }
+
+const ZERO_INTRINSIC = { cggb: 0, cgdb: 0, cgsb: 0, cdgb: 0, cddb: 0, cdsb: 0, cbgb: 0, cbdb: 0, cbsb: 0 };

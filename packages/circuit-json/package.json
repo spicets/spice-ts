@@ -1,12 +1,12 @@
 {
   "name": "@spice-ts/circuit-json",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Bidirectional circuit-json adapter for spice-ts Circuit IR",
   "license": "MIT",
   "author": "Mattia Fiumara",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mfiumara/spice-ts.git",
+    "url": "https://github.com/spicets/spice-ts.git",
     "directory": "packages/circuit-json"
   },
   "engines": {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { executeTool, DEFAULT_MCP_LIMITS, MCP_TOOLS } from './server.js';
-import type { SimulationResultV1 } from '@spice-ts/protocol';
+import type { SimulationResultV1 } from '@spice-ts/core/protocol';
 
 const netlist = 'R1 in out 1k\nR2 out 0 2k\nC1 out 0 1u';
 

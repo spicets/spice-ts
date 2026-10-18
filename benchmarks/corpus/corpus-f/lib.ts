@@ -354,7 +354,10 @@ export function normalizedSignalErrors(
     for (const [signal, metric] of Object.entries(comparison.metrics.signals)) {
       if (metric.status !== 'compared' || metric.sampleCount === 0) { missing += 1; continue; }
       const reference = ngspiceSeries(comparison.analysis, signal, comparison.plot);
-      const ngspicePeak = reference?.signals[signal] ? peak(reference.signals[signal]) : 0;
+      // Packed executions expose lazy getters. Read once rather than allocating
+      // and discarding a full waveform just to test its presence.
+      const referenceValues = reference?.signals[signal];
+      const ngspicePeak = referenceValues ? peak(referenceValues) : 0;
       errors.push({
         analysis: comparison.analysis,
         signal,
