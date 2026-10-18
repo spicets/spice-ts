@@ -1,0 +1,9 @@
+* Original MIT two-pole op-amp macromodel, buffered gain 10 with two 159.155 Hz poles
+V1 in 0 DC 0 AC 1
+R1 in p1 1k
+C1 p1 0 1u
+E1 b 0 p1 0 10
+R2 b out 1k
+C2 out 0 1u
+.ac dec 100 0.1 100k
+.end

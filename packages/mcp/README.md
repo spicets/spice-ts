@@ -12,7 +12,7 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_dc_metrics`: return DC transfer gain, switching threshold, unity-gain points and noise margins without raw vectors.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
-- `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, and loop stability margins without vectors.
+- `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, sampled peaking, and loop stability margins without vectors.
 - `spice_tran_metrics`: run a transient step and return rise/fall time, overshoot/undershoot, settling time and peak without vectors.
 - `spice_noise_metrics`: run one unstepped `.noise` analysis and return integrated output/input noise and spot densities without vectors.
 - `spice_simulation_start`: start a bounded simulation worker and return its opaque job cursor before solving completes.
@@ -318,7 +318,7 @@ Example tool arguments:
 ```
 
 The response contains `dcGainDb`, `f3dbHz`, `unityGainHz`, `phaseMarginDeg`,
-`gainMarginDb`, `referenceFrequencyHz`, and `reasons`. Despite its conventional
+`gainMarginDb`, `peakingDb`, `peakFrequencyHz`, `referenceFrequencyHz`, and `reasons`. Despite its conventional
 name, `dcGainDb` is explicitly the gain at the lowest sampled frequency, reported
 in `referenceFrequencyHz`, NOT an extrapolation to DC. Start sufficiently below
 the first pole to estimate DC gain; high-pass/band-pass sweeps have no inferred
@@ -334,11 +334,21 @@ interpret them as stability margins, not an arbitrary closed-loop response.
 Phase starts on [-180, 180) and unwraps between adjacent samples; sample densely
 enough to avoid phase aliasing. Exact target samples at either endpoint count
 when part of a strictly descending segment; flat or rising segments do not.
-Missing or non-finite metrics are `null` with a matching string in
-`reasons`, not infinity or extrapolated values. Unknown nodes produce the usual
+`peakingDb` is the maximum sampled gain minus the lowest-frequency gain;
+`peakFrequencyHz` is the first sampled frequency attaining that maximum. These
+do not estimate peaks between samples. A monotone low-pass has zero peaking.
+Missing or non-finite metrics are `null` with a stable code in `reasons`:
+`NON_FINITE_GAIN`, `NO_HALF_POWER_CROSSING`, `NO_UNITY_GAIN_CROSSING`, or
+`NO_PHASE_CROSSING`, not infinity or extrapolated values. Unknown nodes produce the usual
 structured `INVALID_REQUEST` error with `details.reason: "UNKNOWN_NODE"` and
 `details.node`; a zero input phasor produces `UNDEFINED_TRANSFER`. Simulation,
 worker time, concurrency, point, and response byte limits still apply.
+
+Reproduce the two-pole op-amp macromodel comparison against ngspice-47 `.meas ac`
+with `spice-heavy pnpm exec tsx benchmarks/mcp-ac-metrics/compare.mts` from the
+repository root after building. Both engines use the committed identical circuit
+and sweep. The check allows 0.5% UGF error and 0.5 degrees phase-margin error;
+ngspice interpolates crossings in frequency while this tool uses log-frequency.
 
 ## Run over stdio
 

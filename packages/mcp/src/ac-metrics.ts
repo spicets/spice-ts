@@ -1,7 +1,9 @@
 import type { SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const metricNames = ['dcGainDb', 'f3dbHz', 'unityGainHz', 'phaseMarginDeg', 'gainMarginDb'] as const;
+const metricNames = ['dcGainDb', 'f3dbHz', 'unityGainHz', 'phaseMarginDeg', 'gainMarginDb', 'peakingDb', 'peakFrequencyHz'] as const;
 type Metric = typeof metricNames[number];
+const reasonCodes = ['NON_FINITE_GAIN', 'NO_HALF_POWER_CROSSING', 'NO_UNITY_GAIN_CROSSING', 'NO_PHASE_CROSSING'] as const;
+type ReasonCode = typeof reasonCodes[number];
 export interface AcMetricsArgs { output: string; input?: string; analysis?: number }
 export const acMetricsProperties = {
   output: { type: 'string', minLength: 1, maxLength: 256 },
@@ -16,7 +18,7 @@ export const acMetricsOutputSchema = {
     referenceFrequencyHz: { type: 'number', exclusiveMinimum: 0 },
     reasons: {
       type: 'object', additionalProperties: false,
-      properties: Object.fromEntries(metricNames.map(key => [key, { type: 'string', minLength: 1 }])),
+      properties: Object.fromEntries(metricNames.map(key => [key, { type: 'string', enum: reasonCodes }])),
     },
   },
 };
@@ -81,8 +83,8 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     return undefined;
   };
   const at = (values: number[], c: Crossing) => values[c.index - 1] + c.fraction * (values[c.index] - values[c.index - 1]);
-  const reasons: Partial<Record<Metric, string>> = {};
-  const finite = (key: Metric, value: number | undefined, reason: string) => {
+  const reasons: Partial<Record<Metric, ReasonCode>> = {};
+  const finite = (key: Metric, value: number | undefined, reason: ReasonCode) => {
     if (value !== undefined && Number.isFinite(value)) return value;
     reasons[key] = reason;
     return null;
@@ -90,12 +92,17 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   const bandwidth = crossing(db, db[0] - 10 * Math.log10(2));
   const unity = crossing(db, 0);
   const phaseCrossing = crossing(phase, -180);
+  // Sampled maximum only: do not invent an inter-sample resonant peak.
+  let peakIndex = 0;
+  for (let i = 1; i < db.length; i++) if (db[i] > db[peakIndex]) peakIndex = i;
   return {
-    dcGainDb: finite('dcGainDb', db[0], 'Gain at the lowest sampled frequency is not finite'),
-    f3dbHz: finite('f3dbHz', bandwidth?.hz, 'No descending half-power crossing relative to the first sample in sweep'),
-    unityGainHz: finite('unityGainHz', unity?.hz, 'No descending unity-gain crossing in sweep'),
-    phaseMarginDeg: finite('phaseMarginDeg', unity ? 180 + at(phase, unity) : undefined, 'No finite phase at a unity-gain crossing in sweep'),
-    gainMarginDb: finite('gainMarginDb', phaseCrossing ? -at(db, phaseCrossing) : undefined, 'No finite gain at a descending -180 degree phase crossing in sweep'),
+    dcGainDb: finite('dcGainDb', db[0], 'NON_FINITE_GAIN'),
+    f3dbHz: finite('f3dbHz', bandwidth?.hz, 'NO_HALF_POWER_CROSSING'),
+    unityGainHz: finite('unityGainHz', unity?.hz, 'NO_UNITY_GAIN_CROSSING'),
+    phaseMarginDeg: finite('phaseMarginDeg', unity ? 180 + at(phase, unity) : undefined, 'NO_UNITY_GAIN_CROSSING'),
+    gainMarginDb: finite('gainMarginDb', phaseCrossing ? -at(db, phaseCrossing) : undefined, 'NO_PHASE_CROSSING'),
+    peakingDb: finite('peakingDb', db[peakIndex] - db[0], 'NON_FINITE_GAIN'),
+    peakFrequencyHz: finite('peakFrequencyHz', Number.isFinite(db[peakIndex]) ? f[peakIndex] : undefined, 'NON_FINITE_GAIN'),
     referenceFrequencyHz: f[0], reasons,
   };
 }
