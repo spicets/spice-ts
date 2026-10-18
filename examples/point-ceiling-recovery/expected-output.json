@@ -20,6 +20,7 @@
       "circuit-json"
     ],
     "tools": [
+      "spice_tf",
       "spice_sensitivity",
       "spice_capabilities",
       "spice_validate",
@@ -43,6 +44,12 @@
       "tool": "spice_sensitivity",
       "analyses": [
         "dc"
+      ]
+    },
+    "tf": {
+      "tool": "spice_tf",
+      "analyses": [
+        "tf"
       ]
     },
     "parameterOverrides": {
