@@ -683,12 +683,14 @@ function parseDotCommand(
       const analysis = parseSensitivity(tokens, lineNumber);
       if (analysis.mode === 'dc') {
         circuit.addAnalysis('sens', {
+          ...(analysis.outputType ? { outputType: analysis.outputType } : {}),
           outputNode: analysis.outputNode,
           outputReferenceNode: analysis.outputReferenceNode,
           mode: 'dc',
         });
       } else {
         circuit.addAnalysis('sens', {
+          ...(analysis.outputType ? { outputType: analysis.outputType } : {}),
           outputNode: analysis.outputNode,
           outputReferenceNode: analysis.outputReferenceNode,
           mode: 'ac',

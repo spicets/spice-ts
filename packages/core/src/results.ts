@@ -347,6 +347,7 @@ export class SensitivityResult {
     public readonly frequencies: number[],
     public readonly entries: SensitivityEntry[],
     public readonly outputReferenceNode?: string,
+    public readonly outputType?: 'voltage' | 'current',
   ) {}
 }
 

@@ -222,7 +222,7 @@ R2 out 0 1k
   });
 
   it.each([
-    '.sens I(V1)',
+    '.sens I(V1,V2)',
     '.sens V(out) AC LOG 3 1 10',
     '.sens V(out) DC 1',
     '.sens V(out) TRAN 1u 1m',

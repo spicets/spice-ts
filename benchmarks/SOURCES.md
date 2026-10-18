@@ -1972,3 +1972,18 @@ and parameters. Contrary to the task's interpolation premise, this implementatio
 uses a sampled ring buffer, not linear interpolation (upstream marks that FIXME).
 spice-ts commits samples on accepted points instead of mutating history during
 Newton trials; solver-grid and trial-call differences remain measured parity losses.
+
+## Current-output sensitivity regression (#1390)
+
+`packages/core/src/analysis/sensitivity-current-output.ngspice.json` contains two
+original RC decks (repository MIT licence) and their supported per-parameter raw
+vectors generated with Homebrew ngspice-47. The DC deck extends the minimal
+reproducer in https://github.com/spicets/spice-ts/issues/1390 with `AC 1` on the
+source; the AC deck differs only in `.sens i(vin) ac dec 2 10 1k`.
+The test runs the exact stored netlists, without simulator-specific edits.
+Regenerate raw output with `SPICE_ASCIIRAWFILE=1 spice-heavy ngspice -b -r output.raw deck.cir`.
+Only parameters supported by the existing bounded sensitivity implementation are
+compared, not ngspice's additional model, geometry or temperature vectors.
+ngspice uses one-sided finite differences; the regression compares DC and complex
+AC derivatives at 1e-5 relative plus 1e-12 absolute tolerance and reports both
+maximum absolute error and nonzero-vector relative error.
