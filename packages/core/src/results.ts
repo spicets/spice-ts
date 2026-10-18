@@ -181,23 +181,40 @@ export class NoiseResult {
     public readonly outputNode: string,
     /** Input source named by the `.noise` command. */
     public readonly inputSource: string,
-    /** Output-referred voltage-noise density in V/sqrt(Hz). */
+    /** Output-referred voltage-noise density in V/sqrt(Hz), or V^2/Hz when squared. */
     public readonly outputNoiseDensity: number[],
     /**
      * Input-referred noise density: V/sqrt(Hz) for a voltage input source or
-     * A/sqrt(Hz) for a current input source.
+     * A/sqrt(Hz) for a current input source. With squared=true, V^2/Hz or A^2/Hz.
      */
     public readonly inputNoiseDensity: number[],
-    /** Integrated output-referred RMS noise in V, absent for a zero-width sweep. */
+    /** Integrated output noise in V (V^2 when squared), absent for a zero-width sweep. */
     public readonly integratedOutputNoise: number | undefined,
     /**
      * Integrated input-referred RMS noise: V for a voltage input source or A
-     * for a current input source; absent for a zero-width sweep.
+     * for a current input source (V^2 or A^2 when squared); absent for a zero-width sweep.
      */
     public readonly integratedInputNoise: number | undefined,
     /** Optional negative output node for a differential voltage result. */
     public readonly outputReferenceNode?: string,
+    /** `set sqrnoise`: power spectra and integrated power instead of RMS amplitudes. */
+    public readonly squared = false,
   ) {}
+}
+
+/** Convert only the output units; the solver and integration remain unchanged. */
+export function squaredNoiseOutput(noise: NoiseResult): NoiseResult {
+  if (noise.squared) return noise;
+  // ngspice-47 noisean.c:242 selects power output. nevalsrc.c:100-115
+  // computes power; cktnoise.c:110-126 skips sqrt for BOTH plot kinds.
+  return new NoiseResult(
+    noise.frequencies, noise.outputNode, noise.inputSource,
+    noise.outputNoiseDensity.map(value => value * value),
+    noise.inputNoiseDensity.map(value => value * value),
+    noise.integratedOutputNoise === undefined ? undefined : noise.integratedOutputNoise ** 2,
+    noise.integratedInputNoise === undefined ? undefined : noise.integratedInputNoise ** 2,
+    noise.outputReferenceNode, true,
+  );
 }
 
 /** Rectangular complex value of an S-parameter analysis vector. */

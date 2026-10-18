@@ -167,7 +167,6 @@ dc  v1 0 60 0.1
     ['set ngbehavior=ps\nop', 'set'],
     ['set color0=white ngbehavior=ps\nop', 'set'],
     ['set ngbehavior=ps color0=white\nop', 'set'],
-    ['set sqrnoise\nop', 'set'],
   ])('rejects a result-affecting form when the script runs: %s', async (control, command) => {
     await expect(simulate(`Unsupported\n${rc}\n.control\n${control}\n.endc`))
       .rejects.toThrow(`Unsupported .control command '${command}'`);
