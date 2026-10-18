@@ -6,17 +6,22 @@ import { Inductor } from '../inductor.js';
 import { VoltageSource } from '../voltage-source.js';
 import { resolveXspiceConnections, resolveXspiceParams, type XspiceConnection } from './connections.js';
 import { astate } from './astate-model.js';
+import { delay } from './delay-model.js';
 import { LIMITER_BEHAVIORS } from './limiter-models.js';
 import { DIGITAL_MODELS } from './digital-models.js';
+import { REAL_MODELS } from './real-models.js';
 import { XspiceEventNetwork, type EventPort } from './event-network.js';
 import {
   XSPICE_BEHAVIORS, type BehaviorFactory, type CodeModelBehavior, type XspiceNetlistProbe,
 } from './models.js';
 import { OSCILLATOR_BEHAVIORS } from './oscillator-models.js';
 import { OTA_BEHAVIORS, registerOtaNoise } from './ota-model.js';
+import { registerGainNoise } from './gain-noise.js';
 import { SWITCH_BEHAVIORS } from './switch-models.js';
 import { MAGNETIC_BEHAVIORS } from './magnetic-models.js';
+import { REACTIVE_IC_BEHAVIORS } from './reactive-ic-models.js';
 import { zener } from './zener.js';
+import { seegen } from './seegen.js';
 import { resolveSTransfer, STransferDevice } from './s-xfer.js';
 import { XSPICE_CODE_MODEL_SPECS, type XspiceParamValue } from './spec.js';
 import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xspice-device.js';
@@ -24,9 +29,14 @@ import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xsp
 /** Every implemented code model behavior keyed by lower-case ngspice Spice_Model_Name. */
 const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, BehaviorFactory>([
   ['astate', astate],
+  ['delay', delay],
+  ...REACTIVE_IC_BEHAVIORS,
   ...XSPICE_BEHAVIORS, ...LIMITER_BEHAVIORS, ...OSCILLATOR_BEHAVIORS, ...SWITCH_BEHAVIORS, ...MAGNETIC_BEHAVIORS, ...OTA_BEHAVIORS,
   ['zener', zener],
+  ['seegen', seegen],
 ]);
+
+const EVENT_MODELS = new Map([...DIGITAL_MODELS, ...REAL_MODELS]);
 
 /** An A instance whose connections and parameters were resolved against its code model. */
 export interface PreparedXspiceInstance {
@@ -41,11 +51,11 @@ export interface PreparedXspiceInstance {
 }
 
 /**
- * Default unidirectional bridges, ngspice-47 src/xspice/evt/evtcheck_nodes.c
+ * Default automatic bridges, ngspice-47 src/xspice/evt/evtcheck_nodes.c
  * lines 466-473 (direction), 515-519 (3.3 V fallback), 635-644 (ADC/DAC).
  * Analog and event nodes retain the same name but occupy separate networks.
- * Family/custom bridges and bidi_bridge are not implemented; reject rather
- * than silently substituting an ideal DAC for bidirectional electrical I/O.
+ * Mixed-direction nodes use bidi_bridge (evtcheck_nodes.c:644-647), not an
+ * ideal voltage DAC. Family/custom bridges remain unsupported.
  */
 export function implicitXspiceBridges(
   instances: readonly PreparedXspiceInstance[],
@@ -73,16 +83,19 @@ export function implicitXspiceBridges(
   const bridges: PreparedXspiceInstance[] = [];
   let serial = 0;
   for (const node of nodes.values()) {
-    if (node.family || (node.input && node.output)) {
-      throw new InvalidCircuitError(`XSPICE mixed node '${node.name}' requires an unsupported ${node.family ? 'family-specific' : 'bidirectional'} automatic bridge`);
+    if (node.family) {
+      throw new InvalidCircuitError(`XSPICE mixed node '${node.name}' requires an unsupported family-specific automatic bridge`);
     }
     let name: string;
     do { name = `auto_bridge${serial++}`; } while (usedNames.has(name.toUpperCase()));
     usedNames.add(name.toUpperCase());
-    const model = parseXspiceModelCard(node.output
+    const bidi = node.input && node.output;
+    const model = parseXspiceModelCard(bidi
+      ? `.model ${name} bidi_bridge(out_high=${vcc} in_low=${vcc / 2} in_high=${vcc / 2})`
+      : node.output
       ? `.model ${name} dac_bridge(out_low=0 out_high=${vcc})`
       : `.model ${name} adc_bridge(in_low=${vcc / 2} in_high=${vcc / 2})`, 0);
-    const card = parseXspiceInstance(`${name} [${node.name}] [${node.name}] ${name}`, 0);
+    const card = parseXspiceInstance(`${name} [${node.name}] [${node.name}] ${bidi ? 'null ' : ''}${name}`, 0);
     bridges.push(prepareXspiceInstance(card, model, false, ground));
   }
   return bridges;
@@ -112,7 +125,7 @@ export function prepareXspiceInstance(
   const digitalNodes: string[] = [];
   for (const connection of connections) {
     for (const port of connection.ports) {
-      if (port.type === 'd') {
+      if (port.type === 'd' || port.type === 'real') {
         digitalNodes.push(port.positive!);
         continue;
       }
@@ -136,23 +149,25 @@ export interface XspiceEventNetworkBuild {
 export function buildXspiceEventNetwork(
   instances: readonly PreparedXspiceInstance[],
 ): XspiceEventNetworkBuild | undefined {
-  const digital = instances.filter(instance => DIGITAL_MODELS.has(instance.model.codeModel));
+  const digital = instances.filter(instance => EVENT_MODELS.has(instance.model.codeModel));
   if (digital.length === 0) return undefined;
   const network = new XspiceEventNetwork();
   const analogHalves = new Map<PreparedXspiceInstance, CodeModelBehavior>();
   for (const prepared of digital) {
     const { card, model, connections, params } = prepared;
-    const digitalModel = DIGITAL_MODELS.get(model.codeModel)!(params, { connections, given: new Set(model.params.keys()) });
+    const digitalModel = EVENT_MODELS.get(model.codeModel)!(params, { connections, given: new Set(model.params.keys()) });
     const inputs: EventPort[] = [];
     const outputs: EventPort[] = [];
     let hybrid = false;
     for (const connection of connections) {
       for (const port of connection.ports) {
-        if (port.type !== 'd') {
+        if (port.type !== 'd' && port.type !== 'real') {
           hybrid = true;
           continue;
         }
-        (connection.direction === 'in' ? inputs : outputs).push({ node: port.positive!, invert: port.invert === true });
+        const eventPort = { node: port.positive!, type: port.type, invert: port.invert === true };
+        if (connection.direction !== 'out') inputs.push(eventPort);
+        if (connection.direction !== 'in') outputs.push(eventPort);
       }
     }
     const view = network.addInstance({ name: card.name, behavior: digitalModel.event, inputs, outputs, hybrid });
@@ -173,12 +188,12 @@ export function createXspiceDevice(
   analogHalf?: CodeModelBehavior,
 ): XspiceDevice | undefined {
   const { card, model, connections, params } = prepared;
-  if (DIGITAL_MODELS.has(model.codeModel) && analogHalf === undefined) return undefined;
+  if (EVENT_MODELS.has(model.codeModel) && analogHalf === undefined) return undefined;
   const inputs: XspiceInputPort[] = [];
   const outputs: XspiceOutputPort[] = [];
   connections.forEach((connection, c) => {
     connection.ports.forEach((port, p) => {
-      if (port.type === 'd') return;
+      if (port.type === 'd' || port.type === 'real') return;
       const positive = port.positive === undefined ? -1 : resolveNode(port.positive);
       const negative = port.negative === undefined ? -1 : resolveNode(port.negative);
       if (port.type === 'h' || port.type === 'hd') {
@@ -214,15 +229,17 @@ export function createXspiceDevice(
   const firstPort = connections[0]?.ports[0];
   const metered = firstPort?.positive === undefined || firstPort.type === 'd' ? -1 : resolveNode(firstPort.positive);
   const netlist = new NetlistProbe(metered);
-  const behavior = analogHalf ?? BEHAVIORS.get(model.codeModel)!(params, { connections, netlist });
+  // delay distinguishes PARAM_NULL from the ifspec defaults (buffer_size/delmax).
+  const behavior = analogHalf ?? BEHAVIORS.get(model.codeModel)!(model.codeModel === 'delay' ? model.params : params, { connections, netlist });
   // astate stores samples, not integrated charge: node LTE would change the history's time grid.
   // Neither magnetic model calls cm_analog_integrate (lcouple's fake call is commented out).
-  const untruncated = analogHalf !== undefined || model.codeModel === 'astate' || model.codeModel === 'lcouple' || model.codeModel === 'core';
+  const untruncated = analogHalf !== undefined || model.codeModel === 'astate' || model.codeModel === 'delay' || model.codeModel === 'lcouple' || model.codeModel === 'core';
   const device = new XspiceDevice(
     card.name, model.codeModel, inputs, outputs, behavior, model.warnings, untruncated,
   );
   netlistProbes.set(device, netlist);
   if (model.codeModel === 'ota') registerOtaNoise(device, params, inputs);
+  if (model.codeModel === 'gain') registerGainNoise(device, params, inputs[0], outputs[0]);
   return device;
 }
 
@@ -333,15 +350,6 @@ export function assertXspiceAnalyses(
       if (currentOutput && (analyses.includes('ac') || analyses.includes('noise'))) {
         throw new InvalidCircuitError(
           `XSPICE int instance '${instance.card.name}' does not support a current output in .${analyses.includes('ac') ? 'ac' : 'noise'}`,
-        );
-      }
-    }
-    if (codeModel === 'gain' && analyses.includes('noise')) {
-      const noisy = ['noise_voltage', 'noise_current']
-        .some(name => (instance.params.get(name)?.[0] as number | undefined) !== 0);
-      if (noisy) {
-        throw new InvalidCircuitError(
-          `XSPICE gain instance '${instance.card.name}' has noise_voltage/noise_current; gain noise sources are not supported in .noise`,
         );
       }
     }

@@ -88,6 +88,29 @@ describe('evaluateExpression', () => {
   });
 
   describe('functions', () => {
+    it.each([
+      [-100, -98], [-10, -8], [0.5, 2.5], [2, 4], [6, 6],
+      [12, 9], [22, 19], [100, 97],
+    ])('evaluates pwl at %s with ngspice end-segment extrapolation', (x, value) => {
+      expect(evaluateExpression('pwl(x,-10,-8,2,4,12,9,22,19)', { x })).toBe(value);
+    });
+
+    it('evaluates pwl arguments and resolves its name case-insensitively', () => {
+      expect(evaluateExpression('PWL(x*2,0,1,2,1+4)', { x: 0.5 })).toBe(3);
+    });
+
+    it.each(['pwl(0)', 'pwl(0,0,1)', 'pwl(0,0,1,2)'])(
+      'rejects an incomplete pwl table: %s', expression => {
+        expect(() => evaluateExpression(expression, {})).toThrow('at least two pairs');
+      },
+    );
+
+    it.each(['pwl(0,0,1,0,2)', 'pwl(0,1,1,0,2)'])(
+      'rejects nonascending pwl points: %s', expression => {
+        expect(() => evaluateExpression(expression, {})).toThrow('strictly ascending');
+      },
+    );
+
     it('evaluates sqrt', () => {
       expect(evaluateExpression('sqrt(4)', {})).toBe(2);
     });

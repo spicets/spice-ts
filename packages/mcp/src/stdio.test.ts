@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import type { SimulationRequestV1, SimulationResultV1 } from '@spice-ts/protocol';
+import type { SimulationRequestV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -31,10 +31,22 @@ describe('stdio transport', () => {
 
     const listed = await client.listTools();
     expect(listed.tools.map(tool => tool.name)).toEqual([
-      'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_measure',
-      'spice_dc_metrics', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel',
+      'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_noise_metrics', 'spice_measure',
+      'spice_dc_metrics', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel',
     ]);
     expect(listed.tools.every(tool => tool.inputSchema.type === 'object')).toBe(true);
+    expect(await client.callTool({ name: 'spice_noise_metrics', arguments: {
+      request: { apiVersion: '1', input: { format: 'spice', source: 'V1 in 0 AC 1\nR1 in out 1k\nC1 out 0 1n\n.noise V(out) V1 dec 20 1 1e9' } },
+      spotFrequenciesHz: [10],
+    } })).toMatchObject({ structuredContent: {
+      inputUnit: 'V', integratedOutputNoiseVrms: expect.any(Number),
+      spots: [{ frequencyHz: 10, outOfRange: false, outputNoiseVPerSqrtHz: expect.any(Number) }],
+    } });
+
+    expect(await client.callTool({ name: 'spice_compare', arguments: {
+      reference: { x: [0, 1], signals: { out: [0, 1] } },
+      actual: { x: [0, 1], signals: { out: [0, 1] } }, signals: ['out'],
+    } })).toMatchObject({ structuredContent: { pass: true, comparisons: [{ maxAbsError: 0 }] } });
 
     const response = await client.callTool({ name: 'spice_capabilities', arguments: {} });
     expect(response).toMatchObject({

@@ -10,10 +10,12 @@ import type { ControlSourceLine } from './source.js';
 import { setArguments, splitWords, unquote } from './set-arguments.js';
 import { validatePreSet } from './pre-set.js';
 import {
-  ExpressionError, UnsupportedExpressionFeature, evaluateVectorExpression, parseControlNumber, parseVectorExpression,
+  ExpressionError, UnsupportedExpressionFeature, evaluateVectorExpression, parseControlNumber, parseVectorExpression, splitVectorExpressions,
   type ExpressionEnvironment, type ExpressionNode,
 } from './vector-expression.js';
 import { ngspiceFft, ngspiceLinearInterpolate, ngspicePsd, spectrumWindow } from './spectrum.js';
+import { ngspiceFourier } from './fourier.js';
+import type { FourierResult } from '../../results.js';
 import {
   complexVector, formatVector, isTrue, realVector, renamed, scalar, type ControlVector,
 } from './vector.js';
@@ -41,9 +43,9 @@ export interface ControlHostRun {
  */
 export interface ControlHost {
   /** Solve one analysis given as the tokens of its dot card (`['.TRAN', '1n', '1u']`). */
-  runAnalysis(dotCardTokens: string[], line: ControlSourceLine): ControlHostRun;
+  runAnalysis(dotCardTokens: string[], line: ControlSourceLine, saves: readonly string[]): ControlHostRun;
   /** Solve the deck's own dot-card analyses (ngspice `run`). */
-  runDeck(line: ControlSourceLine): ControlHostRun[];
+  runDeck(line: ControlSourceLine, saves: readonly string[]): ControlHostRun[];
   /** `alter`: set an instance parameter (`undefined` = the device's primary value). */
   alterInstance(device: string, parameter: string | undefined, values: number[], line: ControlSourceLine): void;
   /** `altermod`: set a `.model` parameter. */
@@ -67,6 +69,7 @@ export interface ControlScriptOutcome {
   measurements: MeasurementResult[];
   /** Non-fatal warnings ngspice-47 prints while running the script (batch-mode `edit`). */
   warnings: string[];
+  fourier: FourierResult[];
 }
 
 interface Plot {
@@ -114,7 +117,6 @@ const RESULT_AFFECTING_VARIABLES: Record<string, string> = {
   xtrtol: 'XSPICE truncation tolerance is not implemented',
   nosubckt: 'disabling subcircuit expansion is not implemented',
   dpolydegree: 'polynomial interpolation settings are not implemented',
-  polydegree: 'polynomial interpolation settings are not implemented',
   polysteps: 'polynomial interpolation settings are not implemented',
   interp: 'raw-file interpolation is not implemented',
   strict_errorhandling: 'ngspice error-handling modes are not implemented',
@@ -156,6 +158,8 @@ class ControlInterpreter {
   private readonly output: string[] = [];
   private readonly measurements: MeasurementResult[] = [];
   private readonly warnings: string[] = [];
+  private readonly fourierResults: FourierResult[] = [];
+  private fourierCount = 0;
   /** inpcom.c `replaceno`: numbers the `vexprint<n>` vectors of `meas` operands. */
   private measureExpressionCount = 1;
   /**
@@ -182,9 +186,9 @@ class ControlInterpreter {
     } catch (signal) {
       if (!(signal instanceof QuitSignal)) throw signal;
       if (signal.status !== 0) throw new ControlScriptExitError(signal.status, signal.line.lineNumber, this.output);
-      return { runs: this.runs, output: this.output, quit: true, measurements: this.measurements, warnings: this.warnings };
+      return { runs: this.runs, output: this.output, quit: true, measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
     }
-    return { runs: this.runs, output: this.output, quit: false, measurements: this.measurements, warnings: this.warnings };
+    return { runs: this.runs, output: this.output, quit: false, measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
   }
 
   // -------------------------------------------------------------------------
@@ -262,7 +266,7 @@ class ControlInterpreter {
     switch (name) {
       case 'op': case 'dc': case 'ac': case 'tran': case 'noise': case 'sp': case 'sens': {
         const tokens = tokenizeNetlist(text)[0]?.tokens ?? [];
-        const run = this.host.runAnalysis([`.${name.toUpperCase()}`, ...tokens.slice(1)], line);
+        const run = this.host.runAnalysis([`.${name.toUpperCase()}`, ...tokens.slice(1)], line, [...this.savedDeviceVectors]);
         this.recordRun(run);
         this.transientTask = run.directive.type === 'tran' ? run.directive : undefined;
         return;
@@ -272,7 +276,7 @@ class ControlInterpreter {
           throw new UnsupportedControlCommandError('run', 'writing a raw file from run is not supported', line.lineNumber, line.text);
         }
         {
-          const runs = this.host.runDeck(line);
+          const runs = this.host.runDeck(line, [...this.savedDeviceVectors]);
           for (const run of runs) this.recordRun(run);
           this.transientTask = runs.map(run => run.directive).find(
             (directive): directive is TransientAnalysis => directive.type === 'tran',
@@ -314,12 +318,21 @@ class ControlInterpreter {
         return;
       case 'setplot': return this.setplot(rest);
       case 'destroy': return this.destroy(rest);
+      case 'remzerovec':
+        // ngspice-47 frontend/postcoms.c:77-92 (com_remzerovec) marks only
+        // current-plot zero-length vectors for vec_gc; arguments are ignored.
+        for (const [name, vector] of this.current.vectors) {
+          if (vector.re.length === 0) this.current.vectors.delete(name);
+        }
+        return;
       case 'compose': return this.compose(rest, line);
       case 'strcmp': return this.strcmp(rest, line);
       case 'meas': return this.meas(rest, line);
       case 'linearize': return this.linearize(rest, line);
+      case 'cutout': return this.cutout(rest);
       case 'fft': return this.spectrum('fft', rest, line);
       case 'psd': return this.spectrum('psd', rest, line);
+      case 'fourier': return this.fourier(rest, line);
       case 'setscale': {
         if (rest === '') return;
         this.current.scale = this.vector(rest, line);
@@ -758,6 +771,59 @@ class ControlInterpreter {
       if (!values) fail(`can't interpolate ${vector.name}`);
       plot.vectors.set(key, { name: vector.name, re: values!, scale: time });
     }
+    this.exportTransientPlot(old, plot);
+  }
+
+  /** ngspice-47 src/frontend/linear.c:173-290 (com_cutout).
+   * Bounds default to scale endpoints (202-229); explicit bounds use the first
+   * strictly greater sample, capped at length-1. The stop index is exclusive,
+   * even for the default/full-copy case (254-264). No interpolation occurs.
+   */
+  private cutout(rest: string): void {
+    const old = this.current;
+    const scale = old.scale;
+    const warn = (message: string): void => { this.warnings.push(`cutout: ${message}`); };
+    if (!scale || old.vectors.size === 0) return warn('no vectors available');
+    if (scale.im) return warn(`non-real time scale for ${old.name}`);
+    if (!old.name.startsWith('tran')) return warn('plot must be a transient analysis');
+    const length = scale.re.length;
+    if (length === 0) return warn('no data in vector');
+    const start = old.vectors.get('cut-tstart');
+    const stop = old.vectors.get('cut-tstop');
+    const tstart = start?.re[0] ?? scale.re[0];
+    const tstop = stop?.re[0] ?? scale.re[length - 1];
+    const after = (bound: number): number => {
+      let index = 0;
+      while (index < length - 1 && scale.re[index] <= bound) index++;
+      return index;
+    };
+    const first = start ? after(tstart) : 0;
+    const last = stop ? after(tstop) : length - 1;
+    if (tstop - tstart <= 0 || last - first <= 0) {
+      return warn(`bad parameters -- start = ${tstart}, stop = ${tstop}`);
+    }
+    const time = realVector(scale.name, scale.re.slice(first, last));
+    const plot = this.newPlot('tran', `${old.title} (${start || stop ? 'cut out' : 'copy'})`, time, old.unproducedSaves);
+    this.current = plot;
+    const names = splitWords(rest);
+    const sources: [string, ControlVector][] = names.length > 0
+      ? names.flatMap(name => {
+        const found = this.plotVector(old, name);
+        if (!found) warn(`no such vector ${name}`);
+        return found ? [found] : [];
+      })
+      : [...old.vectors];
+    for (const [key, vector] of sources) {
+      if (vector === scale || vector.re.length < last) continue;
+      plot.vectors.set(key, {
+        name: vector.name, re: vector.re.slice(first, last),
+        ...(vector.im ? { im: vector.im.slice(first, last) } : {}), scale: time,
+      });
+    }
+    this.exportTransientPlot(old, plot);
+  }
+
+  private exportTransientPlot(old: Plot, plot: Plot): void {
     // The plot exists in the interpreter, but consumers of simulate() can only
     // see control.runs. Export the transformed circuit vectors as a separate
     // transient result, not the old adaptive solve under a new plot identity.
@@ -775,19 +841,57 @@ class ControlInterpreter {
       plot: plot.name, analysis: 'tran',
       result: {
         transient: new TransientResult(
-          Array.from(grid), copy(transient?.voltages.keys() ?? [], false), copy(transient?.currents.keys() ?? [], true),
+          Array.from(plot.scale!.re), copy(transient?.voltages.keys() ?? [], false), copy(transient?.currents.keys() ?? [], true),
         ),
         warnings: [],
       },
     });
   }
 
-  /**
-   * `fft vec ...` (com_fft) and `psd npts vec ...` (com_psd), ngspice-47 with
-   * FFTW: a new `sp<n>` plot with a `frequency` scale and one complex vector
-   * per input, under the input's name. The window is `specwindow` (default
-   * `hanning`) of order `specwindoworder` (default and minimum 2).
-   */
+  /** ngspice-47 frontend/fourier.c:69-163: last-period grid and sine-reference table. */
+  private fourier(rest: string, line: ControlSourceLine): void {
+    const fail = (message: string): never => { throw new ControlScriptError(`fourier: ${message}`, line.lineNumber, line.text); };
+    const frequency = /^\s*(\S+)/.exec(rest)?.[1] ?? '';
+    const fundamental = parseControlNumber(frequency ?? '');
+    if (fundamental === undefined || !Number.isFinite(fundamental) || fundamental <= 0) fail('bad fundamental freq');
+    const text = rest.trimStart().slice(frequency.length).trim();
+    if (!text) fail('missing vector');
+    const operands = (() => {
+      try { return splitVectorExpressions(text); }
+      catch (error) { throw this.wrap(error, line); }
+    })();
+    const time = this.current.scale;
+    if (!time || time.im || time.name !== 'time') fail('fourier needs real time scale');
+    const setting = (name: string, fallback: number, minimum: number): number => {
+      const value = Math.trunc(Number(this.variables.get(name)));
+      return Number.isFinite(value) && value >= minimum ? value : fallback;
+    };
+    const nfreqs = setting('nfreqs', 10, 1);
+    const degree = setting('polydegree', 1, 0);
+    const gridSize = setting('fourgridsize', 200, 1);
+    const periods = setting('nperiods', 1, 1);
+    const call = ++this.fourierCount;
+    operands.forEach((operand, index) => {
+      const vector = this.evaluate(operand, line);
+      if (vector.im) fail(`${operand} isn't real!`);
+      if (vector.re.length !== time!.re.length) fail("lengths don't match");
+      const result = (() => {
+        try {
+          return ngspiceFourier(operand, time!.re, vector.re, fundamental!, nfreqs, gridSize, degree, periods);
+        } catch (error) { return fail(error instanceof Error ? error.message : String(error)); }
+      })();
+      this.fourierResults.push(result);
+      this.output.push(`Fourier analysis for ${operand}:`,
+        `  No. Harmonics: ${nfreqs}, THD: ${result.thd} %, Gridsize: ${result.gridSize}, Interpolation Degree: ${degree}, No. Periods: ${periods}`,
+        'Harmonic Frequency Magnitude Phase Norm. Mag Norm. Phase',
+        ...result.harmonics.map(row => [row.harmonic, row.frequency, row.magnitude, row.phase, row.normalizedMagnitude, row.normalizedPhase].join(' ')));
+      if (!this.variables.has('fournosave')) {
+        const name = `thd${call}${index + 1}`;
+        this.current.vectors.set(name, scalar(result.thd, name));
+      }
+    });
+  }
+
   private spectrum(command: 'fft' | 'psd', rest: string, line: ControlSourceLine): void {
     const fail = (message: string): never => {
       throw new ControlScriptError(`${command}: ${message}`, line.lineNumber, line.text);
@@ -918,6 +1022,19 @@ class ControlInterpreter {
         const scale = realVector(scaleName, sweep ? sweep.sweepValues : []);
         const plot = this.newPlot('dc', 'DC transfer characteristic', scale, saves);
         if (sweep) {
+          for (const [name, values] of sweep.deviceVectors) plot.vectors.set(name, realVector(name, values, scale));
+          // ngspice 3ef069f: frontend/outitf.c:837-861 samples saved special
+          // parameters per point; frontend/vectors.c:613-640 looks up that plot
+          // vector before falling back to a live scalar device query. Use the
+          // sweep values, not the source's restored value after the sweep.
+          for (const [name, values] of [
+            [source, sweep.sweepValues],
+            [directive.secondary?.source.toLowerCase(), sweep.secondarySweepValues],
+          ] as const) {
+            if (!name || !values || !/^[vi]/.test(name)) continue;
+            const saved = `@${name}[dc]`;
+            if (saves.has(saved)) plot.vectors.set(saved, realVector(saved, values, scale));
+          }
           for (const [node, values] of sweep.voltages) plot.vectors.set(node.toLowerCase(), realVector(node, values, scale));
           for (const [branch, values] of sweep.currents) {
             plot.vectors.set(`${branch.toLowerCase()}#branch`, realVector(`${branch}#branch`, values, scale));
@@ -930,6 +1047,7 @@ class ControlInterpreter {
         const scale = realVector('time', transient ? transient.time : []);
         const plot = this.newPlot('tran', 'Transient Analysis', scale, saves);
         if (transient) {
+          for (const [name, values] of transient.deviceVectors) plot.vectors.set(name, realVector(name, values, scale));
           for (const [node, values] of transient.voltages) plot.vectors.set(node.toLowerCase(), realVector(node, values, scale));
           for (const [branch, values] of transient.currents) {
             plot.vectors.set(`${branch.toLowerCase()}#branch`, realVector(`${branch}#branch`, values, scale));

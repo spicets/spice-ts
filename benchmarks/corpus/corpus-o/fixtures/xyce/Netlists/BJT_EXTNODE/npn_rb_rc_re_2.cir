@@ -1,0 +1,31 @@
+NPN Bipolar Transistor Circuit Netlist
+**************************************************************
+VCC  4 0 DC 12V
+RC 3 4 2K
+RB 4 5 377K
+* Zero volt sources used as ammeters to measure the
+* base and collector currents, respectively
+VMON1 5 1 0
+VMON2 3 2 0
+Q 2 1 0 0 QN2222
+.MODEL NBJT NPN (BF=100)
+
+.MODEL QN2222 NPN (LEVEL=1
+*Basic BJT model parameters for the MMBT2222
++ IS=1.153E-14          BF=159.4        NF=0.9889       VAF=190.4
++ IKF=0.455             ISE=2.35E-14    NE=1.715        BR=6.582
++ NR=0.9861             VAR=18.07       IKR=0.1879      ISC=1.393E-13
++ NC=1.743              RB=20.716       IRB=0.00        RBM=1.21
++ RE=0.0630957          RC=1.47182      CJE=1.967E-11   VJE=0.7248
++ MJE=0.3293            TF=2.69E-11     XTF=3.218       VTF=0.3664
++ ITF=0.02922           PTF=0           CJC=5.51E-12    VJC=0.4736
++ MJC=0.3053            XCJC=1          TR=0            CJS=0
++ VJS=0.75              MJS=0           XTB=1.5         EG=1.11
++ XTI=3                 KF=0            AF=1            FC=0.5
++ TNOM=27)
+
+
+.DC VCC 1 12 1
+.PRINT DC V(4) I(VMON1) I(VMON2) V(1) V(2) 
+
+.END

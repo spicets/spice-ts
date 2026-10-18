@@ -30,6 +30,7 @@ export function solveDCOperatingPoint(
 ): { result: DCResult; assembler: MNAAssembler; convergence: ConvergenceTelemetry } {
   const { nodeCount, branchCount, nodeNames, branchNames } = compiled;
   const devices = compiled.devices;
+  for (const device of devices) device.setTransientRampTime?.(sourceMode === 'transient' ? options.rampTime : 0);
   const assembler = new MNAAssembler(nodeCount, branchCount, {
     deviceGmin: options.deviceGmin,
     variables: createMatrixVariableIdentities(nodeNames, branchNames),

@@ -1,0 +1,1016 @@
+{
+  "go_no_go": "go",
+  "base_sha": "d101a6726eb3eb4627cf9d1586332e5475ad4034",
+  "command": "spice-heavy /usr/bin/time -p node benchmarks/performance/dff-1310.mjs 1",
+  "cpu_scope": "Whole node process, user+sys; queue excluded; timer precision 0.01 s. Includes startup and waveform hashing. Simulation wall seconds are the harness timer; whole-process wall also retained.",
+  "pair_orders": [
+    [
+      "base",
+      "head"
+    ],
+    [
+      "head",
+      "base"
+    ],
+    [
+      "base",
+      "head"
+    ],
+    [
+      "head",
+      "base"
+    ],
+    [
+      "base",
+      "head"
+    ],
+    [
+      "head",
+      "base"
+    ],
+    [
+      "base",
+      "head"
+    ],
+    [
+      "head",
+      "base"
+    ],
+    [
+      "base",
+      "head"
+    ],
+    [
+      "head",
+      "base"
+    ]
+  ],
+  "discarded_runs": 0,
+  "metrics": {
+    "wall": {
+      "base_seconds": [
+        17.185925292,
+        16.855194583,
+        16.373358167,
+        15.799886458000001,
+        15.779208667,
+        15.796325625,
+        15.827938458,
+        16.117460584,
+        15.955243,
+        20.130070042
+      ],
+      "head_seconds": [
+        7.88509975,
+        10.753005291,
+        7.802007917,
+        7.843492832999999,
+        7.816862875,
+        7.846522708,
+        7.754459042000001,
+        7.839588667,
+        7.822718666999999,
+        8.498626125000001
+      ],
+      "base_median": 16.036351791999998,
+      "head_median": 7.84154075,
+      "median_change_percent": -51.1014671434691,
+      "pairwise_losses": 0
+    },
+    "cpu": {
+      "base_seconds": [
+        17.68,
+        17.52,
+        16.869999999999997,
+        16.29,
+        16.27,
+        16.31,
+        16.33,
+        16.63,
+        16.43,
+        20.81
+      ],
+      "head_seconds": [
+        8.32,
+        11.36,
+        8.23,
+        8.26,
+        8.25,
+        8.28,
+        8.2,
+        8.28,
+        8.26,
+        9.03
+      ],
+      "base_median": 16.53,
+      "head_median": 8.27,
+      "median_change_percent": -49.96975196612221,
+      "pairwise_losses": 0
+    },
+    "process_wall": {
+      "base_seconds": [
+        17.43,
+        17.13,
+        16.61,
+        16.04,
+        16.02,
+        16.04,
+        16.07,
+        16.36,
+        16.19,
+        20.42
+      ],
+      "head_seconds": [
+        8.13,
+        11.2,
+        8.04,
+        8.08,
+        8.05,
+        8.09,
+        8.0,
+        8.08,
+        8.06,
+        8.83
+      ],
+      "base_median": 16.275,
+      "head_median": 8.08,
+      "median_change_percent": -50.35330261136713,
+      "pairwise_losses": 0
+    }
+  },
+  "runs": [
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 17.185925292,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 0,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "base",
+      "processCpuSeconds": 17.68,
+      "processUserSeconds": 17.55,
+      "processSysSeconds": 0.13,
+      "processWallSeconds": 17.43
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 7.88509975,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 0,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "head",
+      "processCpuSeconds": 8.32,
+      "processUserSeconds": 8.24,
+      "processSysSeconds": 0.08,
+      "processWallSeconds": 8.13
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 10.753005291,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 1,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "head",
+      "processCpuSeconds": 11.36,
+      "processUserSeconds": 11.25,
+      "processSysSeconds": 0.11,
+      "processWallSeconds": 11.2
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 16.855194583,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 1,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "base",
+      "processCpuSeconds": 17.52,
+      "processUserSeconds": 17.37,
+      "processSysSeconds": 0.15,
+      "processWallSeconds": 17.13
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 16.373358167,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 2,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "base",
+      "processCpuSeconds": 16.869999999999997,
+      "processUserSeconds": 16.74,
+      "processSysSeconds": 0.13,
+      "processWallSeconds": 16.61
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 7.802007917,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 2,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "head",
+      "processCpuSeconds": 8.23,
+      "processUserSeconds": 8.15,
+      "processSysSeconds": 0.08,
+      "processWallSeconds": 8.04
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 7.843492832999999,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 3,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "head",
+      "processCpuSeconds": 8.26,
+      "processUserSeconds": 8.18,
+      "processSysSeconds": 0.08,
+      "processWallSeconds": 8.08
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 15.799886458000001,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 3,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "base",
+      "processCpuSeconds": 16.29,
+      "processUserSeconds": 16.16,
+      "processSysSeconds": 0.13,
+      "processWallSeconds": 16.04
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 15.779208667,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 4,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "base",
+      "processCpuSeconds": 16.27,
+      "processUserSeconds": 16.13,
+      "processSysSeconds": 0.14,
+      "processWallSeconds": 16.02
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 7.816862875,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 4,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "head",
+      "processCpuSeconds": 8.25,
+      "processUserSeconds": 8.16,
+      "processSysSeconds": 0.09,
+      "processWallSeconds": 8.05
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 7.846522708,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 5,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "head",
+      "processCpuSeconds": 8.28,
+      "processUserSeconds": 8.2,
+      "processSysSeconds": 0.08,
+      "processWallSeconds": 8.09
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 15.796325625,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 5,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "base",
+      "processCpuSeconds": 16.31,
+      "processUserSeconds": 16.15,
+      "processSysSeconds": 0.16,
+      "processWallSeconds": 16.04
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 15.827938458,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 6,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "base",
+      "processCpuSeconds": 16.33,
+      "processUserSeconds": 16.18,
+      "processSysSeconds": 0.15,
+      "processWallSeconds": 16.07
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 7.754459042000001,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 6,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "head",
+      "processCpuSeconds": 8.2,
+      "processUserSeconds": 8.11,
+      "processSysSeconds": 0.09,
+      "processWallSeconds": 8.0
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 7.839588667,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 7,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "head",
+      "processCpuSeconds": 8.28,
+      "processUserSeconds": 8.18,
+      "processSysSeconds": 0.1,
+      "processWallSeconds": 8.08
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 16.117460584,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 7,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "base",
+      "processCpuSeconds": 16.63,
+      "processUserSeconds": 16.49,
+      "processSysSeconds": 0.14,
+      "processWallSeconds": 16.36
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 15.955243,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 8,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "base",
+      "processCpuSeconds": 16.43,
+      "processUserSeconds": 16.31,
+      "processSysSeconds": 0.12,
+      "processWallSeconds": 16.19
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 7.822718666999999,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 8,
+      "order": [
+        "base",
+        "head"
+      ],
+      "version": "head",
+      "processCpuSeconds": 8.26,
+      "processUserSeconds": 8.17,
+      "processSysSeconds": 0.09,
+      "processWallSeconds": 8.06
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 8.498626125000001,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 9,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "head",
+      "processCpuSeconds": 9.03,
+      "processUserSeconds": 8.95,
+      "processSysSeconds": 0.08,
+      "processWallSeconds": 8.83
+    },
+    {
+      "run": 0,
+      "node": "v22.23.1",
+      "tstop": "10n",
+      "fixtureSha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+      "seconds": 20.130070042,
+      "rows": 40545,
+      "outputSha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+      "convergence": {
+        "dc": {
+          "newtonIterations": 31,
+          "acceptedSolves": 1,
+          "rejectedSolves": 0,
+          "sourceStepAttempts": 0,
+          "sourceStepFailures": 0,
+          "gminStepAttempts": 0,
+          "gminStepFailures": 0,
+          "failure": null
+        },
+        "transient": {
+          "acceptedSteps": 40544,
+          "rejectedSteps": 0,
+          "newtonIterations": 85851,
+          "nrRetries": 0,
+          "lteRetries": 0,
+          "minimumAcceptedTimestep": 2.5e-15,
+          "failure": null
+        }
+      },
+      "pair": 9,
+      "order": [
+        "head",
+        "base"
+      ],
+      "version": "base",
+      "processCpuSeconds": 20.81,
+      "processUserSeconds": 20.63,
+      "processSysSeconds": 0.18,
+      "processWallSeconds": 20.42
+    }
+  ],
+  "oracle": {
+    "points": 9600,
+    "comparisons": 2016000,
+    "worst_absolute_error": 0,
+    "worst_relative_error": 0,
+    "relative_tolerance": 1e-12,
+    "absolute_floor": 1e-42
+  },
+  "waveform": {
+    "sha256": "361251b58101652f07fbdc64abdfb3ec8c8a941f92618420b32a2abc2a9a43f7",
+    "fixture_sha256": "d811ecfa0f370d281fb35729ca3177e738fe034621d9b2909765d9d70f527cc6",
+    "rows": 40545,
+    "convergence": {
+      "dc": {
+        "newtonIterations": 31,
+        "acceptedSolves": 1,
+        "rejectedSolves": 0,
+        "sourceStepAttempts": 0,
+        "sourceStepFailures": 0,
+        "gminStepAttempts": 0,
+        "gminStepFailures": 0,
+        "failure": null
+      },
+      "transient": {
+        "acceptedSteps": 40544,
+        "rejectedSteps": 0,
+        "newtonIterations": 85851,
+        "nrRetries": 0,
+        "lteRetries": 0,
+        "minimumAcceptedTimestep": 2.5e-15,
+        "failure": null
+      }
+    }
+  },
+  "profile": {
+    "base": {
+      "total": 4122,
+      "dual_evaluate": 2554,
+      "evaluate_wrapper": 0,
+      "evaluateScalar": 0
+    },
+    "head": {
+      "total": 2034,
+      "dual_evaluate": 0,
+      "evaluate_wrapper": 756,
+      "evaluateScalar": 743
+    }
+  },
+  "features_scalar": [
+    "transport ITF/ITR and qb",
+    "ideal/nonideal junction currents",
+    "BE/BC/substrate depletion and diffusion charges",
+    "avalanche",
+    "RCI/RBI/RBP quasi-saturation and epi",
+    "substrate parasitic",
+    "WBE/WSP partition",
+    "ITF/XTF/VTF bias dependence",
+    "temperature mapped parameters",
+    "both normalized polarities",
+    "instance scaling and gmin"
+  ],
+  "features_dual": [
+    "TD > 0 excess-phase models (entire electrical evaluation)",
+    "noise analysis (unchanged Dual evaluator)"
+  ],
+  "tests_run": {
+    "install": "pnpm install --frozen-lockfile passed",
+    "build": "pnpm build passed base and head",
+    "lint": "pnpm lint passed",
+    "targeted": "pnpm -C packages/core exec vitest run src/devices/vbic src/mna: 334 passed in 25 files",
+    "full": "spice-heavy pnpm test passed; core 5593 passed, 10 expected fail, 8 skipped; root Node 221 pass, 4 skipped, 0 fail"
+  },
+  "ci_status": "Exact-head GitHub checks required before acceptance; recorded in PR and Kanban handoff"
+}

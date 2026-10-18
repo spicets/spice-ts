@@ -113,7 +113,7 @@
       "valid": false
     },
     {
-      "name": "@spice-ts/protocol fixtures/negative-v1.json#/partialWithResultHash",
+      "name": "@spice-ts/core/protocol fixtures/negative-v1.json#/partialWithResultHash",
       "schema": "stream-terminal.schema.json",
       "valid": false
     }

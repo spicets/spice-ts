@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse, parseTitleless } from '../index.js';
 import { simulate, simulateStream } from '../../simulate.js';
@@ -566,7 +567,7 @@ end
   });
 
   it.each([
-    ['alter x1.r1 2k', 'alter', 'inside a subcircuit'],
+    ['alter x1.r1 2k', 'alter', 'no device named'],
     ['op\nlet g = @r1[p]', 'let', "'@r1[p]' is not available"],
     ['op\nlet tmp = v(2) > file', 'let', 'redirection'],
     ['op\nlet d = deriv(v(2))', 'let', "'deriv()'"],
@@ -579,10 +580,57 @@ end
     expect(error.message).toContain(reason);
   });
 
-  it('rejects saved device-parameter vectors spice-ts does not produce (tests/regression/misc/bugs-2.cir)', async () => {
-    const error = await rejection(simulate(`saves\nv1 1 0 0\nr1 1 0 1k\n.control\nsave @v1[dc]\ndc v1 0 1 250m\nlet foo = @v1[dc]\n.endc`));
+  it.each(['v1', 'i1'])('saves the swept %s DC parameter as a plot vector', async source => {
+    const result = await simulate(`saves
+${source} 1 0 0
+r1 1 0 1k
+.control
+save @${source.toUpperCase()}[DC]
+dc ${source} 0 1 250m
+let foo = @${source}[dc]
+let bar = foo[2]
+let baz = @${source}[dc][2]
+let two = 2
+let argh = foo[two]
+echo $&foo
+echo $&bar $&baz $&argh
+dc ${source} 1 0 -500m
+echo $&@${source}[dc]
+setplot dc1
+let old = @${source}[dc][2]
+echo $&old
+.endc`);
+    expect(result.control!.output).toEqual(['0 0.25 0.5 0.75 1', '0.5 0.5 0.5', '1 0.5 0', '0.5']);
+  });
+
+  it.each(['@v1[acmag]', '@r1[resistance]', '@v2[dc]'])('rejects unproduced saved vector %s', async vector => {
+    const error = await rejection(simulate(`saves\nv1 1 0 0\nv2 2 0 2\nr1 1 0 1k\n.control\nsave ${vector}\ndc v1 0 1 250m\nlet foo = ${vector}\n.endc`));
     expect(error).toBeInstanceOf(UnsupportedControlCommandError);
-    expect(error.message).toContain("saved device-parameter vector '@v1[dc]'");
+    expect(error.message).toContain(`saved device-parameter vector '${vector}'`);
+  });
+
+  it('runs the unchanged bugs-2.cir parser regression with no failed checks', async () => {
+    const deck = readFileSync(new URL(
+      '../../../../../benchmarks/corpus/corpus-f/fixtures/tests/regression/misc/bugs-2.cir', import.meta.url,
+    ), 'utf8');
+    const result = await simulate(deck);
+    expect(result.control!.output).toEqual(['INFO: 0 tests failed']);
+  });
+
+  it('saves both source parameters in a nested DC sweep', async () => {
+    const result = await simulate(`nested saves
+v1 1 0 0
+i1 1 0 0
+r1 1 0 1k
+.control
+save @v1[dc] @i1[dc]
+dc v1 0 1 500m i1 0 1 1
+let primary = @v1[dc]
+let secondary = @i1[dc]
+echo $&primary
+echo $&secondary
+.endc`);
+    expect(result.control!.output).toEqual(['0 0.5 1 0 0.5 1', '0 0 0 1 1 1']);
   });
 
   it('keeps the protocol and streaming APIs bounded by rejecting interpreted scripts', async () => {

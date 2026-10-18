@@ -2,9 +2,9 @@
 
 [![npm](https://img.shields.io/npm/v/@spice-ts/ui)](https://www.npmjs.com/package/@spice-ts/ui)
 
-Waveform viewer, Bode plot, DC sweep plot, and schematic renderer for [spice-ts](https://github.com/mfiumara/spice-ts) simulation results. Ships framework-agnostic Canvas renderers plus a thin React wrapper.
+Waveform viewer, Bode plot, DC sweep plot, and schematic renderer for [spice-ts](https://github.com/spicets/spice-ts) simulation results. Ships framework-agnostic Canvas renderers plus a thin React wrapper.
 
-**[Live showcase](https://mfiumara.github.io/spice-ts/)** — interactive demos with streaming parametric sweeps running in your browser.
+**[Live showcase](https://spicets.github.io/spice-ts/)** — interactive demos with streaming parametric sweeps running in your browser.
 
 ## Install
 
@@ -148,4 +148,4 @@ for await (const step of simulateStream(netlist)) {
 
 ## License
 
-MIT · See the [spice-ts monorepo](https://github.com/mfiumara/spice-ts) for the full project.
+MIT · See the [spice-ts monorepo](https://github.com/spicets/spice-ts) for the full project.

@@ -22,11 +22,13 @@ jobs:
         with:
           version: 9
 
+      # npm trusted publishing (OIDC) needs Node >= 22.14 and npm >= 11.5.1. No package cache in release builds.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: pnpm
+          node-version: 24
           registry-url: https://registry.npmjs.org
+
+      - run: npm install -g npm@^11.5.1 && npm --version
 
       - run: pnpm install --frozen-lockfile
 
@@ -41,5 +43,5 @@ jobs:
           title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
+          # Publishing uses npm trusted publishing (OIDC via id-token: write): no long-lived npm token.
+          # Each package needs a trusted publisher on npmjs.com: GitHub Actions, spicets/spice-ts, release.yml.

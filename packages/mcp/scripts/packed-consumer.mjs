@@ -32,12 +32,12 @@ function tarballFor(packageName) {
 
 try {
   mkdirSync(packsRoot);
-  for (const packageName of ['core', 'protocol', 'circuit-json', 'mcp']) {
+  for (const packageName of ['core', 'circuit-json', 'mcp']) {
     run('pnpm', ['pack', '--pack-destination', packsRoot], resolve(workspaceRoot, 'packages', packageName));
   }
 
   const coreTarball = tarballFor('@spice-ts/core');
-  const protocolTarball = tarballFor('@spice-ts/protocol');
+
   const circuitJsonTarball = tarballFor('@spice-ts/circuit-json');
   const mcpTarball = tarballFor('@spice-ts/mcp');
   writeFileSync(join(consumerRoot, 'package.json'), `${JSON.stringify({
@@ -45,7 +45,7 @@ try {
     pnpm: {
       overrides: {
         '@spice-ts/core': `file:${coreTarball}`,
-        '@spice-ts/protocol': `file:${protocolTarball}`,
+
         '@spice-ts/circuit-json': `file:${circuitJsonTarball}`,
       },
     },
@@ -54,7 +54,8 @@ try {
 const { EventEmitter } = require('node:events');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
-const { sha256CanonicalJson } = require('@spice-ts/protocol');
+const requireFromMcp = require('node:module').createRequire(require.resolve('@spice-ts/mcp'));
+const { sha256CanonicalJson } = requireFromMcp('@spice-ts/core/protocol');
 const {
   createMcpServer, createToolExecutor, DEFAULT_MCP_STREAM_LIMITS, executeTool,
 } = require('@spice-ts/mcp');
@@ -430,7 +431,7 @@ async function readWhenReady(jobId, cursor, maxPoints) {
 
   run('pnpm', [
     'add', '--ignore-workspace', '--prefer-offline', '--save-exact',
-    mcpTarball, protocolTarball, '@modelcontextprotocol/sdk@1.32.1',
+    mcpTarball, '@modelcontextprotocol/sdk@1.32.1',
   ], consumerRoot);
   if (existsSync(join(consumerRoot, 'node_modules', '@spice-ts', 'core'))) {
     throw new Error('Packed consumer unexpectedly hoisted @spice-ts/core to its root node_modules');

@@ -23,7 +23,9 @@ standard can be found at: http://www.si2.org/cmc
 */
 
 // Modified/ported to TypeScript by spice-ts. Static b4ld limiting and MNA adapter.
-import type { DeviceModel, StampContext } from '../device.js';
+import type { ChargeIntegration, ChargeTruncation, DeviceModel, StampContext } from '../device.js';
+import { stampChargeCurrent, TransientChargeState } from '../charge-state.js';
+import { evaluateBsim4Charges } from './charge.js';
 import { DEVICE_GMIN } from '../device.js';
 import { fetlim, limvds, pnjlim } from '../devsup.js';
 import { InvalidCircuitError, UnsupportedModelParameterError } from '../../errors.js';
@@ -45,8 +47,11 @@ function lowercaseCard(card: Readonly<Record<string, number | string | undefined
   return result;
 }
 
-/** DC-only BSIM4 baseline. No alternate-level fallback or dynamic zero stamps. */
+/** BSIM4 static and quasi-static capMod=2 transient adapter; no alternate-level fallback. */
 export class BSIM4 implements DeviceModel {
+  readonly integratesTransientCharge = true;
+  readonly truncationCoversCharges = true;
+  private readonly chargeState = new TransientChargeState(3);
   readonly branches: number[] = [];
   readonly isNonlinear = true;
   private readonly model: Bsim4ModelSetup;
@@ -56,12 +61,14 @@ export class BSIM4 implements DeviceModel {
   private von = 0;
   private limited = false;
   private temperatureC = 27;
+  private readonly intrinsicNodes: number[];
+  private initializeGate = true;
 
   constructor(readonly name: string, readonly nodes: number[],
     modelCard: Readonly<Record<string, number | string | undefined>>,
     instanceCard: Readonly<Record<string, number | undefined>>, polarity: 1 | -1) {
-    if (nodes.length !== 4 || nodes.some(n => !Number.isInteger(n) || n < -1)) {
-      throw new InvalidCircuitError('BSIM4 requires four valid terminal indices');
+    if (![4, 5].includes(nodes.length) || nodes.some(n => !Number.isInteger(n) || n < -1)) {
+      throw new InvalidCircuitError('BSIM4 requires four terminals and an optional internal gate index');
     }
     const card = lowercaseCard(modelCard);
     if (Object.hasOwn(card, 'type')) throw new UnsupportedModelParameterError(name, 'type', 'polarity comes from the NMOS/PMOS model type, not an internal TYPE parameter');
@@ -70,14 +77,21 @@ export class BSIM4 implements DeviceModel {
     // Setup uses native C node numbering (ground=0); MNA uses ground=-1.
     this.instance = setupBsim4Instance(this.model, instance,
       { d: nodes[0] + 1, g: nodes[1] + 1, s: nodes[2] + 1, b: nodes[3] + 1 });
+    if (nodes.length !== (this.instance.values.rgatemod === 1 ? 5 : 4)) {
+      throw new InvalidCircuitError('BSIM4 RGATEMOD=1 requires an internal gate node');
+    }
+    this.intrinsicNodes = [nodes[0], nodes[4] ?? nodes[1], nodes[2], nodes[3]];
     this.processed = preprocessBsim4(this.model, this.instance);
     this.von = this.evaluate(this.previous).von; // enforce all DC guards at construction
   }
   private unsupported(request: string): never {
-    throw new UnsupportedModelParameterError(this.name, request, 'BSIM4 supports only static OP/DC in this slice', { model: 'BSIM4' });
+    throw new UnsupportedModelParameterError(this.name, request, 'BSIM4 supports OP/DC and quasi-static capMod=2 transient only', { model: 'BSIM4' });
   }
   assertAnalyses(analyses: readonly string[]): void {
-    for (const analysis of analyses) if (analysis !== 'op' && analysis !== 'dc') this.unsupported(analysis);
+    for (const analysis of analyses) {
+      if (analysis === 'tran') this.terminalCharges(() => 0);
+      else if (analysis !== 'op' && analysis !== 'dc') this.unsupported(analysis);
+    }
   }
   capacitances(): never { return this.unsupported('capacitances'); }
   charges(): never { return this.unsupported('charge'); }
@@ -85,10 +99,50 @@ export class BSIM4 implements DeviceModel {
   stampSmallSignal(): never { return this.unsupported('ac'); }
   stampDynamic(): never { return this.unsupported('capacitances'); }
   stampAC(): never { return this.unsupported('ac'); }
-  resetTransient(): never { return this.unsupported('tran'); }
-  setTransientTimestep(): never { return this.unsupported('tran'); }
-  beginTransientNewton(): never { return this.unsupported('tran'); }
-  stampTransientCharge(): never { return this.unsupported('charge'); }
+  resetTransient(): void { this.chargeState.reset(); }
+  private terminalCharges(read: (node: number) => number) {
+    const p = this.model.values.type;
+    // RGATEMOD=1 stores charge behind the gate resistor, at GP, just as
+    // the static channel stamp does. This also governs acceptance and LTE.
+    const v = this.intrinsicNodes.map(node => node < 0 ? 0 : read(node));
+    return evaluateBsim4Charges(this.processed, this.model.given,
+      { vgs: p * (v[1] - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) });
+  }
+  stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {
+    const tc = this.terminalCharges(node => ctx.getVoltage(node));
+    const state = this.chargeState;
+    state.begin(integration);
+    const mult = this.instance.values.m * this.instance.values.mult_q;
+    for (let index = 0; index < 3; index++) {
+      const row = [1, 0, 3][index];
+      const into = this.intrinsicNodes[row], source = this.intrinsicNodes[2];
+      let equivalent = state.current(index, mult * this.model.values.type * tc.q[row]);
+      for (let col = 0; col < 4; col++) {
+        const node = this.intrinsicNodes[col];
+        if (node < 0) continue;
+        const g = state.factor * mult * tc.jacobian[4 * row + col];
+        equivalent -= g * ctx.getVoltage(node);
+        if (into >= 0) ctx.stampG(into, node, g);
+        if (source >= 0) ctx.stampG(source, node, -g);
+      }
+      if (into >= 0) ctx.stampB(into, -equivalent);
+      if (source >= 0) ctx.stampB(source, equivalent);
+    }
+  }
+  stampAcceptedChargeCurrent(ctx: StampContext): void {
+    for (let index = 0; index < 3; index++) {
+      stampChargeCurrent(ctx, this.intrinsicNodes[[1, 0, 3][index]], this.intrinsicNodes[2], this.chargeState.acceptedChargeCurrent(index));
+    }
+  }
+  acceptTransientStep(ctx: StampContext): void {
+    const tc = this.terminalCharges(node => ctx.getVoltage(node));
+    const scale = this.instance.values.m * this.instance.values.mult_q * this.model.values.type;
+    for (let index = 0; index < 3; index++) this.chargeState.accept(index, scale * tc.q[[1, 0, 3][index]]);
+    this.chargeState.commit();
+  }
+  truncateTransientStep(ctx: StampContext, truncation: ChargeTruncation): number {
+    return this.chargeState.truncationTimestep(truncation, () => this.acceptTransientStep(ctx));
+  }
   evaluate(bias: Bsim4Bias, gmin = DEVICE_GMIN): Bsim4OperatingPoint {
     return evaluateBsim4(this.processed, this.model.given, bias, gmin);
   }
@@ -102,15 +156,16 @@ export class BSIM4 implements DeviceModel {
   getTemperature(): number { return this.temperatureC; }
   beginOperatingPoint(): void {
     this.previous = { vgs: 0, vds: 0, vbs: 0 };
+    this.initializeGate = true;
     this.von = this.evaluate(this.previous).von;
     this.limited = false;
   }
   limitedLastStamp(): boolean { return this.limited; }
 
   stamp(ctx: StampContext): void {
-    if (ctx.dt !== 0) this.unsupported('tran');
     const p = this.model.values.type;
-    const [d, g, s, b] = this.nodes;
+    const nodes = this.intrinsicNodes;
+    const [d, g, s, b] = nodes;
     const read = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);
     const vs = read(s);
     const raw = { vgs: p * (read(g) - vs), vds: p * (read(d) - vs), vbs: p * (read(b) - vs) };
@@ -132,22 +187,50 @@ export class BSIM4 implements DeviceModel {
     // DEV* did not limit it. Do not keep Newton nonconverged on roundoff alone.
     const changed = (a: number, b: number) => Math.abs(a - b) > 8 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
     this.limited = changed(vgs, raw.vgs) || changed(vds, raw.vds) || changed(vbs, raw.vbs);
+    // b4ld.c:304-312 MODEINITJCT: a floating intrinsic gate must not start
+    // on the artificial low-Vgs tunneling branch. Both OP and the first DC
+    // point call beginOperatingPoint; subsequent points reuse their solution.
+    if (this.initializeGate && this.instance.values.rgatemod === 1
+      && raw.vgs === 0 && raw.vds === 0 && raw.vbs === 0) {
+      vgs = p * this.processed.instance.vth0 + 0.1;
+      vds = 0.1;
+      vbs = 0;
+      this.limited = true;
+    }
+    this.initializeGate = false;
     this.previous = { vgs, vds, vbs };
     const op = this.evaluate(this.previous, ctx.gmin ?? DEVICE_GMIN);
     this.von = op.von;
     const voltage = [vs + p * vds, vs + p * vgs, vs, vs + p * vbs];
     const mult = this.instance.values.m * this.instance.values.mult_i;
+    if (this.instance.values.rgatemod === 1) {
+      const { model, size, instance } = this.processed;
+      // ngspice-47 b4temp.c:1926-1938: constant electrode conductance,
+      // using junction width per finger and Lnew (not Leff).
+      const resistance = model.rshg * (instance.xgw + size.weffCJ / (3 * instance.ngcon))
+        / (instance.ngcon * instance.nf * (instance.l + model.xl - model.xgl));
+      const conductance = mult * (resistance > 0 ? 1 / resistance : 1e3);
+      // b4ld.c:5074-5085 (and serial stamp): intrinsic gate tunneling is
+      // on GP; the external gate sees only this conservative resistor.
+      const external = this.nodes[1];
+      if (external >= 0) ctx.stampG(external, external, conductance);
+      if (g >= 0) ctx.stampG(g, g, conductance);
+      if (external >= 0 && g >= 0) {
+        ctx.stampG(external, g, -conductance);
+        ctx.stampG(g, external, -conductance);
+      }
+    }
     // Stamp I(V) between two terminals using the analytic Jacobian. This is
     // the baseline b4ld DC Newton stamp, with KCL and orientation explicit.
     const pair = (from: number, to: number, current: number, gradient: readonly number[]) => {
       let equivalent = p * current;
       for (let column = 0; column < 4; column++) {
         equivalent -= gradient[column] * voltage[column];
-        if (this.nodes[from] >= 0 && this.nodes[column] >= 0) ctx.stampG(this.nodes[from], this.nodes[column], mult * gradient[column]);
-        if (this.nodes[to] >= 0 && this.nodes[column] >= 0) ctx.stampG(this.nodes[to], this.nodes[column], -mult * gradient[column]);
+        if (nodes[from] >= 0 && nodes[column] >= 0) ctx.stampG(nodes[from], nodes[column], mult * gradient[column]);
+        if (nodes[to] >= 0 && nodes[column] >= 0) ctx.stampG(nodes[to], nodes[column], -mult * gradient[column]);
       }
-      if (this.nodes[from] >= 0) ctx.stampB(this.nodes[from], -mult * equivalent);
-      if (this.nodes[to] >= 0) ctx.stampB(this.nodes[to], mult * equivalent);
+      if (nodes[from] >= 0) ctx.stampB(nodes[from], -mult * equivalent);
+      if (nodes[to] >= 0) ctx.stampB(nodes[to], mult * equivalent);
     };
     const dr = op.mode > 0 ? 0 : 2, sr = op.mode > 0 ? 2 : 0;
     const channel = [0, op.gm, 0, op.gmbs];
@@ -158,5 +241,19 @@ export class BSIM4 implements DeviceModel {
     pair(dr, 3, op.isub, substrate);
     pair(3, 2, op.cbs, [0, 0, -op.gbs, op.gbs]);
     pair(3, 0, op.cbd, [-op.gbd, 0, 0, op.gbd]);
+    // b4ld.c:4764-4800,4855-4891. Channel partition follows mode;
+    // overlap currents always belong to the physical source/drain terminals.
+    const gateChannel = (to: number, current: number, gg: number, gd: number, gb: number) => {
+      const gradient = [0, gg, 0, gb];
+      gradient[dr] = gd; gradient[sr] = -(gg + gd + gb);
+      pair(1, to, current, gradient);
+    };
+    gateChannel(sr, op.igcs, op.gigcsg, op.gigcsd, op.gigcsb);
+    gateChannel(dr, op.igcd, op.gigcdg, op.gigcdd, op.gigcdb);
+    // b4ld.c:4801-4811,4892-4902. Gate-body derivatives follow channel
+    // orientation, but the current always flows between gate and bulk.
+    if (this.model.values.igbmod === 1) gateChannel(3, op.igb, op.gigbg, op.gigbd, op.gigbb);
+    pair(1, 2, op.igs, [0, op.gigsg, -op.gigsg, 0]);
+    pair(1, 0, op.igd, [-op.gigdg, op.gigdg, 0, 0]);
   }
 }

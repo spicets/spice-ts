@@ -18,7 +18,7 @@ import {
   type SpiceApiErrorV1,
   type StreamTerminalV1,
   type SuccessEnvelopeV1,
-} from '@spice-ts/protocol';
+} from '@spice-ts/core/protocol';
 import { bundledWorker } from './build-manifest.js';
 import { NUMERIC_WASM_LIMITS, validateNumericWasmModule } from './numeric-abi.js';
 import type { WorkerOperation, WorkerRequest, WorkerResponse } from './worker-protocol.js';

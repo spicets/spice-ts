@@ -1,0 +1,40 @@
+****************************************************************
+* Test for DNI() and DNO() for an invalid device, where the
+* those operators are implemented for the requested device type. 
+* 
+* The goal of this test is to ensure that Xyce exits gracefully
+* with a reasonable error message.
+* 
+*
+* See SON Bug 926 for more details.
+****************************************************************
+
+V2 N001 0 15
+V1 N003 0 0 AC 1
+Q1 N002 N005 N006 0 2N2222
+R3 N001 N002 1K
+R5 N006 0 100
+R1 N001 N005 75K
+R2 N005 0 10K
+C1 N005 N004 .1u
+C2 N006 0 10u
+R4 OUT 0 100K
+C3 OUT N002 1u
+R6 N004 N003 1K
+
+.model 2N2222 NPN(IS=1E-14 VAF=100
++   BF=200 IKF=0.3 XTB=1.5 BR=3
++   CJC=8E-12 CJE=25E-12 TR=100E-9 TF=400E-12
++   ITF=1 VTF=2 XTF=3 RB=10 RC=.3 RE=.2  KF=5.0E-16  AF=1.0
++ )
+
+
+.noise V(out) V1 dec 10 1e3 1e5 1
+
+* Devices Q2 and Q3 do not exist in the netlist.  Everything on the
+* first line of the .PRINT NOISE statement should be valid though.
+.PRINT NOISE ONOISE INOISE DNI(R1) DNO(R1) DNO(Q1,rc) DNO(Q1)
++ DNO(Q2) DNI(Q3)
+ 
+.end
+

@@ -1,0 +1,23 @@
+Diode clipper circuit with transient analysis statement
+* This is from Figure 3.5 of the Users Guide
+*
+* Voltage Sources
+VCC 1 0 10V
+VIN 3 0 0V
+* Analysis Command
+.dc VIN -10 15 1
+* Output
+.PRINT DC V(3) V(2) V(4)
+* Diodes
+D1 2 1 D1mod
+D2 0 2 D1mod
+* Resistors
+R1 2 3 1K
+R2 1 2 3.3K
+R3 2 0 3.3K
+R4 4 0 5.6K
+* Capacitor
+C1 2 4 0.47u
+.MODEL D1mod D(level=2002)
+
+.END

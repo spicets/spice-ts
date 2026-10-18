@@ -1,5 +1,5 @@
 import { MNAAssembler } from './assembler.js';
-import type { DeviceModel } from '../devices/device.js';
+import type { ChargeIntegration, DeviceModel } from '../devices/device.js';
 import type { IntegrationMethod } from '../types.js';
 import { MOSFET } from '../devices/mosfet.js';
 import { stampDynamicDevices, stampStaticDevices } from './linear-stamp.js';
@@ -25,6 +25,11 @@ interface CompanionWorkspace {
 
 const devicePlans = new WeakMap<readonly DeviceModel[], DevicePlan>();
 const workspaces = new WeakMap<MNAAssembler, CompanionWorkspace>();
+// Like StampContext, this is synchronous stamp-call scratch, not a history snapshot.
+// Separate from vector workspaces so Euler does not allocate unused history arrays.
+const chargeIntegrations = new WeakMap<MNAAssembler, {
+  -readonly [K in keyof ChargeIntegration]: ChargeIntegration[K];
+}>();
 
 /** MOSFET/other split of a device list, computed once per list. */
 function devicePlan(devices: readonly DeviceModel[]): DevicePlan {
@@ -97,6 +102,7 @@ export function buildCompanionSystem(
   prevPrevSolution?: Float64Array,
   prevDt?: number,
   staticCurrentHistory = false,
+  xmu = 0.5,
 ): void {
   // Clear and re-stamp at current time
   assembler.clear();
@@ -125,6 +131,9 @@ export function buildCompanionSystem(
   // the driver resets history after crossing a breakpoint.
   const useGear2 = method === 'gear2' && prevPrevSolution !== undefined && prevDt !== undefined;
   const useTrap = method === 'trapezoidal' && prevB !== undefined;
+  // ngspice-47 nicomcof.c:43-44: a0=1/dt/(1-xmu), a1=xmu/(1-xmu).
+  const trapFactor = xmu === 0.5 ? 2 / dt : 1 / dt / (1 - xmu);
+  const trapWeight = xmu / (1 - xmu);
   const effectiveMethod: IntegrationMethod =
     (method === 'gear2' && !useGear2) || (method === 'trapezoidal' && !useTrap)
       ? 'euler'
@@ -213,7 +222,7 @@ export function buildCompanionSystem(
       // b_eff depends on whether a row is dynamic (C≠0) or algebraic (C=0):
       //   Dynamic: b(n+1) + (2C/dt)*x(n) - i_static(n)
       //   Algebraic: b(n+1) only
-      const factor = 2 / dt;
+      const factor = trapFactor;
       const work = companionWorkspace(assembler);
 
       // Dynamic-row mask, G*x(n) (unless the history already holds the
@@ -255,10 +264,10 @@ export function buildCompanionSystem(
       // Subtract the accepted static-device current from the history point.
       for (let i = 0; i < n; i++) {
         if (isDynamic[i]) {
-          if (staticCurrentHistory) b[i] -= prevB![i];
+          if (staticCurrentHistory) b[i] -= trapWeight * prevB![i];
           else {
-            b[i] -= Gx[i];
-            b[i] += prevB![i];
+            b[i] -= trapWeight * Gx[i];
+            b[i] += trapWeight * prevB![i];
           }
         }
       }
@@ -305,7 +314,7 @@ export function buildCompanionSystem(
     } else {
       // Trapezoidal: G_eff = G + 2C/dt
       // History terms only for dynamic rows (C≠0)
-      const factor = 2 / dt;
+      const factor = trapFactor;
 
       // Save b(n+1) before modification
       const bCurrent = new Float64Array(assembler.b);
@@ -334,10 +343,10 @@ export function buildCompanionSystem(
 
         // Subtract the accepted static-device current from the history point.
         if (hasDynamic) {
-          if (staticCurrentHistory) assembler.b[i] -= prevB![i];
+          if (staticCurrentHistory) assembler.b[i] -= trapWeight * prevB![i];
           else {
-            assembler.b[i] -= Gx[i];
-            assembler.b[i] += prevB![i];
+            assembler.b[i] -= trapWeight * Gx[i];
+            assembler.b[i] += trapWeight * prevB![i];
           }
         }
       }
@@ -347,10 +356,15 @@ export function buildCompanionSystem(
   // Charge-integrating devices (ngspice NIintegrate) stamp their complete
   // companion into G and b. They are added after the C-matrix history so they
   // neither mark rows dynamic nor enter the G*x(n) history product.
-  const integration = {
-    method: effectiveMethod,
-    dt,
-    prevDt: useGear2 ? prevDt : undefined,
-  };
+  if (plan.charged.length === 0) return;
+  let integration = chargeIntegrations.get(assembler);
+  if (integration === undefined) {
+    integration = { method: effectiveMethod, xmu, dt, prevDt: undefined };
+    chargeIntegrations.set(assembler, integration);
+  }
+  integration.method = effectiveMethod;
+  integration.xmu = xmu;
+  integration.dt = dt;
+  integration.prevDt = useGear2 ? prevDt : undefined;
   for (const device of plan.charged) device.stampTransientCharge!(ctx, integration);
 }

@@ -43,7 +43,7 @@ benchmarks.
 
 ## Publication boundary
 
-Allowed: GitHub issues, labels, milestones, Projects board, branches, PRs on `mfiumara/spice-ts`; squash-merge a PR
+Allowed: GitHub issues, labels, milestones, Projects board, branches, PRs on `spicets/spice-ts`; squash-merge a PR
 only when (a) CI is green on the exact head SHA and (b) `spice-ts-review` accepted that same SHA.
 
 Not allowed without Mattia: npm publish, git tags/releases, changeset version bumps that publish, production hosting (spicets.com on Cloudflare Pages)

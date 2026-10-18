@@ -15,7 +15,7 @@ await build({
   sourcemap: true,
   clean: false,
   dts: false,
-  noExternal: ['@spice-ts/core', '@spice-ts/protocol'],
+  noExternal: ['@spice-ts/core', '@spice-ts/core/protocol'],
   external: ['node:worker_threads', 'worker_threads', 'url', 'eecircuit-engine'],
 });
 
@@ -52,6 +52,6 @@ await build({
   sourcemap: true,
   clean: false,
   dts: { compilerOptions: { composite: false } },
-  noExternal: ['@spice-ts/protocol'],
+  noExternal: ['@spice-ts/core/protocol'],
   external: ['node:fs/promises', 'node:worker_threads'],
 });

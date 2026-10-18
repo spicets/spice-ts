@@ -1,15 +1,15 @@
 {
   "name": "@spice-ts/core",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "TypeScript-native SPICE circuit simulator engine",
   "license": "MIT",
   "author": "Mattia Fiumara",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mfiumara/spice-ts.git",
+    "url": "https://github.com/spicets/spice-ts.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/mfiumara/spice-ts",
+  "homepage": "https://github.com/spicets/spice-ts",
   "keywords": [
     "spice",
     "circuit",
@@ -34,10 +34,18 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
-    }
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "import": "./dist/protocol.js",
+      "require": "./dist/protocol.cjs"
+    },
+    "./protocol/schemas/*": "./protocol/schemas/*",
+    "./protocol/fixtures/*": "./protocol/fixtures/*"
   },
   "files": [
-    "dist"
+    "dist",
+    "protocol"
   ],
   "peerDependencies": {
     "eecircuit-engine": "^1.7.0"
@@ -48,6 +56,7 @@
     }
   },
   "scripts": {
+    "generate:schemas": "tsx scripts/generate-protocol-schemas.ts",
     "build": "tsup",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --exclude src/analysis/step-browser.smoke.test.ts",
@@ -56,6 +65,7 @@
     "bench": "vitest bench --config vitest.bench.config.ts"
   },
   "devDependencies": {
+    "ajv": "^8.17.1",
     "@types/ws": "^8.18.2",
     "@vitest/coverage-v8": "^4.1.4",
     "tsup": "^8.0.0",

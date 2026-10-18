@@ -1,0 +1,38 @@
+Simple noise example adapted from the LTSpice examples directory
+* 
+V2 N001 0 15
+V1 N003 0 0 AC 1
+Q1 N002 N005 N006 0 2N2222
+R3 N001 N002 1K
+R5 N006 0 100
+R1 N001 N005 75K
+R2 N005 0 10K
+C1 N005 N004 .1u
+C2 N006 0 10u
+R4 OUT 0 100K
+C3 OUT N002 1u
+R6 N004 N003 1K
+*.model NPN NPN
+*.model PNP PNP
+
+.model 2N2222 NPN(IS=1E-14 VAF=100
++   BF=200 IKF=0.3 XTB=1.5 BR=3
++   CJC=8E-12 CJE=25E-12 TR=100E-9 TF=400E-12
++   ITF=1 VTF=2 XTF=3 RB=10 RC=.3 RE=.2  KF=5.0E-16  AF=1.0
+*+ Vceo=30 
+*+ Icrating=800m  
+*+ mfg=Philips
++ )
+
+.options device debuglevel=-100
+.options timeint debuglevel=-100
+
+.noise V(out) V1 dec 10 1e3 1e5 1
+*.noise V(out) V1 oct 10 1K 100K 1
+*.noise V(out) V1 oct 10 100 100K
+* To plot NF vs. Frequency:\n10*log10(V(inoise)*V(inoise)/(4*k*300.15*1K))\nNote that the units are dB but will be labeled V/sqrt(Hz)\nIf you add the line\n.func NF(R) 10*log10(V(inoise)*V(inoise)/(4*k*300.15*R))\nto your plot.defs file, then you can conveniently plot the quantity NF(1K)
+* 1K Source Impedance
+* This example schematic is supplied for informational/educational purposes only.
+*.backanno
+.end
+

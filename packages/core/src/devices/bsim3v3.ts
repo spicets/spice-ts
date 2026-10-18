@@ -33,6 +33,14 @@ export class BSIM3v3 implements DeviceModel {
   /** {@link truncateTransientStep} bounds every stored charge (BSIM3trunc: qb, qg, qd). */
   readonly truncationCoversCharges = true;
   private readonly charges = new TransientChargeState(CHARGE_ROWS.length);
+  /** b3ld.c qcheq and qcdump, in coulombs (qNode * ScalingFactor). */
+  private readonly nqsCharges = new TransientChargeState(2);
+  private readonly nonQuasiStatic: boolean;
+  private readonly acNonQuasiStatic: boolean;
+  private readonly nqsDerivative = new Float64Array(4);
+  private readonly partitionDerivative = new Float64Array(4);
+  private acceptedNqsCurrent = 0;
+  private acceptedNqsPartition = 0;
   private readonly terminalCharges: BSIM3TerminalCharges = createTerminalCharges();
   /**
    * evaluateDC charge inputs of the last {@link stamp} and the polarity-domain
@@ -63,6 +71,8 @@ export class BSIM3v3 implements DeviceModel {
   private lastVon: number;
   /** b3v32temp.c (3.2, 3.2.2) instance whose size record supplies this instance's vth0/vfb/vfbzb/u0temp. */
   private sizeRecordDonor?: BSIM3v3;
+  /** Last newly-created geometry supplies b3temp.c's live T0 to tconst. */
+  private nqsTempDonor?: BSIM3v3;
 
   constructor(
     readonly name: string,
@@ -75,7 +85,9 @@ export class BSIM3v3 implements DeviceModel {
   ) {
     this.polarity = polarity;
     [this.model, this.size, this.chargeInputs] = this.temperatureDependent(NOMINAL_TEMPERATURE_K);
-    rejectNonQuasiStatic(name, modelParams, instanceParams as Record<string, number>, this.model.revision);
+    this.nonQuasiStatic = effectiveSelector(modelParams, instanceParams as Record<string, number>, 'nqsmod') === 1;
+    this.acNonQuasiStatic = this.model.revision >= BSIM3_REVISION.V330
+      && effectiveSelector(modelParams, instanceParams as Record<string, number>, 'acnqsmod') === 1;
     this.multiplier = this.size.m;
     this.lastVon = polarity * this.size.instVth0;
   }
@@ -124,15 +136,16 @@ export class BSIM3v3 implements DeviceModel {
     let lastAllocated: BSIM3v3 | undefined;
     for (let k = instances.length - 1; k >= 0; k--) {
       const here = instances[k];
-      if (here.model.revision > BSIM3_REVISION.V322) continue;
       const { length, width } = here.size;
       const match = records.find(r => r.size.length === length && r.size.width === width);
       if (!match) {
         records.push(here);
         lastAllocated = here;
-      } else if (lastAllocated!.size.length !== length || lastAllocated!.size.width !== width) {
+      } else if (here.model.revision <= BSIM3_REVISION.V322
+        && (lastAllocated!.size.length !== length || lastAllocated!.size.width !== width)) {
         here.reuseSizeRecordOf(lastAllocated!);
       }
+      here.nqsTempDonor = lastAllocated;
     }
   }
 
@@ -266,8 +279,19 @@ export class BSIM3v3 implements DeviceModel {
     stampControlledCurrent(ctx, type, m, nD, nB, nD, nG, nS, nB, dc.Isub, dc.gbg, dc.gbd, dc.gbb, Vgs, Vds, Vbs);
   }
 
+  /** Transient-NQS AC and frequency-dependent noise remain outside this port. */
+  assertQuasiStaticSmallSignal(allowAcNqs = true): void {
+    if (this.nonQuasiStatic) {
+      throw new UnsupportedModelParameterError(this.name, 'NQSMOD', 'BSIM3 NQS AC/noise charge stamps are not implemented', { model: 'BSIM3' });
+    }
+    if (!allowAcNqs && this.acNonQuasiStatic) {
+      throw new UnsupportedModelParameterError(this.name, 'ACNQSMOD', 'BSIM3 AC NQS noise transfer is not implemented', { model: 'BSIM3' });
+    }
+  }
+
   /** Charge Jacobian dQ/dV (b3acld.c capacitance matrix) at the operating point in `ctx`. */
   stampDynamic(ctx: StampContext): void {
+    this.assertQuasiStaticSmallSignal();
     const tc = this.evaluateCharges(ctx);
     const m = this.multiplier;
     for (let row = 0; row < 4; row++) {
@@ -285,6 +309,53 @@ export class BSIM3v3 implements DeviceModel {
     this.stampDynamic(ctx);
   }
 
+  get frequencyDependent(): boolean {
+    return this.acNonQuasiStatic;
+  }
+
+  /** ngspice-47 b3acld.c:50-100: H=1/(1+j*omega*taunet), added to the QS stamp. */
+  stampFrequencyConductance(ctx: StampContext, omega: number): void {
+    this.assertQuasiStaticSmallSignal();
+    if (!this.acNonQuasiStatic) return;
+    const [vgs, vds, vbs] = this.terminalVoltages(node => node >= 0 ? ctx.getVoltage(node) : 0);
+    const forward = vds >= 0;
+    const tc = this.evaluateCharges(ctx);
+    const ic = tc.intrinsic;
+    const tau = 1 / this.relaxationRate(-(ic.qgate + ic.qbulk));
+    const wt = omega * tau;
+    const real = 1 / (1 + wt * wt);
+    const lag = wt * real;
+    const m = this.multiplier;
+    const [d, g, s, b] = this.nodes;
+    const drain = forward ? d : s;
+    const source = forward ? s : d;
+    const dc = evaluateDC(this.model, this.size,
+      forward ? vgs : vgs - vds, Math.abs(vds), forward ? vbs : vbs - vds, dcScratch);
+    // Only the channel current is delayed, not the substrate or junction currents.
+    for (const [col, value] of [[drain, dc.gds], [g, dc.gm], [b, dc.gmbs],
+      [source, -(dc.gds + dc.gm + dc.gmbs)]]) {
+      for (const [row, sign] of [[drain, 1], [source, -1]]) {
+        if (row < 0 || col < 0) continue;
+        ctx.stampG(row, col, m * sign * value * (real - 1));
+        ctx.stampC(row, col, -m * sign * value * tau * real);
+      }
+    }
+    // Intrinsic D/S charge rows follow H; gate balances them, bulk stays QS.
+    // Overlap and depletion charges are already in the unchanged baseline C.
+    const cd = [ic.cddb, ic.cdgb, ic.cdsb, -(ic.cddb + ic.cdgb + ic.cdsb)];
+    const cb = [ic.cbdb, ic.cbgb, ic.cbsb, -(ic.cbdb + ic.cbgb + ic.cbsb)];
+    const cg = [ic.cgdb, ic.cggb, ic.cgsb, -(ic.cgdb + ic.cggb + ic.cgsb)];
+    const controls = [drain, g, source, b];
+    for (let col = 0; col < 4; col++) {
+      const cs = -(cd[col] + cb[col] + cg[col]);
+      for (const [row, value] of [[drain, cd[col]], [source, cs], [g, -(cd[col] + cs)]]) {
+        if (row < 0 || controls[col] < 0) continue;
+        ctx.stampG(row, controls[col], m * value * omega * lag);
+        ctx.stampC(row, controls[col], m * value * (real - 1));
+      }
+    }
+  }
+
   /**
    * b3ld.c NIintegrate of qg, qd and qb: each terminal charge current flows
    * into the device at its terminal and out at the source, linearised with
@@ -294,6 +365,10 @@ export class BSIM3v3 implements DeviceModel {
     const tc = this.evaluateCharges(ctx);
     const charges = this.charges;
     charges.begin(integration);
+    if (this.nonQuasiStatic) {
+      this.nqsCharges.begin(integration);
+      this.stampNonQuasiStatic(ctx, tc);
+    }
     const nodes = this.nodes;
     const nS = nodes[TERMINAL.S];
     const scale = this.multiplier * this.polarity;
@@ -319,12 +394,28 @@ export class BSIM3v3 implements DeviceModel {
 
   stampAcceptedChargeCurrent(ctx: StampContext): void {
     const nS = this.nodes[TERMINAL.S];
+    if (this.nonQuasiStatic) {
+      stampChargeCurrent(ctx, this.nodes[TERMINAL.G], nS, -this.acceptedNqsCurrent);
+      stampChargeCurrent(ctx, this.nodes[TERMINAL.D], nS, this.acceptedNqsPartition * this.acceptedNqsCurrent);
+    }
     for (let index = 0; index < CHARGE_ROWS.length; index++) {
       stampChargeCurrent(ctx, this.nodes[CHARGE_ROWS[index]], nS, this.charges.acceptedChargeCurrent(index));
     }
   }
 
   acceptTransientStep(ctx: StampContext): void {
+    this.acceptTerminalCharges(ctx);
+    if (this.nonQuasiStatic) {
+      const { equilibrium, deficit, rate, partition } = this.nonQuasiStaticState(ctx, this.evaluateCharges(ctx));
+      this.acceptedNqsCurrent = this.multiplier * this.polarity * rate * deficit;
+      this.acceptedNqsPartition = partition;
+      this.nqsCharges.accept(0, equilibrium);
+      this.nqsCharges.accept(1, deficit);
+      this.nqsCharges.commit();
+    }
+  }
+
+  private acceptTerminalCharges(ctx: StampContext): void {
     const tc = this.evaluateCharges(ctx);
     const scale = this.multiplier * this.polarity;
     for (let index = 0; index < CHARGE_ROWS.length; index++) {
@@ -333,13 +424,101 @@ export class BSIM3v3 implements DeviceModel {
     this.charges.commit();
   }
 
+  /**
+   * ngspice-47 b3ld.c:2478-2491,2630-2665,2803-2848,3109-3120.
+   * Eliminate the local qNode equation exactly (Schur complement), storing
+   * qcdump in coulombs rather than dividing by ScalingFactor = 1e-9:
+   *   d(qdef)/dt + rate*qdef = d(qcheq)/dt.
+   * Both NIintegrate histories survive without adding a global unknown.
+   */
+  private nonQuasiStaticState(ctx: StampContext, tc: BSIM3TerminalCharges): {
+    equilibrium: number; deficit: number; rate: number; partition: number;
+  } {
+    const ic = tc.intrinsic;
+    const equilibrium = -(ic.qgate + ic.qbulk);
+    const rate = this.relaxationRate(equilibrium);
+    const tconst = this.relaxationDriftConstant();
+    const history = this.nqsCharges;
+    const deficit = (history.current(0, equilibrium) - history.current(1, 0)) / (history.factor + rate);
+    const forward = this.terminalVoltages(node => node >= 0 ? ctx.getVoltage(node) : 0)[1] >= 0;
+    const small = Math.abs(equilibrium) <= 1e-5 * this.chargeInputs.coxWL;
+    const effectivePartition = small
+      ? (this.chargeInputs.xpart < 0.5 ? 0.4 : this.chargeInputs.xpart > 0.5 ? 0 : 0.5)
+      : ic.qdrn / equilibrium;
+    const partition = forward ? effectivePartition : 1 - effectivePartition;
+    const q = this.nqsDerivative;
+    const p = this.partitionDerivative;
+    q[TERMINAL.G] = -(ic.cggb + ic.cbgb);
+    q[TERMINAL.D] = -(ic.cgdb + ic.cbdb);
+    q[TERMINAL.S] = -(ic.cgsb + ic.cbsb);
+    q[TERMINAL.B] = -(q[0] + q[1] + q[2]);
+    p[TERMINAL.G] = ic.cdgb;
+    p[TERMINAL.D] = ic.cddb;
+    p[TERMINAL.S] = ic.cdsb;
+    p[TERMINAL.B] = -(p[0] + p[1] + p[2]);
+    for (let col = 0; col < 4; col++) {
+      p[col] = small ? 0 : (p[col] - effectivePartition * q[col]) / equilibrium;
+      if (!forward) p[col] = -p[col];
+    }
+    if (!forward) {
+      [q[TERMINAL.D], q[TERMINAL.S]] = [q[TERMINAL.S], q[TERMINAL.D]];
+      [p[TERMINAL.D], p[TERMINAL.S]] = [p[TERMINAL.S], p[TERMINAL.D]];
+    }
+    // d(rate*qdef)/dV after eliminating the qNode row.
+    const a = history.factor;
+    for (let col = 0; col < 4; col++) {
+      const dRate = Math.sign(equilibrium) * tconst * q[col];
+      q[col] = a / (a + rate) * (rate * q[col] + deficit * dRate);
+    }
+    return { equilibrium, deficit, rate, partition };
+  }
+
+  private stampNonQuasiStatic(ctx: StampContext, tc: BSIM3TerminalCharges): void {
+    const { deficit, rate, partition } = this.nonQuasiStaticState(ctx, tc);
+    const current = rate * deficit;
+    const m = this.multiplier;
+    for (const row of [TERMINAL.G, TERMINAL.D, TERMINAL.S]) {
+      const node = this.nodes[row];
+      if (node < 0) continue;
+      const weight = row === TERMINAL.G ? -1 : row === TERMINAL.D ? partition : 1 - partition;
+      let equivalent = m * this.polarity * weight * current;
+      for (let col = 0; col < 4; col++) {
+        const control = this.nodes[col];
+        if (control < 0) continue;
+        const dp = row === TERMINAL.G ? 0 : (row === TERMINAL.D ? 1 : -1) * this.partitionDerivative[col];
+        const g = m * (weight * this.nqsDerivative[col] + current * dp);
+        ctx.stampG(node, control, g);
+        equivalent -= g * ctx.getVoltage(control);
+      }
+      ctx.stampB(node, -equivalent);
+    }
+  }
+
+  /** b3ld.c:2487-2493: gtau / ScalingFactor = 1 / taunet. */
+  private relaxationRate(equilibrium: number): number {
+    return Math.abs(this.relaxationDriftConstant() * equilibrium)
+      + 16 * this.size.instU0temp * this.model.vtm / (this.size.leffCV * this.size.leffCV);
+  }
+
+  private relaxationDriftConstant(): number {
+    // b3temp.c:785,803 / b3v32temp.c:853,873 use live vfbzb T0, not LeffCV^2.
+    const record = this.sizeRecordDonor?.size ?? this.size;
+    const last = this.nqsTempDonor?.size ?? this.size;
+    const t0 = Math.sqrt(1 + last.nlx / last.leff);
+    return this.size.instU0temp * record.elm
+      / (this.model.cox * record.weffCV * record.leffCV * t0);
+  }
+
   resetTransient(): void {
     this.charges.reset();
+    this.nqsCharges.reset();
+    this.acceptedNqsCurrent = 0;
+    this.acceptedNqsPartition = 0;
   }
 
   /** ngspice BSIM3trunc: CKTterr on qb, qg and qd. */
   truncateTransientStep(ctx: StampContext, truncation: ChargeTruncation): number {
-    return this.charges.truncationTimestep(truncation, () => this.acceptTransientStep(ctx));
+    return this.charges.truncationTimestep(truncation, () => this.acceptTerminalCharges(ctx));
   }
 
   /** b3ld.c terminal charges (NMOS convention, per unit multiplier) at the voltages in `ctx`. */
@@ -356,6 +535,7 @@ export class BSIM3v3 implements DeviceModel {
     evaluateTerminalCharges(
       this.model, this.size, this.chargeInputs, vgs, vds, vbs, charges,
       reuse ? lastDC.inputs : undefined,
+      this.nonQuasiStatic,
     );
     key.valid = true;
     key.vgs = vgs;
@@ -365,38 +545,17 @@ export class BSIM3v3 implements DeviceModel {
   }
 }
 
-/**
- * b3set.c/b3v32set.c resolve nqsMod (and, 3.3.0 only, acnqsMod) per
- * instance: an instance value of 0 or 1 wins, anything else falls back to the
- * card's value, which itself falls back to 0 unless it is 0 or 1. spice-ts
- * implements only the quasi-static charge model, so an effective 1 is
- * rejected instead of silently simulating nqsMod = 0 (#594: on the corpus-f
- * TSMC inverter chain NQSMOD=1 moves ngspice's output by 0.7 V of 2.5 V).
- * Porting NQS is tracked in https://github.com/mfiumara/spice-ts/issues/692.
- */
-function rejectNonQuasiStatic(
-  name: string, model: Readonly<Record<string, number>>, inst: Readonly<Record<string, number | undefined>>,
-  revision: number,
-): void {
-  const value = (record: Readonly<Record<string, number | undefined>>, key: string): number | undefined => {
+/** b3set.c: valid instance selector overrides the card; invalid values fall back. */
+function effectiveSelector(
+  model: Readonly<Record<string, number>>, inst: Readonly<Record<string, number | undefined>>, key: string,
+): number {
+  const value = (record: Readonly<Record<string, number | undefined>>): number | undefined => {
     for (const [k, v] of Object.entries(record)) if (k.toLowerCase() === key) return v;
     return undefined;
   };
-  const keys = revision >= BSIM3_REVISION.V330 ? ['nqsmod', 'acnqsmod'] : ['nqsmod'];
-  for (const key of keys) {
-    const card = value(model, key);
-    const modelValue = card === 0 || card === 1 ? card : 0;
-    const instance = value(inst, key);
-    const effective = instance === 0 || instance === 1 ? instance : modelValue;
-    if (effective === 1) {
-      throw new UnsupportedModelParameterError(
-        name, key.toUpperCase(),
-        `the BSIM3 ${key === 'nqsmod' ? 'non-quasi-static (NQS) charge model' : 'AC non-quasi-static model'} is not `
-          + 'implemented; spice-ts would simulate the quasi-static model (NQSMOD=0) instead',
-        { model: 'BSIM3' },
-      );
-    }
-  }
+  const card = value(model);
+  const instance = value(inst);
+  return instance === 0 || instance === 1 ? instance : card === 1 ? 1 : 0;
 }
 
 /** Terminals whose charge ngspice integrates (BSIM3qg, BSIM3qd, BSIM3qb), in state order. */

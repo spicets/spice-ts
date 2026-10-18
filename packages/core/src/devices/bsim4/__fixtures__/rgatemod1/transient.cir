@@ -1,0 +1,7 @@
+Authored BSIM4 RGATEMOD=1 intrinsic gate RC regression (MIT)
+.model DUT NMOS LEVEL=54 VERSION=4.8.3 RGATEMOD=1 RSHG=1meg
+Vd d 0 0.7
+Vg g 0 PULSE(0 1.5 10n 100p 100p 200n 400n)
+M1 d g 0 0 DUT L=1u W=10u
+.tran 100p 100n
+.end

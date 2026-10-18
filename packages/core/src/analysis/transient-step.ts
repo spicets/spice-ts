@@ -120,7 +120,7 @@ export function attemptStep(ctx: StepContext, attempt: StepAttempt): StepResult 
     ctx.guard?.checkpoint('solve:newton-iteration');
     buildCompanionSystem(
       assembler, devices, dt, attempt.integrationMethod ?? options.integrationMethod,
-      prevSolution, prevB, gmin, prevPrevSolution, prevDt, staticCurrentHistory,
+      prevSolution, prevB, gmin, prevPrevSolution, prevDt, staticCurrentHistory, options.xmu,
     );
 
     if (!assembler.isFastPath) assembler.lockTopology();

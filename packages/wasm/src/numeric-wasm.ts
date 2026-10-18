@@ -4,7 +4,7 @@ import type {
   SimulationRequestV1,
   SimulationResultV1,
   SpiceApiErrorV1,
-} from '@spice-ts/protocol';
+} from '@spice-ts/core/protocol';
 import {
   assertNumericWasmAbi,
   NUMERIC_WASM_LIMITS,

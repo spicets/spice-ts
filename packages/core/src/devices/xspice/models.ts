@@ -1,6 +1,7 @@
 import type { ChargeIntegration, ChargeTruncation } from '../device.js';
 import type { XspiceConnection } from './connections.js';
 import type { XspiceParamValue } from './spec.js';
+import { pwlts } from './pwlts.js';
 
 /**
  * One call of a code model function (ngspice cm_<model>(ARGS)). Inputs,
@@ -51,6 +52,10 @@ export type CodeModelACForm =
   | { readonly kind: 'integrator'; readonly gain: number };
 
 export interface CodeModelBehavior {
+  /** ngspice TSTEP/TSTOP, supplied before transient initialization. */
+  setTransientTimestep?(timestep: number, stopTime?: number): void;
+  /** RAMPTIME configured for transient OP and subsequent transient loads. */
+  setRampTime?(time: number): void;
   /** True when the model keeps transient state (cm_analog_alloc). */
   readonly stateful: boolean;
   readonly ac: CodeModelACForm;
@@ -547,6 +552,7 @@ export const XSPICE_BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<st
   ['mult', mult],
   ['divide', divide],
   ['pwl', pwl],
+  ['pwlts', pwlts],
   ['limit', limit],
   ['int', integrator],
   ['d_dt', differentiator],

@@ -1,5 +1,0 @@
----
-"@spice-ts/core": patch
----
-
-Read Xyce `.options` packages (`DEVICE`, `NONLIN`, `NONLIN-TRAN`, `TIMEINT`, `LINSOL`, `LOCA`, `TOPOLOGY`, `DIAGNOSTIC`, `MEASURE`, ...) like ngspice-47 instead of rejecting the deck (#713). ngspice has no option packages: it ignores the package keyword and every field name outside its option table, and applies fields that are ngspice options, so `.options device temp=27` sets TEMP and `.options nonlin reltol=1e-2 abstol=1e-6` sets RELTOL/ABSTOL. Ignored fields are reported as a structured parse warning. `TIMEINT` follows the same rule: `ABSTOL` is now the ngspice current tolerance only (it no longer also sets `VNTOL`), a numeric `METHOD` (Xyce `7`/`8`) is ignored like ngspice's string-typed METHOD, and `NEWLTE`/`DELMAX`/`NEWBPSTEPPING` are ignored. `MAXORD` >= 2 is accepted with trapezoidal integration, where ngspice never exceeds order 2; `MAXORD` > 2 with `METHOD=GEAR` and `MAXORD` < 2 stay typed unsupported. Plain `.options` cards keep their strict handling.

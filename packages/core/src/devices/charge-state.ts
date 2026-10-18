@@ -38,6 +38,7 @@ export class TransientChargeState {
   private method: ChargeIntegration['method'] = 'euler';
   private a2 = 0;
   private a3 = 0;
+  private currentWeight = 1;
   /** dI/dQ of the active rule (ngspice CKTag[0]). */
   factor = 0;
 
@@ -61,7 +62,7 @@ export class TransientChargeState {
     if (!this.hasAccepted) return 0;
     const previous = this.acceptedCharge[index];
     if (this.method === 'trapezoidal') {
-      return this.factor * (charge - previous) - this.acceptedCurrent[index];
+      return this.factor * (charge - previous) - this.currentWeight * this.acceptedCurrent[index];
     }
     if (this.method === 'gear2') {
       return this.factor * charge - this.a2 * previous + this.a3 * this.previousCharge[index];
@@ -242,7 +243,7 @@ export class TransientChargeState {
       const previous = previousCharge[index];
       const priorCurrent = acceptedCurrent[index];
       const current = method === 'trapezoidal'
-        ? factor * (charge - accepted) - priorCurrent
+        ? factor * (charge - accepted) - this.currentWeight * priorCurrent
         : method === 'gear2'
           ? factor * charge - a2 * accepted + a3 * previous
           : factor * (charge - accepted);
@@ -286,10 +287,12 @@ export class TransientChargeState {
     );
   }
 
-  private select({ method, dt, prevDt }: ChargeIntegration): void {
+  private select({ method, dt, prevDt, xmu = 0.5 }: ChargeIntegration): void {
     if (method === 'trapezoidal') {
       this.method = 'trapezoidal';
-      this.factor = 2 / dt;
+      // nicomcof.c:43-44. Retain the original operation order at the default.
+      this.factor = xmu === 0.5 ? 2 / dt : 1 / dt / (1 - xmu);
+      this.currentWeight = xmu / (1 - xmu);
       return;
     }
     if (method === 'gear2' && prevDt !== undefined && this.hasPrevious) {

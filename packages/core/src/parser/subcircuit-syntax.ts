@@ -9,7 +9,7 @@ import { evaluateExpression } from './expression.js';
 const PARAMS_KEYWORD = /^params:$/i;
 
 /** `name = value`, where value is `{...}`, `'...'` or a whitespace-free token. */
-const HEADER_ASSIGNMENT = /([A-Za-z_]\w*)\s*=\s*(\{[^{}]*\}|'[^']*'|[^\s,]+)/g;
+const HEADER_ASSIGNMENT = /([A-Za-z_]\w*)\s*=\s*(\{[^{}]*\}|'[^']*'|"[^"]*"|[^\s,]+)/g;
 
 export interface SubcircuitHeader {
   name: string;
@@ -116,8 +116,8 @@ function callAssignments(card: string): CallAssignment[] {
         end++;
       } while (end < card.length && depth > 0);
       if (depth !== 0) throw new Error('Missing } in subcircuit call');
-    } else if (card[valueStart] === "'") {
-      const close = card.indexOf("'", valueStart + 1);
+    } else if (card[valueStart] === "'" || card[valueStart] === '"') {
+      const close = card.indexOf(card[valueStart], valueStart + 1);
       if (close < 0) throw new Error('Missing quote in subcircuit call');
       end = close + 1;
     } else {
@@ -138,9 +138,19 @@ export function parseSubcircuitCallParams(raw: string, evaluate: (token: string)
   const params: Record<string, number> = {};
   for (const { name, value } of callAssignments(raw)) {
     if (!/^[A-Za-z_]\w*$/.test(name) || bareCommaValue(value)) continue;
-    params[name.toUpperCase()] = parseNumber(evaluate(value));
+    const evaluated = evaluate(value);
+    // String actuals are retained on the raw X card and bound at expansion.
+    if (evaluated.startsWith('"')) continue;
+    params[name.toUpperCase()] = parseNumber(evaluated);
   }
   return params;
+}
+
+/** String actuals are kept separate from numeric device descriptor parameters. */
+export function subcircuitStringActuals(raw: string): Map<string, string> {
+  return new Map(callAssignments(raw)
+    .filter(({ name, value }) => /^[A-Za-z_]\w*$/.test(name) && value.startsWith('"') && value.endsWith('"'))
+    .map(({ name, value }) => [name.toUpperCase(), value.slice(1, -1)]));
 }
 
 /** inp_fix_inst_line retains matched formal names before positional numparam validation. */

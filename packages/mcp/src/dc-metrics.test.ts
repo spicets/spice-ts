@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { simulateProtocolV1 } from '@spice-ts/core';
-import type { SimulationRequestV1 } from '@spice-ts/protocol';
+import type { SimulationRequestV1 } from '@spice-ts/core/protocol';
 import { executeTool } from './server.js';
 import { dcMetricsResult } from './dc-metrics.js';
 

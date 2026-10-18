@@ -1,4 +1,4 @@
-import type { SimulationResultV1, SpiceApiErrorV1 } from '@spice-ts/protocol';
+import type { SimulationResultV1, SpiceApiErrorV1 } from '@spice-ts/core/protocol';
 
 type DcMetricsInput = { sweptSource: string; output: string; input?: string };
 type Metric = { value: number | null; unit: string; reason?: string };
