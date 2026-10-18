@@ -16,7 +16,7 @@ describe('CKTterr integration-method coefficients', () => {
       deltas: [1, 1, 1] as const, reltol: 1e-3, abstol: 1e-12, chgtol: 1e-14,
       trtol: 7, order: 2 as const, method,
     };
-    // ngspice-47 cktterr.c:24-35,67-74 selects by the run method, not
+    // ngspice-47 cktterr.c:24-35,60-74 selects by the run method, not
     // the BE companion. q=t^3 has third divided difference 1. Its current
     // remains the BE current (27-8), not a recomputed order-two current.
     const expected = Math.sqrt(7 * 0.027 / coefficient);
