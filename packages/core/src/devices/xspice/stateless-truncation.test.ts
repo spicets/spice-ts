@@ -13,7 +13,8 @@ c1 filtered 0 1n
 .tran 100n 3u
 .end`, { onReject: rejection => rejections.push(rejection) });
     try {
-      while (sim.time < 3e-6) sim.advance();
+      while (!sim.isDone) sim.advance();
+      expect(rejections.some(rejection => rejection.reason === 'charge-lte')).toBe(true);
       expect(rejections.filter(rejection => rejection.reason.includes('voltage'))).toEqual([]);
     } finally {
       sim.dispose();
