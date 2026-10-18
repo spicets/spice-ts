@@ -2047,6 +2047,26 @@ ngspice uses one-sided finite differences; the regression compares DC and comple
 AC derivatives at 1e-5 relative plus 1e-12 absolute tolerance and reports both
 maximum absolute error and nonzero-vector relative error.
 
+## XSPICE microstrip OP/AC (#1458)
+
+`benchmarks/xspice-mlin/compare.ts` observes the unchanged BSD-3-Clause corpus-f
+`examples/xspice/transmission_lines/mlin.cir`; provenance and deck hash remain in
+`corpus/corpus-f/SOURCES.md`. Both engines receive identical original bytes.
+The ngspice observer exports the existing `z = v(in)/-i(v1)` vector. Run
+`spice-heavy pnpm exec tsx benchmarks/xspice-mlin/compare.ts`. It checks all 200
+frequencies and reports max complex absolute error divided by max reference
+magnitude, failing above 1%. Runtimes have different process boundaries and are
+not evidence of a speed advantage.
+
+Formula sources (BSD-3-Clause, Copyright 2025 Vadim Kuznetsov; retained in
+`packages/core/src/devices/xspice/mlin.LICENSE`):
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/tlines/msline_common.c
+lines 104-136,225-248 (geometry), 267-311 (dispersion), 315-347 (loss);
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/mlin/cfunc.mod
+lines 116-151 (DC/AC). Contrary to the original issue wording, reference DC is an
+ideal short and disp=0 is Kirschning-Jansen, not disabled dispersion.
+Transient remains unsupported, tracked in #1461.
+
 ## MCP AC metrics (#1391)
 
 `benchmarks/mcp-ac-metrics/two-pole.cir` is an original MIT-licensed buffered
