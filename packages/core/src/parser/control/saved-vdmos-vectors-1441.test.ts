@@ -31,10 +31,30 @@ ${analysis}
         // Reference endpoint values are the same in DC and at t=1ms.
         const expected = name === '@m1[id]' ? 8
           : name === '@m1[cgs]' ? 4e-9
-            : name === '@m1[cgd]' ? 5.629064005230733e-9
+            : name === '@m1[cgd]' ? 5.629055259556148e-9
               : 4.618802153517007e-9;
         expect(Math.abs(values.at(-1)! / expected - 1)).toBeLessThan(1e-6);
         if (name !== '@m1[cgs]') expect(values.at(-1)).not.toBe(values[1]);
+      });
+    }
+  }
+
+  for (const polarity of [1, -1]) {
+    for (const analysis of ['dc vd -.1 -.2 -.1', 'tran 10u 1m']) {
+      it(`retains native channel-current sign in inverse mode, polarity ${polarity}, ${analysis}`, async () => {
+        const result = await simulate(`Inverse channel current
+vd d 0 dc ${-.1 * polarity} pwl(0 ${-.1 * polarity} 1m ${-.2 * polarity})
+vg g 0 ${1.5 * polarity}
+m1 d g 0 power m=2
+.model power vdmos(${polarity === -1 ? 'pchan' : ''} vto=${polarity} kp=2 rb=0 cjo=0 cgs=0 cgdmin=0 cgdmax=0)
+.control
+save all @m1[id]
+${polarity === -1 && analysis.startsWith('dc') ? 'dc vd .1 .2 .1' : analysis}
+.endc
+.end`);
+        const values = (result.dcSweep ?? result.transient!).deviceVectors.get('@m1[id]')!;
+        // vdmosask.c returns mode*cdrain, even for p-channel devices.
+        expect(values.at(-1)).toBeCloseTo(-0.480072917316302, 12);
       });
     }
   }
