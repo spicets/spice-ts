@@ -1135,6 +1135,12 @@ class ControlInterpreter {
     return {
       lookup: name => this.lookup(name),
       scale: () => this.current.scale,
+      movingAverageWindow: () => {
+        const setting = this.variables.get('mtimeavgwindow');
+        return typeof setting === 'string'
+          ? parseControlNumber(setting) ?? NaN
+          : this.transientTask ? 10 * this.transientTask.timestep : 1e-6;
+      },
       userFunction: (name, arity) => this.functions.get(`${name.toLowerCase()}/${arity}`),
       degrees: () => {
         const units = this.variables.get('units');

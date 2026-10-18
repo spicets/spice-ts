@@ -54,6 +54,8 @@ export interface ExpressionEnvironment {
   degrees(): boolean;
   /** Current plot scale, including `setscale` on constructed vectors. */
   scale?(): ControlVector | undefined;
+  /** mtimeavgwindow, or ten times the circuit's transient output timestep. */
+  movingAverageWindow?(): number;
 }
 
 type Token =
@@ -559,6 +561,39 @@ function calculus(name: string, arg: ControlVector, scale: ControlVector | undef
   return realVector('result', result, scale);
 }
 
+/** ngspice-47 cmath4.c cx_mtimeavg: preserve its rectangle/border arithmetic,
+ * not a conventional trapezoidal moving mean (even at the endpoints).
+ */
+function movingTimeAverage(arg: ControlVector, scale: ControlVector | undefined, window: number): ControlVector {
+  const length = arg.re.length;
+  if (!scale || scale.name !== 'time' || isComplex(scale) || scale.re.length !== length || length === 0) {
+    throw new ExpressionError('mtimeavg() needs a matching real time scale');
+  }
+  if (isComplex(arg)) throw new ExpressionError('mtimeavg() needs a real valued vector');
+  if (!Number.isFinite(window) || window <= 0) throw new ExpressionError('mtimeavgwindow must be positive and finite');
+  const result = new Float64Array(length);
+  const time = scale.re;
+  const last = length - 1;
+  const half = window / 2;
+  for (let i = 0; i < length; i++) {
+    const begin = time[i] - half;
+    const end = time[i] + half;
+    let lower = time[last];
+    let upper = time[0];
+    let left = i;
+    let right = i;
+    while (left > 0 && lower > begin) lower = time[left--];
+    while (right < last && upper < end) upper = time[right++];
+    let integral = 0;
+    for (let k = left; k < right; k++) integral += arg.re[k] * (time[k + 1] - time[k]);
+    if (left > 0) integral -= (time[left] - begin) * arg.re[left];
+    if (right < last) integral += (time[right] - end) * arg.re[right];
+    const duration = left === 0 ? time[i] + half : right === last ? time[last] - time[i] + half : window;
+    result[i] = integral / duration;
+  }
+  return realVector('result', result, scale);
+}
+
 function mapReal(vector: ControlVector, operation: (value: number) => number, keepScale = true): ControlVector {
   return realVector('result', Array.from(vector.re, operation), keepScale ? vector.scale : undefined);
 }
@@ -604,6 +639,9 @@ function evaluateCall(node: Extract<ExpressionNode, { kind: 'call' }>, env: Expr
     throw new ExpressionError(`unknown function '${node.name}' with ${node.args.length} arguments`);
   }
   const arg = evaluateVectorExpression(node.args[0], env);
+  if (node.name === 'mtimeavg') {
+    return movingTimeAverage(arg, env.scale?.() ?? arg.scale, env.movingAverageWindow?.() ?? 1e-6);
+  }
   if (node.name === 'integ' || node.name === 'deriv') {
     return calculus(node.name, arg, env.scale?.() ?? arg.scale);
   }
