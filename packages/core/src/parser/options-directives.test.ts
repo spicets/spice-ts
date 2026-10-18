@@ -288,7 +288,7 @@ ${control}
 
   it.each([
     ['measure ac gain max vm(2)', 'measure'],
-    ['remcirc', 'remcirc'],
+    ['remcirc\nop', 'remcirc'],
     ['spec 10 1000 10 v(2)', 'spec'],
     ['cutout v(2)', 'cutout'],
   ])('rejects an unexecuted control command %s with a structured error at parse time', (control, command) => {
