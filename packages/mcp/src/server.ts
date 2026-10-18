@@ -27,6 +27,7 @@ import { overrideParameters, parameterOverrides, ParameterOverrideError, paramsS
 import type { ParameterOverrideApiError } from './params.js';
 import { runSweep, sweepProperties } from './sweep.js';
 import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } from './ac-metrics.js';
+import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProperties } from './tran-metrics.js';
 
 export interface McpLimits {
   maxDocumentBytes: number;
@@ -293,6 +294,19 @@ export const MCP_TOOLS = Object.freeze([
     },
   },
   {
+    name: 'spice_tran_metrics',
+    description: 'Simulate one transient step response. Returns interpolated 10-90% rise/fall time, overshoot/undershoot, directional peak and settling time in seconds. Endpoint levels default to first/last samples; supply known initialValue/finalValue for truncated traces. Settling requires the final 10% of sampled duration in band (default 2% of step amplitude).',
+    inputSchema: {
+      ...requestInputSchema,
+      required: ['request', 'signal'],
+      properties: { ...requestInputSchema.properties, ...tranMetricsProperties },
+    },
+    outputSchema: {
+      type: 'object', oneOf: [...tranMetricsOutputSchemas, toolFailureOutputSchema],
+      $defs: commonSchemaV1.$defs,
+    },
+  },
+  {
     name: 'spice_measure',
     description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; optional step selects the zero-based SimulationResultV1 step.index (required for multiple steps). Unstepped analyses accept step 0 only. Signals are v(node), i(branch), mag(v(node)), or db(v(node)). Cross/when return the first matching axis coordinate.',
     inputSchema: {
@@ -410,11 +424,12 @@ async function executeToolWithStore(
     }
     if (name === 'spice_simulation_read') return success(streamStore.read(streamReadArgs(args)));
     if (name === 'spice_simulation_cancel') return success(streamStore.cancel(streamCancelArgs(args)));
-    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_ac_metrics' && name !== 'spice_simulation_start') {
+    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_ac_metrics' && name !== 'spice_tran_metrics' && name !== 'spice_simulation_start') {
       return failure(apiError('INVALID_REQUEST', 'Unknown tool', 'transport', {}));
     }
 
     const selectors = name === 'spice_ac_metrics' ? acMetricsArgs(args) : undefined;
+    const tranSelectors = name === 'spice_tran_metrics' ? tranMetricsArgs(args) : undefined;
     const measurements = name === 'spice_measure' && isRecord(args) ? args.measurements : undefined;
     if (name === 'spice_measure' && (!Array.isArray(measurements) || measurements.length < 1 || measurements.length > 128)) {
       throw apiError('INVALID_REQUEST', 'Expected 1 through 128 measurements', 'validation', {});
@@ -453,10 +468,10 @@ async function executeToolWithStore(
         ? await boundedCall(() => options.simulate!(bounded), effective.maxWallTimeMs, options.signal)
         : await runInWorker<SimulationResultV1>('simulate', bounded, effective.maxWallTimeMs, options);
       enforceResultBounds(result, effective);
-      if (selectors) {
-        const metrics = acMetrics(result, selectors);
+      if (selectors || tranSelectors) {
+        const metrics = tranSelectors ? tranMetrics(result, tranSelectors) : acMetrics(result, selectors!);
         enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(metrics)), 'transport');
-        return success(metrics, diagnostics);
+        return { ...success(metrics, diagnostics), ...('error' in metrics ? { isError: true } : {}) };
       }
       if (name === 'spice_measure') {
         const measured = measureResult(result, measurements as unknown[]);
