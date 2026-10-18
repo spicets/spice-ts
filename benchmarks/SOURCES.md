@@ -1145,6 +1145,13 @@ The corpus comparisons for #468 are reproduced with `pnpm -C packages/core build
 
 ## Bounded pole-zero parity fixtures
 
+The MCP fixture `packages/mcp/fixtures/pz-rlc.cir` is an original project-authored
+MIT-licensed analytic RLC probe for issue #1449, under the repository LICENSE.
+It is read by `packages/mcp/src/pz-metrics.test.ts`. Its identical, unmodified
+bytes are valid for both ngspice-47 batch mode and titleless MCP input. The
+analytic transfer poles are -500 +/- j*sqrt(750000) rad/s (wn=1000 rad/s,
+zeta=0.5, Q=1); no external netlist was copied or adapted.
+
 | Circuit(s) | Canonical source / revision | Licence | Redistribution / adaptation | Local use |
 |---|---|---|---|---|
 | Passive RLC and active four-stage `.pz` | Berkeley SPICE3f5 [`simplepz.cir`](https://github.com/obernin/spice/blob/3d9360bef370b432e473edb0c4333707d545a55f/examples/simplepz.cir) and [`pz2.cir`](https://github.com/obernin/spice/blob/3d9360bef370b432e473edb0c4333707d545a55f/examples/pz2.cir), pinned mirror revision `3d9360bef370b432e473edb0c4333707d545a55f` | Berkeley SPICE grant retained at `benchmarks/corpus/classic/COPYRIGHT.txt`; redistribution is allowed with that notice | `passive-rlc.cir` preserves `simplepz.cir` and adds one 1 uH shunt inductor so the bounded fixture exercises R, L, and C dynamics. `active-four-stage.cir` changes only the source card from ngspice's implicit `iin 1 0 ac` zero bias to explicit `iin 1 0 dc 0`; its topology, values, and `.pz` command are unchanged. The committed local bytes are supplied identically to both engines. | `benchmarks/pole-zero/{passive-rlc,active-four-stage}.cir`; compare with `pnpm exec tsx benchmarks/pole-zero/compare.ts` using ngspice-47. |

@@ -17,6 +17,7 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_tran_metrics`: run a transient step and return rise/fall time, overshoot/undershoot, settling time and peak without vectors.
 - `spice_fourier`: return DC, harmonic magnitudes/phases and THD percent from the last transient period.
 - `spice_noise_metrics`: run one unstepped `.noise` analysis and return integrated output/input noise and spot densities without vectors.
+- `spice_pz_metrics`: run one unstepped `.pz` analysis and return finite poles/zeros, damping, Q and a pole-based stability verdict.
 - `spice_simulation_start`: start a bounded simulation worker and return its opaque job cursor before solving completes.
 - `spice_simulation_read`: pull a replayable chunk containing at most 256 points by default (caller-selectable from 1 through the hard cap of 1024).
 - `spice_simulation_cancel`: idempotently stop delivery and return the protocol-v1 cancelled terminal with partial analysis counts and `partialEventSha256`.
@@ -253,6 +254,34 @@ Select 1 through 128 unique signals, each at most 256 characters. Input/output
 byte limits apply; union grid size times selected signal count is bounded by
 `maxResultPoints`, returning `RESOURCE_LIMIT` when exceeded. No solver or benchmark
 semantics are changed by this tool.
+
+## Pole-zero metrics
+
+Call `spice_pz_metrics` with `{ request: { apiVersion: "1", input: { format: "spice", source: "R1 in 0 1k\nC1 in 0 1u\n.pz in 0 in 0 cur pz" } } }`.
+Use titleless SPICE text (a leading `*` comment is fine), with exactly one
+`.pz in+ in- out+ out- {cur|vol} {pol|pz}` directive. Other analyses are not
+executed. Includes, netlist options/temperature, request option overrides,
+worker wall-time/cancellation and the shared concurrency/resource bounds apply.
+JSON IR has no pole-zero directive; use SPICE text. No separate node selectors
+are provided. Missing/multiple directives and zeros-only mode return
+`INVALID_REQUEST`; unsupported JSON input returns `UNSUPPORTED_FEATURE`.
+Invalid directive forms and stepped decks retain core's `PARSE_ERROR`;
+singular/disconnected circuits retain the structured core error (for example
+`INVALID_CIRCUIT` from topology preflight). All errors use the usual error envelope.
+
+`poles` and `zeros` contain `{ re, im, frequencyHz }`. `re` and `im` are
+components of s in rad/s; `frequencyHz = hypot(re, im)/(2*pi)` is the root
+magnitude in Hz, not the signed imaginary component. `conjugatePairs` has one
+entry per pair, tagged `kind: "pole" | "zero"`, with zero-based `indices` into
+that root array, `naturalFrequencyRadPerSec = hypot(re, im)`,
+`naturalFrequencyHz`, `dampingRatio = -re/wn`, and signed `q = 1/(2*zeta)`.
+Zero damping gives `q: null` (infinite Q); real roots are not conjugate pairs.
+`dominantPole` is the pole with largest real part, ties resolved by core order,
+or null if there are no finite poles. `rightHalfPlaneCount` counts poles with
+`re > 0`; `stable` requires every returned pole to have `re < 0`. Imaginary-axis
+poles are not strictly stable. A static transfer with no finite poles is
+vacuously stable. RHP zeros do not affect this verdict. This describes the
+requested finite transfer poles, not a proof about unobservable internal modes.
 
 ## Noise metrics
 
