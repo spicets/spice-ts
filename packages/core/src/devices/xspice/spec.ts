@@ -464,6 +464,13 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('in_low', 0), real('in_high', 1), real('hyst', 0.1), real('out_lower_limit', 0), real('out_upper_limit', 1),
       ],
     },
+    {
+      name: 'memristor',
+      connections: [{ name: 'memris', direction: 'inout' as const, defaultType: 'gd', allowedTypes: ['gd'], vector: false, nullAllowed: false }],
+      params: [real('rmin', 10, { nullAllowed: false }), real('rmax', 10000, { nullAllowed: false }),
+        real('rinit', 7000, { nullAllowed: false }), real('alpha', 0, { nullAllowed: false }),
+        real('beta', 1, { nullAllowed: false }), real('vt', 0, { nullAllowed: false })],
+    },
     CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH,
 
     ADC_BRIDGE, DAC_BRIDGE, pull('d_pulldown'), pull('d_pullup'),

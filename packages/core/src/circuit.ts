@@ -223,6 +223,14 @@ function alterSourceWaveform(
   values: number[],
 ): string | undefined {
   const waveform: SourceDescriptorWaveform = descriptor.waveform ?? { type: 'dc', value: 0 };
+  if (key === 'SIN') {
+    if (waveform.type !== 'sin' || values.length < 3 || values.length > 6) {
+      return `sin of '${descriptor.name}' can be altered only on a SIN source with 3 to 6 values`;
+    }
+    const [offset, amplitude, frequency, delay = 0, damping = 0, phase = 0] = values;
+    descriptor.waveform = { ...waveform, offset, amplitude, frequency, delay, damping, phase };
+    return undefined;
+  }
   if (key === 'PULSE') {
     if (waveform.type !== 'pulse' || values.length !== PULSE_FIELDS.length) {
       return `pulse of '${descriptor.name}' can be altered only on a PULSE source with ${PULSE_FIELDS.length} values`;
