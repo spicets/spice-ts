@@ -31,6 +31,7 @@ try {
     'spice_tran_metrics',
     'spice_noise_metrics',
     'spice_measure',
+    'spice_dc_metrics',
     'spice_compare',
     'spice_simulation_start',
     'spice_simulation_read',

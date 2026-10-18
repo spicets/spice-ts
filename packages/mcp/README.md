@@ -9,6 +9,7 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_convert`: convert `{ netlist: string }` to `{ circuitJson, diagnostics, lossy: false }`, or `{ circuitJson: [...] }` to `{ netlist, diagnostics, lossy: false }`.
 - `spice_simulate`: one bounded protocol-v1 simulation.
 - `spice_measure`: run the same simulation request once and return scalar measurements only.
+- `spice_dc_metrics`: return DC transfer gain, switching threshold, unity-gain points and noise margins without raw vectors.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, and loop stability margins without vectors.
@@ -17,6 +18,30 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_simulation_start`: start a bounded simulation worker and return its opaque job cursor before solving completes.
 - `spice_simulation_read`: pull a replayable chunk containing at most 256 points by default (caller-selectable from 1 through the hard cap of 1024).
 - `spice_simulation_cancel`: idempotently stop delivery and return the protocol-v1 cancelled terminal with partial analysis counts and `partialEventSha256`.
+
+### DC transfer metrics
+
+Call `spice_dc_metrics` with `{ request: SimulationRequestV1, sweptSource: "Vin", output: "v(out)", input?: "v(in)" }`.
+The request accepts the same SPICE, spice-ts JSON and circuit-json formats as `spice_simulate`,
+with their existing conversion restrictions. Exactly one DC result must match the source
+(case-insensitive). Split repeated/stepped sweeps into separate requests. Expressions are
+case-insensitive `v(node)` signals. The input voltage must be strictly monotonic; when
+omitted, it is the sweep axis, which must be a voltage sweep.
+
+Every numeric metric is `{ value: number | null, unit: string, reason?: string }`.
+Undefined values always include a reason. `gainMax` is the maximum absolute adjacent-sample
+secant gain in V/V, with `input` and `sweepPoint` at that interval's midpoint (volts and
+the swept source's SI unit, respectively). `switchingThreshold` is the input voltage at
+the first interpolated Vout = Vin crossing in sweep order. A boundary equality by itself,
+such as a divider at zero, is not a crossing; an equality reached from a nonzero difference is.
+`voh` and `vol` are outputs at sweep start and end, not extrema, even for descending sweeps.
+`vil` and `vih` are the lowest/highest input voltages at interpolated gain = -1 crossings
+between interval midpoints; fewer than two crossings makes both undefined.
+`nmL = vil - vol` and `nmH = voh - vih`. All six voltage metrics plus the threshold use V.
+`monotonic` reports whether output samples are entirely nondecreasing or nonincreasing.
+These are sampled-transfer estimates, not guarantees of inverter behavior; use a sufficiently
+fine sweep for the desired accuracy. Invalid requests or unavailable signals use the existing
+`isError` / `SpiceApiErrorV1` envelope with code `INVALID_REQUEST` and phase `validation`.
 
 The validation, one-shot simulation, and stream-start tools accept `{ "request": SimulationRequestV1 }`. Successful results are returned as MCP `structuredContent` and as compact JSON text. Failures set `isError` and return `{ "error": SpiceApiErrorV1 }`; implementation backend names are removed from public errors.
 
