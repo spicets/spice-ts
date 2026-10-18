@@ -58,6 +58,7 @@ export class BSIM4 implements DeviceModel {
   private readonly model: Bsim4ModelSetup;
   private readonly instance: Bsim4InstanceSetup;
   private processed: Bsim4Preprocessed;
+  private acProcessed?: Bsim4Preprocessed;
   private previous: Bsim4Bias = { vgs: 0, vds: 0, vbs: 0 };
   private von = 0;
   private limited = false;
@@ -115,7 +116,10 @@ export class BSIM4 implements DeviceModel {
         this.stampConductance(ctx, this.bodyNodes[other === 0 ? 0 : 2], this.intrinsicNodes[other], mult * c, true);
       },
     } : undefined;
-    const tc = evaluateBsim4Charges(this.processed, this.model.given,
+    // AC was previously unsupported. Its native CF preprocessing must not
+    // change the existing RBODYMOD=0 transient charge path.
+    this.acProcessed ??= preprocessBsim4(this.model, this.instance, this.processed.temperatureK, 'ac');
+    const tc = evaluateBsim4Charges(this.acProcessed, this.model.given,
       { vgs: p * (read(g) - read(s)), vds: p * (read(d) - read(s)), vbs: p * (read(b) - read(s)) }, junction);
     for (let row = 0; row < 4; row++) for (let col = 0; col < 4; col++) {
       const r = this.intrinsicNodes[row], c = this.intrinsicNodes[col];
@@ -181,6 +185,7 @@ export class BSIM4 implements DeviceModel {
     const processed = preprocessBsim4(this.model, this.instance, value + 273.15);
     evaluateBsim4(processed, this.model.given, { vgs: 0, vds: 0, vbs: 0 });
     this.processed = processed;
+    this.acProcessed = undefined;
     this.temperatureC = value;
     this.beginOperatingPoint();
   }
