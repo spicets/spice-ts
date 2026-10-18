@@ -44,15 +44,15 @@
       "unsupported": 0
     },
     "spiceTs": {
-      "success": 124,
-      "failed": 2,
+      "success": 125,
+      "failed": 1,
       "unsupported": 2
     },
     "outcomes": {
-      "matched": 108,
+      "matched": 109,
       "mismatch": 14,
       "not-compared": 2,
-      "spice-ts-loss": 4,
+      "spice-ts-loss": 3,
       "ngspice-failed": 0,
       "both-failed": 0
     }
@@ -64,15 +64,6 @@
       "ngspiceSuccess": 1,
       "ids": [
         "inductor-errormessagetest-cir"
-      ],
-      "issue": null
-    },
-    {
-      "bucket": "execution: other failure",
-      "fixtures": 1,
-      "ngspiceSuccess": 1,
-      "ids": [
-        "message-device-core-safebarrier-1-cir"
       ],
       "issue": null
     },
@@ -2607,16 +2598,18 @@
         ]
       },
       "spiceTs": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": ".noise output node '13' does not exist"
+        "status": "success",
+        "analyses": [
+          "noise:1",
+          "noise:51"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "execution: other failure"
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 0,
+      "worstSignal": "noise inoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null
     },
     {
       "id": "mextram-acfreq-gbb-noflip-p-cir",
@@ -4936,5 +4929,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "21c7d723c541ff6027d78884294c5976d53175d8bf94fc6c270fd6dac12ce2c8"
+  "outcomeSha256": "0a18c74fcd1328443022ee185005626e3f0cba9473c8e7b83c69830a85722f9e"
 }

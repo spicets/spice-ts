@@ -448,12 +448,12 @@ export function solveNoise(
     const gain = differentialMagnitude(
       gainReal, gainImaginary, outputIndex, outputReferenceIndex,
     );
-    if (!(gain > 0) || !Number.isFinite(gain)) {
+    if (!Number.isFinite(gain)) {
       const outputName = analysis.outputReferenceNode === undefined
         ? analysis.outputNode
         : `${analysis.outputNode},${analysis.outputReferenceNode}`;
       throw new InvalidCircuitError(
-        `.noise input source '${analysis.inputSource}' has zero gain to '${outputName}'`,
+        `.noise input source '${analysis.inputSource}' has non-finite gain to '${outputName}'`,
       );
     }
     // ngspice-47 noisean.c: GainSqInv = 1 / MAX(|gain|^2, N_MINGAIN).
@@ -542,7 +542,11 @@ function findNodeIndex(compiled: CompiledCircuit, name: string): number {
   for (const [nodeName, index] of compiled.nodeIndexMap) {
     if (nodeName.toLowerCase() === name.toLowerCase()) return index;
   }
-  throw new InvalidCircuitError(`.noise output node '${name}' does not exist`);
+  // ngspice-47 inp2dot.c:53-64 inserts output terminals even if no element
+  // references them. Such a terminal has no matrix entries or excitation and
+  // its noise/AC solution is zero. Keep it out of our compact MNA system and
+  // read zero, just as for ground, rather than adding a singular unknown.
+  return -1;
 }
 
 function differentialMagnitude(
