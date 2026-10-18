@@ -185,6 +185,8 @@ interface DeviceDescriptor {
   nodes: string[];
   /** Original C/B/E terminals retained through BJT series-resistance expansion. */
   bjtICTerminals?: string[];
+  /** Original C/B/E/S terminals for VBIC expanded-resistor thermal power. */
+  vbicTerminals?: string[];
   value?: number;
   waveform?: Partial<SourceWaveform> & { dc?: number };
   modelName?: string;
@@ -2465,7 +2467,8 @@ export class Circuit {
                 `VBIC '${desc.name}' does not accept instance parameters: ${geometry.join(', ')}`,
               );
             }
-            devices.push(new VBIC(desc.name, nodeIndices, modelParams, polarity, bjtInstanceScale(desc.params), desc.params?.M ?? 1));
+            devices.push(new VBIC(desc.name, nodeIndices, modelParams, polarity, bjtInstanceScale(desc.params), desc.params?.M ?? 1,
+              desc.vbicTerminals?.map(resolveNode)));
           } else {
             devices.push(new BJT(desc.name, nodeIndices, { ...modelParams, polarity }, desc.params,
               desc.bjtICTerminals?.map(resolveNode)));
@@ -3062,6 +3065,7 @@ export class Circuit {
                   : []),
                 ...(terminals.length > 4 ? [terminals[4]] : []),
               ],
+              vbicTerminals: [collector, base, emitter, substrate],
             });
             continue;
           }

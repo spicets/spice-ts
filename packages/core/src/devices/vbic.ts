@@ -649,6 +649,8 @@ export class VBIC implements DeviceModel {
     /** ngspice instance SCALE = AREA * M; the circuit divides the series resistors by it. */
     private readonly instanceScale = 1,
     private readonly parallelMultiplier = 1,
+    /** Original C/B/E/S nodes before the circuit expands constant series resistors. */
+    private readonly externalTerminals?: readonly number[],
   ) {
     this.params = resolveVBICParams(supplied, polarity);
     const expected = vbicNodeCount(this.params);
@@ -846,6 +848,27 @@ export class VBIC implements DeviceModel {
       if (this.nodes[column] >= 0) {
         ctx.stampG(this.thermalNode, this.nodes[column], -this.params.polarity * powerJacobian[column]);
         rhs -= powerJacobian[column] * potentials[column];
+      }
+    }
+    // RCX/RBX/RE/RS are constant resistors stamped by the circuit rather than
+    // the intrinsic evaluator. Include their Joule heat and exact voltage
+    // derivatives in the same thermal Newton row. XRx != 0 is unsupported,
+    // so these conductances have no junction-temperature derivative.
+    if (this.externalTerminals) {
+      const parameters = ['RCX', 'RBX', 'RE', 'RS'] as const;
+      const internal = [this.nodes[0], this.nodes[2], this.nodes[4], this.nodes[6]];
+      for (let i = 0; i < parameters.length; i++) {
+        const resistance = this.params[parameters[i]];
+        if (resistance <= 0) continue;
+        const a = this.externalTerminals[i];
+        const b = internal[i];
+        const voltage = (a >= 0 ? ctx.getVoltage(a) : 0) - (b >= 0 ? ctx.getVoltage(b) : 0);
+        const g = this.instanceScale / resistance;
+        const derivative = 2 * g * voltage;
+        // P - (dP/dV)*V = -P for a quadratic constant-resistor loss.
+        rhs -= g * voltage * voltage;
+        if (a >= 0) ctx.stampG(this.thermalNode, a, -derivative);
+        if (b >= 0) ctx.stampG(this.thermalNode, b, derivative);
       }
     }
     ctx.stampB(this.thermalNode, rhs);
