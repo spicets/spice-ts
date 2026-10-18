@@ -7,6 +7,7 @@ import {
   resolveVBICTemperature, type VBICTemperatureState,
 } from './vbic-temperature.js';
 import { pnjlim } from './devsup.js';
+import { evaluateScalar, ScalarWorkspace, type ScalarQuantity } from './vbic-scalar.js';
 
 /** ngspice default circuit temperature and VBIC TNOM in degrees Celsius. */
 const NOMINAL_TEMPERATURE_C = 27;
@@ -596,7 +597,9 @@ export class VBIC implements DeviceModel {
   private readonly charges: TransientChargeState;
   private loadVoltages: number[] | undefined;
   /** Charges already evaluated at the limited static load's branch voltages. */
-  private loadCharge: Dual[] | undefined;
+  private loadCharge: ScalarQuantity[] | undefined;
+  private readonly scalarLoadWorkspace = new ScalarWorkspace();
+  private readonly scalarEvaluationWorkspace = new ScalarWorkspace();
   /** Retained until the next static load; other evaluations must not reset it. */
   private readonly loadWorkspace: DualWorkspace;
   /** Synchronous scratch for evaluations whose Duals do not escape the caller. */
@@ -706,7 +709,7 @@ export class VBIC implements DeviceModel {
   }
 
   /** Map branch-voltage derivatives onto the device's local node columns. */
-  private nodeJacobian(quantity: Dual): Float64Array {
+  private nodeJacobian(quantity: ScalarQuantity): Float64Array {
     const jacobian = new Float64Array(this.nodes.length);
     this.branchTerminals.forEach(([positive, negative], index) => {
       const derivative = quantity.derivative[index];
@@ -748,11 +751,21 @@ export class VBIC implements DeviceModel {
     return this.limited;
   }
 
+  /** TD's extra state rows and noise analysis retain the unchanged Dual path. */
+  private evaluate(voltages: number[], gmin: number, load = false): Pick<Evaluation, 'residual' | 'charge'> | ScalarWorkspace {
+    if (this.params.TD > 0) {
+      return evaluate(voltages, this.params, this.thermal, this.instanceScale, gmin,
+        load ? this.loadWorkspace : this.evaluationWorkspace);
+    }
+    return evaluateScalar(voltages, this.params, this.thermal, this.instanceScale, gmin,
+      load ? this.scalarLoadWorkspace : this.scalarEvaluationWorkspace);
+  }
+
   stamp(ctx: StampContext): void {
     const voltages = this.branchVoltages(ctx);
     this.limitJunctions(voltages);
     this.loadVoltages = voltages;
-    const { residual, charge } = evaluate(voltages, this.params, this.thermal, this.instanceScale, ctx.gmin ?? DEVICE_GMIN, this.loadWorkspace);
+    const { residual, charge } = this.evaluate(voltages, ctx.gmin ?? DEVICE_GMIN, true);
     this.loadCharge = charge;
     for (let row = 0; row < this.nodes.length; row += 1) {
       const matrixRow = this.nodes[row];
@@ -781,7 +794,7 @@ export class VBIC implements DeviceModel {
    * linearized AC and pole-zero analyses reach this; transient integrates Q.
    */
   stampDynamic(ctx: StampContext): void {
-    const { charge } = evaluate(this.branchVoltages(ctx), this.params, this.thermal, this.instanceScale, ctx.gmin ?? DEVICE_GMIN, this.evaluationWorkspace);
+    const { charge } = this.evaluate(this.branchVoltages(ctx), ctx.gmin ?? DEVICE_GMIN);
     for (let row = 0; row < this.nodes.length; row += 1) {
       const matrixRow = this.nodes[row];
       if (matrixRow < 0) continue;
@@ -800,7 +813,7 @@ export class VBIC implements DeviceModel {
     // evaluate computes currents and charges together. Reuse the charge half
     // from stamp at these exact limited voltages; gmin affects residuals only.
     const charge = this.loadCharge
-      ?? evaluate(voltages, this.params, this.thermal, this.instanceScale, ctx.gmin ?? DEVICE_GMIN, this.evaluationWorkspace).charge;
+      ?? this.evaluate(voltages, ctx.gmin ?? DEVICE_GMIN).charge;
     this.charges.begin(integration);
     for (let row = 0; row < this.nodes.length; row++) {
       const node = this.nodes[row];
@@ -825,7 +838,7 @@ export class VBIC implements DeviceModel {
   }
 
   acceptTransientStep(ctx: StampContext): void {
-    const { charge } = evaluate(this.branchVoltages(ctx), this.params, this.thermal, this.instanceScale, ctx.gmin ?? DEVICE_GMIN, this.evaluationWorkspace);
+    const { charge } = this.evaluate(this.branchVoltages(ctx), ctx.gmin ?? DEVICE_GMIN);
     charge.forEach((quantity, row) => this.charges.accept(row, quantity.value));
     this.charges.commit();
   }
