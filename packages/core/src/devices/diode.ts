@@ -395,7 +395,7 @@ export class Diode implements DeviceModel {
       RS: this.params.RS,
     };
     this.separateSidewall = params.NS !== undefined && params.JSW !== undefined;
-    this.applyTemperature();
+    this.setTemperature(27);
     this.limitsOwnJunctions = this.params.RS === 0;
     this.storesCharge = Boolean(this.params.CJ0 || this.params.CJSW || this.params.TT);
     // A two-terminal RS fallback cannot carry the internal junction charge, so
@@ -480,8 +480,10 @@ export class Diode implements DeviceModel {
   }
 
   setTemperature(value: number): void {
-    this.ambientTemperature = value;
-    this.temperature = value;
+    // ngspice-47 dio.c:14-15, dioparam.c:51-57, diotemp.c:291-296:
+    // TEMP replaces CKTtemp and DTEMP, including for self-heating instances.
+    this.ambientTemperature = this.instanceParams.TEMP ?? value + (this.instanceParams.DTEMP ?? 0);
+    this.temperature = this.ambientTemperature;
     this.applyTemperature();
   }
 

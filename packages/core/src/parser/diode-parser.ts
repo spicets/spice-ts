@@ -5,6 +5,10 @@ export interface DiodeInstanceParams {
   PJ?: number;
   M?: number;
   THERMAL?: number;
+  /** Absolute instance temperature in Celsius, taking precedence over DTEMP. */
+  TEMP?: number;
+  /** Offset from circuit temperature in Celsius when TEMP is absent. */
+  DTEMP?: number;
 }
 
 /** Optional third node precedes the model; geometry/flags follow it. */
@@ -19,9 +23,9 @@ export function diodeModelIndex(tokens: string[]): number {
     && !isArea ? 4 : 3;
 }
 
-const GEOMETRY_PARAMETERS = new Set(['AREA', 'PJ', 'M']);
+const INSTANCE_PARAMETERS = new Set(['AREA', 'PJ', 'M', 'TEMP', 'DTEMP']);
 
-/** Parse the supported ngspice diode geometry fields without ignoring tokens. */
+/** Parse supported ngspice diode instance fields without ignoring tokens. */
 export function parseDiodeInstanceParams(
   tokens: string[],
   startIdx: number,
@@ -57,7 +61,7 @@ export function parseDiodeInstanceParams(
     }
 
     const key = token.slice(0, eqIdx).toUpperCase();
-    if (!GEOMETRY_PARAMETERS.has(key)) {
+    if (!INSTANCE_PARAMETERS.has(key)) {
       throw new Error(`Unsupported diode parameter: '${token}'`);
     }
     params[key as keyof DiodeInstanceParams] = parseNumber(token.slice(eqIdx + 1));

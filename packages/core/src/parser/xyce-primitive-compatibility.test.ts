@@ -66,8 +66,8 @@ describe('Xyce primitive parser compatibility', () => {
   });
 
   it('keeps unsupported diode instance fields explicit', () => {
-    expect(() => parse('title\nD1 1 0 DMOD TEMP=50\n.model DMOD D'))
-      .toThrow(/Unsupported diode parameter: 'TEMP=50'/);
+    expect(() => parse('title\nD1 1 0 DMOD UNKNOWN=50\n.model DMOD D'))
+      .toThrow(/Unsupported diode parameter: 'UNKNOWN=50'/);
   });
 
   it('accepts disabled NEWBPSTEPPING in the unchanged inductor fixture', () => {

@@ -15,7 +15,13 @@ describe('parseDiodeInstanceParams', () => {
       .toEqual({ AREA: 2, PJ: 3, M: 4 });
   });
 
-  it.each(['OFF', 'IC=0.2', 'TEMP=50', 'DTEMP=5', 'UNKNOWN=1'])(
+  it('accepts TEMP and DTEMP alongside geometry without confusing the model index', () => {
+    const tokens = ['D1', '1', '0', 'DMOD', '2', 'temp=125', 'DtEmP=-40'];
+    expect(diodeModelIndex(tokens)).toBe(3);
+    expect(parseDiodeInstanceParams(tokens, 4)).toEqual({ AREA: 2, TEMP: 125, DTEMP: -40 });
+  });
+
+  it.each(['OFF', 'IC=0.2', 'UNKNOWN=1'])(
     'rejects unsupported trailing field %s',
     field => {
       expect(() => parseDiodeInstanceParams(['D1', '1', '0', 'DMOD', field], 4))
