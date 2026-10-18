@@ -41,7 +41,7 @@ const EXECUTED_CONTROL_COMMANDS = new Set([
   'run', 'let', 'unlet', 'set', 'unset', 'define', 'undefine', 'alter', 'altermod', 'alterparam', 'reset', 'option', 'options',
   'setplot', 'destroy', 'remzerovec', 'compose', 'strcmp', 'setscale', 'meas', 'linearize', 'cutout', 'fft', 'psd', 'fourier',
   // Interactive editor: ngspice-47 batch mode warns and continues unless `interactive` is set.
-  'edit',
+  'edit', 'eprint', 'edisplay',
 ]);
 
 /** Why a known ngspice command is not executed, for the structured error. */

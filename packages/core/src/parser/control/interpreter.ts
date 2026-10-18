@@ -15,6 +15,7 @@ import {
 } from './vector-expression.js';
 import { complexDft, ngspiceFft, ngspiceLinearInterpolate, ngspicePsd, spectrumWindow } from './spectrum.js';
 import { ngspiceFourier } from './fourier.js';
+import { eventOutput } from './event-output.js';
 import type { FourierResult } from '../../results.js';
 import {
   complexVector, formatVector, isTrue, realVector, renamed, scalar, type ControlVector,
@@ -334,6 +335,9 @@ class ControlInterpreter {
       case 'fft': return this.spectrum('fft', rest, line);
       case 'psd': return this.spectrum('psd', rest, line);
       case 'fourier': return this.fourier(rest, line);
+      case 'eprint': case 'edisplay':
+        this.output.push(...eventOutput(name, rest, this.runs, line));
+        return;
       case 'setscale': {
         if (rest === '') return;
         this.current.scale = this.vector(rest, line);
