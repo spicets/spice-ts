@@ -31,7 +31,8 @@ import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } 
 import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProperties } from './tran-metrics.js';
 import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } from './fourier.js';
 import { noiseMetrics, noiseMetricsArgs, noiseMetricsOutputSchema, noiseMetricsProperties } from './noise-metrics.js';
-import type { NoiseResult } from '@spice-ts/core';
+import type { NoiseResult, PoleZeroResult } from '@spice-ts/core';
+import { pzMetrics, pzMetricsOutputSchema } from './pz-metrics.js';
 import type { OperatingPointReport } from '@spice-ts/core';
 
 export interface McpLimits {
@@ -95,7 +96,7 @@ interface WorkerReply {
 }
 
 interface WorkerRequest {
-  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'op-report';
+  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report';
   request: SimulationRequestV1;
   coreModulePath: string;
 }
@@ -325,6 +326,15 @@ export const MCP_TOOLS = Object.freeze([
     },
   },
   {
+    name: 'spice_pz_metrics',
+    description: 'Run exactly one unstepped .pz (mode pol or pz) from SPICE text. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Other analyses are not executed.',
+    inputSchema: requestInputSchema,
+    outputSchema: {
+      type: 'object', oneOf: [pzMetricsOutputSchema, toolFailureOutputSchema],
+      $defs: commonSchemaV1.$defs,
+    },
+  },
+  {
     name: 'spice_noise_metrics',
     description: 'Simulate exactly one unstepped .noise analysis. Integrate PSD by linear-frequency trapezoids over optional bandHz; interpolate spotFrequenciesHz densities in log-frequency without extrapolation. SPICE text input; native JSON IR does not yet support noise directives.',
     inputSchema: {
@@ -503,7 +513,7 @@ async function executeToolWithStore(
     }
     if (name === 'spice_simulation_read') return success(streamStore.read(streamReadArgs(args)));
     if (name === 'spice_simulation_cancel') return success(streamStore.cancel(streamCancelArgs(args)));
-    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_dc_metrics' && name !== 'spice_ac_metrics' && name !== 'spice_tran_metrics' && name !== 'spice_fourier' && name !== 'spice_noise_metrics' && name !== 'spice_simulation_start') {
+    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_dc_metrics' && name !== 'spice_ac_metrics' && name !== 'spice_tran_metrics' && name !== 'spice_fourier' && name !== 'spice_pz_metrics' && name !== 'spice_noise_metrics' && name !== 'spice_simulation_start') {
       return failure(apiError('INVALID_REQUEST', 'Unknown tool', 'transport', {}));
     }
 
@@ -518,6 +528,9 @@ async function executeToolWithStore(
     if (name === 'spice_measure') enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(measurements)), 'validation');
     const dcInput = name === 'spice_dc_metrics' ? dcMetricsInput(args) : undefined;
     let original = toolRequest(args);
+    if (name === 'spice_pz_metrics' && original.input.format !== 'spice') {
+      throw apiError('UNSUPPORTED_FEATURE', 'Pole-zero metrics require SPICE text input', 'validation', {});
+    }
     const effective = effectiveLimits(original, limits);
     enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
     if ((name === 'spice_simulate' || name === 'spice_simulation_start') && isRecord(args) && args.params !== undefined) {
@@ -546,6 +559,12 @@ async function executeToolWithStore(
     }
     const release = streamStore.acquireOneShotSlot();
     try {
+      if (name === 'spice_pz_metrics') {
+        const result = await runInWorker<PoleZeroResult>('pz', bounded, effective.maxWallTimeMs, options);
+        const metrics = pzMetrics(result);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(metrics)), 'transport');
+        return success(metrics, diagnostics);
+      }
       if (noiseSelectors) {
         const spectrum = await runInWorker<NoiseResult>('noise', bounded, effective.maxWallTimeMs, options);
         const metrics = noiseMetrics(spectrum, noiseSelectors);
@@ -1422,6 +1441,7 @@ parentPort.once('message', async ({ operation, request, coreModulePath }) => {
     if (operation === 'stream') await streamProtocol(core, request);
     const result = operation === 'validate'
       ? await core.validateProtocolV1(request, { topologyWarnings: true })
+      : operation === 'pz' ? await core.simulatePoleZeroProtocolV1(request)
       : operation === 'noise' ? await core.simulateNoiseProtocolV1(request)
       : operation === 'op-report' ? await core.operatingPointReport(request.input.source)
       : await core.simulateProtocolV1(request);
@@ -1505,7 +1525,7 @@ async function runStreamingWorker(
 }
 
 async function runInWorker<T>(
-  operation: 'validate' | 'simulate' | 'noise' | 'op-report',
+  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report',
   request: SimulationRequestV1,
   wallTimeMs: number,
   options: ToolExecutionOptions,

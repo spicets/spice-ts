@@ -1,0 +1,7 @@
+* Original spice-ts MIT analytic RLC probe, wn=1000 rad/s, zeta=0.5
+R1 in 0 1k
+L1 in out 1
+C1 out 0 1u
+.pz in 0 out 0 cur pz
+.print pz all
+.end

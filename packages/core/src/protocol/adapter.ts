@@ -97,6 +97,31 @@ export async function validateProtocolV1(
   };
 }
 
+/** Bounded native pole-zero result, separate from the v1 result/stream union. */
+export async function simulatePoleZeroProtocolV1(request: SimulationRequestV1) {
+  const guard = protocolGuard(request);
+  enforceInputLimits(request, guard);
+  if (request.input.format !== 'spice') throw new ProtocolExecutionError({
+    code: 'UNSUPPORTED_FEATURE', message: 'Pole-zero metrics require SPICE text input',
+    phase: 'validation', retryable: false, details: {},
+  });
+  const circuit = await requestCircuit(request, guard);
+  guard.maximum('maxAnalyses', circuit.analyses.length + circuit.poleZeroAnalyses.length, 'validation');
+  if (circuit.poleZeroAnalyses.length !== 1 || circuit.poleZeroAnalyses[0].mode === 'zer') {
+    throw new ProtocolExecutionError({
+      code: 'INVALID_REQUEST', message: 'Expected exactly one .pz analysis with mode pol or pz (stability requires poles)',
+      phase: 'validation', retryable: false, details: {},
+    });
+  }
+  circuit.analyses.splice(0, circuit.analyses.length);
+  const compiled = circuit.compile(guard);
+  preflightTopology(compiled, protocolSourcePath(request));
+  const result = required((await simulate(circuit, coreOptions(request.options), guard)).poleZero, 'pole-zero result');
+  guard.maximum('maxResultPoints', result.poles.length + result.zeros.length, 'serialize');
+  guard.maximum('maxSerializedResultBytes', utf8Bytes(JSON.stringify(result)), 'serialize');
+  return result;
+}
+
 /** Bounded noise spectrum for scalar consumers, separate from the v1 result/stream union. */
 export async function simulateNoiseProtocolV1(request: SimulationRequestV1) {
   const guard = protocolGuard(request);
