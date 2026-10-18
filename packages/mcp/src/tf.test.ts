@@ -42,6 +42,10 @@ describe('spice_tf', () => {
   });
 
   it.each([
+    [{ output: undefined }, 'INVALID_REQUEST'],
+    [{ input_source: undefined }, 'INVALID_REQUEST'],
+    [{ output: 'garbage' }, 'INVALID_REQUEST'],
+    [{ netlist: 'V1 in 0 1\nR1 in out 1k invalid=1\nR2 out 0 3k\n.end' }, 'PARSE_ERROR'],
     [{ input_source: 'Vmissing' }, 'INVALID_CIRCUIT'],
     [{ output: 'v(missing)' }, 'INVALID_CIRCUIT'],
     [{ output: 'i(Vmissing)' }, 'INVALID_CIRCUIT'],
