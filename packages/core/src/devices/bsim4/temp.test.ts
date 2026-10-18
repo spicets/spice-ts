@@ -26,6 +26,18 @@ function close(actual: number, expected: number) {
 }
 
 describe('b4temp static preprocessing', () => {
+  it.each([undefined, 0, 3e-10])('isolates AC default CF without mutating static/transient setup (cf=%s)', cf => {
+    const model = setupBsim4Model(cf === undefined ? card : { ...card, cf });
+    const instance = setupBsim4Instance(model, geometry, nodes);
+    const before = preprocessBsim4(model, instance);
+    const ac = preprocessBsim4(model, instance, 300.15, 'ac');
+    const nativeCf = 2 * model.values.epsrox * 8.85418e-12 / 3.141592654
+      * Math.log(1 + 0.4e-6 / model.values.toxe);
+    expect(ac.model.cf).toBe(cf ?? nativeCf);
+    expect(preprocessBsim4(model, instance)).toEqual(before);
+    if (cf !== undefined) expect(ac).toEqual(before);
+    else expect(ac.size.cgso).toBeGreaterThan(before.size.cgso);
+  });
   it('resolves per-finger effective dimensions and L/W/P at TNOM', () => {
     const p = run();
     close(p.size.leff, 1e-6);

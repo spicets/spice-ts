@@ -66,9 +66,15 @@ export function preprocessBsim4(
   setup: Bsim4ModelSetup,
   instanceSetup: Bsim4InstanceSetup,
   temperatureK = 300.15,
+  analysis: 'static' | 'ac' = 'static',
 ): Bsim4Preprocessed {
   positive('operating temperature Kelvin', temperatureK);
   const model = { ...setup.values } as Bsim4TemperatureModel;
+  // b4temp.c:173-175 is outside the generated static ranges. The new AC
+  // adapter needs native default CF. Preserve the legacy static/transient
+  // preprocessing until the separate transient compatibility change is approved.
+  if (analysis === 'ac' && !setup.given.has('cf')) model.cf = 2 * model.epsrox * 8.85418e-12 / 3.141592654
+    * Math.log(1 + 0.4e-6 / model.toxe);
   const here = { ...instanceSetup.values } as Bsim4StaticInstance;
   // b4temp.c:1385-1397 resets negative overlaps in 4.8.3. Fail closed
   // instead of silently applying an incomplete upstream correction.

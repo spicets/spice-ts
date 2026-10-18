@@ -1,5 +1,43 @@
 # BSIM4 stage-3 static load and integration
 
+## RBODYMOD=1 OP/DC and quasi-static AC extension (#1386)
+
+This section supersedes the historical AC/body-network restrictions below.
+The documented transient voltage failures remain unchanged.
+
+The compiler preallocates `M1.dbody`, `M1.body`, `M1.sbody`, after the optional
+RGATEMOD=1 gate. RBPD/RBPS connect DB/SB to BP; RBPB connects BP to external B;
+RBDB/RBSB connect DB/SB to B. Conductance follows b4temp.c:1870-1890 and the
+b4ld/b4acld stamps: G=GBMIN+1/R, or the native 1e3 mho fallback below 1 milliohm.
+Model defaults and instance overrides are supported. Nonpositive resistance,
+negative GBMIN and selectors outside 0/1 give structured errors.
+
+Intrinsic channel/substrate/gate currents use BP. Physical junction currents
+and capacitances use DB-D and SB-S without reverse-mode swapping. AC evaluates
+the exact OP bias without Newton limiting and stamps the capMod=2 Jacobian.
+Conductance scales with M*MULT_I, charge with M*MULT_Q. RBODYMOD=1 transient
+is rejected until independent junction charge states are ported.
+RBODYMOD=0 static OP branch currents and transient waveforms remain bit-identical
+to main a7b08165. The regression pins all 1014 time samples, external/internal
+voltages and source currents of the unchanged RGATEMOD=1 transient deck.
+
+Authored MIT fixtures, generation script and ngspice-47 oracle live in
+`__fixtures__/rbodymod1/`. Regenerate with
+`python3 packages/core/src/devices/bsim4/__fixtures__/rbodymod1/generate.py`.
+Run `pnpm -C packages/core exec vitest run src/devices/bsim4`.
+Two identical decks cover NMOS, PMOS, instance overrides and RGATEMOD=1
+coexistence. All external/body voltages and four branch currents are checked
+at OP and seven AC frequencies from 1 kHz to 1 MHz. Bounds are abs <= 1e-12
+or rel <= 1e-6, stricter than the uniform corpus 1% criterion.
+
+AC exposed the missing default CF from b4temp.c:173-175, outside the generated
+static extraction. It is applied only to the new AC adapter, unless CF is given,
+using separate lazily cached preprocessing (invalidated on temperature changes).
+The static/transient preprocessing retains its original CF behavior, including
+the known inverter-output (~3.37%) and intrinsic-gate (~1.85%) voltage losses.
+Correcting those transient losses is a separate compatibility-changing slice;
+this is not full BSIM4/corpus parity.
+
 The original stage-3 static contract below is extended by the #1367
 quasi-static transient section. OP/DC restrictions not explicitly extended
 there remain in force.

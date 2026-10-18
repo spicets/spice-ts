@@ -3153,12 +3153,16 @@ export class Circuit {
           result.push({ ...desc, nodes: [drain, gate, source, bulk] });
           continue;
         }
-        if (model && (level === 14 || level === 54)
-          && (desc.params?.RGATEMOD ?? model.params.RGATEMOD ?? 0) === 1) {
+        if (model && (level === 14 || level === 54)) {
           // ngspice-47 b4set.c:2517-2533: gate electrode and intrinsic gate
           // are distinct even when RSHG=0 (b4temp supplies a 1e3 mho fallback).
-          result.push({ ...desc, nodes: [desc.nodes[0], desc.nodes[1], desc.nodes[2],
-            desc.nodes[3] ?? desc.nodes[2], internalNodeName(desc.name, 'gate')] });
+          const nodes = [desc.nodes[0], desc.nodes[1], desc.nodes[2], desc.nodes[3] ?? desc.nodes[2]];
+          if ((desc.params?.RGATEMOD ?? model.params.RGATEMOD ?? 0) === 1) nodes.push(internalNodeName(desc.name, 'gate'));
+          // b4set.c:2534-2570: body junctions and intrinsic bulk are distinct.
+          if ((desc.params?.RBODYMOD ?? model.params.RBODYMOD ?? 0) === 1) {
+            nodes.push(...['dbody', 'body', 'sbody'].map(suffix => internalNodeName(desc.name, suffix)));
+          }
+          result.push({ ...desc, nodes });
           continue;
         }
         if (model && (level === 8 || level === 49) && isSupportedBsim3Version(model.version)) {
