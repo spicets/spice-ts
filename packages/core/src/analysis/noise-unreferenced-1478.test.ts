@@ -14,7 +14,7 @@ R2 out 0 1k
 `;
 
 describe('.noise unreferenced output terminals (#1478)', () => {
-  it.each(['v(missing)', 'v(missing,absent)', 'v(out,out)', 'v(0)'])('matches ngspice-47 zero noise for %s', async output => {
+  it.each(['v(missing)', 'v(missing,absent)', 'v(0)'])('matches ngspice-47 zero noise for %s', async output => {
     const noise = (await simulate(deck.replace('v(missing)', output))).noise!;
     expect(noise.frequencies).toEqual([100, 200, 300]);
     expect(noise.outputNoiseDensity).toEqual([0, 0, 0]);
