@@ -86,7 +86,7 @@ describe('BSIM4 fail-closed setup', () => {
   it('reuses existing typed error', () => { expect(UnsupportedModel).toBe(UnsupportedModelParameterError); });
   it.each([
     ['mobmod', 1], ['capmod', 0], ['diomod', 0], ['diomod', 2], ['rdsmod', 1],
-    ['rbodymod', 1], ['rgatemod', 2], ['rgatemod', 3], ['geomod', 1], ['permod', 0], ['tempmod', 1],
+    ['rbodymod', 2], ['rgatemod', 2], ['rgatemod', 3], ['geomod', 1], ['permod', 0], ['tempmod', 1],
     ['igcmod', 2], ['igbmod', 2], ['mtrlmod', 1], ['mtrlcompatmod', 1], ['cvchargemod', 1],
     ['gidlmod', 1], ['wpemod', 1], ['tnoimod', 1], ['fnoimod', 0],
     ['trnqsmod', 1], ['acnqsmod', 1], ['binunit', 3], ['paramchk', 2],
@@ -101,7 +101,7 @@ describe('BSIM4 fail-closed setup', () => {
     'trnqsmod', 'acnqsmod'])('rejects nonbaseline model selector %s before upstream resets', parameter => {
     for (const value of [9, -1]) expect(() => setupBsim4Model({ [parameter]: value })).toThrow(UnsupportedModel);
   });
-  it.each(['trnqsmod', 'acnqsmod', 'rbodymod', 'geomod', 'rgeomod', 'wnflag'])('rejects instance mode %s', parameter => {
+  it.each(['trnqsmod', 'acnqsmod', 'geomod', 'rgeomod', 'wnflag'])('rejects instance mode %s', parameter => {
     expect(() => setupBsim4Instance(setupBsim4Model(), { [parameter]: 1 }, nodes)).toThrow(UnsupportedModel);
   });
   it.each(['saref', 'sbref', 'wlod', 'ku0', 'kvsat', 'kvth0', 'tku0', 'llodku0', 'wlodku0', 'llodvth', 'wlodvth',

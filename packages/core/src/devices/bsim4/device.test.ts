@@ -34,22 +34,20 @@ describe('BSIM4 DC device integration', () => {
       expect(result.dc!.current('Vd')).toBeCloseTo(-p * (op.ids + op.isub - op.cbd), 12);
     });
   }
-  for (const analysis of ['.ac dec 2 1 1meg', '.noise V(d) Vg dec 2 1 1meg']) {
+  for (const analysis of ['.noise V(d) Vg dec 2 1 1meg']) {
     it(`rejects ${analysis} with UnsupportedModel`, () => {
       expect(() => parse(deck(54, 'NMOS', analysis)).compile()).toThrow(UnsupportedModel);
     });
   }
-  it('direct device APIs reject dynamic requests, not zero stamps', () => {
+  it('direct device APIs reject unsupported charge/noise requests', () => {
     const device = parse(deck()).compile().devices.find(d => d.name === 'M1') as BSIM4;
     expect(() => device.capacitances()).toThrow(UnsupportedModel);
-    expect(() => device.stampDynamic()).toThrow(UnsupportedModel);
-    expect(() => device.stampSmallSignal()).toThrow(UnsupportedModel);
     expect(() => device.resetTransient()).not.toThrow();
     expect(() => device.noise()).toThrow(UnsupportedModel);
     expect(() => device.charges()).toThrow(UnsupportedModel);
   });
   for (const [parameter, value] of [
-    ['IGCMOD', 2], ['IGBMOD', 2], ['RDSMOD', 1], ['RBODYMOD', 1], ['RGATEMOD', 2], ['RGATEMOD', 3],
+    ['IGCMOD', 2], ['IGBMOD', 2], ['RDSMOD', 1], ['RBODYMOD', 2], ['RGATEMOD', 2], ['RGATEMOD', 3],
     ['TRNQSMOD', 1], ['ACNQSMOD', 1], ['MOBMOD', 1], ['TEMPMOD', 1], ['GEOMOD', 1],
     ['PERMOD', 0], ['WPEMOD', 1], ['SAREF', 2e-6], ['AGIDL', 1e-9], ['AGISL', 1e-9],
     ['JTSS', 1e-9], ['A2', 0.001], ['PRWG', -0.1], ['RDSW', -1], ['RDSWMIN', -1],

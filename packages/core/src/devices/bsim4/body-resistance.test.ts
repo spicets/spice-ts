@@ -17,10 +17,11 @@ describe('BSIM4 RBODYMOD=1', () => {
     expect(createHash('sha256').update(deck).digest('hex')).toBe(item.sha256);
     const result = await simulate(deck);
     let maxAbs = 0, maxRel = 0;
-    function check(actual: number, expected: number) {
+    const failures: string[] = [];
+    function check(actual: number, expected: number, label = '') {
       const abs = Math.abs(actual - expected), rel = abs / Math.max(Math.abs(expected), 1e-30);
       maxAbs = Math.max(maxAbs, abs); maxRel = Math.max(maxRel, rel);
-      expect(abs <= 1e-12 || rel <= 1e-6, `actual=${actual}, expected=${expected}, rel=${rel}`).toBe(true);
+      if (!(abs <= 1e-12 || rel <= 1e-6)) failures.push(`${label}: actual=${actual}, expected=${expected}, rel=${rel}`);
     }
     quantities.forEach((name, index) => {
       check(index < 7 ? result.dc!.voltage(name) : result.dc!.current(name), item.op[index]);
@@ -28,18 +29,28 @@ describe('BSIM4 RBODYMOD=1', () => {
       expect(values).toHaveLength(item.ac.length);
       item.ac.forEach((row, n) => {
         check(result.ac!.frequencies[n], row[0]);
-        check(values[n].re, row[1 + 2 * index]);
-        check(values[n].im, row[2 + 2 * index]);
+        const phase = values[n].phase * Math.PI / 180;
+        check(values[n].magnitude * Math.cos(phase), row[1 + 2 * index], `${name} real ${row[0]}`);
+        check(values[n].magnitude * Math.sin(phase), row[2 + 2 * index], `${name} imag ${row[0]}`);
       });
     });
     console.info(`${item.deck}: ${JSON.stringify({ maxAbs, maxRel })}`);
+    expect(failures).toEqual([]);
   });
   it('model RBODYMOD=1 overridden by instance zero keeps the baseline bit-identical', async () => {
     const baseline = readFileSync(new URL('model.cir', base), 'utf8').replace('rbodymod=1', 'rbodymod=0').replace('.ac dec 2 1k 1meg', '');
     const override = baseline.replace('rbodymod=0', 'rbodymod=1').replace('ad=1p as=2p', 'ad=1p as=2p rbodymod=0');
     const a = await simulate(baseline), b = await simulate(override);
+    // Captured by running the identical deck through main a7b08165.
+    expect(['Vd', 'Vg', 'Vs', 'Vb'].map(name => a.dc!.current(name))).toEqual([
+      -0.0012519703350521944, 0, 0.0012519703338518989, 1.2002958130720102e-12,
+    ]);
     expect(parse(override).compile().devices.find(d => d.name === 'M1')!.nodes).toHaveLength(4);
     for (const name of ['Vd', 'Vg', 'Vs', 'Vb']) expect(a.dc!.current(name)).toBe(b.dc!.current(name));
+  });
+  it('rejects body-network transient until separate junction charge states are ported', () => {
+    const deck = readFileSync(new URL('model.cir', base), 'utf8').replace('.ac dec 2 1k 1meg', '.tran 1n 10n');
+    expect(() => parse(deck).compile()).toThrow(UnsupportedModelParameterError);
   });
   for (const location of ['model', 'instance']) {
     for (const value of [-1, 2, 3]) it(`rejects ${location} rbodymod=${value}`, () => {

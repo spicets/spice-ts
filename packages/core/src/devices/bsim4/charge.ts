@@ -8,7 +8,9 @@ import { applyLoad } from './load-kernel.js';
 import type { Bsim4LoadInstance, Bsim4LoadSize } from './load-kernel.js';
 
 /** Polarity-normalized physical D,G,S,B charges and row-major Jacobian. */
-export function evaluateBsim4Charges(p: Bsim4Preprocessed, given: ReadonlySet<Bsim4ModelParameter>, bias: Bsim4Bias): { q: number[]; jacobian: Float64Array } {
+export function evaluateBsim4Charges(p: Bsim4Preprocessed, given: ReadonlySet<Bsim4ModelParameter>, bias: Bsim4Bias,
+  junction?: { vbs: number; vbd: number; stamp: (other: number, charge: number, capacitance: number) => void },
+): { q: number[]; jacobian: Float64Array } {
   if (p.model.capmod !== 2) throw new UnsupportedModelParameterError('', 'capmod', 'BSIM4 transient requires capMod=2');
   if (p.size.ckappas < 0.02 || p.size.ckappad < 0.02) {
     throw new UnsupportedModelParameterError('', 'ckappa', 'BSIM4 charge requires ckappas/ckappad >= 0.02');
@@ -55,9 +57,9 @@ export function evaluateBsim4Charges(p: Bsim4Preprocessed, given: ReadonlySet<Bs
   // b4ld.c:3947-4128. Junction identities do not swap in reverse mode.
   const dt = p.temperatureK - p.model.tnom;
   for (const [other, v, area, perimeter, caps, phi, grading] of [
-    [2, bias.vbs, h.Aseff, h.Pseff, [p.model.cjs, p.model.cjsws, p.model.cjswgs],
+    [2, junction?.vbs ?? bias.vbs, h.Aseff, h.Pseff, [p.model.cjs, p.model.cjsws, p.model.cjswgs],
       [p.model.PhiBS, p.model.PhiBSWS, p.model.PhiBSWGS], [p.model.mjs, p.model.mjsws, p.model.mjswgs]],
-    [0, bias.vbs - bias.vds, h.Adeff, h.Pdeff, [p.model.cjd, p.model.cjswd, p.model.cjswgd],
+    [0, junction?.vbd ?? (bias.vbs - bias.vds), h.Adeff, h.Pdeff, [p.model.cjd, p.model.cjswd, p.model.cjswgd],
       [p.model.PhiBD, p.model.PhiBSWD, p.model.PhiBSWGD], [p.model.mjd, p.model.mjswd, p.model.mjswgd]],
   ] as const) {
     const geometry = [area, perimeter, p.size.weffCJ * h.nf];
@@ -69,6 +71,7 @@ export function evaluateBsim4Charges(p: Bsim4Preprocessed, given: ReadonlySet<Bs
       const charge = v < 0
         ? (m === 1 ? -phi[j] * c0 * Math.log(arg) : phi[j] * c0 * (1 - Math.pow(arg, 1 - m)) / (1 - m))
         : v * c0 * (1 + 0.5 * m * v / phi[j]);
+      if (junction) { junction.stamp(other, charge, c); continue; }
       q[3] += charge;
       q[other] -= charge;
       jacobian[15] += c;
