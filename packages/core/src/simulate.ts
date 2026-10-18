@@ -395,6 +395,7 @@ function simulateControlScript(
   const host: ControlHost = {
     runAnalysis(tokens, line, saves) {
       const directive = parseControlAnalysisCard(tokens, line.lineNumber, line.text);
+      if (directive.type === 'pz') return { directive, result: solve([], [directive], saves) };
       return { directive, result: solve([directive], [], saves) };
     },
     runDeck(line, saves) {

@@ -152,6 +152,13 @@ function tokenize(text: string, starts?: number[]): Token[] {
       }
       const dot = lower.lastIndexOf('.');
       const fn = lower.slice(dot + 1);
+      // ngspice root vectors are named pole(1), zero(1), etc.; not function calls.
+      const root = (fn === 'pole' || fn === 'zero') ? /^\s*\(\s*(\d+)\s*\)/.exec(rest) : null;
+      if (root) {
+        tokens.push({ type: 'name', value: `${lower}(${root[1]})` });
+        rest = rest.slice(root[0].length);
+        continue;
+      }
       if ((fn === 'v' || fn === 'i') && /^\s*\(/.test(rest)) {
         const open = rest.indexOf('(');
         const close = rest.indexOf(')', open);
