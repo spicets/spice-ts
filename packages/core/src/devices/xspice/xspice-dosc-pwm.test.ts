@@ -87,7 +87,7 @@ a1 in out clock
     let inputs = [0];
     const queued: number[] = [];
     const view: EventInstanceView<unknown> = {
-      initialized: true, state, previous: state, inputState: () => 0,
+      initialized: true, state, previous: state, inputState: () => 0, inputReal: () => 0,
       inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
       queue: time => queued.push(time), setBreakpoint: () => {},
       setAnalogInputs: values => { inputs = Array.from(values); },
@@ -103,7 +103,7 @@ a1 in out clock
       model.event.event({
         analysis: 'tran', init: false, time, previousTime: 0, state, previous: structuredClone(state),
         setTemporaryBreakpoint: () => false,
-        outputs: [out], inputState: () => 0,
+        outputs: [out], inputState: () => 0, inputReal: () => 0, queue() {},
         inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
         setBreakpoint() {}, scheduleOutput() {},
       });
@@ -130,6 +130,7 @@ a1 in out clock
     const state = model.event.createState();
     const view: EventInstanceView<unknown> = {
       initialized: true, state, previous: state, inputState: () => 0,
+      inputReal: () => 0,
       inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
       queue() {}, setBreakpoint() {}, setAnalogInputs() {}, analogInputs: [1],
     };
@@ -139,6 +140,7 @@ a1 in out clock
     model.event.event({
       analysis: 'tran', init: false, time: .3, previousTime: .1, state, previous: structuredClone(state),
       outputs: [out], inputState: () => 0,
+      inputReal: () => 0, queue() {},
       inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
       setBreakpoint() {}, scheduleOutput() {},
       setTemporaryBreakpoint(time) { requested.push(time); return true; },

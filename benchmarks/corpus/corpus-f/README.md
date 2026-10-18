@@ -465,6 +465,27 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 
 ## Control-vector supplement (#521)
 
+### Scoped rerun #1382: real event nodes
+
+The two unchanged original-example fixtures below were rerun with ngspice-47
+and this branch's core build using
+`spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts --corpus-f-fixture-child <id>`.
+Historical batch-1 rows and totals above remain unchanged: both previously
+failed at line 19 with unsupported `d_to_real`. This supplemental run changes
+2 losses to 2 matches, with 0 mismatches and no next unsupported model.
+No tolerances or fixture bytes changed.
+
+| Fixture ID suffix after `examples-xspice-original-examples-` | SHA-256 | Compared signals | Worst normalized error | Outcome |
+| --- | --- | ---: | ---: | --- |
+| `io-types-deck` | `0189e07265ae019f9865827c2d8cc339051adf1c0f65cb546053fd3f82662476` | 4 | 4.84e-14 | matched |
+| `user-defined-nodes-deck` | `8ba69ecec48433a4a4f238a5dae05e3b9c643c562b2a117a3b602eaa1536660a` | 3 | 4.84e-14 | matched |
+
+Both engines return 114 transient samples per deck; worst signal is
+`v(analog_node)`. The supplementary fine-reference probe (`tmax=1e-7`)
+reports normalized error 1 for BOTH spice-ts/default-ngspice versus fine-ngspice.
+The default-step match does not establish step-size-independent accuracy.
+These are correctness measurements, not a speed claim or a full-corpus rerun.
+
 ### RAM coverage (#1380)
 
 The unchanged `digital_models4.deck` (SHA-256
@@ -481,6 +502,7 @@ Reproduce with `pnpm build` followed by
 `spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts --corpus-f-fixture-child examples-xspice-original-examples-digital-models4-deck`.
 Only this fixture was rerun; all other corpus-f rows retain their prior evidence.
 
+### Control-vector measurements
 
 This supplement supersedes the historical batch-1 rows above for every `.control` deck. The original `outcomes.json` is deliberately unchanged.
 

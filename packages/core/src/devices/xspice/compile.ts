@@ -9,6 +9,7 @@ import { astate } from './astate-model.js';
 import { delay } from './delay-model.js';
 import { LIMITER_BEHAVIORS } from './limiter-models.js';
 import { DIGITAL_MODELS } from './digital-models.js';
+import { REAL_MODELS } from './real-models.js';
 import { XspiceEventNetwork, type EventPort } from './event-network.js';
 import {
   XSPICE_BEHAVIORS, type BehaviorFactory, type CodeModelBehavior, type XspiceNetlistProbe,
@@ -34,6 +35,8 @@ const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, Behavior
   ['zener', zener],
   ['seegen', seegen],
 ]);
+
+const EVENT_MODELS = new Map([...DIGITAL_MODELS, ...REAL_MODELS]);
 
 /** An A instance whose connections and parameters were resolved against its code model. */
 export interface PreparedXspiceInstance {
@@ -122,7 +125,7 @@ export function prepareXspiceInstance(
   const digitalNodes: string[] = [];
   for (const connection of connections) {
     for (const port of connection.ports) {
-      if (port.type === 'd') {
+      if (port.type === 'd' || port.type === 'real') {
         digitalNodes.push(port.positive!);
         continue;
       }
@@ -146,23 +149,23 @@ export interface XspiceEventNetworkBuild {
 export function buildXspiceEventNetwork(
   instances: readonly PreparedXspiceInstance[],
 ): XspiceEventNetworkBuild | undefined {
-  const digital = instances.filter(instance => DIGITAL_MODELS.has(instance.model.codeModel));
+  const digital = instances.filter(instance => EVENT_MODELS.has(instance.model.codeModel));
   if (digital.length === 0) return undefined;
   const network = new XspiceEventNetwork();
   const analogHalves = new Map<PreparedXspiceInstance, CodeModelBehavior>();
   for (const prepared of digital) {
     const { card, model, connections, params } = prepared;
-    const digitalModel = DIGITAL_MODELS.get(model.codeModel)!(params, { connections, given: new Set(model.params.keys()) });
+    const digitalModel = EVENT_MODELS.get(model.codeModel)!(params, { connections, given: new Set(model.params.keys()) });
     const inputs: EventPort[] = [];
     const outputs: EventPort[] = [];
     let hybrid = false;
     for (const connection of connections) {
       for (const port of connection.ports) {
-        if (port.type !== 'd') {
+        if (port.type !== 'd' && port.type !== 'real') {
           hybrid = true;
           continue;
         }
-        const eventPort = { node: port.positive!, invert: port.invert === true };
+        const eventPort = { node: port.positive!, type: port.type, invert: port.invert === true };
         if (connection.direction !== 'out') inputs.push(eventPort);
         if (connection.direction !== 'in') outputs.push(eventPort);
       }
@@ -185,12 +188,12 @@ export function createXspiceDevice(
   analogHalf?: CodeModelBehavior,
 ): XspiceDevice | undefined {
   const { card, model, connections, params } = prepared;
-  if (DIGITAL_MODELS.has(model.codeModel) && analogHalf === undefined) return undefined;
+  if (EVENT_MODELS.has(model.codeModel) && analogHalf === undefined) return undefined;
   const inputs: XspiceInputPort[] = [];
   const outputs: XspiceOutputPort[] = [];
   connections.forEach((connection, c) => {
     connection.ports.forEach((port, p) => {
-      if (port.type === 'd') return;
+      if (port.type === 'd' || port.type === 'real') return;
       const positive = port.positive === undefined ? -1 : resolveNode(port.positive);
       const negative = port.negative === undefined ? -1 : resolveNode(port.negative);
       if (port.type === 'h' || port.type === 'hd') {

@@ -17,6 +17,7 @@ function analogHarness(parameters = '') {
   let input: DigitalValue = { state: ONE, strength: STRONG };
   const view: EventInstanceView<unknown> = {
     initialized: true, state, previous: state, inputState: () => input.state,
+    inputReal: () => 0,
     inputValue: () => ({ ...input }), probeExternal: () => ({ ...input }),
     queue() {}, setBreakpoint() {}, setAnalogInputs() {}, analogInputs: [],
   };
@@ -26,6 +27,7 @@ function analogHarness(parameters = '') {
     const output: EventOutput = { changed: true, state: UNKNOWN, strength: HI_IMPEDANCE, delay: 0, load: 0 };
     model.event.event({ analysis: 'tran', init: time === 0, time, previousTime: time,
       state, previous: state, outputs: [output], inputState: view.inputState,
+      inputReal: view.inputReal, queue() {},
       inputValue: view.inputValue, probeExternal: view.probeExternal,
       setBreakpoint() {}, setTemporaryBreakpoint: () => false, scheduleOutput() {},
     });

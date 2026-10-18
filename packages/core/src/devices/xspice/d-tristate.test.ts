@@ -25,6 +25,7 @@ describe('d_tristate', () => {
         event.event({ analysis: 'tran', init: false, time: 7, previousTime: 6,
           state: event.createState(), previous: event.createState(), outputs: [output],
           inputState: port => [input, enable][port],
+          inputReal: () => 0, queue() {},
           inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
           setBreakpoint() {}, setTemporaryBreakpoint: () => false, scheduleOutput() {},
         });
@@ -81,6 +82,7 @@ describe('d_tristate', () => {
     const output: EventOutput = { changed: true, state: ZERO, strength: STRONG, delay: 0, load: 0 };
     const call = { analysis: 'tran' as const, init: false, time: 7, previousTime: 6,
       state, previous: state, outputs: [output], inputState: () => ONE,
+      inputReal: () => 0, queue() {},
       inputValue() { throw new Error('unused'); }, probeExternal() { throw new Error('unused'); },
       setBreakpoint() {}, setTemporaryBreakpoint: () => false, scheduleOutput() {},
     };
