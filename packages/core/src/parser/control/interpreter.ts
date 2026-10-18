@@ -1125,6 +1125,7 @@ class ControlInterpreter {
   private environment(): ExpressionEnvironment {
     return {
       lookup: name => this.lookup(name),
+      scale: () => this.current.scale,
       userFunction: (name, arity) => this.functions.get(`${name.toLowerCase()}/${arity}`),
       degrees: () => {
         const units = this.variables.get('units');

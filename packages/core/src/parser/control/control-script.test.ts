@@ -201,8 +201,8 @@ describe('control-language vector expressions', () => {
     expect(() => evaluate('!0 + 1')).toThrow("unexpected character '!'");
   });
 
-  it('names an unevaluated function instead of guessing (deriv)', () => {
-    expect(() => evaluate('deriv(z)', { z: realVector('z', [1, 2]) })).toThrow("vector function 'deriv()'");
+  it('names an unevaluated function instead of guessing (interpolate)', () => {
+    expect(() => evaluate('interpolate(z)', { z: realVector('z', [1, 2]) })).toThrow("vector function 'interpolate()'");
   });
 
   it('formats $&vector values like C %g with 6 digits (ngspice-47: 1/3 prints 0.333333)', () => {
@@ -570,7 +570,7 @@ end
     ['alter x1.r1 2k', 'alter', 'no device named'],
     ['op\nlet g = @r1[p]', 'let', "'@r1[p]' is not available"],
     ['op\nlet tmp = v(2) > file', 'let', 'redirection'],
-    ['op\nlet d = deriv(v(2))', 'let', "'deriv()'"],
+    ['op\nlet d = interpolate(v(2))', 'let', "'interpolate()'"],
     ['op\nrun out.raw', 'run', 'raw file'],
     ['repeat\nop\nend', 'repeat', 'unbounded'],
   ])('rejects an unsupported form when it runs: %s', async (control, command, reason) => {

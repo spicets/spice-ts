@@ -52,6 +52,8 @@ export interface ExpressionEnvironment {
   userFunction(name: string, arity: number): { params: string[]; body: ExpressionNode } | undefined;
   /** `set units=degrees` makes `ph()` return degrees. */
   degrees(): boolean;
+  /** Current plot scale, including `setscale` on constructed vectors. */
+  scale?(): ControlVector | undefined;
 }
 
 type Token =
@@ -510,12 +512,51 @@ function evaluateLogarithm(arg: ControlVector, { errorName, real }: Logarithm): 
 
 /** Functions of ngspice's front end that spice-ts deliberately does not evaluate. */
 const UNSUPPORTED_FUNCTIONS = new Set([
-  'deriv', 'integ', 'interpolate', 'fft', 'ifft', 'avg', 'group_delay', 'cph', 'unwrap',
+  'interpolate', 'fft', 'ifft', 'avg', 'group_delay', 'cph', 'unwrap',
   'sunif', 'sgauss', 'rnd', 'poisson', 'exponential', 'stddev', 'sum',
 ]);
 
 function mapComplex(vector: ControlVector, operation: (value: Complex) => Complex): ControlVector {
   return combine(vector, vector, value => operation(value));
+}
+
+/**
+ * ngspice-47 src/maths/cmaths/cmath4.c:246-433,439-489:
+ * https://github.com/imr/ngspice/blob/ngspice-47/src/maths/cmaths/cmath4.c
+ * integ uses cumulative trapezoids; deriv defaults to quadratic fits through
+ * three consecutive samples, using the first/last fit at the endpoints.
+ */
+function calculus(name: string, arg: ControlVector, scale: ControlVector | undefined): ControlVector {
+  const length = arg.re.length;
+  if (!scale || scale.re.length !== length || length === 0) {
+    throw new ExpressionError(`${name}() needs a matching non-empty plot scale`);
+  }
+  if (isComplex(arg)) {
+    // ngspice rejects complex integ; its complex deriv implementation reads
+    // beyond the input buffer. Do not silently substitute real-part calculus.
+    throw new UnsupportedExpressionFeature(name, `${name}() is not supported for complex data`);
+  }
+  const result = new Float64Array(length);
+  if (name === 'integ') {
+    for (let i = 1; i < length; i++) {
+      result[i] = result[i - 1] + (arg.re[i] + arg.re[i - 1]) * (scale.re[i] - scale.re[i - 1]) / 2;
+    }
+  } else {
+    // ngspice leaves the zero-initialized output untouched below degree+1
+    // samples. Local divided differences avoid a global Vandermonde system.
+    for (let i = 0; i < length && length >= 3; i++) {
+      const start = Math.max(0, Math.min(i - 1, length - 3));
+      const [x0, x1, x2] = scale.re.subarray(start, start + 3);
+      if (x0 === x1 || x1 === x2 || x0 === x2) {
+        throw new ExpressionError('deriv() needs distinct scale coordinates in each quadratic window');
+      }
+      const slope = (arg.re[start + 1] - arg.re[start]) / (x1 - x0);
+      const nextSlope = (arg.re[start + 2] - arg.re[start + 1]) / (x2 - x1);
+      const curvature = (nextSlope - slope) / (x2 - x0);
+      result[i] = slope + curvature * ((scale.re[i] - x0) + (scale.re[i] - x1));
+    }
+  }
+  return realVector('result', result, scale);
 }
 
 function mapReal(vector: ControlVector, operation: (value: number) => number, keepScale = true): ControlVector {
@@ -563,6 +604,9 @@ function evaluateCall(node: Extract<ExpressionNode, { kind: 'call' }>, env: Expr
     throw new ExpressionError(`unknown function '${node.name}' with ${node.args.length} arguments`);
   }
   const arg = evaluateVectorExpression(node.args[0], env);
+  if (node.name === 'integ' || node.name === 'deriv') {
+    return calculus(node.name, arg, env.scale?.() ?? arg.scale);
+  }
   const logarithm = LOGARITHMS[node.name];
   if (logarithm) return evaluateLogarithm(arg, logarithm);
   const complexFunction = COMPLEX_FUNCTIONS[node.name];
