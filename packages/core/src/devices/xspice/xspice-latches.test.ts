@@ -49,6 +49,36 @@ describe('ngspice-47 transparent latches', () => {
       expect(step({ reset: ZERO }).every(o => !o.changed)).toBe(true);
       expect(step({ enable: UNKNOWN, data: ONE, s: ONE, r: ZERO }).every(o => !o.changed)).toBe(true);
     });
+    for (const control of ['set', 'reset']) for (const released of [ZERO, UNKNOWN]) {
+      for (const enable of states) {
+        it(`${model} ${control} release=${released} enable=${enable} reevaluates only when transparent`, () => {
+          const step = harness(model);
+          const value = control === 'set' ? ZERO : ONE;
+          step({ enable, data: value, s: value, r: 1 - value }, 0);
+          step({ [control]: ONE });
+          const out = step({ [control]: released });
+          if (enable !== ONE) {
+            expect(out.every(o => !o.changed)).toBe(true);
+          } else {
+            const delay = control === 'set' ? 30 : 40;
+            expect(out.map(o => [o.changed, o.state, o.delay])).toEqual([
+              [true, value, delay + (value === ONE ? 2 : 3)],
+              [true, 1 - value, delay + (value === ONE ? 3 : 2)],
+            ]);
+          }
+        });
+      }
+      it(`${model} ${control} release=${released} propagates unknown synchronous input`, () => {
+        const step = harness(model);
+        step({ enable: ONE, data: UNKNOWN, s: UNKNOWN }, 0);
+        step({ [control]: ONE });
+        const delay = control === 'set' ? 30 : 40;
+        expect(step({ [control]: released }).map(o => [o.changed, o.state, o.delay])).toEqual([
+          [true, UNKNOWN, delay + (control === 'set' ? 3 : 2)],
+          [true, UNKNOWN, delay + (control === 'set' ? 2 : 3)],
+        ]);
+      });
+    }
     it(`${model} supports NULL controls and complementary output`, () => {
       const step = harness(model, { ic: ONE }, ['set', 'reset', 'out']);
       expect(step({}, 0).map(o => o.state)).toEqual([ZERO]);
@@ -62,6 +92,18 @@ describe('ngspice-47 transparent latches', () => {
 for (const ic of states) it(`SR latch retains IC=${ic} with both synchronous inputs high at DC`, () => {
   expect(harness('d_srlatch', { ic })({ enable: ONE, s: ONE, r: ONE }, 0)[0].state).toBe(ic);
 });
+
+for (const model of ['d_dff', 'd_jkff', 'd_tff', 'd_srff']) {
+  for (const control of ['set', 'reset']) for (const released of [ZERO, UNKNOWN]) {
+    it(`${model} ${control} release=${released} does not capture without a new clock edge`, () => {
+      const step = harness(model);
+      const value = control === 'set' ? ZERO : ONE;
+      step({ clk: ONE, data: value, j: value, k: 1 - value, t: ONE, s: value, r: 1 - value }, 0);
+      step({ [control]: ONE });
+      expect(step({ [control]: released }).every(o => !o.changed)).toBe(true);
+    });
+  }
+}
 
 describe('ngspice-47 frequency divider', () => {
   for (const factor of [1, 2, 4]) for (const high of [1, 2, 4]) {
