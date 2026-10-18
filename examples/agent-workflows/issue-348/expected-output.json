@@ -8,6 +8,7 @@
     "spice_simulation_start/read:second"
   ],
   "tools": [
+    "spice_sensitivity",
     "spice_capabilities",
     "spice_validate",
     "spice_convert",
@@ -40,6 +41,7 @@
       "circuit-json"
     ],
     "tools": [
+      "spice_sensitivity",
       "spice_capabilities",
       "spice_validate",
       "spice_convert",
@@ -58,6 +60,12 @@
       "spice_simulation_read",
       "spice_simulation_cancel"
     ],
+    "sensitivity": {
+      "tool": "spice_sensitivity",
+      "analyses": [
+        "dc"
+      ]
+    },
     "parameterOverrides": {
       "tools": [
         "spice_simulate",

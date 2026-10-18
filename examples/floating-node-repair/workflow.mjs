@@ -22,6 +22,7 @@ try {
   const listed = await client.call('tools/list', {});
   const toolNames = listed.tools.map(({ name }) => name);
   assert.deepEqual(toolNames, [
+    'spice_sensitivity',
     'spice_capabilities',
     'spice_validate',
     'spice_convert',
