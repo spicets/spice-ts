@@ -145,11 +145,11 @@ test('n-5 now pairs on main with #1115 and #1118 without changing fixtures or to
   assert(row.worstNormalizedError <= after.policy.matchThreshold);
   const comparison = row.comparisons[0];
   assert.deepEqual(comparison.plot, { spiceTs: 'tran1', ngspice: 'Transient Analysis', ngspiceIndex: 0 });
-  assert.equal(comparison.metrics.grid.alignedPoints, 1827);
-  assert.equal(comparison.metrics.grid.excludedOutOfRange, 0);
+  assert.equal(comparison.metrics.grid.alignedPoints, 1826);
+  assert.equal(comparison.metrics.grid.excludedOutOfRange, 1);
   assert.equal(Object.keys(comparison.metrics.signals).length, 14);
   for (const metric of Object.values(comparison.metrics.signals) as Array<{ status: string; sampleCount: number }>) {
     assert.equal(metric.status, 'compared');
-    assert.equal(metric.sampleCount, 1827);
+    assert.equal(metric.sampleCount, 1826);
   }
 });

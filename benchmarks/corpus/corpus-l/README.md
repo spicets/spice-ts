@@ -6,15 +6,15 @@ Every deck below is byte-identical to its pinned upstream revision (xyce `7bb7e9
 
 ## Totals
 
-- Fixtures: 20. Outcome SHA-256: `e65a59fa3d6e9669513c7f1c5092f021873aa69fe306f403ed4d1742f35a5e7a`.
+- Fixtures: 20. Outcome SHA-256: `c7a6702ba09a051d0fbff889dfd133fc675638e62a46797d3178421a07348a11`.
 - ngspice (ngspice-47): 19 success, 0 failed, 1 unsupported.
-- spice-ts (0.3.0): 17 success, 1 failed, 2 unsupported.
-- Outcomes: matched 11, mismatch 5, not-compared 0, spice-ts-loss 3, ngspice-failed 1, both-failed 0.
-- Of the 19 decks ngspice runs successfully, spice-ts matches 11, mismatches 5, produces no comparable result for 0 and fails 3.
+- spice-ts (0.4.0): 20 success, 0 failed, 0 unsupported.
+- Outcomes: matched 12, mismatch 7, not-compared 0, spice-ts-loss 0, ngspice-failed 1, both-failed 0.
+- Of the 19 decks ngspice runs successfully, spice-ts matches 12, mismatches 7, produces no comparable result for 0 and fails 0.
 
 | Source | Fixtures | Matched | Mismatch | Not compared | spice-ts loss | ngspice failed | Both failed |
 |---|---|---|---|---|---|---|---|
-| `xyce` | 20 | 11 | 5 | 0 | 3 | 1 | 0 |
+| `xyce` | 20 | 12 | 7 | 0 | 0 | 1 | 0 |
 
 ## Method
 
@@ -37,10 +37,8 @@ Grouped from spice-ts's own first error line (corpus-l rules, then corpus-i/h/f 
 
 | Bucket | Fixtures | ngspice ok | Issue |
 |---|---|---|---|
-| crash: uncaught TypeError instead of a structured error | 2 | 2 | none filed |
-| device: non-nominal temperature unsupported | 1 | 1 | none filed |
 
-## Losses (9)
+## Losses (8)
 
 Every fixture that is not matched: spice-ts failures, mismatches above the threshold, and results that could not be compared.
 
@@ -48,15 +46,14 @@ Every fixture that is not matched: spice-ts failures, mismatches above the thres
 |---|---|---|---|---|---|---|
 | [xyce/Netlists/ACtests/SANDLER16/sandler16.cir](fixtures/xyce/Netlists/ACtests/SANDLER16/sandler16.cir) | unsupported | success | ngspice-failed |  |  | ngspice: Error: no such function 'if' at line 111 |
 | [xyce/Netlists/ACtests/mos/gain-stage6.cir](fixtures/xyce/Netlists/ACtests/mos/gain-stage6.cir) | success | success | mismatch | 41400 | ac i(vdd1) |  |
-| [xyce/Netlists/CircuitSim90/MOS3/arom.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/arom.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: Parse error at line 20: Cannot read properties of undefined (reading 'toLowerCase') m |
+| [xyce/Netlists/CircuitSim90/MOS3/arom.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/arom.cir) | success | success | mismatch | 0.175 | tran v(31) |  |
 | [xyce/Netlists/CircuitSim90/MOS3/gm17.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/gm17.cir) | success | success | mismatch | 0.0737 | tran i(vdi) |  |
 | [xyce/Netlists/CircuitSim90/MOS3/gm19.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/gm19.cir) | success | success | mismatch | 0.172 | tran i(vin) |  |
 | [xyce/Netlists/CircuitSim90/MOS3/gm2.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/gm2.cir) | success | success | mismatch | 0.129 | tran i(vdd) |  |
-| [xyce/Netlists/CircuitSim90/MOS3/jge.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/jge.cir) | success | failed | spice-ts-loss |  |  | spice-ts: Device 'm0' has no ngspice temperature model in spice-ts and cannot be simulated at TEMP=100 C |
 | [xyce/Netlists/CircuitSim90/MOS3/mike2.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/mike2.cir) | success | success | mismatch | 0.0205 | tran i(vtest1) |  |
-| [xyce/Netlists/CircuitSim90/MOS3/rich3.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/rich3.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: Parse error at line 17: Cannot read properties of undefined (reading 'toLowerCase') m |
+| [xyce/Netlists/CircuitSim90/MOS3/rich3.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/rich3.cir) | success | success | mismatch | 0.107 | tran i(v$d8) |  |
 
-## Wins (11)
+## Wins (12)
 
 Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every common signal.
 
@@ -71,7 +68,8 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 | [xyce/Netlists/ACtests/mos/gain-stage2.cir](fixtures/xyce/Netlists/ACtests/mos/gain-stage2.cir) | success | success | matched | 8.47e-16 | ac i(vdd1) |  |
 | [xyce/Netlists/ACtests/mos/gain-stage3.cir](fixtures/xyce/Netlists/ACtests/mos/gain-stage3.cir) | success | success | matched | 7.13e-16 | ac i(vdd1) |  |
 | [xyce/Netlists/CircuitSim90/MOS3/gm1.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/gm1.cir) | success | success | matched | 0.00899 | tran i(vrd1) |  |
-| [xyce/Netlists/CircuitSim90/MOS3/gm3.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/gm3.cir) | success | success | matched | 0.000279 | tran i(vin) |  |
+| [xyce/Netlists/CircuitSim90/MOS3/gm3.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/gm3.cir) | success | success | matched | 0.000608 | tran i(vin) |  |
+| [xyce/Netlists/CircuitSim90/MOS3/jge.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/jge.cir) | success | success | matched | 0.000367 | tran i(vshiftlsp2) |  |
 | [xyce/Netlists/CircuitSim90/MOS3/todd3.cir](fixtures/xyce/Netlists/CircuitSim90/MOS3/todd3.cir) | success | success | matched | 0.00238 | tran i(vnd) |  |
 
 
@@ -82,9 +80,7 @@ Includes execution losses and numerical mismatches, without asserting an undiagn
 | Bucket | Count | IDs |
 |---|---|---|
 | waveform: ac mismatch above uniform threshold (root cause not diagnosed) | 1 | l-10 |
-| crash: uncaught TypeError instead of a structured error | 2 | l-11, l-19 |
-| waveform: tran mismatch above uniform threshold (root cause not diagnosed) | 4 | l-13, l-14, l-15, l-18 |
-| device: non-nominal temperature unsupported | 1 | l-17 |
+| waveform: tran mismatch above uniform threshold (root cause not diagnosed) | 6 | l-11, l-13, l-14, l-15, l-18, l-19 |
 
 ## Measurement boundary
 

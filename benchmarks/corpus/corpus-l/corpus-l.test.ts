@@ -74,7 +74,7 @@ test('all outcomes and losses are retained, hashed, uniformly compared and rende
   assert.deepEqual(result.parityGaps, parityGaps(result.fixtures));
   const gaps = result.fixtures.filter((r: { ngspice: { status: string }; outcome: string }) => r.ngspice.status === 'success' && r.outcome !== 'matched');
   assert.deepEqual(result.parityGaps.flatMap((b: { ids: string[] }) => b.ids).sort(), gaps.map((r: { id: string }) => r.id).sort());
-  assert.deepEqual(result.parityGaps.map((b: { count: number }) => b.count), [1, 2, 4, 1]);
+  assert.deepEqual(result.parityGaps.map((b: { count: number }) => b.count), [1, 6]);
   assert.equal(result.tools.ngspice, 'ngspice-47');
   assert.equal(result.policy.fixtureAdaptation, 'none');
   assert.equal(result.policy.perCircuitToleranceTuning, false);

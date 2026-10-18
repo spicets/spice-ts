@@ -30,7 +30,7 @@
   "manifestSha256": "2f909353575d97ce918188ec1d583bcd7088d691690f24cab716a834332ccd40",
   "tools": {
     "ngspice": "ngspice-47",
-    "spiceTs": "0.3.0",
+    "spiceTs": "0.4.0",
     "node": "v22.23.1"
   },
   "environment": {
@@ -67,24 +67,24 @@
       "unsupported": 0
     },
     "spiceTs": {
-      "success": 20,
-      "failed": 1,
-      "unsupported": 4
+      "success": 25,
+      "failed": 0,
+      "unsupported": 0
     },
     "outcomes": {
-      "matched": 19,
+      "matched": 23,
       "mismatch": 1,
-      "not-compared": 0,
-      "spice-ts-loss": 5,
+      "not-compared": 1,
+      "spice-ts-loss": 0,
       "ngspice-failed": 0,
       "both-failed": 0
     },
     "bySource": {
       "esim": {
-        "matched": 8,
+        "matched": 12,
         "mismatch": 0,
-        "not-compared": 0,
-        "spice-ts-loss": 5,
+        "not-compared": 1,
+        "spice-ts-loss": 0,
         "ngspice-failed": 0,
         "both-failed": 0
       },
@@ -98,29 +98,7 @@
       }
     }
   },
-  "gapBuckets": [
-    {
-      "bucket": "device: XSPICE code models not yet implemented (d_jkff, lcouple, zener, ...)",
-      "fixtures": 4,
-      "ngspiceSuccess": 4,
-      "ids": [
-        "esim-examples-4-bit-jk-ff-4-bit-jk-ff-cir-out",
-        "esim-examples-jk-flipflop-jk-flipflop-cir-out",
-        "esim-examples-transformer-transformer-cir-out",
-        "esim-examples-zener-characteristic-zener-characteristic-cir-out"
-      ],
-      "issue": "https://github.com/mfiumara/spice-ts/issues/553"
-    },
-    {
-      "bucket": "analysis: .ac with XSPICE event-driven digital instances",
-      "fixtures": 1,
-      "ngspiceSuccess": 1,
-      "ids": [
-        "esim-examples-fulladder-half-adder-cir-out"
-      ],
-      "issue": "https://github.com/mfiumara/spice-ts/issues/838"
-    }
-  ],
+  "gapBuckets": [],
   "fixtures": [
     {
       "id": "esim-examples-4-bit-jk-ff-4-bit-jk-ff-cir-out",
@@ -138,16 +116,35 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 45: XSPICE code model 'd_jkff' (.model 'u3') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, pswitch, adc_bridge, dac_bridge, d_buffer, d_"
+        "status": "success",
+        "analyses": [
+          "tran:156"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "device: XSPICE code models not yet implemented (d_jkff, lcouple, zener, ...)"
+      "comparedAnalyses": 1,
+      "comparedSignals": 27,
+      "worstNormalizedError": 1.16e-9,
+      "worstSignal": "tran v(d1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "0.0002"
+        ],
+        "headline": {
+          "worst": 1.16e-9,
+          "signal": "v(d1)"
+        },
+        "spiceTsVsFine": {
+          "worst": 1,
+          "signal": "v(d1)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 1,
+          "signal": "v(d1)"
+        }
+      }
     },
     {
       "id": "esim-examples-basicgates-basicgates-cir-out",
@@ -211,16 +208,17 @@
         ]
       },
       "spiceTs": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": "XSPICE event-driven instance 'a1' (d_xor) is supported in .op and .tran only, not .ac"
+        "status": "success",
+        "analyses": [
+          "ac:1"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 1,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "analysis: .ac with XSPICE event-driven digital instances"
+      "outcome": "not-compared",
+      "gapBucket": null
     },
     {
       "id": "esim-examples-high-pass-filter-high-pass-filter-cir-out",
@@ -266,16 +264,35 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 30: XSPICE code model 'd_jkff' (.model 'u9') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, pswitch, adc_bridge, dac_bridge, d_buffer, d_"
+        "status": "success",
+        "analyses": [
+          "tran:167"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "device: XSPICE code models not yet implemented (d_jkff, lcouple, zener, ...)"
+      "comparedAnalyses": 1,
+      "comparedSignals": 12,
+      "worstNormalizedError": 7.11e-12,
+      "worstSignal": "tran v(clk)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "0.2"
+        ],
+        "headline": {
+          "worst": 7.11e-12,
+          "signal": "v(clk)"
+        },
+        "spiceTsVsFine": {
+          "worst": 6.51e-12,
+          "signal": "v(clk)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 6.51e-12,
+          "signal": "v(clk)"
+        }
+      }
     },
     {
       "id": "esim-examples-low-pass-filter-low-pass-filter-cir-out",
@@ -515,16 +532,35 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 13: XSPICE code model 'lcouple' (.model 'u1_primary') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, pswitch, adc_bridge, dac_bridge, d_b"
+        "status": "success",
+        "analyses": [
+          "tran:59"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "device: XSPICE code models not yet implemented (d_jkff, lcouple, zener, ...)"
+      "comparedAnalyses": 1,
+      "comparedSignals": 6,
+      "worstNormalizedError": 2.33e-14,
+      "worstSignal": "tran v(in)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "0.0002"
+        ],
+        "headline": {
+          "worst": 2.33e-14,
+          "signal": "v(in)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.054,
+          "signal": "v(in)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.054,
+          "signal": "v(in)"
+        }
+      }
     },
     {
       "id": "esim-examples-zener-characteristic-zener-characteristic-cir-out",
@@ -542,16 +578,17 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 11: XSPICE code model 'zener' (.model 'u1') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, pswitch, adc_bridge, dac_bridge, d_buffer, d_i"
+        "status": "success",
+        "analyses": [
+          "dc:161"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "device: XSPICE code models not yet implemented (d_jkff, lcouple, zener, ...)"
+      "comparedAnalyses": 1,
+      "comparedSignals": 5,
+      "worstNormalizedError": 0.0000935,
+      "worstSignal": "dc i(v1)",
+      "outcome": "matched",
+      "gapBucket": null
     },
     {
       "id": "vacask-benchmark-graetz-xyce-runme-sim",
@@ -658,7 +695,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 3,
-      "worstNormalizedError": 1.11e-10,
+      "worstNormalizedError": 5.57e-11,
       "worstSignal": "tran i(vs)",
       "outcome": "matched",
       "gapBucket": null,
@@ -669,7 +706,7 @@
         ],
         "reason": "TSTOP/TMAX_fine = 10000000 steps exceeds the 1000000-step budget",
         "headline": {
-          "worst": 1.11e-10,
+          "worst": 5.57e-11,
           "signal": "i(vs)"
         },
         "spiceTsVsFine": null,
@@ -699,8 +736,8 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 20,
-      "worstNormalizedError": 2.19,
-      "worstSignal": "tran v(3)",
+      "worstNormalizedError": 0.0763,
+      "worstSignal": "tran v(2)",
       "outcome": "mismatch",
       "gapBucket": null,
       "fineReference": {
@@ -710,8 +747,8 @@
         ],
         "reason": "TSTOP/TMAX_fine = 10000000 steps exceeds the 1000000-step budget",
         "headline": {
-          "worst": 2.19,
-          "signal": "v(3)"
+          "worst": 0.0763,
+          "signal": "v(2)"
         },
         "spiceTsVsFine": null,
         "ngspiceDefaultVsFine": null
@@ -924,7 +961,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 5,
-      "worstNormalizedError": 2.81e-12,
+      "worstNormalizedError": 1.76e-12,
       "worstSignal": "tran v(out)",
       "outcome": "matched",
       "gapBucket": null,
@@ -934,7 +971,7 @@
           "1e-9"
         ],
         "headline": {
-          "worst": 2.81e-12,
+          "worst": 1.76e-12,
           "signal": "v(out)"
         },
         "spiceTsVsFine": {
@@ -1086,5 +1123,5 @@
       }
     }
   ],
-  "outcomeSha256": "c061bb6cf290a4935ae0e5e970a5388adef16a5de57aef322231ba29a4e662d9"
+  "outcomeSha256": "6fd3ca6a62fe08aff84ecec40851cfdfb68830806d4e02cbcfa10b7f06d9213b"
 }
