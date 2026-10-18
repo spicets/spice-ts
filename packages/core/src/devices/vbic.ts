@@ -27,10 +27,22 @@ const ACTIVE_PARAMETERS = [
  */
 const DC_INERT_PARAMETERS = [
   'CJE', 'CJC', 'CJEP', 'CJCP', 'QCO', 'TF', 'TR', 'TD', 'ITF', 'XTF', 'VTF', 'RTH',
-  'KFN', 'AFN', 'BFN',
+  'KFN', 'AFN', 'BFN', 'CTH',
 ] as const;
 /** Temperature mapping inputs (ngspice vbictemp.c); TNOM defaults to 27 C. */
 const TEMPERATURE_PARAMETERS = ['TNOM'] as const;
+/** Explicit ngspice defaults for features outside the bounded equations.
+ * Accept only their inactive/default values, never silently ignore a change.
+ */
+const FIXED_PARAMETERS: Record<string, number> = {
+  AJE: -0.5, AJC: -0.5, AJS: -0.5, CBEO: 0, CBCO: 0, CCSO: 0,
+  QTF: 0, XRE: 0, XRBI: 0, XRCI: 0, XRS: 0, XVO: 0,
+  EA: 1.12, EAIE: 1.12, EAIC: 1.12, EAIS: 1.12, EANE: 1.12, EANC: 1.12,
+  EANS: 1.12, EAP: 1.12, XIS: 3, XII: 3, XIN: 3, TNF: 0, TAVC: 0,
+  VRT: 0, ART: 0.1, QBM: 0, NKF: 0.5, XIKF: 0, XRCX: 0, XRBX: 0,
+  XRBP: 0, ISRR: 1, XISR: 0, DEAR: 0, VBBE: 0, NBBE: 1,
+  IBBE: 1e-6, TVBBE1: 0, TVBBE2: 0, TNBBE: 0, EBBE: 0,
+};
 const SUPPORTED_PARAMETERS = new Set<string>([
   'LEVEL', ...ACTIVE_PARAMETERS, ...DC_INERT_PARAMETERS, ...TEMPERATURE_PARAMETERS,
 ]);
@@ -105,6 +117,7 @@ const DEFAULTS: VBICParams = {
   XTF: 0,
   VTF: 0,
   RTH: 0,
+  CTH: 0,
   KFN: 0,
   AFN: 1,
   BFN: 1,
@@ -121,7 +134,12 @@ export function resolveVBICParams(
   supplied: Record<string, number>,
   polarity: number,
 ): VBICParams {
+  if (supplied.TREF !== undefined) {
+    supplied = { ...supplied, TNOM: supplied.TNOM ?? supplied.TREF };
+    delete supplied.TREF;
+  }
   for (const name of Object.keys(supplied)) {
+    if (name in FIXED_PARAMETERS && supplied[name] === FIXED_PARAMETERS[name]) continue;
     if (!SUPPORTED_PARAMETERS.has(name)) {
       throw new InvalidCircuitError(`Unsupported bounded VBIC DC model parameter: '${name}'`);
     }
@@ -592,6 +610,8 @@ export function vbicNodeCount(params: Pick<VBICParams, 'TD'>): number {
 
 /** A bounded four-terminal VBIC device with ngspice temperature mapping. */
 export class VBIC implements DeviceModel {
+  readonly nodes: number[];
+  private readonly thermalNode: number;
   readonly branches: number[] = [];
   readonly isNonlinear = true;
   readonly integratesTransientCharge = true;
@@ -623,17 +643,21 @@ export class VBIC implements DeviceModel {
 
   constructor(
     readonly name: string,
-    readonly nodes: number[],
+    nodes: number[],
     supplied: Record<string, number>,
     polarity: number,
     /** ngspice instance SCALE = AREA * M; the circuit divides the series resistors by it. */
     private readonly instanceScale = 1,
     private readonly parallelMultiplier = 1,
+    /** Original C/B/E/S nodes before the circuit expands constant series resistors. */
+    private readonly externalTerminals?: readonly number[],
   ) {
     this.params = resolveVBICParams(supplied, polarity);
-    this.charges = new TransientChargeState(nodes.length);
     const expected = vbicNodeCount(this.params);
-    if (nodes.length !== expected) {
+    this.charges = new TransientChargeState(expected);
+    this.thermalNode = nodes.length === expected + 1 ? nodes[expected] : -1;
+    this.nodes = nodes.slice(0, expected);
+    if (nodes.length !== expected && nodes.length !== expected + 1) {
       throw new InvalidCircuitError(`Bounded VBIC device requires ${expected} internal nodes`);
     }
     this.branchTerminals = expected > XF1 ? [...BRANCHES, ...EXCESS_PHASE_BRANCHES] : BRANCHES;
@@ -766,7 +790,96 @@ export class VBIC implements DeviceModel {
       load ? this.scalarLoadWorkspace : this.scalarEvaluationWorkspace);
   }
 
+  /** DC electrothermal Newton system. Temperature partials use a symmetric
+   * 1 mK perturbation of the same temperature mapper as the electrical model.
+   * Electrical and power voltage partials retain the evaluator's exact Jacobian.
+   */
+  private stampThermal(ctx: StampContext): void {
+    const dt = ctx.getVoltage(this.thermalNode);
+    const temperature = this.temperature + dt;
+    if (temperature <= -273.15) throw new InvalidCircuitError('Invalid VBIC junction temperature');
+    this.thermal = resolveVBICTemperature(this.params, temperature);
+    this.criticalVoltage = this.vcrit();
+    const voltages = this.branchVoltages(ctx);
+    this.limitJunctions(voltages);
+    // Reconstruct limited electrical node potentials relative to EI. Excess
+    // phase states are not electrical terminals and dissipate no power.
+    const potentials = [voltages[0] - voltages[3], voltages[0] - voltages[2],
+      voltages[1], voltages[0], 0, voltages[1] - voltages[4],
+      voltages[1] - voltages[4] + voltages[5], ...voltages.slice(BRANCHES.length)];
+    const sample = (t: number) => {
+      this.thermal = resolveVBICTemperature(this.params, t);
+      return this.evaluate(voltages, ctx.gmin ?? DEVICE_GMIN).residual.map(q => q.value);
+    };
+    const h = 1e-3;
+    const plus = sample(temperature + h);
+    const minus = sample(temperature - h);
+    this.thermal = resolveVBICTemperature(this.params, temperature);
+    const { residual } = this.evaluate(voltages, ctx.gmin ?? DEVICE_GMIN, true);
+    const powerJacobian = new Float64Array(this.nodes.length);
+    let power = 0;
+    let powerTemperature = 0;
+    for (let row = 0; row < this.nodes.length; row++) {
+      const quantity = residual[row];
+      const derivativeT = (plus[row] - minus[row]) / (2 * h);
+      const jacobian = this.nodeJacobian(quantity);
+      if (row < 7) {
+        power += potentials[row] * quantity.value;
+        powerTemperature += potentials[row] * derivativeT;
+        for (let column = 0; column < this.nodes.length; column++) {
+          powerJacobian[column] += potentials[row] * jacobian[column];
+        }
+        powerJacobian[row] += quantity.value;
+      }
+      const matrixRow = this.nodes[row];
+      if (matrixRow < 0) continue;
+      let rhs = -quantity.value + derivativeT * dt;
+      for (let i = 0; i < voltages.length; i++) rhs += quantity.derivative[i] * voltages[i];
+      for (let column = 0; column < this.nodes.length; column++) {
+        if (this.nodes[column] >= 0) ctx.stampG(matrixRow, this.nodes[column], jacobian[column]);
+      }
+      ctx.stampG(matrixRow, this.thermalNode, this.params.polarity * derivativeT);
+      ctx.stampB(matrixRow, this.params.polarity * rhs);
+    }
+    const conductance = this.instanceScale / this.params.RTH;
+    ctx.stampG(this.thermalNode, this.thermalNode, conductance - powerTemperature);
+    let rhs = power - powerTemperature * dt;
+    for (let column = 0; column < this.nodes.length; column++) {
+      if (this.nodes[column] >= 0) {
+        ctx.stampG(this.thermalNode, this.nodes[column], -this.params.polarity * powerJacobian[column]);
+        rhs -= powerJacobian[column] * potentials[column];
+      }
+    }
+    // RCX/RBX/RE/RS are constant resistors stamped by the circuit rather than
+    // the intrinsic evaluator. Include their Joule heat and exact voltage
+    // derivatives in the same thermal Newton row. XRx != 0 is unsupported,
+    // so these conductances have no junction-temperature derivative.
+    if (this.externalTerminals) {
+      const parameters = ['RCX', 'RBX', 'RE', 'RS'] as const;
+      const internal = [this.nodes[0], this.nodes[2], this.nodes[4], this.nodes[6]];
+      for (let i = 0; i < parameters.length; i++) {
+        const resistance = this.params[parameters[i]];
+        if (resistance <= 0) continue;
+        const a = this.externalTerminals[i];
+        const b = internal[i];
+        const voltage = (a >= 0 ? ctx.getVoltage(a) : 0) - (b >= 0 ? ctx.getVoltage(b) : 0);
+        const g = this.instanceScale / resistance;
+        const derivative = 2 * g * voltage;
+        // P - (dP/dV)*V = -P for a quadratic constant-resistor loss.
+        rhs -= g * voltage * voltage;
+        if (a >= 0) ctx.stampG(this.thermalNode, a, -derivative);
+        if (b >= 0) ctx.stampG(this.thermalNode, b, derivative);
+      }
+    }
+    ctx.stampB(this.thermalNode, rhs);
+  }
+
   stamp(ctx: StampContext): void {
+    if (this.thermalNode >= 0 && this.params.RTH > 0) {
+      this.stampThermal(ctx);
+      return;
+    }
+    if (this.thermalNode >= 0) ctx.stampG(this.thermalNode, this.thermalNode, 1);
     const voltages = this.branchVoltages(ctx);
     this.limitJunctions(voltages);
     this.loadVoltages = voltages;
@@ -799,6 +912,9 @@ export class VBIC implements DeviceModel {
    * linearized AC and pole-zero analyses reach this; transient integrates Q.
    */
   stampDynamic(ctx: StampContext): void {
+    if (this.thermalNode >= 0 && this.params.RTH > 0) {
+      throw new InvalidCircuitError('Unsupported VBIC self-heating dynamic analysis');
+    }
     const { charge } = this.evaluate(this.branchVoltages(ctx), ctx.gmin ?? DEVICE_GMIN);
     for (let row = 0; row < this.nodes.length; row += 1) {
       const matrixRow = this.nodes[row];
@@ -814,6 +930,9 @@ export class VBIC implements DeviceModel {
 
   /** Integrate conservative terminal charges and both excess-phase state rows. */
   stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {
+    if (this.thermalNode >= 0 && this.params.RTH > 0) {
+      throw new InvalidCircuitError('Unsupported VBIC self-heating transient analysis (CTH)');
+    }
     const voltages = this.loadVoltages ?? this.branchVoltages(ctx);
     // evaluate computes currents and charges together. Reuse the charge half
     // from stamp at these exact limited voltages; gmin affects residuals only.

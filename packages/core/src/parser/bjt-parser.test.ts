@@ -208,14 +208,12 @@ describe('BJT Q-card parser', () => {
     expect(sub.dc!.voltage('3')).toBeCloseTo(flat.dc!.voltage('3'), 12);
   });
 
-  it('still rejects a VBIC thermal node with a typed error when area/m are given (vbic99_dc.sp)', () => {
+  it('accepts a VBIC thermal node when area/m are given (vbic99_dc.sp)', () => {
     expect(() => parse(`vbic99 thermal form
       q1 c b e s dt vbic99 area=1 m=1
       .model vbic99 npn level=4 rth=300
       .op
-    `).compile()).toThrow(
-      "Unsupported VBIC thermal node on 'q1': self-heating (5-terminal instance) is not implemented",
-    );
+    `).compile()).not.toThrow();
   });
 
   it('round-trips AREAB and AREAC through toNetlist()', () => {

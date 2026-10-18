@@ -119,10 +119,10 @@ describe('bounded VBIC substrate terminal (issue #453)', () => {
     reference.forEach((value, index) => expectNear(result[index], value, 1e-18));
   });
 
-  it('rejects a five-terminal (thermal node) VBIC instance with a typed error', async () => {
+  it('accepts a five-terminal (thermal node) VBIC instance', async () => {
     const netlist = fixture('dc.cir').replace('Q1 2 1 0 4 N1', 'Q1 2 1 0 4 tnode N1');
-    await expect(simulate(netlist)).rejects.toThrow(InvalidCircuitError);
-    await expect(simulate(netlist)).rejects.toThrow(/thermal/i);
+    const result = await simulate(netlist);
+    expect(Array.from(result.dcSweep!.voltage('tnode')).every(Number.isFinite)).toBe(true);
   });
 
   it('rejects a five-terminal non-VBIC BJT instance with a typed error', async () => {
