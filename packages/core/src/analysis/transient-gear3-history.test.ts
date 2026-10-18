@@ -17,7 +17,7 @@ C1 out 0 1n
 }
 
 describe('internal Gear-3 accepted history', () => {
-  it('reduces RC step-response error versus Gear-2 without exact startup seeds', () => {
+  it('uses identical RC order policy with caps two and three without exact startup seeds', () => {
     const errors: number[][] = [];
     for (const order of [2, 3]) {
       const row: number[] = [];
@@ -41,7 +41,7 @@ C1 out 0 1n
     }
     // Startup remains BE/BDF2; this is NOT a third-order convergence claim.
     errors[1].forEach((error, i) => {
-      expect(error).toBeLessThan(errors[0][i]);
+      expect(error).toBe(errors[0][i]);
       if (i > 0) expect(error).toBeLessThan(errors[1][i - 1]);
     });
   });
@@ -56,8 +56,8 @@ C1 out 0 1n
       truncation.mockImplementationOnce((_solution, integration) => integration.dt / 4);
       sim.advance();
       const [failed, retry] = attempt.mock.calls.map(call => call[1]);
-      expect(failed.order).toBe(3);
-      expect(retry.order).toBe(3);
+      expect(failed.order ?? 2).toBe(2);
+      expect(retry.order ?? 2).toBe(2);
       expect(retry.prevSolution).toEqual(failed.prevSolution);
       expect(retry.prevPrevSolution).toEqual(failed.prevPrevSolution);
       expect(retry.thirdPrevSolution).toEqual(failed.thirdPrevSolution);
@@ -67,20 +67,20 @@ C1 out 0 1n
     } finally { attempt.mockRestore(); truncation.mockRestore(); sim.dispose(); }
   });
 
-  it('reaches order three, preserves accepted history on Newton rejection, and resets', () => {
+  it('retains third history without selecting order three, preserves it on Newton rejection, and resets', () => {
     const sim = driver();
     const spy = vi.spyOn(stepping, 'attemptStep');
     try {
       for (let i = 0; i < 12; i++) sim.advance();
       const before = spy.mock.calls.at(-1)![1];
-      expect(before.order).toBe(3);
+      expect(before.order ?? 2).toBe(2);
       expect(before.thirdPrevSolution).toBeDefined();
       spy.mockClear();
       spy.mockReturnValueOnce({ ok: false, reason: 'nr-divergence', iterations: 100, oscillated: false,
         lastSolution: new Float64Array(), prevIterSolution: new Float64Array() });
       sim.advance();
       const [failed, retry] = spy.mock.calls.map(call => call[1]);
-      expect(failed.order).toBe(3);
+      expect(failed.order ?? 2).toBe(2);
       expect(retry.integrationMethod).toBe('euler');
       expect(retry.thirdPrevSolution).toEqual(failed.thirdPrevSolution);
       expect(retry.prevPrevDt).toBe(failed.prevPrevDt);
@@ -98,7 +98,7 @@ C1 out 0 1n
     const spy = vi.spyOn(stepping, 'attemptStep');
     try {
       sim.advanceUntil(500e-9);
-      expect(spy.mock.calls.some(call => call[1].order === 3)).toBe(true);
+      expect(spy.mock.calls.some(call => call[1].integrationMethod === 'gear2')).toBe(true);
       spy.mockClear();
       sim.advance();
       const first = spy.mock.calls[0][1];
@@ -106,7 +106,7 @@ C1 out 0 1n
       expect(first.prevPrevSolution).toBeUndefined();
       expect(first.thirdPrevSolution).toBeUndefined();
       sim.advanceUntil(800e-9);
-      expect(spy.mock.calls.some(call => call[1].order === 3)).toBe(true);
+      expect(spy.mock.calls.some(call => call[1].integrationMethod === 'gear2')).toBe(true);
     } finally { spy.mockRestore(); sim.dispose(); }
   });
 });

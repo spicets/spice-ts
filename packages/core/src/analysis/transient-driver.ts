@@ -420,7 +420,7 @@ class TransientSimImpl implements TransientSim {
       this.events?.backup(nextTime);
 
       this.assembler.solution.set(prevSol);
-      const attemptIntegration = this.config.experimentalGearOrder === 3 && this.integrationMethod === 'gear2'
+      const attemptIntegration = this.integrationMethod === 'gear2'
         ? this.stepIntegration(actualDt) : undefined;
       const result = attemptStep(
         {
@@ -894,13 +894,9 @@ class TransientSimImpl implements TransientSim {
     if (this.integrationMethod === 'trapezoidal' && !this.orderOnePending && this.prevB !== undefined) {
       return { method: 'trapezoidal', dt, xmu: this.options.xmu };
     }
-    if (this.integrationMethod === 'gear2' && this.secondPrevSol !== undefined) {
-      if (this.config.experimentalGearOrder === 3) {
-        if (this.orderOnePending) return { method: 'euler', dt };
-        if (this.thirdPrevSol !== undefined) {
-          return { method: 'gear2', order: 3, dt, prevDt: this.prevDt, prevPrevDt: this.prevPrevDt };
-        }
-      }
+    if (this.integrationMethod === 'gear2' && !this.orderOnePending && this.secondPrevSol !== undefined) {
+      // ngspice-47 dctran.c:822-831 only trials 1 -> 2, even with MAXORD=3.
+      // Retain the BDF3 kernel/history, but do not select it from history alone.
       return { method: 'gear2', dt, prevDt: this.prevDt };
     }
     return { method: 'euler', dt };
@@ -944,7 +940,7 @@ class TransientSimImpl implements TransientSim {
 
   /**
    * ngspice dctran.c order control at an accepted point: the bound on the
-   * next step and whether that step stays at order 1 (trapezoidal runs).
+   * next step and whether that step stays at order 1 (trap and Gear runs).
    *
    * The first timepoint of the run is accepted without CKTtrunc ("no check
    * on first time point"): CKTdelta is kept and the order stays 1. After any
@@ -956,12 +952,12 @@ class TransientSimImpl implements TransientSim {
   private orderAfterAcceptedStep(
     dt: number, integration: ChargeIntegration, chargeBound: number,
   ): { bound: number; orderOne: boolean } {
-    const trapezoidal = this.integrationMethod === 'trapezoidal';
+    const variableOrder = this.integrationMethod === 'trapezoidal' || this.integrationMethod === 'gear2';
     if (this.firstStepPending) {
       this.firstStepPending = false;
-      return { bound: dt, orderOne: trapezoidal };
+      return { bound: dt, orderOne: variableOrder };
     }
-    if (!trapezoidal || integration.method !== 'euler') return { bound: chargeBound, orderOne: false };
+    if (!variableOrder || integration.method !== 'euler') return { bound: chargeBound, orderOne: false };
     const bound = this.chargeTruncationTimestep(dt, integration, 2);
     return { bound, orderOne: Math.min(2 * dt, bound) <= RAISE_ORDER_FRACTION * dt };
   }

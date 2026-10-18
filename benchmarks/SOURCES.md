@@ -2000,3 +2000,19 @@ Run `spice-heavy pnpm exec tsx benchmarks/mcp-ac-metrics/compare.mts` after buil
 The script prints both engines' values and errors and fails above 0.5% UGF or
 0.5 degrees phase-margin error. Interpolation differs (linear frequency in
 ngspice, log frequency in MCP). This is correctness evidence, not a speed claim.
+
+## Gear order policy (#1406)
+
+`benchmarks/gear-order-policy/rc.cir` is an original MIT-licensed RC step
+fixture, derived from v(out)=1-exp(-t/RC), R=1k, C=1n. Source:
+https://github.com/spicets/spice-ts/issues/1406. No third-party deck is copied.
+The core order-policy regression reads this fixture. Run
+`spice-heavy pnpm exec tsx benchmarks/gear-order-policy/compare.ts` with
+ngspice-47 installed. The runner prints all three signals' max-absolute/RMS
+errors on ngspice times (linear interpolation), plus analytic errors and point
+counts at step caps 20/10/5/2.5 ns for MAXORD=2 and 3. Elements, UIC seed,
+tolerances and analysis are identical. Only native observation commands differ.
+Until public MAXORD=3 is enabled, spice-ts parses the MAXORD=2 control and uses
+the internal cap-3 hook; this limitation is explicit, not a public parser parity
+claim. Both caps use orders 1/2 only, as ngspice-47 dctran.c:822-831 specifies.
+This is correctness evidence, not an order-three convergence or speed claim.
