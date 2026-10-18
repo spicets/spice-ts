@@ -72,11 +72,19 @@ export function flipFlop(kind: 'jk' | 'd' | 't' | 'sr' | 'dlatch' | 'srlatch'): 
           force = state.set === UNKNOWN && state.reset === ONE;
           if (state.set === ONE) value = state.reset === ONE ? UNKNOWN : ONE;
           else if (state.reset === ONE) value = ZERO;
+          else if (latch && state.clk === ONE) {
+            // Transparent latches resume synchronous evaluation on release,
+            // using the releasing control's delay, not the data/enable delay.
+            value = kind === 'dlatch' ? state.data : srResult(state.data, state.r, old.out);
+          }
         } else if (state.reset !== old.reset) {
           delay = real(params, 'reset_delay');
           force = state.reset === UNKNOWN && state.set === ONE;
           if (state.reset === ONE) value = state.set === ONE ? UNKNOWN : ZERO;
           else if (state.set === ONE) value = ONE;
+          else if (latch && state.clk === ONE) {
+            value = kind === 'dlatch' ? state.data : srResult(state.data, state.r, old.out);
+          }
         } else if (latch && state.set !== ONE && state.reset !== ONE) {
           if (state.clk === ONE && (state.clk !== old.clk || state.data !== old.data || state.r !== old.r)) {
             delay = real(params, state.clk !== old.clk ? 'enable_delay' : kind === 'dlatch' ? 'data_delay' : 'sr_delay');
