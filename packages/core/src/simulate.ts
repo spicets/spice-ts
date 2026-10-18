@@ -1,4 +1,5 @@
 import { Circuit } from './circuit.js';
+import { squaredNoiseOutput } from './results.js';
 import type { CompiledCircuit } from './circuit.js';
 import { parse, parseAsync, parseControlAnalysisCard, parseControlOptions } from './parser/index.js';
 import type { AnalysisDirective, PoleZeroAnalysis } from './types.js';
@@ -443,6 +444,11 @@ function simulateControlScript(
   try {
     outcome = runControlScript(script, host);
     finalRuns = outcome.quit ? [] : runDeck();
+    if (outcome.squaredNoise) {
+      for (const { result } of finalRuns) {
+        if (result.noise) result.noise = squaredNoiseOutput(result.noise);
+      }
+    }
   } finally {
     // Restore even on script/solver errors and non-zero quit statuses.
     restore();

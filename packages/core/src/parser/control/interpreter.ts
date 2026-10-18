@@ -1,5 +1,5 @@
 import type { AnalysisDirective, TransientAnalysis } from '../../types.js';
-import { TransientResult, type MeasurementResult, type SensitivityEntry, type SimulationResult } from '../../results.js';
+import { squaredNoiseOutput, TransientResult, type MeasurementResult, type SensitivityEntry, type SimulationResult } from '../../results.js';
 import { getMeasure2, type MeasurePlot } from '../../measure/measure2.js';
 import { gettokWords } from '../../measure/dot-measure.js';
 import { inpEvaluate } from '../../measure/numparse.js';
@@ -65,6 +65,8 @@ export interface ControlScriptOutcome {
   output: string[];
   /** True when the script ended with `quit`/`exit` (status 0): ngspice then skips the deck's own run. */
   quit: boolean;
+  /** Final front-end noise-output mode, also used by the deck's implicit batch run. */
+  squaredNoise: boolean;
   /** Every `meas` command the script ran, in order; ngspice prints a failed one and continues. */
   measurements: MeasurementResult[];
   /** Non-fatal warnings ngspice-47 prints while running the script (batch-mode `edit`). */
@@ -109,7 +111,6 @@ const OPTION_VARIABLES = new Set([
 
 /** Front-end variables that change computed vectors in ways spice-ts does not reproduce. */
 const RESULT_AFFECTING_VARIABLES: Record<string, string> = {
-  sqrnoise: 'noise spectra in V^2/Hz are not produced',
   ngbehavior: 'compatibility modes change netlist interpretation',
   nobjthack: 'the BJT three-terminal hack is not implemented',
   notrnoise: 'transient noise switching is not implemented',
@@ -186,9 +187,9 @@ class ControlInterpreter {
     } catch (signal) {
       if (!(signal instanceof QuitSignal)) throw signal;
       if (signal.status !== 0) throw new ControlScriptExitError(signal.status, signal.line.lineNumber, this.output);
-      return { runs: this.runs, output: this.output, quit: true, measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
+      return { runs: this.runs, output: this.output, quit: true, squaredNoise: this.variables.has('sqrnoise'), measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
     }
-    return { runs: this.runs, output: this.output, quit: false, measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
+    return { runs: this.runs, output: this.output, quit: false, squaredNoise: this.variables.has('sqrnoise'), measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
   }
 
   // -------------------------------------------------------------------------
@@ -977,9 +978,15 @@ class ControlInterpreter {
     const type = run.directive.type;
     const { result } = run;
     if (type === 'noise' && result.noise) {
-      const noise = result.noise;
+      let noise = result.noise;
+      if (this.variables.has('sqrnoise')) {
+        noise = squaredNoiseOutput(noise);
+        result.noise = noise;
+      }
       const frequency = realVector('frequency', noise.frequencies);
-      const spectrum = this.newPlot('noise', 'Noise Spectral Density Curves', frequency, saves);
+      const spectrum = this.newPlot('noise', noise.squared
+        ? 'Noise Spectral Density Curves - (V^2 or A^2)/Hz'
+        : 'Noise Spectral Density Curves', frequency, saves);
       spectrum.vectors.set('onoise_spectrum', realVector('onoise_spectrum', noise.outputNoiseDensity, frequency));
       spectrum.vectors.set('inoise_spectrum', realVector('inoise_spectrum', noise.inputNoiseDensity, frequency));
       this.runs.push({ plot: spectrum.name, analysis: type, result });
@@ -989,7 +996,9 @@ class ControlInterpreter {
         this.current = spectrum;
         return;
       }
-      const integrated = this.newPlot('noise', 'Integrated Noise', undefined, saves);
+      const integrated = this.newPlot('noise', noise.squared
+        ? 'Integrated Noise - V^2 or A^2'
+        : 'Integrated Noise', undefined, saves);
       if (noise.integratedOutputNoise !== undefined) {
         integrated.vectors.set('onoise_total', scalar(noise.integratedOutputNoise, 'onoise_total'));
       }
