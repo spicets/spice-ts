@@ -32,6 +32,7 @@ import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProp
 import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } from './fourier.js';
 import { noiseMetrics, noiseMetricsArgs, noiseMetricsOutputSchema, noiseMetricsProperties } from './noise-metrics.js';
 import type { NoiseResult } from '@spice-ts/core';
+import type { OperatingPointReport } from '@spice-ts/core';
 
 export interface McpLimits {
   maxDocumentBytes: number;
@@ -94,7 +95,7 @@ interface WorkerReply {
 }
 
 interface WorkerRequest {
-  operation: 'validate' | 'simulate' | 'stream' | 'noise';
+  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'op-report';
   request: SimulationRequestV1;
   coreModulePath: string;
 }
@@ -369,6 +370,25 @@ export const MCP_TOOLS = Object.freeze([
     outputSchema: dcMetricsOutputSchema,
   },
   {
+    name: 'spice_op_report',
+    description: 'Run one DC operating point from a titleless SPICE netlist. Return node voltages, terminal currents entering devices (A), absorbed power (W), delivered/absorbed totals and top dissipators. Ignores analysis/control commands; rejects parameter steps. Negative device power means delivery.',
+    inputSchema: {
+      type: 'object', required: ['netlist'], additionalProperties: false,
+      properties: { netlist: { type: 'string', minLength: 1 }, topN: { type: 'integer', minimum: 0, maximum: 10000 } },
+    },
+    outputSchema: {
+      type: 'object', required: ['nodeVoltages', 'devices', 'sourceDeliveredPowerW', 'dissipatedPowerW', 'topDissipators'],
+      properties: {
+        nodeVoltages: { type: 'object', additionalProperties: { type: 'number' } },
+        devices: { type: 'array', items: { type: 'object', required: ['name', 'terminalCurrents', 'powerW'], properties: {
+          name: { type: 'string' }, terminalCurrents: { type: 'object', additionalProperties: { type: 'number' } }, powerW: { type: 'number' },
+        } } },
+        sourceDeliveredPowerW: { type: 'number' }, dissipatedPowerW: { type: 'number' },
+        topDissipators: { type: 'array', items: { type: 'object', required: ['name', 'powerW'], properties: { name: { type: 'string' }, powerW: { type: 'number' } } } },
+      },
+    },
+  },
+  {
     name: 'spice_compare',
     description: 'Compare inline waveforms, protocol-v1 results, or completed jobs on the union axis within their overlap. Errors are relative to the reference peak. AC compares magnitude and wrapped phase in degrees.',
     inputSchema: { ...compareInputSchema, $defs: commonSchemaV1.$defs },
@@ -437,6 +457,26 @@ async function executeToolWithStore(
   const limits = options.limits ?? DEFAULT_MCP_LIMITS;
   try {
     if (name === 'spice_capabilities') return success(streamStore.capabilities());
+    if (name === 'spice_op_report') {
+      if (!isRecord(args) || Object.keys(args).some(key => !['netlist', 'topN'].includes(key))
+        || typeof args.netlist !== 'string' || !args.netlist.trim()
+        || (args.topN !== undefined && (!Number.isInteger(args.topN) || (args.topN as number) < 0 || (args.topN as number) > 10000))) {
+        throw apiError('INVALID_REQUEST', 'Expected netlist and optional integer topN (0–10000)', 'validation', {});
+      }
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const release = streamStore.acquireOneShotSlot();
+      try {
+        const report = await runInWorker<OperatingPointReport>('op-report', {
+          apiVersion: '1', input: { format: 'spice', source: args.netlist },
+        }, limits.maxWallTimeMs, options);
+        enforceMaximum('maxResultPoints', limits.maxResultPoints, report.devices.length, 'transport');
+        const result = { ...report, topDissipators: report.devices.filter(device => device.powerW > 0)
+          .sort((a, b) => b.powerW - a.powerW || a.name.localeCompare(b.name))
+          .slice(0, (args.topN as number | undefined) ?? 10).map(({ name, powerW }) => ({ name, powerW })) };
+        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        return success(result);
+      } finally { release(); }
+    }
     if (name === 'spice_sweep') {
       const original = toolRequest(args);
       const effective = effectiveLimits(original, limits);
@@ -1383,6 +1423,7 @@ parentPort.once('message', async ({ operation, request, coreModulePath }) => {
     const result = operation === 'validate'
       ? await core.validateProtocolV1(request, { topologyWarnings: true })
       : operation === 'noise' ? await core.simulateNoiseProtocolV1(request)
+      : operation === 'op-report' ? await core.operatingPointReport(request.input.source)
       : await core.simulateProtocolV1(request);
     parentPort.postMessage({ type: 'result', result });
   } catch (error) {
@@ -1464,7 +1505,7 @@ async function runStreamingWorker(
 }
 
 async function runInWorker<T>(
-  operation: 'validate' | 'simulate' | 'noise',
+  operation: 'validate' | 'simulate' | 'noise' | 'op-report',
   request: SimulationRequestV1,
   wallTimeMs: number,
   options: ToolExecutionOptions,
