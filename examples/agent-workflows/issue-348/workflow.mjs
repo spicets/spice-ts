@@ -31,6 +31,7 @@ const toolNames = [
   'spice_sweep',
   'spice_ac_metrics',
   'spice_tran_metrics',
+  'spice_fourier',
   'spice_noise_metrics',
   'spice_measure',
   'spice_dc_metrics',
@@ -62,7 +63,7 @@ assert.deepEqual(capabilities, {
     caseSensitive: false,
     unknownParameterCode: 'UNKNOWN_PARAMETER',
   },
-  tools: ['spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_noise_metrics', 'spice_measure', 'spice_dc_metrics', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel'],
+  tools: ['spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_fourier', 'spice_noise_metrics', 'spice_measure', 'spice_dc_metrics', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel'],
   limits: {
     maxDocumentBytes: 262144,
     maxAnalyses: 8,
