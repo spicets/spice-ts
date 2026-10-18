@@ -30,6 +30,7 @@ try {
     'spice_ac_metrics',
     'spice_tran_metrics',
     'spice_fourier',
+    'spice_pz_metrics',
     'spice_noise_metrics',
     'spice_measure',
     'spice_dc_metrics',
