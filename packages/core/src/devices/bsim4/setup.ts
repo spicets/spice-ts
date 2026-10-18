@@ -130,7 +130,7 @@ export function setupBsim4Model(
       const baseline = (BASELINE_MODES as Readonly<Record<string, number>>)[key];
       if (key === 'igcmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGCMOD=0/1 is ported');
       if (key === 'igbmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGBMOD=0/1 is ported');
-      if (baseline !== undefined && value !== baseline) unsupported(raw, 'nonbaseline selector path is not ported; no silent upstream reset');
+      if (baseline !== undefined && value !== baseline && !(key === 'rgatemod' && value === 1)) unsupported(raw, 'nonbaseline selector path is not ported; no silent upstream reset');
       const neutral = (LAYOUT_DEFAULTS as Readonly<Record<string, number>>)[key];
       if (neutral !== undefined && value !== neutral) unsupported(raw, 'stress/well-proximity path is not ported');
       if (parameter === 'binunit' && value !== 1 && value !== 2) unsupported(raw, 'unported binunit value (b4temp.c size binning)');
@@ -169,8 +169,9 @@ export function setupBsim4Instance(
     const parameter = key as Bsim4InstanceParameter;
     if (given.has(parameter)) unsupported(raw, 'duplicate canonical instance parameter');
     const value = numeric(raw, input);
-    // b4set.c:2380-2415,2517-2583. No internal body/gate/NQS nodes.
-    if (['rbodymod', 'rgatemod', 'geomod', 'rgeomod', 'trnqsmod', 'acnqsmod', 'wnflag'].includes(key) && value !== 0) {
+    // b4set.c:2380-2415,2517-2583. Only the constant gate network is ported.
+    if (key === 'rgatemod' && value !== 0 && value !== 1) unsupported(raw, 'only RGATEMOD=0/1 is ported');
+    if (['rbodymod', 'geomod', 'rgeomod', 'trnqsmod', 'acnqsmod', 'wnflag'].includes(key) && value !== 0) {
       unsupported(raw, 'instance selector path is not ported');
     }
     // b4set.c:2417-2432, b4temp.c:1657-1761. Conservative neutral-layout guard.
