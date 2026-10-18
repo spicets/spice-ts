@@ -4,6 +4,7 @@ import {
   DEVICE_GMIN, type ChargeIntegration, type ChargeTruncation, type DeviceModel, type StampContext,
 } from './device.js';
 import { chargeTruncationTimestep } from './charge-state.js';
+import { gear3Coefficients } from './gear3.js';
 import { assertNoUnsupportedTemperatureParameters, temperatureJunction } from './junction-temperature.js';
 import { pnjlim } from './devsup.js';
 
@@ -298,6 +299,8 @@ export class Diode implements DeviceModel {
   private previousAcceptedCharge: number | undefined;
   /** q(n-2), the extra point the order-2 truncation error needs (ngspice CKTstate3). */
   private olderAcceptedCharge: number | undefined;
+  /** q(n-3), needed by order-3 CKTterr (ngspice CKTstate4). */
+  private oldestAcceptedCharge: number | undefined;
   private acceptedChargeCurrent = 0;
   /** Integration rule of the most recent charge stamp, committed on acceptance. */
   private pendingIntegration: ChargeIntegration | undefined;
@@ -475,6 +478,7 @@ export class Diode implements DeviceModel {
     this.acceptedCharge = undefined;
     this.previousAcceptedCharge = undefined;
     this.olderAcceptedCharge = undefined;
+    this.oldestAcceptedCharge = undefined;
     this.acceptedChargeCurrent = 0;
     this.pendingIntegration = undefined;
   }
@@ -858,10 +862,12 @@ export class Diode implements DeviceModel {
       this.acceptedCharge = charge;
       this.previousAcceptedCharge = undefined;
       this.olderAcceptedCharge = undefined;
+      this.oldestAcceptedCharge = undefined;
       this.acceptedChargeCurrent = 0;
       return;
     }
     this.acceptedChargeCurrent = this.integrateCharge(charge, capacitance, integration).current;
+    this.oldestAcceptedCharge = this.olderAcceptedCharge;
     this.olderAcceptedCharge = this.previousAcceptedCharge;
     this.previousAcceptedCharge = this.acceptedCharge;
     this.acceptedCharge = charge;
@@ -893,6 +899,24 @@ export class Diode implements DeviceModel {
     const voltage = (nA >= 0 ? ctx.getVoltage(nA) : 0) - (nK >= 0 ? ctx.getVoltage(nK) : 0);
     const { charge, capacitance } = this.junctionCharge(voltage, ctx.gmin ?? DEVICE_GMIN);
     const { current } = this.integrateCharge(charge, capacitance, integration);
+    if (truncation.order === undefined && this.usesGear3(integration)) {
+      if (this.oldestAcceptedCharge === undefined || truncation.olderDelta === undefined) return Infinity;
+      const { deltas, reltol, abstol, chgtol, trtol } = truncation;
+      const intervals = [...deltas, truncation.olderDelta];
+      const diff = [charge, accepted, previous, this.olderAcceptedCharge!, this.oldestAcceptedCharge];
+      // CKTterr's fourth divided difference, matching the shared charge kernel.
+      for (let level = 1; level <= 4; level++) {
+        for (let i = 0; i < 5 - level; i++) {
+          let span = 0;
+          for (let j = i; j < i + level; j++) span += intervals[j];
+          diff[i] = (diff[i] - diff[i + 1]) / span;
+        }
+      }
+      const currentTolerance = abstol + reltol * Math.max(Math.abs(current), Math.abs(this.acceptedChargeCurrent));
+      const chargeTolerance = reltol * Math.max(Math.abs(charge), Math.abs(accepted), chgtol) / deltas[0];
+      return Math.cbrt(trtol * Math.max(currentTolerance, chargeTolerance)
+        / Math.max(abstol, 0.1363636364 * Math.abs(diff[0])));
+    }
     return chargeTruncationTimestep(
       secondOrder ? integration.method : 'euler', secondOrder ? 2 : 1,
       charge, accepted, previous, this.olderAcceptedCharge ?? 0,
@@ -922,13 +946,27 @@ export class Diode implements DeviceModel {
     return { charge, capacitance };
   }
 
+  private usesGear3(integration: ChargeIntegration): boolean {
+    return integration.method === 'gear2' && integration.order === 3
+      && integration.prevDt !== undefined && integration.prevPrevDt !== undefined
+      && this.previousAcceptedCharge !== undefined && this.olderAcceptedCharge !== undefined;
+  }
+
   /** ngspice NIintegrate for one charge: returns the capacitor current and its dI/dV. */
   private integrateCharge(
     charge: number,
     capacitance: number,
-    { method, dt, prevDt }: ChargeIntegration,
+    integration: ChargeIntegration,
   ): { current: number; conductance: number } {
+    const { method, dt, prevDt, prevPrevDt } = integration;
     const previous = this.acceptedCharge ?? charge;
+    if (this.usesGear3(integration)) {
+      const [a1, a2, a3, a4] = gear3Coefficients(dt, prevDt!, prevPrevDt!);
+      return {
+        current: a1 * charge + a2 * previous + a3 * this.previousAcceptedCharge! + a4 * this.olderAcceptedCharge!,
+        conductance: a1 * capacitance,
+      };
+    }
     if (method === 'trapezoidal') {
       const factor = 2 / dt;
       return {
