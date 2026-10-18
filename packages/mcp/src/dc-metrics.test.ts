@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { simulateProtocolV1 } from '@spice-ts/core';
 import type { SimulationRequestV1 } from '@spice-ts/protocol';
 import { executeTool } from './server.js';
+import { dcMetricsResult } from './dc-metrics.js';
 
 type Metric = { value: number | null; unit: string; reason?: string; sweepPoint?: number; input?: number };
 type Metrics = Record<'gainMax' | 'switchingThreshold' | 'voh' | 'vol' | 'vil' | 'vih' | 'nmL' | 'nmH', Metric> & { monotonic: boolean };
-export const divider = '* Original MIT DC divider probe\nVin in 0 0\nR1 in out 1k\nR2 out 0 1k\n.dc Vin 0 5 0.005\n.end\n';
+export const divider = '* Original MIT DC divider probe\nVin in 0 0\nR1 in out 1k\nR2 out 0 1k\n.dc Vin 0 5 0.5\n.end\n';
 export const inverter = '* Original MIT CMOS transfer probe\nVdd dd 0 5\nVin in 0 0\nMp out in dd dd PM W=20u L=1u\nMn out in 0 0 NM W=10u L=1u\n.model NM NMOS (LEVEL=1 VTO=0.7 KP=120u LAMBDA=0.02)\n.model PM PMOS (LEVEL=1 VTO=-0.7 KP=60u LAMBDA=0.02)\n.dc Vin 0 5 0.005\n.end\n';
 const request = (source: string): SimulationRequestV1 => ({ apiVersion: '1', input: { format: 'spice', source } });
 async function metrics(source: string, extra = {}) {
@@ -60,13 +61,32 @@ describe('spice_dc_metrics', () => {
     expect((await executeTool('spice_capabilities', {})).structuredContent).toMatchObject({ tools: expect.arrayContaining(['spice_dc_metrics']) });
   });
 
+  it('handles descending sweeps, peak coordinates and nonmonotonic output', () => {
+    const result = { status: 'complete' as const, analyses: [{ type: 'dc' as const, analysisIndex: 0, axis: { name: 'Vin', unit: 'V' as const, values: [3, 2, 1, 0] }, voltagesV: { out: [0, 2, 1, 3] }, currentsA: {} }] };
+    const m = dcMetricsResult(result, { sweptSource: 'vIN', output: 'v(out)' });
+    expect(m.gainMax).toEqual({ value: 2, unit: 'V/V', input: 2.5, sweepPoint: 2.5 });
+    expect(m.monotonic).toBe(false);
+    expect(m.switchingThreshold.value).toBe(2);
+    expect(m.voh.value).toBe(0);
+    expect(m.vol.value).toBe(3);
+    expect(m.vil.value).toBeCloseTo(5 / 6, 12);
+    expect(m.vih.value).toBeCloseTo(13 / 6, 12);
+    expect(() => dcMetricsResult({ ...result, analyses: [...result.analyses, ...result.analyses] }, { sweptSource: 'Vin', output: 'v(out)' })).toThrow();
+    expect(() => dcMetricsResult({ ...result, analyses: [{ ...result.analyses[0], voltagesV: { out: [0, NaN, 1, 3] } }] }, { sweptSource: 'Vin', output: 'v(out)' })).toThrow();
+  });
+
+  it('preserves simulation limits', async () => {
+    const response = await executeTool('spice_dc_metrics', { request: { ...request(divider), options: { limits: { maxResultPoints: 0 } } }, sweptSource: 'Vin', output: 'v(out)' });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'RESOURCE_LIMIT' } } });
+  });
+
   it.each([
     ['missing DC', 'Vin out 0 1\nR1 out 0 1k\n.op', {}],
     ['unknown output', divider, { output: 'v(absent)' }],
     ['unknown input', divider, { input: 'v(absent)' }],
     ['wrong source', divider, { sweptSource: 'absent' }],
     ['non-voltage output', divider, { output: 'i(Vin)' }],
-    ['nonmonotonic input', inverter, { input: 'v(out)' }],
+    ['constant input', inverter, { input: 'v(dd)' }],
     ['invalid fields', divider, { output: 4 }],
   ])('returns structured errors for %s', async (_label, source, extra) => {
     const response = await executeTool('spice_dc_metrics', { request: request(source), sweptSource: 'Vin', output: 'v(out)', ...extra });

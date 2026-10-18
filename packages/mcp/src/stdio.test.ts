@@ -32,7 +32,7 @@ describe('stdio transport', () => {
     const listed = await client.listTools();
     expect(listed.tools.map(tool => tool.name)).toEqual([
       'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_measure',
-      'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel',
+      'spice_dc_metrics', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel',
     ]);
     expect(listed.tools.every(tool => tool.inputSchema.type === 'object')).toBe(true);
 

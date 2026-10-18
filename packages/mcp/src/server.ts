@@ -22,6 +22,7 @@ import { Worker } from 'node:worker_threads';
 import { estimatedResultPoints, requestPlan, resolvedOptions } from './request-plan.js';
 import type { RequestPlan } from './request-plan.js';
 import { measurementListSchema, measureResult } from './measure.js';
+import { dcMetricsInput, dcMetricsOutputSchema, dcMetricsProperties, dcMetricsResult } from './dc-metrics.js';
 
 export interface McpLimits {
   maxDocumentBytes: number;
@@ -284,6 +285,16 @@ export const MCP_TOOLS = Object.freeze([
     },
   },
   {
+    name: 'spice_dc_metrics',
+    description: 'Simulate a DC voltage transfer sweep and return gain, switching threshold, unity-gain points and noise margins. Expressions are v(node); input defaults to the swept voltage source. Undefined metrics include null and a reason.',
+    inputSchema: {
+      ...requestInputSchema,
+      required: ['request', 'sweptSource', 'output'],
+      properties: { ...requestInputSchema.properties, ...dcMetricsProperties },
+    },
+    outputSchema: dcMetricsOutputSchema,
+  },
+  {
     name: 'spice_simulation_start',
     description: 'Start one bounded protocol-v1 simulation job and return its first opaque cursor.',
     inputSchema: requestInputSchema,
@@ -348,7 +359,7 @@ async function executeToolWithStore(
     if (name === 'spice_convert') return convertTool(args, limits, options.signal);
     if (name === 'spice_simulation_read') return success(streamStore.read(streamReadArgs(args)));
     if (name === 'spice_simulation_cancel') return success(streamStore.cancel(streamCancelArgs(args)));
-    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_simulation_start') {
+    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_dc_metrics' && name !== 'spice_simulation_start') {
       return failure(apiError('INVALID_REQUEST', 'Unknown tool', 'transport', {}));
     }
 
@@ -357,6 +368,7 @@ async function executeToolWithStore(
       throw apiError('INVALID_REQUEST', 'Expected 1 through 128 measurements', 'validation', {});
     }
     if (name === 'spice_measure') enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(measurements)), 'validation');
+    const dcInput = name === 'spice_dc_metrics' ? dcMetricsInput(args) : undefined;
     const original = toolRequest(args);
     const effective = effectiveLimits(original, limits);
     enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
@@ -385,6 +397,11 @@ async function executeToolWithStore(
         ? await boundedCall(() => options.simulate!(bounded), effective.maxWallTimeMs, options.signal)
         : await runInWorker<SimulationResultV1>('simulate', bounded, effective.maxWallTimeMs, options);
       enforceResultBounds(result, effective);
+      if (dcInput) {
+        const measured = dcMetricsResult(result, dcInput);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(measured)), 'transport');
+        return success(measured, diagnostics);
+      }
       if (name === 'spice_measure') {
         const measured = measureResult(result, measurements as unknown[]);
         enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(measured)), 'transport');
