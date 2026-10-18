@@ -307,11 +307,13 @@ class TransientSimImpl implements TransientSim {
   private progress: TransientProgressMonitor;
   /** The XSPICE event-driven network, when the circuit has digital code models. */
   private readonly events: EventDrivenNetwork | undefined;
+  private readonly useGear3: boolean;
 
   constructor(compiled: CompiledCircuit, options: ResolvedOptions, config: InternalTransientConfig) {
     this.compiled = compiled;
     this.options = options;
     this.config = config;
+    this.useGear3 = options.maxOrder === 3 || config.experimentalGearOrder === 3;
     this.convergenceTelemetry = config.convergence ?? createConvergenceTelemetry();
     for (const device of compiled.devices) {
       device.setTransientTimestep?.(config.timestep, config.stopTime);
@@ -420,7 +422,7 @@ class TransientSimImpl implements TransientSim {
       this.events?.backup(nextTime);
 
       this.assembler.solution.set(prevSol);
-      const attemptIntegration = this.config.experimentalGearOrder === 3 && this.integrationMethod === 'gear2'
+      const attemptIntegration = this.useGear3 && this.integrationMethod === 'gear2'
         ? this.stepIntegration(actualDt) : undefined;
       const result = attemptStep(
         {
@@ -555,7 +557,7 @@ class TransientSimImpl implements TransientSim {
       }
       // A UIC seed is no predictor point: the next step gets no LTE check and,
       // under Gear-2, integrates at order 1, as after a breakpoint.
-      this.thirdPrevSol = this.config.experimentalGearOrder === 3 && !this.startsFromUICSeed ? this.secondPrevSol : undefined;
+      this.thirdPrevSol = this.useGear3 && !this.startsFromUICSeed ? this.secondPrevSol : undefined;
       this.secondPrevSol = this.startsFromUICSeed ? undefined : prevSol;
       this.startsFromUICSeed = false;
       this.olderDt = this.prevPrevDt;
@@ -895,7 +897,7 @@ class TransientSimImpl implements TransientSim {
       return { method: 'trapezoidal', dt, xmu: this.options.xmu };
     }
     if (this.integrationMethod === 'gear2' && this.secondPrevSol !== undefined) {
-      if (this.config.experimentalGearOrder === 3) {
+      if (this.useGear3) {
         if (this.orderOnePending) return { method: 'euler', dt };
         if (this.thirdPrevSol !== undefined) {
           return { method: 'gear2', order: 3, dt, prevDt: this.prevDt, prevPrevDt: this.prevPrevDt };
