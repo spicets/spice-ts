@@ -14,7 +14,7 @@ import { CurrentSource } from './devices/current-source.js';
 import { TransientNoiseContext } from './devices/transient-noise.js';
 import { Capacitor } from './devices/capacitor.js';
 import { Inductor } from './devices/inductor.js';
-import { MutualInductor } from './devices/mutual-inductor.js';
+import { MutualInductor, validateCoupledInductors } from './devices/mutual-inductor.js';
 import { Diode, canonicalDiodeModelParams, diodeZeroBiasCapacitance } from './devices/diode.js';
 import { BJT, hasBiasDependentBaseResistance } from './devices/bjt.js';
 import { VBIC, resolveVBICParams, vbicNodeCount } from './devices/vbic.js';
@@ -997,7 +997,9 @@ export class Circuit {
     }
     const key = parameter?.toUpperCase();
     const single = (): number | string => (values.length === 1 ? values[0] : `parameter needs one value, got ${values.length}`);
-    const primary: Record<string, string[]> = { R: ['R', 'RESISTANCE'], C: ['C', 'CAPACITANCE'], L: ['L', 'INDUCTANCE'] };
+    const primary: Record<string, string[]> = {
+      R: ['R', 'RESISTANCE'], C: ['C', 'CAPACITANCE'], L: ['L', 'INDUCTANCE'], K: ['K', 'COUPLING'],
+    };
     if (descriptor.type in primary) {
       if (key !== undefined && !primary[descriptor.type].includes(key)) {
         return `parameter '${parameter}' of ${descriptor.type} device '${name}' cannot be altered`;
@@ -2709,6 +2711,8 @@ export class Circuit {
     if (this._temperature !== undefined && this._temperature !== NOMINAL_TEMPERATURE_C) {
       this.applyCircuitTemperature(this._temperature, expandedDescriptors, devices);
     }
+
+    validateCoupledInductors(devices);
 
     return {
       devices, nodeCount, branchCount: branchNames.length,
