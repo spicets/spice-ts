@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parse } from '../../parser/index.js';
+
 import { simulate } from '../../simulate.js';
 
 // ngspice-47, src/xspice/icm/xtradev/pswitch/cfunc.mod:172-282.
@@ -49,8 +49,8 @@ asw (c 0) (out 0) model1
     expect(-result.dc!.current('Vc')).toBeCloseTo(0.5e-12, 18);
   });
 
-  it('keeps other local XSPICE families outside the scoped-port boundary', () => {
-    expect(() => parse(`local gain
+  it('scopes other implemented local XSPICE families (#1434)', async () => {
+    const result = await simulate(`local gain
 V1 in 0 1
 x1 in out block
 R1 out 0 1k
@@ -59,6 +59,7 @@ a1 in out g1
 .model g1 gain(gain=2)
 .ends
 .op
-.end`)).toThrow(/unsupported type 'GAIN'/);
+.end`);
+    expect(result.dc!.voltage('out')).toBeCloseTo(2, 10);
   });
 });
