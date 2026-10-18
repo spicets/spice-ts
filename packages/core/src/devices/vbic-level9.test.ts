@@ -51,10 +51,9 @@ describe('VBIC LEVEL=9 alias (#1398)', () => {
   });
 
   for (const level of [4, 9]) {
-    it(`keeps the typed self-heating rejection for LEVEL=${level}`, () => {
+    it(`accepts the thermal terminal for LEVEL=${level}`, () => {
       const compile = () => parse(deck(level).replace('Q1 c b 0 0 QV', 'Q1 c b 0 0 t QV')).compile();
-      expect(compile).toThrow(InvalidCircuitError);
-      expect(compile).toThrow('self-heating (5-terminal instance) is not implemented');
+      expect(compile).not.toThrow();
     });
     it(`keeps bounded model validation for LEVEL=${level}`, () => {
       expect(() => parse(deck(level).replace('IS=1e-16', 'BF=100')).compile())

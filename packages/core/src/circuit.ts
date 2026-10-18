@@ -2997,11 +2997,10 @@ export class Circuit {
       if (desc.type === 'Q') {
         const model = this._models.get(desc.modelName!);
         const isVBIC = (model?.type === 'NPN' || model?.type === 'PNP') && isVBICLevel(model.params.LEVEL);
-        if (desc.nodes.length > 4) {
+        if (desc.nodes.length > 4 && !isVBIC) {
           // ngspice-47 accepts a fifth (thermal) node only for VBIC/HICUM.
-          throw new InvalidCircuitError(isVBIC
-            ? `Unsupported VBIC thermal node on '${desc.name}': self-heating (5-terminal instance) is not implemented`
-            : `BJT '${desc.name}' has a thermal node, but only VBIC (LEVEL=4/9) instances accept a fifth terminal`);
+          throw new InvalidCircuitError(
+            `BJT '${desc.name}' has a thermal node, but only VBIC (LEVEL=4/9) instances accept a fifth terminal`);
         }
         // VBIC and the Gummel-Poon BJT both stamp the substrate terminal
         // (ngspice bjtload.c substrate junction); omitted, it is ground.
@@ -3061,6 +3060,7 @@ export class Circuit {
                 ...(vbicNodeCount(params) > 7
                   ? [internalNodeName(desc.name, 'xf1'), internalNodeName(desc.name, 'xf2')]
                   : []),
+                ...(terminals.length > 4 ? [terminals[4]] : []),
               ],
             });
             continue;
