@@ -34,6 +34,8 @@ import { noiseMetrics, noiseMetricsArgs, noiseMetricsOutputSchema, noiseMetricsP
 import type { NoiseResult, PoleZeroResult } from '@spice-ts/core';
 import { pzMetrics, pzMetricsOutputSchema } from './pz-metrics.js';
 import type { OperatingPointReport } from '@spice-ts/core';
+import type { SensitivityResult } from '@spice-ts/core';
+import { sensitivityArgs, sensitivityReport, sensitivityInputSchema, sensitivityOutputSchema } from './sensitivity.js';
 
 export interface McpLimits {
   maxDocumentBytes: number;
@@ -96,9 +98,10 @@ interface WorkerReply {
 }
 
 interface WorkerRequest {
-  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report';
+  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report' | 'sensitivity';
   request: SimulationRequestV1;
   coreModulePath: string;
+  sensitivityOutput?: string;
 }
 
 export const DEFAULT_MCP_LIMITS: Readonly<McpLimits> = Object.freeze({
@@ -142,6 +145,8 @@ const capabilitiesOutputSchema = {
     analyses: { type: 'array', items: { enum: ['op', 'dc', 'tran', 'ac'] } },
     inputFormats: { type: 'array', items: { enum: ['spice', 'spice-ts', 'circuit-json'] } },
     tools: { type: 'array', items: { type: 'string' } },
+    sensitivity: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
+      properties: { tool: { const: 'spice_sensitivity' }, analyses: { type: 'array', items: { const: 'dc' } } } },
     parameterOverrides: { type: 'object', properties: {
       tools: { type: 'array', items: { type: 'string' } }, input: { type: 'string' },
       valueType: { type: 'string' }, scope: { type: 'string' }, caseSensitive: { type: 'boolean' },
@@ -239,6 +244,12 @@ const streamToolOutputSchema = {
 };
 
 export const MCP_TOOLS = Object.freeze([
+  {
+    name: 'spice_sensitivity',
+    description: 'Run native DC sensitivity for v(node), v(a,b) or i(vsrc). Return signed absolute derivatives and value*dOut/dParam, ranked by descending absolute normalised sensitivity, with optional top. Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected. AC is not supported.',
+    inputSchema: sensitivityInputSchema,
+    outputSchema: { type: 'object', oneOf: [sensitivityOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
+  },
   {
     name: 'spice_capabilities',
     description: 'Describe the deterministic bounded spice-ts protocol-v1 tool surface.',
@@ -429,6 +440,7 @@ const capabilities = Object.freeze({
   analyses: Object.freeze(['op', 'dc', 'tran', 'ac']),
   inputFormats: Object.freeze(['spice', 'spice-ts', 'circuit-json']),
   tools: Object.freeze(MCP_TOOLS.map(tool => tool.name)),
+  sensitivity: Object.freeze({ tool: 'spice_sensitivity', analyses: Object.freeze(['dc']) }),
   parameterOverrides,
   limits: DEFAULT_MCP_LIMITS,
   streaming: Object.freeze({
@@ -467,6 +479,21 @@ async function executeToolWithStore(
   const limits = options.limits ?? DEFAULT_MCP_LIMITS;
   try {
     if (name === 'spice_capabilities') return success(streamStore.capabilities());
+    if (name === 'spice_sensitivity') {
+      const selectors = sensitivityArgs(args);
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      enforceMaximum('maxAnalyses', limits.maxAnalyses, 1, 'validation');
+      const release = streamStore.acquireOneShotSlot();
+      try {
+        const raw = await runInWorker<SensitivityResult>('sensitivity', {
+          apiVersion: '1', input: { format: 'spice', source: selectors.netlist },
+        }, limits.maxWallTimeMs, options, selectors.output);
+        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.entries.length, 'transport');
+        const result = sensitivityReport(raw, selectors);
+        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        return success(result);
+      } finally { release(); }
+    }
     if (name === 'spice_op_report') {
       if (!isRecord(args) || Object.keys(args).some(key => !['netlist', 'topN'].includes(key))
         || typeof args.netlist !== 'string' || !args.netlist.trim()
@@ -1435,9 +1462,22 @@ async function streamProtocol(core, request) {
   }
 }
 
-parentPort.once('message', async ({ operation, request, coreModulePath }) => {
+parentPort.once('message', async ({ operation, request, coreModulePath, sensitivityOutput }) => {
   const core = require(coreModulePath);
   try {
+    if (operation === 'sensitivity') {
+      const circuit = core.parseTitleless(request.input.source);
+      const compiled = circuit.compile();
+      if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript
+        || /(^|\n)\s*\.control\b/i.test(request.input.source)) {
+        throw new core.InvalidCircuitError('Sensitivity requires an unstepped deck without control blocks or .pz');
+      }
+      const analysis = core.parseTitleless('.sens ' + sensitivityOutput).analyses[0];
+      circuit.analyses.splice(0, circuit.analyses.length, analysis);
+      const result = (await core.simulate(circuit)).sensitivity;
+      parentPort.postMessage({ type: 'result', result });
+      return;
+    }
     if (operation === 'stream') await streamProtocol(core, request);
     const result = operation === 'validate'
       ? await core.validateProtocolV1(request, { topologyWarnings: true })
@@ -1525,10 +1565,11 @@ async function runStreamingWorker(
 }
 
 async function runInWorker<T>(
-  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report',
+  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report' | 'sensitivity',
   request: SimulationRequestV1,
   wallTimeMs: number,
   options: ToolExecutionOptions,
+  sensitivityOutput?: string,
 ): Promise<T> {
   throwIfCancelled(options.signal);
   const worker = (options.workerFactory ?? createExecutionWorker)();
@@ -1565,7 +1606,7 @@ async function runInWorker<T>(
       { limit: 'maxWallTimeMs', maximum: wallTimeMs },
     ))), wallTimeMs);
     try {
-      const message: WorkerRequest = { operation, request, coreModulePath };
+      const message: WorkerRequest = { operation, request, coreModulePath, sensitivityOutput };
       worker.postMessage(message);
     } catch {
       finish(() => reject(workerFailure()));

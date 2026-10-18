@@ -2047,6 +2047,20 @@ ngspice uses one-sided finite differences; the regression compares DC and comple
 AC derivatives at 1e-5 relative plus 1e-12 absolute tolerance and reports both
 maximum absolute error and nonzero-vector relative error.
 
+## MCP DC sensitivity (#1457)
+
+`packages/mcp/fixtures/sensitivity-divider.cir` is an original MIT-licensed
+analytic resistive divider, source: https://github.com/spicets/spice-ts/issues/1457.
+The MCP regression test and `benchmarks/mcp-sensitivity/compare.mts` read the same
+stored bytes; ngspice-47 receives that file unchanged. The comparison covers the
+seven parameters supported by core (R1/R2 resistance, multiplier and scale; V1 DC),
+not ngspice's additional model/temperature/geometry vectors. Run
+`spice-heavy pnpm exec tsx benchmarks/mcp-sensitivity/compare.mts` after core build.
+It prints SHA-256, both engines' derivatives and maximum absolute/relative error.
+The 1e-5 relative threshold is inherited from the existing core sensitivity suite:
+ngspice's one-sided and core's symmetric finite differences are not bit-identical.
+This is correctness evidence only, not a performance comparison.
+
 ## MCP AC metrics (#1391)
 
 `benchmarks/mcp-ac-metrics/two-pole.cir` is an original MIT-licensed buffered

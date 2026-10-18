@@ -4,6 +4,31 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 
 ## Tools
 
+### DC sensitivity
+
+Call `spice_sensitivity` with `{ netlist, output: "v(out)", analysis: "dc", top: 5 }`.
+`netlist` is a title-less SPICE fragment (a leading `*` comment is fine), like
+the protocol tools. `analysis` defaults to `dc`; AC is not supported by this tool.
+`output` accepts `v(node)`, `v(a,b)` and `i(vsrc)` (independent voltage sources only).
+Existing analysis directives are replaced, not executed; `.step`, `.control` and
+`.pz` decks are rejected. Includes must be inlined before calling this tool.
+
+The response contains `output`, `analysis`, `outputUnit` (`V` or `A`) and `entries`.
+Each entry contains `device`, `parameter`, nominal `value`, signed `absolute`
+(`dOut/dParam`), signed `normalised` (`value*dOut/dParam`), `parameterUnit` and
+`absoluteUnit`. Normalised sensitivity has the output unit; it is not divided by
+the nominal output. Entries sort by descending `abs(normalised)`, then by device
+and parameter code-point order for exact ties. `top` is optional (1–10000); omitting
+it returns all supported parameters, including instance multiplier and scale.
+Core's bounded `.sens` device/parameter coverage applies; this is not a claim of
+full ngspice model-parameter sensitivity support. Errors use the usual `{ error }`
+structured result. Worker time, document size, concurrency and result ceilings apply.
+
+Reproduce the identical-deck ngspice-47 cross-check after building core:
+`spice-heavy pnpm exec tsx benchmarks/mcp-sensitivity/compare.mts`.
+
+### Tool inventory
+
 - `spice_capabilities`: deterministic discovery of supported analyses, input formats, and server limits.
 - `spice_validate`: bounded parse/compile/topology validation without solving.
 - `spice_convert`: convert `{ netlist: string }` to `{ circuitJson, diagnostics, lossy: false }`, or `{ circuitJson: [...] }` to `{ netlist, diagnostics, lossy: false }`.
@@ -11,6 +36,7 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 - `spice_measure`: run the same simulation request once and return scalar measurements only.
 - `spice_dc_metrics`: return DC transfer gain, switching threshold, unity-gain points and noise margins without raw vectors.
 - `spice_op_report`: return operating-point node voltages, terminal currents, device powers and top dissipators.
+- `spice_sensitivity`: DC `.sens` derivatives for voltage/differential voltage or independent voltage-source current, ranked by absolute normalised sensitivity.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, sampled peaking, and loop stability margins without vectors.

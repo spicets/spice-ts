@@ -349,6 +349,8 @@ export interface ComplexSensitivityValue {
  */
 export interface SensitivityEntry {
   device: string;
+  /** Nominal parameter value used for the perturbation (before any scaling). */
+  value: number;
   parameter:
     | 'resistance' | 'capacitance' | 'inductance' | 'dc' | 'acMagnitude' | 'gain'
     | 'multiplier' | 'scale';

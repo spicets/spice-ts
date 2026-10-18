@@ -54,6 +54,7 @@ export function solveSensitivity(
     const entries = targets.map(target => ({
       device: target.device,
       parameter: target.parameter,
+      value: target.value,
       dc: differentiateScalar(target, value => {
         target.set(value);
         const solution = solveDCOperatingPoint(compiled, options, undefined, convergence)
@@ -69,6 +70,7 @@ export function solveSensitivity(
   const entries = targets.map(target => ({
     device: target.device,
     parameter: target.parameter,
+    value: target.value,
     ac: differentiateComplex(target, value => {
       target.set(value);
       return solveACAtOutput(compiled, frequencies, options, outputIndex, referenceIndex, convergence);
