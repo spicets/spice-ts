@@ -167,8 +167,8 @@ export async function runCorpusFSpiceTs<S>(
   }
   let result: CoreResult;
   try {
-    const core = await import(pathToFileURL(resolve('packages/core/dist/index.js')).href) as { simulate(text: string): Promise<CoreResult> };
-    result = await core.simulate(text);
+    const core = await import(pathToFileURL(resolve('packages/core/dist/index.js')).href) as { simulate(text: string, options: { sourcePath: string }): Promise<CoreResult> };
+    result = await core.simulate(text, { sourcePath: circuit.sourcePath });
   } catch (error) {
     return failedExecution(error);
   }

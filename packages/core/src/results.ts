@@ -238,6 +238,8 @@ export class SParameterResult {
     public readonly ports: string[],
     /** Complex vectors keyed by ngspice name, one value per frequency. */
     public readonly vectors: Map<string, ComplexValue[]>,
+    /** RF port reference impedances, in port order (ohms). */
+    public readonly referenceImpedances: number[] = ports.map(() => 50),
   ) {}
 
   /**
@@ -578,6 +580,8 @@ export interface FourierResult {
 
 /** What an interpreted `.control` script did. */
 export interface ControlScriptResult {
+  /** Files emitted by control commands. Paths are deck-requested, not filesystem authorization. */
+  files?: { path: string; contents: string }[];
   /** Every analysis the script ran, in execution order. */
   runs: ControlScriptRun[];
   /** Lines the script printed with `echo`. */
