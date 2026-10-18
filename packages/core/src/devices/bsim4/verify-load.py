@@ -26,7 +26,7 @@ assert (BASE / 'load-kernel.ts').read_text() == module.generate(SOURCE)
 D = SOURCE / 'src/spicelib/devices/bsim4'
 source = (D / 'b4ld.c').read_text()
 lines = source.splitlines(keepends=True)
-body = ''.join(''.join(lines[first-1:last]) for first, last in module.RANGES)
+body = ''.join(lines[1003:2189]) + ''.join(lines[2526:2921])  # Static channel and gate currents, independent of charge ranges.
 uncommented = re.sub(r'/\*.*?\*/|//[^\n]*', '', body, flags=re.S)
 model_fields = sorted(set(re.findall(r'model->BSIM4(\w+)', uncommented)))
 size_fields = sorted(set(re.findall(r'pParam->BSIM4(\w+)', uncommented)))

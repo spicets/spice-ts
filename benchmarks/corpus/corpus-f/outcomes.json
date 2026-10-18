@@ -44,15 +44,15 @@
       "unsupported": 12
     },
     "spiceTs": {
-      "success": 144,
+      "success": 145,
       "failed": 13,
-      "unsupported": 179
+      "unsupported": 178
     },
     "outcomes": {
-      "matched": 60,
+      "matched": 61,
       "mismatch": 18,
       "not-compared": 66,
-      "spice-ts-loss": 162,
+      "spice-ts-loss": 161,
       "ngspice-failed": 0,
       "both-failed": 30
     }
@@ -60,8 +60,8 @@
   "gapBuckets": [
     {
       "bucket": "parse: other unsupported syntax",
-      "fixtures": 55,
-      "ngspiceSuccess": 50,
+      "fixtures": 54,
+      "ngspiceSuccess": 49,
       "ids": [
         "examples-control-structs-foreach-bjt-ft-sp",
         "examples-digital-auto-bridge-shared-line-cir",
@@ -99,7 +99,6 @@
         "examples-xspice-original-examples-bad-param-type-deck",
         "examples-xspice-original-examples-digital-models2-deck",
         "examples-xspice-original-examples-digital-models3-deck",
-        "examples-xspice-original-examples-digital-models4-deck",
         "examples-xspice-original-examples-io-types-deck",
         "examples-xspice-original-examples-mixed-mode-deck",
         "examples-xspice-original-examples-user-defined-nodes-deck",
@@ -6747,16 +6746,35 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 66: XSPICE code model 'd_ram' (.model 'd_ram1') is not supported (supported: gain, summer, mult, divide, pwl, limit, int, d_dt, climit, hyst, ilimit, slew, sine, cmeter, lmeter, adc_bridge, dac_bridge, d_buffer, d_invert"
+        "status": "success",
+        "analyses": [
+          "tran:1535"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax"
+      "comparedAnalyses": 1,
+      "comparedSignals": 12,
+      "worstNormalizedError": 0.0000444,
+      "worstSignal": "tran i(vaddr2)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "0.001"
+        ],
+        "headline": {
+          "worst": 0.0000444,
+          "signal": "i(vaddr2)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.0000444,
+          "signal": "i(vaddr2)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.0000407,
+          "signal": "v(500)"
+        }
+      }
     },
     {
       "id": "examples-xspice-original-examples-dot-model-ref-deck",
@@ -10397,5 +10415,5 @@
       "gapBucket": "parse: other unsupported syntax"
     }
   ],
-  "outcomeSha256": "ec2cf390642ae99b140d6e0bf5d95c9c507e89d4f61a4416a497d9310dca2a88"
+  "outcomeSha256": "d996fa089d893fc3d4474e55f0ab8840dbfcf20a785336d17cb2db9de8873851"
 }

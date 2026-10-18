@@ -156,12 +156,13 @@ import type { Bsim4TemperatureModel, Bsim4Size } from './temperature-kernel.js';
 import type { Bsim4StaticInstance } from './temp.js';
 import type { Bsim4ModelParameter } from './params.js';
 export type Bsim4LoadModel = Bsim4TemperatureModel & Record<'Eg0' | 'coxe' | 'factor1' | 'vtm' | 'vtm0', number>;
-export type Bsim4LoadSize = Bsim4Size & Record<'Aechvb' | 'AechvbEdgeD' | 'AechvbEdgeS' | 'Bechvb' | 'BechvbEdge' | 'ToxRatio' | 'VgsteffVth' | 'Xdep0' | 'a0' | 'a1' | 'a2' | 'ags' | 'aigbacc' | 'aigbinv' | 'aigc' | 'aigd' | 'aigs' | 'alpha0' | 'alpha1' | 'b0' | 'b1' | 'beta0' | 'bigbacc' | 'bigbinv' | 'bigc' | 'bigd' | 'bigs' | 'cdep0' | 'cdsc' | 'cdscb' | 'cdscd' | 'cigbacc' | 'cigbinv' | 'cigc' | 'cigd' | 'cigs' | 'cit' | 'delta' | 'dvt0' | 'dvt0w' | 'dvt1' | 'dvt1w' | 'dvt2' | 'dvt2w' | 'dvtp0' | 'dvtp1' | 'dvtp2factor' | 'dvtp4' | 'dwb' | 'dwg' | 'eigbinv' | 'etab' | 'eu' | 'fprout' | 'k1' | 'k1ox' | 'k3' | 'k3b' | 'keta' | 'ketac' | 'kt1' | 'kt1l' | 'kt2' | 'lambda' | 'leff' | 'litl' | 'lpe0' | 'lpeb' | 'mstar' | 'nfactor' | 'ngate' | 'nigbacc' | 'nigbinv' | 'nigc' | 'pclm' | 'pdiblb' | 'pdits' | 'pditsd' | 'phi' | 'pigcd' | 'prwb' | 'prwg' | 'pscbe1' | 'pscbe2' | 'pvag' | 'rds0' | 'rdswmin' | 'sqrtPhi' | 'tfactor' | 'theta0vb0' | 'thetaRout' | 'ua' | 'ub' | 'uc' | 'ucs' | 'ud' | 'vbi' | 'vfbsd' | 'vfbsdoff' | 'voffcbn' | 'vtl' | 'w0' | 'weff' | 'xj', number>;
-export type Bsim4LoadInstance = Bsim4StaticInstance & Record<'AbovVgst2Vtm' | 'Abulk' | 'Coxeff' | 'EsatL' | 'IdovVds' | 'Igb' | 'Igcd' | 'Igcs' | 'Igd' | 'Igs' | 'Vdseff' | 'Vgsteff' | 'coxp' | 'csub' | 'dvgd_eff_dvg' | 'dvgs_eff_dvg' | 'eta0' | 'gIgbb' | 'gIgbd' | 'gIgbg' | 'gIgbs' | 'gIgcdb' | 'gIgcdd' | 'gIgcdg' | 'gIgcsb' | 'gIgcsd' | 'gIgcsg' | 'gIgdd' | 'gIgdg' | 'gIgsg' | 'gIgss' | 'gbbs' | 'gbds' | 'gbgs' | 'gds' | 'gm' | 'gmbs' | 'grdsw' | 'k2ox' | 'mode' | 'nf' | 'nstar' | 'thetavth' | 'toxp' | 'u0temp' | 'ueff' | 'vbsc' | 'vdsat' | 'vfb' | 'vfbzb' | 'vgd_eff' | 'vgs_eff' | 'von' | 'vsattemp' | 'vtfbphi1' | 'vtfbphi2' | 'vth0', number>;
+export type Bsim4LoadSize = Bsim4Size & Record<'Aechvb' | 'AechvbEdgeD' | 'AechvbEdgeS' | 'Bechvb' | 'BechvbEdge' | 'ToxRatio' | 'VgsteffVth' | 'Xdep0' | 'a0' | 'a1' | 'a2' | 'abulkCVfactor' | 'acde' | 'ags' | 'aigbacc' | 'aigbinv' | 'aigc' | 'aigd' | 'aigs' | 'alpha0' | 'alpha1' | 'b0' | 'b1' | 'beta0' | 'bigbacc' | 'bigbinv' | 'bigc' | 'bigd' | 'bigs' | 'cdep0' | 'cdsc' | 'cdscb' | 'cdscd' | 'cigbacc' | 'cigbinv' | 'cigc' | 'cigd' | 'cigs' | 'cit' | 'delta' | 'dvt0' | 'dvt0w' | 'dvt1' | 'dvt1w' | 'dvt2' | 'dvt2w' | 'dvtp0' | 'dvtp1' | 'dvtp2factor' | 'dvtp4' | 'dwb' | 'dwg' | 'eigbinv' | 'etab' | 'eu' | 'fprout' | 'k1' | 'k1ox' | 'k3' | 'k3b' | 'keta' | 'ketac' | 'kt1' | 'kt1l' | 'kt2' | 'lambda' | 'ldeb' | 'leff' | 'leffCV' | 'litl' | 'lpe0' | 'lpeb' | 'moin' | 'mstar' | 'mstarcv' | 'nfactor' | 'ngate' | 'nigbacc' | 'nigbinv' | 'nigc' | 'noff' | 'pclm' | 'pdiblb' | 'pdits' | 'pditsd' | 'phi' | 'pigcd' | 'prwb' | 'prwg' | 'pscbe1' | 'pscbe2' | 'pvag' | 'rds0' | 'rdswmin' | 'sqrtPhi' | 'tfactor' | 'theta0vb0' | 'thetaRout' | 'ua' | 'ub' | 'uc' | 'ucs' | 'ud' | 'vbi' | 'vfbsd' | 'vfbsdoff' | 'voffcbn' | 'voffcbncv' | 'voffcv' | 'vtl' | 'w0' | 'weff' | 'weffCV' | 'xj', number>;
+export type Bsim4LoadInstance = Bsim4StaticInstance & Record<'AbovVgst2Vtm' | 'Abulk' | 'Coxeff' | 'EsatL' | 'IdovVds' | 'Igb' | 'Igcd' | 'Igcs' | 'Igd' | 'Igs' | 'Vdseff' | 'Vgsteff' | 'cbbb' | 'cbdb' | 'cbgb' | 'cbsb' | 'cdbb' | 'cddb' | 'cdgb' | 'cdsb' | 'cgbb' | 'cgdb' | 'cggb' | 'cgsb' | 'coxp' | 'csbb' | 'csdb' | 'csgb' | 'cssb' | 'csub' | 'dvgd_eff_dvg' | 'dvgs_eff_dvg' | 'eta0' | 'gIgbb' | 'gIgbd' | 'gIgbg' | 'gIgbs' | 'gIgcdb' | 'gIgcdd' | 'gIgcdg' | 'gIgcsb' | 'gIgcsd' | 'gIgcsg' | 'gIgdd' | 'gIgdg' | 'gIgsg' | 'gIgss' | 'gbbs' | 'gbds' | 'gbgs' | 'gds' | 'gm' | 'gmbs' | 'grdsw' | 'k2ox' | 'mode' | 'nf' | 'nstar' | 'qbulk' | 'qdrn' | 'qgate' | 'qsrc' | 'thetavth' | 'toxp' | 'u0temp' | 'ueff' | 'vbsc' | 'vdsat' | 'vfb' | 'vfbzb' | 'vgd_eff' | 'vgs_eff' | 'von' | 'vsattemp' | 'vtfbphi1' | 'vtfbphi2' | 'vth0', number>;
 const MAX_EXP = 5.834617425e14, MIN_EXP = 1.713908431e-15, EXP_THRESHOLD = 34;
 const EPS0 = 8.85418e-12, EPSSI = 1.03594e-10, Charge_q = 1.60219e-19, MM = 3;
+const DELTA_3 = 0.02, DELTA_4 = 0.02;
 // Historical ngspice const.h CHARGE, not the BSIM-local Charge_q.
-const CHARGE = 1.6021766208e-19, DELTA_3 = 0.02;
+const CHARGE = 1.6021766208e-19;
 function dexp(A: number): [number, number] {
   if (A > EXP_THRESHOLD) return [MAX_EXP * (1 + A - EXP_THRESHOLD), MAX_EXP];
   if (A < -EXP_THRESHOLD) return [MIN_EXP, 0];
@@ -179,26 +180,32 @@ function polyDepletion(phi: number, ngate: number, epsgate: number, coxe: number
 }
 export function applyLoad(model: Readonly<Bsim4LoadModel>, given: ReadonlySet<Bsim4ModelParameter>,
   here: Bsim4LoadInstance, pParam: Readonly<Bsim4LoadSize>, Temp: number,
-  vgs: number, vds: number, vbs: number): number {
+  vgs: number, vds: number, vbs: number, computeCharges = false): number {
   const vgd = vgs - vds, vbd = vbs - vds;
-  let Abulk = 0, Abulk0 = 0, Abulk0_Q = 0, Cclm = 0, Coxeff = 0, CoxeffWovL = 0;
-  let DIBL_Sft = 0, DITS_Sft2 = 0, Delt_vth = 0, Denomi = 0, Esat = 0, EsatL = 0;
-  let ExpVgst = 0, ExpVxNVt = 0, FP = 0, Fsevl = 0, Gbb = 0, Gbd = 0;
-  let Gbg = 0, Gds = 0, Gm = 0, Gmb = 0, Idl = 0, Ids = 0;
-  let Idsa = 0, Igbacc = 0, Igbinv = 0, Igc = 0, Igcd = 0, Igcs = 0;
-  let Igd = 0, Igs = 0, Isub = 0, Lambda = 0, Leff = 0, Lpe_Vb = 0;
-  let Phis = 0, Pigcd = 0, PvagTerm = 0, Rds = 0, T0 = 0, T1 = 0;
-  let T10 = 0, T11 = 0, T12 = 0, T13 = 0, T14 = 0, T2 = 0;
-  let T3 = 0, T4 = 0, T5 = 0, T6 = 0, T7 = 0, T8 = 0;
-  let T9 = 0, Tcen = 0, TempRatio = 0, Theta0 = 0, V0 = 0, V3 = 0;
-  let VACLM = 0, VADIBL = 0, VADITS = 0, VASCBE = 0, Va = 0, Vasat = 0;
-  let Vaux = 0, Vbs = 0, Vbseff = 0, Vdb = 0, Vds = 0, Vdsat = 0;
-  let Vdseff = 0, Vfb = 0, Vfbeff = 0, Vgs = 0, Vgs_eff = 0, Vgst = 0;
-  let Vgst2Vtm = 0, Vgsteff = 0, VgsteffVth = 0, Voxacc = 0, Voxdepinv = 0, Vth = 0;
-  let Vth_NarrowW = 0, Vtm = 0, Vtm0 = 0, VxNVt = 0, WVCox = 0, WVCoxRds = 0;
-  let Weff = 0, Xdep = 0, a1 = 0, beta = 0, cdrain = 0, dAbulk0_Q_dVb = 0;
-  let dAbulk0_dVb = 0, dAbulk_dVb = 0, dAbulk_dVg = 0, dCclm_dVb = 0, dCclm_dVd = 0, dCclm_dVg = 0;
-  let dCoxeff_dVg = 0, dDIBL_Sft_dVd = 0, dDITS_Sft2_dVd = 0, dDITS_Sft_dVb = 0, dDITS_Sft_dVd = 0, dDelt_vth_dVb = 0;
+  let Abulk = 0, Abulk0 = 0, Abulk0_Q = 0, AbulkCV = 0, Cbb = 0, Cbb1 = 0;
+  let Cbd = 0, Cbd1 = 0, Cbg = 0, Cbg1 = 0, Ccen = 0, Cclm = 0;
+  let Cgb = 0, Cgb1 = 0, Cgd = 0, Cgd1 = 0, Cgg = 0, Cgg1 = 0;
+  let Cox = 0, CoxWL = 0, CoxWLcen = 0, Coxeff = 0, CoxeffWovL = 0, Csb = 0;
+  let Csd = 0, Csg = 0, DIBL_Sft = 0, DITS_Sft2 = 0, Delt_vth = 0, DeltaPhi = 0;
+  let Denomi = 0, Esat = 0, EsatL = 0, ExpVgst = 0, ExpVxNVt = 0, FP = 0;
+  let Fsevl = 0, Gbb = 0, Gbd = 0, Gbg = 0, Gds = 0, Gm = 0;
+  let Gmb = 0, Idl = 0, Ids = 0, Idsa = 0, Igbacc = 0, Igbinv = 0;
+  let Igc = 0, Igcd = 0, Igcs = 0, Igd = 0, Igs = 0, Isub = 0;
+  let LINK = 0, Lambda = 0, Leff = 0, Lpe_Vb = 0, Phis = 0, Pigcd = 0;
+  let PvagTerm = 0, Qac0 = 0, QovCox = 0, Qsub0 = 0, Rds = 0, T0 = 0;
+  let T1 = 0, T10 = 0, T11 = 0, T12 = 0, T13 = 0, T14 = 0;
+  let T2 = 0, T3 = 0, T4 = 0, T5 = 0, T6 = 0, T7 = 0;
+  let T8 = 0, T9 = 0, Tcen = 0, TempRatio = 0, Theta0 = 0, Tox = 0;
+  let V0 = 0, V3 = 0, V4 = 0, VACLM = 0, VADIBL = 0, VADITS = 0;
+  let VASCBE = 0, Va = 0, Vasat = 0, Vaux = 0, Vbs = 0, Vbseff = 0;
+  let VbseffCV = 0, Vdb = 0, Vds = 0, Vdsat = 0, VdsatCV = 0, Vdseff = 0;
+  let VdseffCV = 0, Vfb = 0, Vfbeff = 0, VgDP = 0, Vgs = 0, Vgs_eff = 0;
+  let Vgst = 0, Vgst2Vtm = 0, VgstNVt = 0, Vgsteff = 0, VgsteffVth = 0, Voxacc = 0;
+  let Voxdepinv = 0, Vth = 0, Vth_NarrowW = 0, Vtm = 0, Vtm0 = 0, VxNVt = 0;
+  let WVCox = 0, WVCoxRds = 0, Weff = 0, Xdep = 0, a1 = 0, beta = 0;
+  let cdrain = 0, dAbulk0_Q_dVb = 0, dAbulk0_dVb = 0, dAbulkCV_dVb = 0, dAbulk_dVb = 0, dAbulk_dVg = 0;
+  let dCclm_dVb = 0, dCclm_dVd = 0, dCclm_dVg = 0, dCoxeff_dVb = 0, dCoxeff_dVd = 0, dCoxeff_dVg = 0;
+  let dDIBL_Sft_dVd = 0, dDITS_Sft2_dVd = 0, dDITS_Sft_dVb = 0, dDITS_Sft_dVd = 0, dDelt_vth_dVb = 0, dDeltaPhi_dVg = 0;
   let dDenomi_dVb = 0, dDenomi_dVd = 0, dDenomi_dVg = 0, dEsatL_dVb = 0, dEsatL_dVd = 0, dEsatL_dVg = 0;
   let dFP_dVg = 0, dFsevl_dVb = 0, dFsevl_dVd = 0, dFsevl_dVg = 0, dIdl_dVb = 0, dIdl_dVd = 0;
   let dIdl_dVg = 0, dIdsa_dVb = 0, dIdsa_dVd = 0, dIdsa_dVg = 0, dIgbacc_dVb = 0, dIgbacc_dVg = 0;
@@ -206,29 +213,30 @@ export function applyLoad(model: Readonly<Bsim4LoadModel>, given: ReadonlySet<Bs
   let dIgcd_dVb = 0, dIgcd_dVd = 0, dIgcd_dVg = 0, dIgcs_dVb = 0, dIgcs_dVd = 0, dIgcs_dVg = 0;
   let dIgd_dVd = 0, dIgd_dVg = 0, dIgs_dVg = 0, dIgs_dVs = 0, dLambda_dVg = 0, dPhis_dVb = 0;
   let dPigcd_dVb = 0, dPigcd_dVd = 0, dPigcd_dVg = 0, dPvagTerm_dVb = 0, dPvagTerm_dVd = 0, dPvagTerm_dVg = 0;
-  let dRds_dVb = 0, dRds_dVg = 0, dT0_dVb = 0, dT0_dVd = 0, dT0_dVg = 0, dT10_dVb = 0;
-  let dT10_dVd = 0, dT10_dVg = 0, dT11_dVg = 0, dT1_dVb = 0, dT1_dVd = 0, dT1_dVg = 0;
-  let dT2_dVb = 0, dT2_dVd = 0, dT2_dVg = 0, dT3_dVb = 0, dT3_dVd = 0, dT3_dVg = 0;
-  let dT4_dVd = 0, dT5_dVb = 0, dT5_dVd = 0, dT5_dVg = 0, dT6_dVb = 0, dT6_dVd = 0;
-  let dT6_dVg = 0, dT7_dVb = 0, dT7_dVd = 0, dT7_dVg = 0, dT8_dVb = 0, dT8_dVd = 0;
-  let dT8_dVg = 0, dT9_dVb = 0, dT9_dVd = 0, dT9_dVg = 0, dTcen_dVg = 0, dTheta0_dVb = 0;
-  let dVACLM_dVb = 0, dVACLM_dVd = 0, dVACLM_dVg = 0, dVADIBL_dVb = 0, dVADIBL_dVd = 0, dVADIBL_dVg = 0;
-  let dVADITS_dVd = 0, dVADITS_dVg = 0, dVASCBE_dVb = 0, dVASCBE_dVd = 0, dVASCBE_dVg = 0, dVa_dVb = 0;
-  let dVa_dVd = 0, dVa_dVg = 0, dVasat_dVb = 0, dVasat_dVd = 0, dVasat_dVg = 0, dVaux_dVb = 0;
-  let dVaux_dVd = 0, dVaux_dVg = 0, dVbseff_dVb = 0, dVdsat_dVb = 0, dVdsat_dVd = 0, dVdsat_dVg = 0;
-  let dVdseff_dVb = 0, dVdseff_dVd = 0, dVdseff_dVg = 0, dVfbeff_dVb = 0, dVfbeff_dVg = 0, dVgs_eff_dVg = 0;
+  let dQac0_dVb = 0, dQac0_dVg = 0, dQsub0_dVb = 0, dQsub0_dVd = 0, dQsub0_dVg = 0, dRds_dVb = 0;
+  let dRds_dVg = 0, dT0_dVb = 0, dT0_dVd = 0, dT0_dVg = 0, dT10_dVb = 0, dT10_dVd = 0;
+  let dT10_dVg = 0, dT11_dVg = 0, dT1_dVb = 0, dT1_dVd = 0, dT1_dVg = 0, dT2_dVb = 0;
+  let dT2_dVd = 0, dT2_dVg = 0, dT3_dVb = 0, dT3_dVd = 0, dT3_dVg = 0, dT4_dVd = 0;
+  let dT5_dVb = 0, dT5_dVd = 0, dT5_dVg = 0, dT6_dVb = 0, dT6_dVd = 0, dT6_dVg = 0;
+  let dT7_dVb = 0, dT7_dVd = 0, dT7_dVg = 0, dT8_dVb = 0, dT8_dVd = 0, dT8_dVg = 0;
+  let dT9_dVb = 0, dT9_dVd = 0, dT9_dVg = 0, dTcen_dVb = 0, dTcen_dVd = 0, dTcen_dVg = 0;
+  let dTheta0_dVb = 0, dVACLM_dVb = 0, dVACLM_dVd = 0, dVACLM_dVg = 0, dVADIBL_dVb = 0, dVADIBL_dVd = 0;
+  let dVADIBL_dVg = 0, dVADITS_dVd = 0, dVADITS_dVg = 0, dVASCBE_dVb = 0, dVASCBE_dVd = 0, dVASCBE_dVg = 0;
+  let dVa_dVb = 0, dVa_dVd = 0, dVa_dVg = 0, dVasat_dVb = 0, dVasat_dVd = 0, dVasat_dVg = 0;
+  let dVaux_dVb = 0, dVaux_dVd = 0, dVaux_dVg = 0, dVbseffCV_dVb = 0, dVbseff_dVb = 0, dVdsat_dVb = 0;
+  let dVdsat_dVd = 0, dVdsat_dVg = 0, dVdseffCV_dVb = 0, dVdseffCV_dVd = 0, dVdseffCV_dVg = 0, dVdseff_dVb = 0;
+  let dVdseff_dVd = 0, dVdseff_dVg = 0, dVfbeff_dVb = 0, dVfbeff_dVg = 0, dVgDP_dVg = 0, dVgs_eff_dVg = 0;
   let dVgsteff_dVb = 0, dVgsteff_dVd = 0, dVgsteff_dVg = 0, dVoxacc_dVb = 0, dVoxacc_dVg = 0, dVoxdepinv_dVb = 0;
   let dVoxdepinv_dVd = 0, dVoxdepinv_dVg = 0, dVth_dVb = 0, dVth_dVd = 0, dWeff_dVb = 0, dWeff_dVg = 0;
   let dXdep_dVb = 0, dbeta_dVb = 0, dbeta_dVd = 0, dbeta_dVg = 0, dfgche1_dVb = 0, dfgche1_dVd = 0;
   let dfgche1_dVg = 0, dfgche2_dVb = 0, dfgche2_dVd = 0, dfgche2_dVg = 0, dgche_dVb = 0, dgche_dVd = 0;
   let dgche_dVg = 0, diffVds = 0, dlt1_dVb = 0, dltw_dVb = 0, dn_dVb = 0, dn_dVd = 0;
-  let dsqrtPhis_dVb = 0, dueff_dVb = 0, dueff_dVd = 0, dueff_dVg = 0, dvgd_eff_dvg = 0, dvgs_eff_dvg = 0;
-  let dvs_dVb = 0, dvs_dVd = 0, dvs_dVg = 0, epsrox = 0, epssub = 0, fgche1 = 0;
-  let fgche2 = 0, gche = 0, lt1 = 0, ltw = 0, n = 0, sqrtPhis = 0;
-  let tmp = 0, tmp1 = 0, tmp2 = 0, tmp3 = 0, tmp4 = 0, toxe = 0;
-  let ueff = 0, vgd_eff = 0, vgs_eff = 0, vs = 0;
-
-  // b4ld.c:1004-2189
+  let dnoff_dVb = 0, dnoff_dVd = 0, dsqrtPhis_dVb = 0, dueff_dVb = 0, dueff_dVd = 0, dueff_dVg = 0;
+  let dvgd_eff_dvg = 0, dvgs_eff_dvg = 0, dvs_dVb = 0, dvs_dVd = 0, dvs_dVg = 0, epsrox = 0;
+  let epssub = 0, fgche1 = 0, fgche2 = 0, gche = 0, lt1 = 0, ltw = 0;
+  let n = 0, noff = 0, qbulk = 0, qdrn = 0, qgate = 0, qsrc = 0;
+  let sqrtPhis = 0, tmp = 0, tmp1 = 0, tmp2 = 0, tmp3 = 0, tmp4 = 0;
+  let toxe = 0, ueff = 0, vgd_eff = 0, vgs_eff = 0, voffcv = 0, vs = 0;
   if (vds >= 0.0)
   {   here.mode = 1;
   Vds = vds;
@@ -1415,8 +1423,6 @@ export function applyLoad(model: Readonly<Bsim4LoadModel>, given: ReadonlySet<Bs
   here.gmbs = Gmb;
   here.IdovVds = Ids;
   if( here.IdovVds <= model.idovvds) here.IdovVds = model.idovvds;
-
-  // b4ld.c:2527-2921
   /* Calculate gate tunneling current */
   if ((model.igcmod != 0) || (model.igbmod != 0))
   {   Vfb = here.vfbzb;
@@ -1811,5 +1817,583 @@ export function applyLoad(model: Readonly<Bsim4LoadModel>, given: ReadonlySet<Bs
   {  here.Igb = here.gIgbg = here.gIgbd
   = here.gIgbs = here.gIgbb = 0.0;
   } /* End of Gate current */
+
+  if (computeCharges && model.xpart >= 0) {
+  {   if (Vbseff < 0.0)
+  {   VbseffCV = Vbseff;
+  dVbseffCV_dVb = 1.0;
+  }
+  else
+  {   VbseffCV = pParam.phi - Phis;
+  dVbseffCV_dVb = -dPhis_dVb;
+  }
+
+  CoxWL = model.coxe * pParam.weffCV
+  * pParam.leffCV * here.nf;
+
+  if(model.cvchargemod == 0)
+  {
+  /* Seperate VgsteffCV with noff and voffcv */
+  noff = n * pParam.noff;
+  dnoff_dVd = pParam.noff * dn_dVd;
+  dnoff_dVb = pParam.noff * dn_dVb;
+  T0 = Vtm * noff;
+  voffcv = pParam.voffcv;
+  VgstNVt = (Vgst - voffcv) / T0;
+
+  if (VgstNVt > EXP_THRESHOLD)
+  {
+  Vgsteff = Vgst - voffcv;
+  dVgsteff_dVg = dVgs_eff_dVg;
+  dVgsteff_dVd = -dVth_dVd;
+  dVgsteff_dVb = -dVth_dVb;
+  }
+  else if (VgstNVt < -EXP_THRESHOLD)
+  {
+  Vgsteff = T0 * Math.log(1.0 + MIN_EXP);
+  dVgsteff_dVg = 0.0;
+  dVgsteff_dVd = Vgsteff / noff;
+  dVgsteff_dVb = dVgsteff_dVd * dnoff_dVb;
+  dVgsteff_dVd *= dnoff_dVd;
+  }
+  else
+  {
+  ExpVgst = Math.exp(VgstNVt);
+  Vgsteff = T0 * Math.log(1.0 + ExpVgst);
+  dVgsteff_dVg = ExpVgst / (1.0 + ExpVgst);
+  dVgsteff_dVd = -dVgsteff_dVg * (dVth_dVd + (Vgst - voffcv)
+  / noff * dnoff_dVd) + Vgsteff / noff * dnoff_dVd;
+  dVgsteff_dVb = -dVgsteff_dVg * (dVth_dVb + (Vgst - voffcv)
+  / noff * dnoff_dVb) + Vgsteff / noff * dnoff_dVb;
+  dVgsteff_dVg *= dVgs_eff_dVg;
+  }
+  /* End of VgsteffCV for cvchargeMod = 0 */
+  }
+  else
+  {
+  T0 = n * Vtm;
+  T1 = pParam.mstarcv * Vgst;
+  T2 = T1 / T0;
+  if (T2 > EXP_THRESHOLD)
+  {
+  T10 = T1;
+  dT10_dVg = pParam.mstarcv * dVgs_eff_dVg;
+  dT10_dVd = -dVth_dVd * pParam.mstarcv;
+  dT10_dVb = -dVth_dVb * pParam.mstarcv;
+  }
+  else if (T2 < -EXP_THRESHOLD)
+  {
+  T10 = Vtm * Math.log(1.0 + MIN_EXP);
+  dT10_dVg = 0.0;
+  dT10_dVd = T10 * dn_dVd;
+  dT10_dVb = T10 * dn_dVb;
+  T10 *= n;
+  }
+  else
+  {
+  ExpVgst = Math.exp(T2);
+  T3 = Vtm * Math.log(1.0 + ExpVgst);
+  T10 = n * T3;
+  dT10_dVg = pParam.mstarcv * ExpVgst / (1.0 + ExpVgst);
+  dT10_dVb = T3 * dn_dVb - dT10_dVg * (dVth_dVb + Vgst * dn_dVb / n);
+  dT10_dVd = T3 * dn_dVd - dT10_dVg * (dVth_dVd + Vgst * dn_dVd / n);
+  dT10_dVg *= dVgs_eff_dVg;
+  }
+
+  T1 = pParam.voffcbncv - (1.0 - pParam.mstarcv) * Vgst;
+  T2 = T1 / T0;
+  if (T2 < -EXP_THRESHOLD)
+  {
+  T3 = model.coxe * MIN_EXP / pParam.cdep0;
+  T9 = pParam.mstarcv + T3 * n;
+  dT9_dVg = 0.0;
+  dT9_dVd = dn_dVd * T3;
+  dT9_dVb = dn_dVb * T3;
+  }
+  else if (T2 > EXP_THRESHOLD)
+  {
+  T3 = model.coxe * MAX_EXP / pParam.cdep0;
+  T9 = pParam.mstarcv + T3 * n;
+  dT9_dVg = 0.0;
+  dT9_dVd = dn_dVd * T3;
+  dT9_dVb = dn_dVb * T3;
+  }
+  else
+  {
+  ExpVgst = Math.exp(T2);
+  T3 = model.coxe / pParam.cdep0;
+  T4 = T3 * ExpVgst;
+  T5 = T1 * T4 / T0;
+  T9 = pParam.mstarcv + n * T4;
+  dT9_dVg = T3 * (pParam.mstarcv - 1.0) * ExpVgst / Vtm;
+  dT9_dVb = T4 * dn_dVb - dT9_dVg * dVth_dVb - T5 * dn_dVb;
+  dT9_dVd = T4 * dn_dVd - dT9_dVg * dVth_dVd - T5 * dn_dVd;
+  dT9_dVg *= dVgs_eff_dVg;
+  }
+
+  Vgsteff = T10 / T9;
+  T11 = T9 * T9;
+  dVgsteff_dVg = (T9 * dT10_dVg - T10 * dT9_dVg) / T11;
+  dVgsteff_dVd = (T9 * dT10_dVd - T10 * dT9_dVd) / T11;
+  dVgsteff_dVb = (T9 * dT10_dVb - T10 * dT9_dVb) / T11;
+  /* End of VgsteffCV for cvchargeMod = 1 */
+  }
+
+
+  if (model.capmod == 1)
+  {   Vfb = here.vfbzb;
+  V3 = Vfb - Vgs_eff + VbseffCV - DELTA_3;
+  if (Vfb <= 0.0)
+  T0 = Math.sqrt(V3 * V3 - 4.0 * DELTA_3 * Vfb);
+  else
+  T0 = Math.sqrt(V3 * V3 + 4.0 * DELTA_3 * Vfb);
+
+  T1 = 0.5 * (1.0 + V3 / T0);
+  Vfbeff = Vfb - 0.5 * (V3 + T0);
+  dVfbeff_dVg = T1 * dVgs_eff_dVg;
+  dVfbeff_dVb = -T1 * dVbseffCV_dVb;
+  Qac0 = CoxWL * (Vfbeff - Vfb);
+  dQac0_dVg = CoxWL * dVfbeff_dVg;
+  dQac0_dVb = CoxWL * dVfbeff_dVb;
+
+  T0 = 0.5 * pParam.k1ox;
+  T3 = Vgs_eff - Vfbeff - VbseffCV - Vgsteff;
+  if (pParam.k1ox == 0.0)
+  {   T1 = 0.0;
+  T2 = 0.0;
+  }
+  else if (T3 < 0.0)
+  {   T1 = T0 + T3 / pParam.k1ox;
+  T2 = CoxWL;
+  }
+  else
+  {   T1 = Math.sqrt(T0 * T0 + T3);
+  T2 = CoxWL * T0 / T1;
+  }
+
+  Qsub0 = CoxWL * pParam.k1ox * (T1 - T0);
+
+  dQsub0_dVg = T2 * (dVgs_eff_dVg - dVfbeff_dVg - dVgsteff_dVg);
+  dQsub0_dVd = -T2 * dVgsteff_dVd;
+  dQsub0_dVb = -T2 * (dVfbeff_dVb + dVbseffCV_dVb
+  + dVgsteff_dVb);
+
+  AbulkCV = Abulk0_Q * pParam.abulkCVfactor;
+  dAbulkCV_dVb = pParam.abulkCVfactor * dAbulk0_Q_dVb;
+  VdsatCV = Vgsteff / AbulkCV;
+
+  T0 = VdsatCV - Vds - DELTA_4;
+  dT0_dVg = 1.0 / AbulkCV;
+  dT0_dVb = -VdsatCV * dAbulkCV_dVb / AbulkCV;
+  T1 = Math.sqrt(T0 * T0 + 4.0 * DELTA_4 * VdsatCV);
+  dT1_dVg = (T0 + DELTA_4 + DELTA_4) / T1;
+  dT1_dVd = -T0 / T1;
+  dT1_dVb = dT1_dVg * dT0_dVb;
+  dT1_dVg *= dT0_dVg;
+  if (T0 >= 0.0)
+  {   VdseffCV = VdsatCV - 0.5 * (T0 + T1);
+  dVdseffCV_dVg = 0.5 * (dT0_dVg - dT1_dVg);
+  dVdseffCV_dVd = 0.5 * (1.0 - dT1_dVd);
+  dVdseffCV_dVb = 0.5 * (dT0_dVb - dT1_dVb);
+  }
+  else
+  {   T3 = (DELTA_4 + DELTA_4) / (T1 - T0);
+  T4 = 1.0 - T3;
+  T5 = VdsatCV * T3 / (T1 - T0);
+  VdseffCV = VdsatCV * T4;
+  dVdseffCV_dVg = dT0_dVg * T4 + T5 * (dT1_dVg - dT0_dVg);
+  dVdseffCV_dVd = T5 * (dT1_dVd + 1.0);
+  dVdseffCV_dVb = dT0_dVb * (T4 - T5) + T5 * dT1_dVb;
+  }
+
+  if (Vds == 0.0)
+  {  VdseffCV = 0.0;
+  dVdseffCV_dVg = 0.0;
+  dVdseffCV_dVb = 0.0;
+  }
+
+  T0 = AbulkCV * VdseffCV;
+  T1 = 12.0 * (Vgsteff - 0.5 * T0 + 1.0e-20);
+  T2 = VdseffCV / T1;
+  T3 = T0 * T2;
+
+  T4 = (1.0 - 12.0 * T2 * T2 * AbulkCV);
+  T5 = (6.0 * T0 * (4.0 * Vgsteff - T0) / (T1 * T1) - 0.5);
+  T6 = 12.0 * T2 * T2 * Vgsteff;
+
+  qgate = CoxWL * (Vgsteff - 0.5 * VdseffCV + T3);
+  Cgg1 = CoxWL * (T4 + T5 * dVdseffCV_dVg);
+  Cgd1 = CoxWL * T5 * dVdseffCV_dVd + Cgg1 * dVgsteff_dVd;
+  Cgb1 = CoxWL * (T5 * dVdseffCV_dVb + T6 * dAbulkCV_dVb)
+  + Cgg1 * dVgsteff_dVb;
+  Cgg1 *= dVgsteff_dVg;
+
+  T7 = 1.0 - AbulkCV;
+  qbulk = CoxWL * T7 * (0.5 * VdseffCV - T3);
+  T4 = -T7 * (T4 - 1.0);
+  T5 = -T7 * T5;
+  T6 = -(T7 * T6 + (0.5 * VdseffCV - T3));
+  Cbg1 = CoxWL * (T4 + T5 * dVdseffCV_dVg);
+  Cbd1 = CoxWL * T5 * dVdseffCV_dVd + Cbg1 * dVgsteff_dVd;
+  Cbb1 = CoxWL * (T5 * dVdseffCV_dVb + T6 * dAbulkCV_dVb)
+  + Cbg1 * dVgsteff_dVb;
+  Cbg1 *= dVgsteff_dVg;
+
+  if (model.xpart > 0.5)
+  {   /* 0/100 Charge petition model */
+  T1 = T1 + T1;
+  qsrc = -CoxWL * (0.5 * Vgsteff + 0.25 * T0
+  - T0 * T0 / T1);
+  T7 = (4.0 * Vgsteff - T0) / (T1 * T1);
+  T4 = -(0.5 + 24.0 * T0 * T0 / (T1 * T1));
+  T5 = -(0.25 * AbulkCV - 12.0 * AbulkCV * T0 * T7);
+  T6 = -(0.25 * VdseffCV - 12.0 * T0 * VdseffCV * T7);
+  Csg = CoxWL * (T4 + T5 * dVdseffCV_dVg);
+  Csd = CoxWL * T5 * dVdseffCV_dVd + Csg * dVgsteff_dVd;
+  Csb = CoxWL * (T5 * dVdseffCV_dVb + T6 * dAbulkCV_dVb)
+  + Csg * dVgsteff_dVb;
+  Csg *= dVgsteff_dVg;
+  }
+  else if (model.xpart < 0.5)
+  {   /* 40/60 Charge petition model */
+  T1 = T1 / 12.0;
+  T2 = 0.5 * CoxWL / (T1 * T1);
+  T3 = Vgsteff * (2.0 * T0 * T0 / 3.0 + Vgsteff
+  * (Vgsteff - 4.0 * T0 / 3.0))
+  - 2.0 * T0 * T0 * T0 / 15.0;
+  qsrc = -T2 * T3;
+  T7 = 4.0 / 3.0 * Vgsteff * (Vgsteff - T0)
+  + 0.4 * T0 * T0;
+  T4 = -2.0 * qsrc / T1 - T2 * (Vgsteff * (3.0
+  * Vgsteff - 8.0 * T0 / 3.0)
+  + 2.0 * T0 * T0 / 3.0);
+  T5 = (qsrc / T1 + T2 * T7) * AbulkCV;
+  T6 = (qsrc / T1 * VdseffCV + T2 * T7 * VdseffCV);
+  Csg = (T4 + T5 * dVdseffCV_dVg);
+  Csd = T5 * dVdseffCV_dVd + Csg * dVgsteff_dVd;
+  Csb = (T5 * dVdseffCV_dVb + T6 * dAbulkCV_dVb)
+  + Csg * dVgsteff_dVb;
+  Csg *= dVgsteff_dVg;
+  }
+  else
+  {   /* 50/50 Charge petition model */
+  qsrc = -0.5 * (qgate + qbulk);
+  Csg = -0.5 * (Cgg1 + Cbg1);
+  Csb = -0.5 * (Cgb1 + Cbb1);
+  Csd = -0.5 * (Cgd1 + Cbd1);
+  }
+
+  qgate += Qac0 + Qsub0;
+  qbulk -= (Qac0 + Qsub0);
+  qdrn = -(qgate + qbulk + qsrc);
+
+  Cgg = dQac0_dVg + dQsub0_dVg + Cgg1;
+  Cgd = dQsub0_dVd + Cgd1;
+  Cgb = dQac0_dVb + dQsub0_dVb + Cgb1;
+
+  Cbg = Cbg1 - dQac0_dVg - dQsub0_dVg;
+  Cbd = Cbd1 - dQsub0_dVd;
+  Cbb = Cbb1 - dQac0_dVb - dQsub0_dVb;
+
+  Cgb *= dVbseff_dVb;
+  Cbb *= dVbseff_dVb;
+  Csb *= dVbseff_dVb;
+
+  here.cggb = Cgg;
+  here.cgsb = -(Cgg + Cgd + Cgb);
+  here.cgdb = Cgd;
+  here.cdgb = -(Cgg + Cbg + Csg);
+  here.cdsb = (Cgg + Cgd + Cgb + Cbg + Cbd + Cbb
+  + Csg + Csd + Csb);
+  here.cddb = -(Cgd + Cbd + Csd);
+  here.cbgb = Cbg;
+  here.cbsb = -(Cbg + Cbd + Cbb);
+  here.cbdb = Cbd;
+  }
+
+  /* Charge-Thickness capMod (CTM) begins */
+  else if (model.capmod == 2)
+  {   V3 = here.vfbzb - Vgs_eff + VbseffCV - DELTA_3;
+  if (here.vfbzb <= 0.0)
+  T0 = Math.sqrt(V3 * V3 - 4.0 * DELTA_3 * here.vfbzb);
+  else
+  T0 = Math.sqrt(V3 * V3 + 4.0 * DELTA_3 * here.vfbzb);
+
+  T1 = 0.5 * (1.0 + V3 / T0);
+  Vfbeff = here.vfbzb - 0.5 * (V3 + T0);
+  dVfbeff_dVg = T1 * dVgs_eff_dVg;
+  dVfbeff_dVb = -T1 * dVbseffCV_dVb;
+
+  Cox = here.coxp;
+  Tox = 1.0e8 * here.toxp;
+  T0 = (Vgs_eff - VbseffCV - here.vfbzb) / Tox;
+  dT0_dVg = dVgs_eff_dVg / Tox;
+  dT0_dVb = -dVbseffCV_dVb / Tox;
+
+  tmp = T0 * pParam.acde;
+  if ((-EXP_THRESHOLD < tmp) && (tmp < EXP_THRESHOLD))
+  {   Tcen = pParam.ldeb * Math.exp(tmp);
+  dTcen_dVg = pParam.acde * Tcen;
+  dTcen_dVb = dTcen_dVg * dT0_dVb;
+  dTcen_dVg *= dT0_dVg;
+  }
+  else if (tmp <= -EXP_THRESHOLD)
+  {   Tcen = pParam.ldeb * MIN_EXP;
+  dTcen_dVg = dTcen_dVb = 0.0;
+  }
+  else
+  {   Tcen = pParam.ldeb * MAX_EXP;
+  dTcen_dVg = dTcen_dVb = 0.0;
+  }
+
+  LINK = 1.0e-3 * here.toxp;
+  V3 = pParam.ldeb - Tcen - LINK;
+  V4 = Math.sqrt(V3 * V3 + 4.0 * LINK * pParam.ldeb);
+  Tcen = pParam.ldeb - 0.5 * (V3 + V4);
+  T1 = 0.5 * (1.0 + V3 / V4);
+  dTcen_dVg *= T1;
+  dTcen_dVb *= T1;
+
+  Ccen = epssub / Tcen;
+  T2 = Cox / (Cox + Ccen);
+  Coxeff = T2 * Ccen;
+  T3 = -Ccen / Tcen;
+  dCoxeff_dVg = T2 * T2 * T3;
+  dCoxeff_dVb = dCoxeff_dVg * dTcen_dVb;
+  dCoxeff_dVg *= dTcen_dVg;
+  CoxWLcen = CoxWL * Coxeff / model.coxe;
+
+  Qac0 = CoxWLcen * (Vfbeff - here.vfbzb);
+  QovCox = Qac0 / Coxeff;
+  dQac0_dVg = CoxWLcen * dVfbeff_dVg
+  + QovCox * dCoxeff_dVg;
+  dQac0_dVb = CoxWLcen * dVfbeff_dVb
+  + QovCox * dCoxeff_dVb;
+
+  T0 = 0.5 * pParam.k1ox;
+  T3 = Vgs_eff - Vfbeff - VbseffCV - Vgsteff;
+  if (pParam.k1ox == 0.0)
+  {   T1 = 0.0;
+  T2 = 0.0;
+  }
+  else if (T3 < 0.0)
+  {   T1 = T0 + T3 / pParam.k1ox;
+  T2 = CoxWLcen;
+  }
+  else
+  {   T1 = Math.sqrt(T0 * T0 + T3);
+  T2 = CoxWLcen * T0 / T1;
+  }
+
+  Qsub0 = CoxWLcen * pParam.k1ox * (T1 - T0);
+  QovCox = Qsub0 / Coxeff;
+  dQsub0_dVg = T2 * (dVgs_eff_dVg - dVfbeff_dVg - dVgsteff_dVg)
+  + QovCox * dCoxeff_dVg;
+  dQsub0_dVd = -T2 * dVgsteff_dVd;
+  dQsub0_dVb = -T2 * (dVfbeff_dVb + dVbseffCV_dVb + dVgsteff_dVb)
+  + QovCox * dCoxeff_dVb;
+
+  /* Gate-bias dependent delta Phis begins */
+  if (pParam.k1ox <= 0.0)
+  {   Denomi = 0.25 * pParam.moin * Vtm;
+  T0 = 0.5 * pParam.sqrtPhi;
+  }
+  else
+  {   Denomi = pParam.moin * Vtm
+  * pParam.k1ox * pParam.k1ox;
+  T0 = pParam.k1ox * pParam.sqrtPhi;
+  }
+  T1 = 2.0 * T0 + Vgsteff;
+
+  DeltaPhi = Vtm * Math.log(1.0 + T1 * Vgsteff / Denomi);
+  dDeltaPhi_dVg = 2.0 * Vtm * (T1 -T0) / (Denomi + T1 * Vgsteff);
+  /* End of delta Phis */
+
+  /* VgDP = Vgsteff - DeltaPhi */
+  T0 = Vgsteff - DeltaPhi - 0.001;
+  dT0_dVg = 1.0 - dDeltaPhi_dVg;
+  T1 = Math.sqrt(T0 * T0 + Vgsteff * 0.004);
+  VgDP = 0.5 * (T0 + T1);
+  dVgDP_dVg = 0.5 * (dT0_dVg + (T0 * dT0_dVg + 0.002) / T1);
+
+  Tox += Tox; /* WDLiu: Tcen reevaluated below due to different Vgsteff */
+  T0 = (Vgsteff + here.vtfbphi2) / Tox;
+  tmp = Math.exp(model.bdos * 0.7 * Math.log(T0));
+  T1 = 1.0 + tmp;
+  T2 = model.bdos * 0.7 * tmp / (T0 * Tox);
+  Tcen = model.ados * 1.9e-9 / T1;
+  dTcen_dVg = -Tcen * T2 / T1;
+  dTcen_dVd = dTcen_dVg * dVgsteff_dVd;
+  dTcen_dVb = dTcen_dVg * dVgsteff_dVb;
+  dTcen_dVg *= dVgsteff_dVg;
+
+  Ccen = epssub / Tcen;
+  T0 = Cox / (Cox + Ccen);
+  Coxeff = T0 * Ccen;
+  T1 = -Ccen / Tcen;
+  dCoxeff_dVg = T0 * T0 * T1;
+  dCoxeff_dVd = dCoxeff_dVg * dTcen_dVd;
+  dCoxeff_dVb = dCoxeff_dVg * dTcen_dVb;
+  dCoxeff_dVg *= dTcen_dVg;
+  CoxWLcen = CoxWL * Coxeff / model.coxe;
+
+  AbulkCV = Abulk0_Q * pParam.abulkCVfactor;
+  dAbulkCV_dVb = pParam.abulkCVfactor * dAbulk0_Q_dVb;
+  VdsatCV = VgDP / AbulkCV;
+
+  T0 = VdsatCV - Vds - DELTA_4;
+  dT0_dVg = dVgDP_dVg / AbulkCV;
+  dT0_dVb = -VdsatCV * dAbulkCV_dVb / AbulkCV;
+  T1 = Math.sqrt(T0 * T0 + 4.0 * DELTA_4 * VdsatCV);
+  dT1_dVg = (T0 + DELTA_4 + DELTA_4) / T1;
+  dT1_dVd = -T0 / T1;
+  dT1_dVb = dT1_dVg * dT0_dVb;
+  dT1_dVg *= dT0_dVg;
+  if (T0 >= 0.0)
+  {   VdseffCV = VdsatCV - 0.5 * (T0 + T1);
+  dVdseffCV_dVg = 0.5 * (dT0_dVg - dT1_dVg);
+  dVdseffCV_dVd = 0.5 * (1.0 - dT1_dVd);
+  dVdseffCV_dVb = 0.5 * (dT0_dVb - dT1_dVb);
+  }
+  else
+  {   T3 = (DELTA_4 + DELTA_4) / (T1 - T0);
+  T4 = 1.0 - T3;
+  T5 = VdsatCV * T3 / (T1 - T0);
+  VdseffCV = VdsatCV * T4;
+  dVdseffCV_dVg = dT0_dVg * T4 + T5 * (dT1_dVg - dT0_dVg);
+  dVdseffCV_dVd = T5 * (dT1_dVd + 1.0);
+  dVdseffCV_dVb = dT0_dVb * (T4 - T5) + T5 * dT1_dVb;
+  }
+
+  if (Vds == 0.0)
+  {  VdseffCV = 0.0;
+  dVdseffCV_dVg = 0.0;
+  dVdseffCV_dVb = 0.0;
+  }
+
+  T0 = AbulkCV * VdseffCV;
+  T1 = VgDP;
+  T2 = 12.0 * (T1 - 0.5 * T0 + 1.0e-20);
+  T3 = T0 / T2;
+  T4 = 1.0 - 12.0 * T3 * T3;
+  T5 = AbulkCV * (6.0 * T0 * (4.0 * T1 - T0) / (T2 * T2) - 0.5);
+  T6 = T5 * VdseffCV / AbulkCV;
+
+  qgate = CoxWLcen * (T1 - T0 * (0.5 - T3));
+  QovCox = qgate / Coxeff;
+  Cgg1 = CoxWLcen * (T4 * dVgDP_dVg
+  + T5 * dVdseffCV_dVg);
+  Cgd1 = CoxWLcen * T5 * dVdseffCV_dVd + Cgg1
+  * dVgsteff_dVd + QovCox * dCoxeff_dVd;
+  Cgb1 = CoxWLcen * (T5 * dVdseffCV_dVb + T6 * dAbulkCV_dVb)
+  + Cgg1 * dVgsteff_dVb + QovCox * dCoxeff_dVb;
+  Cgg1 = Cgg1 * dVgsteff_dVg + QovCox * dCoxeff_dVg;
+
+
+  T7 = 1.0 - AbulkCV;
+  T8 = T2 * T2;
+  T9 = 12.0 * T7 * T0 * T0 / (T8 * AbulkCV);
+  T10 = T9 * dVgDP_dVg;
+  T11 = -T7 * T5 / AbulkCV;
+  T12 = -(T9 * T1 / AbulkCV + VdseffCV * (0.5 - T0 / T2));
+
+  qbulk = CoxWLcen * T7 * (0.5 * VdseffCV - T0 * VdseffCV / T2);
+  QovCox = qbulk / Coxeff;
+  Cbg1 = CoxWLcen * (T10 + T11 * dVdseffCV_dVg);
+  Cbd1 = CoxWLcen * T11 * dVdseffCV_dVd + Cbg1
+  * dVgsteff_dVd + QovCox * dCoxeff_dVd;
+  Cbb1 = CoxWLcen * (T11 * dVdseffCV_dVb + T12 * dAbulkCV_dVb)
+  + Cbg1 * dVgsteff_dVb + QovCox * dCoxeff_dVb;
+  Cbg1 = Cbg1 * dVgsteff_dVg + QovCox * dCoxeff_dVg;
+
+  if (model.xpart > 0.5)
+  {   /* 0/100 partition */
+  qsrc = -CoxWLcen * (T1 / 2.0 + T0 / 4.0
+  - 0.5 * T0 * T0 / T2);
+  QovCox = qsrc / Coxeff;
+  T2 += T2;
+  T3 = T2 * T2;
+  T7 = -(0.25 - 12.0 * T0 * (4.0 * T1 - T0) / T3);
+  T4 = -(0.5 + 24.0 * T0 * T0 / T3) * dVgDP_dVg;
+  T5 = T7 * AbulkCV;
+  T6 = T7 * VdseffCV;
+
+  Csg = CoxWLcen * (T4 + T5 * dVdseffCV_dVg);
+  Csd = CoxWLcen * T5 * dVdseffCV_dVd + Csg * dVgsteff_dVd
+  + QovCox * dCoxeff_dVd;
+  Csb = CoxWLcen * (T5 * dVdseffCV_dVb + T6 * dAbulkCV_dVb)
+  + Csg * dVgsteff_dVb + QovCox * dCoxeff_dVb;
+  Csg = Csg * dVgsteff_dVg + QovCox * dCoxeff_dVg;
+  }
+  else if (model.xpart < 0.5)
+  {   /* 40/60 partition */
+  T2 = T2 / 12.0;
+  T3 = 0.5 * CoxWLcen / (T2 * T2);
+  T4 = T1 * (2.0 * T0 * T0 / 3.0 + T1 * (T1 - 4.0
+  * T0 / 3.0)) - 2.0 * T0 * T0 * T0 / 15.0;
+  qsrc = -T3 * T4;
+  QovCox = qsrc / Coxeff;
+  T8 = 4.0 / 3.0 * T1 * (T1 - T0) + 0.4 * T0 * T0;
+  T5 = -2.0 * qsrc / T2 - T3 * (T1 * (3.0 * T1 - 8.0
+  * T0 / 3.0) + 2.0 * T0 * T0 / 3.0);
+  T6 = AbulkCV * (qsrc / T2 + T3 * T8);
+  T7 = T6 * VdseffCV / AbulkCV;
+
+  Csg = T5 * dVgDP_dVg + T6 * dVdseffCV_dVg;
+  Csd = Csg * dVgsteff_dVd + T6 * dVdseffCV_dVd
+  + QovCox * dCoxeff_dVd;
+  Csb = Csg * dVgsteff_dVb + T6 * dVdseffCV_dVb
+  + T7 * dAbulkCV_dVb + QovCox * dCoxeff_dVb;
+  Csg = Csg * dVgsteff_dVg + QovCox * dCoxeff_dVg;
+  }
+  else
+  {   /* 50/50 partition */
+  qsrc = -0.5 * qgate;
+  Csg = -0.5 * Cgg1;
+  Csd = -0.5 * Cgd1;
+  Csb = -0.5 * Cgb1;
+  }
+
+  qgate += Qac0 + Qsub0 - qbulk;
+  qbulk -= (Qac0 + Qsub0);
+  qdrn = -(qgate + qbulk + qsrc);
+
+  Cbg = Cbg1 - dQac0_dVg - dQsub0_dVg;
+  Cbd = Cbd1 - dQsub0_dVd;
+  Cbb = Cbb1 - dQac0_dVb - dQsub0_dVb;
+
+  Cgg = Cgg1 - Cbg;
+  Cgd = Cgd1 - Cbd;
+  Cgb = Cgb1 - Cbb;
+
+  Cgb *= dVbseff_dVb;
+  Cbb *= dVbseff_dVb;
+  Csb *= dVbseff_dVb;
+
+  here.cggb = Cgg;
+  here.cgsb = -(Cgg + Cgd + Cgb);
+  here.cgdb = Cgd;
+  here.cdgb = -(Cgg + Cbg + Csg);
+  here.cdsb = (Cgg + Cgd + Cgb + Cbg + Cbd + Cbb
+  + Csg + Csd + Csb);
+  here.cddb = -(Cgd + Cbd + Csd);
+  here.cbgb = Cbg;
+  here.cbsb = -(Cbg + Cbd + Cbb);
+  here.cbdb = Cbd;
+  }  /* End of CTM */
+  }
+
+  here.csgb = - here.cggb - here.cdgb - here.cbgb;
+  here.csdb = - here.cgdb - here.cddb - here.cbdb;
+  here.cssb = - here.cgsb - here.cdsb - here.cbsb;
+  here.cgbb = - here.cgdb - here.cggb - here.cgsb;
+  here.cdbb = - here.cddb - here.cdgb - here.cdsb;
+  here.cbbb = - here.cbgb - here.cbdb - here.cbsb;
+  here.csbb = - here.cgbb - here.cdbb - here.cbbb;
+  here.qgate = qgate;
+  here.qbulk = qbulk;
+  here.qdrn = qdrn;
+  here.qsrc = -(qgate + qbulk + qdrn);
+  }
   return cdrain;
 }

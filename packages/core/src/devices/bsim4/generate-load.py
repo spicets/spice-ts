@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Generate the static channel equations, preserving pinned b4ld ordering/ECL-2.0.
-Usage: python3 generate-load.py SOURCE [--check]. No dynamic or terminal stamps.
+"""Generate channel and intrinsic charge equations in pinned b4ld order/ECL-2.0.
+Usage: python3 generate-load.py SOURCE [--check]. No MNA terminal stamps.
 """
 import argparse
 import re
@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 SHA = 'a80f6e3e95d51534905b1f23410a951802666656'
-RANGES = [(1004, 2189), (2527, 2921)]
+RANGES = [(1004, 2189), (2527, 2921), (3339, 3913)]
 
 
 def generate(source: Path) -> str:
@@ -31,7 +31,8 @@ def generate(source: Path) -> str:
         assigned = [f for f in re.findall(r'mod->BSIM4(\w+)\s*=(?!=)', block) if not f.endswith('Given')]
         if assigned[0] != 'type':
             fields[assigned[0]] = entries[case[1]]
-    body = '\n'.join(f'\n// b4ld.c:{first}-{last}\n' + '\n'.join(lines[first - 1:last]) for first, last in RANGES)
+    sections = ['\n'.join(lines[first - 1:last]) for first, last in RANGES]
+    body = '\n'.join(sections[:2]) + '\nif (computeCharges && model->BSIM4xpart >= 0) {\n' + sections[2] + '\n}'
     comments = []
     def save(match):
         comments.append(match[0])
@@ -80,8 +81,9 @@ def generate(source: Path) -> str:
     output += f'export type Bsim4LoadInstance = Bsim4StaticInstance & Record<{union(here_fields)}, number>;\n'
     output += '''const MAX_EXP = 5.834617425e14, MIN_EXP = 1.713908431e-15, EXP_THRESHOLD = 34;
 const EPS0 = 8.85418e-12, EPSSI = 1.03594e-10, Charge_q = 1.60219e-19, MM = 3;
+const DELTA_3 = 0.02, DELTA_4 = 0.02;
 // Historical ngspice const.h CHARGE, not the BSIM-local Charge_q.
-const CHARGE = 1.6021766208e-19, DELTA_3 = 0.02;
+const CHARGE = 1.6021766208e-19;
 function dexp(A: number): [number, number] {
   if (A > EXP_THRESHOLD) return [MAX_EXP * (1 + A - EXP_THRESHOLD), MAX_EXP];
   if (A < -EXP_THRESHOLD) return [MIN_EXP, 0];
@@ -99,7 +101,7 @@ function polyDepletion(phi: number, ngate: number, epsgate: number, coxe: number
 }
 export function applyLoad(model: Readonly<Bsim4LoadModel>, given: ReadonlySet<Bsim4ModelParameter>,
   here: Bsim4LoadInstance, pParam: Readonly<Bsim4LoadSize>, Temp: number,
-  vgs: number, vds: number, vbs: number): number {
+  vgs: number, vds: number, vbs: number, computeCharges = false): number {
   const vgd = vgs - vds, vbd = vbs - vds;
 '''
     for start in range(0, len(variables), 6):

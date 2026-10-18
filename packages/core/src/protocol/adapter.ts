@@ -97,6 +97,31 @@ export async function validateProtocolV1(
   };
 }
 
+/** Bounded noise spectrum for scalar consumers, separate from the v1 result/stream union. */
+export async function simulateNoiseProtocolV1(request: SimulationRequestV1) {
+  const guard = protocolGuard(request);
+  enforceInputLimits(request, guard);
+  const circuit = await requestCircuit(request, guard);
+  guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
+  const noise = circuit.analyses.filter(a => a.type === 'noise');
+  if (noise.length !== 1) throw new ProtocolExecutionError({
+    code: 'INVALID_REQUEST', message: 'Expected exactly one .noise analysis',
+    phase: 'validation', retryable: false, details: {},
+  });
+  circuit.analyses.splice(0, circuit.analyses.length, noise[0]);
+  const compiled = circuit.compile(guard);
+  if (compiled.steps.length) throw new ProtocolExecutionError({
+    code: 'INVALID_REQUEST', message: 'Stepped noise analyses must be run separately',
+    phase: 'validation', retryable: false, details: {},
+  });
+  enforcePointLimit(noise, guard, requestReltol(request, circuit));
+  preflightTopology(compiled, protocolSourcePath(request));
+  const result = required((await simulate(circuit, coreOptions(request.options), guard)).noise, 'noise result');
+  guard.maximum('maxResultPoints', result.frequencies.length, 'serialize');
+  guard.maximum('maxSerializedResultBytes', utf8Bytes(JSON.stringify(result)), 'serialize');
+  return result;
+}
+
 /** Execute a protocol-v1 request through the existing core simulator. */
 export async function simulateProtocolV1(
   request: SimulationRequestV1,
@@ -362,7 +387,7 @@ function estimatedAnalysisPoints(analysis: AnalysisDirective, reltol: number): n
     }
     case 'tran': return finiteLinearPoints(analysis.startTime ?? 0, analysis.stopTime, analysis.timestep);
     case 'ac': return frequencyPointCount(analysis, reltol, 'ac');
-    case 'noise':
+    case 'noise': return frequencyPointCount(analysis, reltol, 'noise');
     case 'sp':
     case 'disto':
     case 'tf': return 0;
