@@ -53,6 +53,8 @@ export type CodeModelACForm =
   | { readonly kind: 'integrator'; readonly gain: number };
 
 export interface CodeModelBehavior {
+  /** Complete AC gain matrix, flattened in the same order as partials. */
+  acGains?(omega: number): readonly { real: number; imaginary: number }[];
   /** ngspice TSTEP/TSTOP, supplied before transient initialization. */
   setTransientTimestep?(timestep: number, stopTime?: number): void;
   /** RAMPTIME configured for transient OP and subsequent transient loads. */

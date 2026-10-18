@@ -461,7 +461,16 @@ const REAL_SPECS: readonly XspiceCodeModelSpec[] = [
 /** Implemented code models keyed by lower-case ngspice Spice_Model_Name. */
 export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> = new Map(
   [
-    ASTATE, {
+    {
+      name: 'mlin',
+      connections: ['port1', 'port2', 'v1sens', 'v2sens'].map((name, i) => ({
+        name, direction: i < 2 ? 'inout' as const : 'in' as const,
+        defaultType: i < 2 ? 'hd' : 'vd', allowedTypes: [i < 2 ? 'hd' : 'vd'], vector: false, nullAllowed: false,
+      })),
+      params: [real('w', 1e-3), real('l', 1e-2), real('er', 9.8), real('h', 1e-3), real('t', 35e-6),
+        real('tand', 2e-4), real('rho', .022e-6), real('d', .15e-6),
+        ...['model', 'disp', 'tranmodel'].map(name => ({ name, type: 'int' as const, defaultValue: [0], vector: false, nullAllowed: true }))],
+    }, ASTATE, {
       name: 'delay',
       connections: [
         { ...input('in'), allowedTypes: ['v', 'vd', 'vnam'] },

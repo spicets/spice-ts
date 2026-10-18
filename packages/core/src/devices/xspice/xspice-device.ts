@@ -45,6 +45,8 @@ export class XspiceDevice implements DeviceModel {
   readonly limitsOwnJunctions = true;
   readonly integratesTransientCharge: boolean;
   readonly stampDynamic?: (ctx: StampContext) => void;
+  readonly frequencyDependent: boolean;
+  readonly stampFrequencyConductance?: (ctx: StampContext, omega: number) => void;
   readonly truncateTransientStep?: (ctx: StampContext, truncation: ChargeTruncation) => number;
   readonly truncationCoversCharges?: boolean;
   readonly modelWarnings?: readonly string[];
@@ -103,6 +105,29 @@ export class XspiceDevice implements DeviceModel {
     this.integratesTransientCharge = behavior.stateful;
     if (warnings.length > 0) this.modelWarnings = warnings;
     if (behavior.ac.kind !== 'static') this.stampDynamic = ctx => this.stampFrequencyDependent(ctx);
+    this.frequencyDependent = behavior.acGains !== undefined;
+    if (behavior.acGains) this.stampFrequencyConductance = (ctx, omega) => {
+      const gains = behavior.acGains!(omega);
+      // Replace OP partials, keeping the branch couplings from the DC stamp.
+      for (let o = 0; o < outputPorts.length; o++) {
+        const out = outputPorts[o];
+        for (let i = 0; i < inputPorts.length; i++) {
+          const input = inputPorts[i];
+          const k = o * inputPorts.length + i;
+          const gain = gains[k];
+          const g = gain.real - this.partials[k];
+          const c = gain.imaginary / omega;
+          const rows: [number, number][] = out.kind === 'voltage'
+            ? [[ctx.numNodes + out.branch!, -1]] : [[out.positive, 1], [out.negative, -1]];
+          const cols: [number, number][] = input.kind === 'voltage'
+            ? [[input.positive, 1], [input.negative, -1]] : [[ctx.numNodes + input.branch!, 1]];
+          for (const [row, r] of rows) for (const [col, s] of cols) {
+            stampG(ctx, row, col, r * s * g);
+            stampC(ctx, row, col, r * s * c);
+          }
+        }
+      }
+    };
     if (behavior.truncate) {
       this.truncateTransientStep = (ctx, truncation) => this.truncationTimestep(ctx, truncation);
       // xtradev/{capacitor,inductor}/cfunc.mod:76-82 integrates its only

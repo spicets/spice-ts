@@ -258,7 +258,10 @@ class ControlInterpreter {
   private condition(text: string, line: ControlSourceLine): boolean {
     const substituted = this.substitute(text, line).trim();
     if (substituted === '') throw new ControlScriptError('missing condition', line.lineNumber, line.text);
-    return isTrue(this.evaluate(substituted, line));
+    // Condition-only convenience spelling requested in #1455. ngspice-47 uses
+    // not/~, not !; keep let/define expressions strict and preserve != tokens.
+    const expression = substituted.replace(/!(?!=)/g, '~');
+    return isTrue(this.evaluate(expression, line));
   }
 
   private command(name: string, line: ControlSourceLine): void {
