@@ -52,12 +52,20 @@ describe('BSIM4 RBODYMOD=1', () => {
     const deck = readFileSync(new URL('../rgatemod1/transient.cir', base), 'utf8');
     expect(createHash('sha256').update(deck).digest('hex')).toBe('27e61e80595f94cbba04885602b292c2864072944abcd0f1819071cdbcda825d');
     const result = (await simulate(deck)).transient!;
-    // Captured independently using git archive a7b08165, not the new adapter.
-    // JSON preserves the exact double values, including the adaptive time grid.
+    // Independently verified on git archive a7b08165: its omitted CF behaves
+    // exactly as explicit CF=0. Use that same-runtime baseline on every platform
+    // because libm last bits differ between macOS and Linux. No tolerance.
+    const legacy = (await simulate(deck.replace('RSHG=1meg', 'RSHG=1meg CF=0'))).transient!;
     const vectors = [result.time, ...['d', 'g', 'M1.gate'].map(n => result.voltage(n)),
       ...['Vd', 'Vg'].map(n => result.current(n))];
+    const legacyVectors = [legacy.time, ...['d', 'g', 'M1.gate'].map(n => legacy.voltage(n)),
+      ...['Vd', 'Vg'].map(n => legacy.current(n))];
     expect(result.time).toHaveLength(1014);
-    expect(createHash('sha256').update(JSON.stringify(vectors)).digest('hex')).toBe('f82c26e941f88ce67a12a945519f1e2ecc7bf999ac1fb5d6d82225d53a1cfe32');
+    expect(vectors).toEqual(legacyVectors);
+    // Retain the independently captured main golden on its original platform.
+    if (process.platform === 'darwin' && process.arch === 'arm64') {
+      expect(createHash('sha256').update(JSON.stringify(vectors)).digest('hex')).toBe('f82c26e941f88ce67a12a945519f1e2ecc7bf999ac1fb5d6d82225d53a1cfe32');
+    }
   });
   it('rejects body-network transient until separate junction charge states are ported', () => {
     const deck = readFileSync(new URL('model.cir', base), 'utf8').replace('.ac dec 2 1k 1meg', '.tran 1n 10n');
