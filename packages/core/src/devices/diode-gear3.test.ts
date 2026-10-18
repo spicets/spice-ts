@@ -110,7 +110,7 @@ describe('diode BDF3 charge companion (#1406)', () => {
       h.seed(-1);
       h.trial(-2, { method: 'euler', dt: 0.5 });
       h.diode.acceptTransientStep(h.ctx);
-      const dt = 0.75;
+      const dt = 0.5;
       const prevDt = 0.5;
       const result = h.trial(-4, { method, dt, prevDt });
       const alpha = prevDt / dt;
