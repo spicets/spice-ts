@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { simulate } from '../../simulate.js';
 import { readFileSync } from 'node:fs';
 import { evaluateBsim4Charges } from './charge.js';
@@ -17,21 +17,36 @@ Cload out 0 10f
 .end`;
 
 describe('BSIM4 capMod=2 transient', () => {
-  it('matches ngspice-47 inverter voltages on the native grid (shared 5% peak bound)', async () => {
+  const voltageErrors: Record<string, number> = {};
+  beforeAll(async () => {
     const reference = JSON.parse(readFileSync(new URL('./inverter-reference.json', import.meta.url), 'utf8')) as { grid: number[]; voltages: Record<string, number[]> };
     const actual = (await simulate(inverter)).transient!;
     for (const [signal, expected] of Object.entries(reference.voltages)) {
       const values = actual.voltage(signal.slice(2, -1));
+      expect(values.length).toBe(actual.time.length);
       const peak = Math.max(...expected.map(Math.abs), 1e-4);
+      let maxError = 0;
       let j = 0;
       for (let i = 0; i < reference.grid.length; i++) {
         const t = reference.grid[i];
         while (j + 1 < actual.time.length - 1 && actual.time[j + 1] < t) j++;
         const weight = (t - actual.time[j]) / (actual.time[j + 1] - actual.time[j]);
         const value = values[j] + weight * (values[j + 1] - values[j]);
-        expect(Math.abs(value - expected[i]) / peak).toBeLessThanOrEqual(0.05);
+        expect(Number.isFinite(value)).toBe(true);
+        maxError = Math.max(maxError, Math.abs(value - expected[i]) / peak);
       }
+      voltageErrors[signal] = maxError;
     }
+  });
+  // Same peak floor and 1% criterion as corpus-f/lib.ts, not a circuit-specific
+  // tolerance. #1367 bounded-slice fallback: v(out) remains a known ~3.37% loss.
+  // Keep setup/completion checks outside it.fails so engine errors cannot mask it.
+  it.each(['v(in)', 'v(vdd)'])('matches ngspice-47 %s within the shared 1% peak bound', signal => {
+    expect(voltageErrors[signal]).toBeLessThanOrEqual(0.01);
+  });
+  const outputParity = process.env.ISSUE1367_RED === '1' ? it : it.fails;
+  outputParity('matches ngspice-47 v(out) within the shared 1% peak bound (known mismatch #1367)', () => {
+    expect(voltageErrors['v(out)']).toBeLessThanOrEqual(0.01);
   });
   it('integrates intrinsic and overlap charges through 1ns', async () => {
     const result = await simulate(inverter);
