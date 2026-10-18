@@ -2542,7 +2542,7 @@ export class Circuit {
             }
             const bulkNode = desc.nodes[3] ?? desc.nodes[2];
             const bsim4 = new BSIM4(desc.name,
-              [resolveNode(desc.nodes[0]), resolveNode(desc.nodes[1]), resolveNode(desc.nodes[2]), resolveNode(bulkNode)],
+              [desc.nodes[0], desc.nodes[1], desc.nodes[2], bulkNode, ...desc.nodes.slice(4)].map(resolveNode),
               { ...modelParams, ...(model.version !== undefined ? { VERSION: model.version } : {}) },
               desc.params ?? {}, polarity);
             bsim4.assertAnalyses([
@@ -3151,6 +3151,14 @@ export class Circuit {
             source = prime;
           }
           result.push({ ...desc, nodes: [drain, gate, source, bulk] });
+          continue;
+        }
+        if (model && (level === 14 || level === 54)
+          && (desc.params?.RGATEMOD ?? model.params.RGATEMOD ?? 0) === 1) {
+          // ngspice-47 b4set.c:2517-2533: gate electrode and intrinsic gate
+          // are distinct even when RSHG=0 (b4temp supplies a 1e3 mho fallback).
+          result.push({ ...desc, nodes: [desc.nodes[0], desc.nodes[1], desc.nodes[2],
+            desc.nodes[3] ?? desc.nodes[2], internalNodeName(desc.name, 'gate')] });
           continue;
         }
         if (model && (level === 8 || level === 49) && isSupportedBsim3Version(model.version)) {

@@ -56,12 +56,14 @@ export class BSIM4 implements DeviceModel {
   private von = 0;
   private limited = false;
   private temperatureC = 27;
+  private readonly intrinsicNodes: number[];
+  private initializeGate = true;
 
   constructor(readonly name: string, readonly nodes: number[],
     modelCard: Readonly<Record<string, number | string | undefined>>,
     instanceCard: Readonly<Record<string, number | undefined>>, polarity: 1 | -1) {
-    if (nodes.length !== 4 || nodes.some(n => !Number.isInteger(n) || n < -1)) {
-      throw new InvalidCircuitError('BSIM4 requires four valid terminal indices');
+    if (![4, 5].includes(nodes.length) || nodes.some(n => !Number.isInteger(n) || n < -1)) {
+      throw new InvalidCircuitError('BSIM4 requires four terminals and an optional internal gate index');
     }
     const card = lowercaseCard(modelCard);
     if (Object.hasOwn(card, 'type')) throw new UnsupportedModelParameterError(name, 'type', 'polarity comes from the NMOS/PMOS model type, not an internal TYPE parameter');
@@ -70,6 +72,10 @@ export class BSIM4 implements DeviceModel {
     // Setup uses native C node numbering (ground=0); MNA uses ground=-1.
     this.instance = setupBsim4Instance(this.model, instance,
       { d: nodes[0] + 1, g: nodes[1] + 1, s: nodes[2] + 1, b: nodes[3] + 1 });
+    if (nodes.length !== (this.instance.values.rgatemod === 1 ? 5 : 4)) {
+      throw new InvalidCircuitError('BSIM4 RGATEMOD=1 requires an internal gate node');
+    }
+    this.intrinsicNodes = [nodes[0], nodes[4] ?? nodes[1], nodes[2], nodes[3]];
     this.processed = preprocessBsim4(this.model, this.instance);
     this.von = this.evaluate(this.previous).von; // enforce all DC guards at construction
   }
@@ -102,6 +108,7 @@ export class BSIM4 implements DeviceModel {
   getTemperature(): number { return this.temperatureC; }
   beginOperatingPoint(): void {
     this.previous = { vgs: 0, vds: 0, vbs: 0 };
+    this.initializeGate = true;
     this.von = this.evaluate(this.previous).von;
     this.limited = false;
   }
@@ -110,7 +117,8 @@ export class BSIM4 implements DeviceModel {
   stamp(ctx: StampContext): void {
     if (ctx.dt !== 0) this.unsupported('tran');
     const p = this.model.values.type;
-    const [d, g, s, b] = this.nodes;
+    const nodes = this.intrinsicNodes;
+    const [d, g, s, b] = nodes;
     const read = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);
     const vs = read(s);
     const raw = { vgs: p * (read(g) - vs), vds: p * (read(d) - vs), vbs: p * (read(b) - vs) };
@@ -132,22 +140,50 @@ export class BSIM4 implements DeviceModel {
     // DEV* did not limit it. Do not keep Newton nonconverged on roundoff alone.
     const changed = (a: number, b: number) => Math.abs(a - b) > 8 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
     this.limited = changed(vgs, raw.vgs) || changed(vds, raw.vds) || changed(vbs, raw.vbs);
+    // b4ld.c:304-312 MODEINITJCT: a floating intrinsic gate must not start
+    // on the artificial low-Vgs tunneling branch. Both OP and the first DC
+    // point call beginOperatingPoint; subsequent points reuse their solution.
+    if (this.initializeGate && this.instance.values.rgatemod === 1
+      && raw.vgs === 0 && raw.vds === 0 && raw.vbs === 0) {
+      vgs = p * this.processed.instance.vth0 + 0.1;
+      vds = 0.1;
+      vbs = 0;
+      this.limited = true;
+    }
+    this.initializeGate = false;
     this.previous = { vgs, vds, vbs };
     const op = this.evaluate(this.previous, ctx.gmin ?? DEVICE_GMIN);
     this.von = op.von;
     const voltage = [vs + p * vds, vs + p * vgs, vs, vs + p * vbs];
     const mult = this.instance.values.m * this.instance.values.mult_i;
+    if (this.instance.values.rgatemod === 1) {
+      const { model, size, instance } = this.processed;
+      // ngspice-47 b4temp.c:1926-1938: constant electrode conductance,
+      // using junction width per finger and Lnew (not Leff).
+      const resistance = model.rshg * (instance.xgw + size.weffCJ / (3 * instance.ngcon))
+        / (instance.ngcon * instance.nf * (instance.l + model.xl - model.xgl));
+      const conductance = mult * (resistance > 0 ? 1 / resistance : 1e3);
+      // b4ld.c:5074-5085 (and serial stamp): intrinsic gate tunneling is
+      // on GP; the external gate sees only this conservative resistor.
+      const external = this.nodes[1];
+      if (external >= 0) ctx.stampG(external, external, conductance);
+      if (g >= 0) ctx.stampG(g, g, conductance);
+      if (external >= 0 && g >= 0) {
+        ctx.stampG(external, g, -conductance);
+        ctx.stampG(g, external, -conductance);
+      }
+    }
     // Stamp I(V) between two terminals using the analytic Jacobian. This is
     // the baseline b4ld DC Newton stamp, with KCL and orientation explicit.
     const pair = (from: number, to: number, current: number, gradient: readonly number[]) => {
       let equivalent = p * current;
       for (let column = 0; column < 4; column++) {
         equivalent -= gradient[column] * voltage[column];
-        if (this.nodes[from] >= 0 && this.nodes[column] >= 0) ctx.stampG(this.nodes[from], this.nodes[column], mult * gradient[column]);
-        if (this.nodes[to] >= 0 && this.nodes[column] >= 0) ctx.stampG(this.nodes[to], this.nodes[column], -mult * gradient[column]);
+        if (nodes[from] >= 0 && nodes[column] >= 0) ctx.stampG(nodes[from], nodes[column], mult * gradient[column]);
+        if (nodes[to] >= 0 && nodes[column] >= 0) ctx.stampG(nodes[to], nodes[column], -mult * gradient[column]);
       }
-      if (this.nodes[from] >= 0) ctx.stampB(this.nodes[from], -mult * equivalent);
-      if (this.nodes[to] >= 0) ctx.stampB(this.nodes[to], mult * equivalent);
+      if (nodes[from] >= 0) ctx.stampB(nodes[from], -mult * equivalent);
+      if (nodes[to] >= 0) ctx.stampB(nodes[to], mult * equivalent);
     };
     const dr = op.mode > 0 ? 0 : 2, sr = op.mode > 0 ? 2 : 0;
     const channel = [0, op.gm, 0, op.gmbs];

@@ -35,7 +35,25 @@ poly depletion and nonnominal temperature. Run:
 The parity tests read the native oracle and print maximum normalized gate and
 drain branch-current errors. Before this extension the same IGCMOD=1 cards
 throw UnsupportedModelParameterError. IGCMOD=2, nonbaseline RBODYMOD
-and RGATEMOD remain unsupported; there is no transient charge extension.
+and RGATEMOD=2/3 remain unsupported; there is no transient charge extension.
+
+### RGATEMOD=1 extension (#1370)
+
+The compiler allocates an observable `M1.gate` intrinsic gate (ngspice's
+`m1#gate`); the BSIM4 adapter stamps the constant electrode conductance from
+b4temp.c:1926-1938 between that node and the external gate. All intrinsic
+terminal currents and derivatives use the internal gate. M and MULT_I scale
+the resistor and device together. RSHG=0 retains the node with ngspice's
+1e3 mho fallback. Model defaults, instance overrides of RGATEMOD/XGW/NGCON,
+and the first all-zero OP/DC junction seed (b4ld.c:304-312) are supported.
+RGATEMOD=0 keeps the existing four-terminal path unchanged.
+
+Authored MIT single-device fixtures, regeneration script, and pinned
+ngspice-47 OP/DC oracle live in `__fixtures__/rgatemod1/`. Regenerate with
+`python3 packages/core/src/devices/bsim4/__fixtures__/rgatemod1/generate.py`.
+The same decks feed both engines, with rel <= 1e-6 or abs <= 1e-12 bounds
+on external/internal voltages and all four terminal currents. Five-node
+stamp tests also check KCL and finite-difference Jacobians in both modes.
 
 ## Data and registration
 
@@ -117,8 +135,8 @@ use InvalidCircuitError.
 
 - Capacitance, charge, transient, AC/small-signal, noise and other non-OP/DC
   analyses (including PZ/TF/sensitivity/distortion/SP). No zero dynamic stamps.
-- TRNQSMOD/ACNQSMOD != 0; body/gate/external resistance network modes,
-  RDSMOD/RBODYMOD/RGATEMOD != 0, and positive RSH with given positive NRD/NRS.
+- TRNQSMOD/ACNQSMOD != 0; RDSMOD/RBODYMOD != 0, RGATEMOD=2/3,
+  and positive RSH with given positive NRD/NRS.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,
   MTRLCOMPATMOD, CVCHARGEMOD, GIDLMOD, WPEMOD, FNOIMOD or TNOIMOD selectors.
   Baselines are recorded in SETUP.md; static acceptance is not noise/CV support.

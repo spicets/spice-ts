@@ -49,7 +49,7 @@ describe('BSIM4 DC device integration', () => {
     expect(() => device.charges()).toThrow(UnsupportedModel);
   });
   for (const [parameter, value] of [
-    ['IGCMOD', 2], ['IGBMOD', 2], ['RDSMOD', 1], ['RBODYMOD', 1], ['RGATEMOD', 1],
+    ['IGCMOD', 2], ['IGBMOD', 2], ['RDSMOD', 1], ['RBODYMOD', 1], ['RGATEMOD', 2], ['RGATEMOD', 3],
     ['TRNQSMOD', 1], ['ACNQSMOD', 1], ['MOBMOD', 1], ['TEMPMOD', 1], ['GEOMOD', 1],
     ['PERMOD', 0], ['WPEMOD', 1], ['SAREF', 2e-6], ['AGIDL', 1e-9], ['AGISL', 1e-9],
     ['JTSS', 1e-9], ['A2', 0.001], ['PRWG', -0.1], ['RDSW', -1], ['RDSWMIN', -1],
