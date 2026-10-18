@@ -24,7 +24,8 @@ describe('VBIC LEVEL=9 alias (#1398)', () => {
     it(`has identical OP, AC and transient results to LEVEL=4 (${polarity})`, async () => {
       const level4 = await simulate(deck(4, polarity));
       const level9 = await simulate(deck(9, polarity));
-      expect(level9.op).toEqual(level4.op);
+      expect(level9.dc).toBeDefined();
+      expect(level9.dc).toEqual(level4.dc);
       expect(level9.ac).toEqual(level4.ac);
       expect(level9.transient).toEqual(level4.transient);
     });
@@ -33,6 +34,20 @@ describe('VBIC LEVEL=9 alias (#1398)', () => {
   it('normalizes the model level without changing any VBIC parameters', () => {
     expect(resolveVBICParams({ LEVEL: 9, IS: 1e-16 }, 1))
       .toEqual(resolveVBICParams({ LEVEL: 4, IS: 1e-16 }, 1));
+  });
+
+  it('matches ngspice-47 LEVEL=9 OP on the identical NPN deck within 1e-6 relative', async () => {
+    // ngspice-47 -b -r alias.raw alias.sp, SPICE_ASCIIRAWFILE=1.
+    // The input is exactly deck(9), including its AC and transient cards.
+    const result = (await simulate(deck(9))).dc!;
+    for (const [actual, expected] of [
+      [result.voltage('b'), 0.6499918012828944],
+      [result.voltage('c'), 1.991801139828128],
+      [result.current('VCC'), -8.198860171872102e-6],
+      [result.current('VIN'), -8.198717105688605e-8],
+    ]) {
+      expect(Math.abs(actual / expected - 1)).toBeLessThan(1e-6);
+    }
   });
 
   for (const level of [4, 9]) {
