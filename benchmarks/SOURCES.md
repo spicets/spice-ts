@@ -1,5 +1,19 @@
 # Benchmark sources
 
+## XSPICE real event nodes (#1382)
+
+The existing corpus-f `examples/xspice/original-examples/io_types.deck` and
+`user_defined_nodes.deck` are unchanged ngspice revision
+`3ef069fb1f04177a153f342a32d941fc20ff047e` fixtures (BSD-3-Clause).
+Their provenance, hashes and licence remain in `corpus/corpus-f/SOURCES.md`
+and the manifest. No fixtures or comparison tolerances change.
+Semantics follow that revision's
+[`src/xspice/icm/xtraevt`](https://github.com/imr/ngspice/tree/3ef069fb1f04177a153f342a32d941fc20ff047e/src/xspice/icm/xtraevt)
+`{d_to_real,real_gain,real_delay,real_to_v}/{cfunc.mod,ifspec.ifs}` and
+`real/udnfunc.c` (ngspice XSPICE code-model sources, Public Domain).
+The new unit-test circuits are project-authored (MIT).
+Scoped rerun evidence is in `corpus/corpus-f/README.md`, section #1382.
+
 ## VBIC flicker and total noise (#1197)
 
 `benchmarks/vbic-noise/compare.ts` runs the byte-identical corpus-f

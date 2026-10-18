@@ -36,12 +36,15 @@ export const UNDETERMINED = 3;
 
 /** A digital node or output value (ngspice Digital_t). */
 export interface DigitalValue {
+  /** xtraevt real payload, absent on digital nodes. */
+  real?: number;
   state: number;
   strength: number;
 }
 
 /** One output port during a code model call: OUTPUT_CHANGED, OUTPUT_STATE, OUTPUT_STRENGTH, OUTPUT_DELAY. */
 export interface EventOutput {
+  real?: number;
   changed: boolean;
   state: number;
   strength: number;
@@ -64,6 +67,8 @@ export interface EventCall<S> {
   readonly previous: S;
   /** INPUT_STATE of digital input port `port` (flattened over the input connections). */
   inputState(port: number): number;
+  inputReal(port: number): number;
+  queue(time: number): void;
   /** Digital output ports, flattened; `changed` starts true as in EVTload. */
   readonly outputs: readonly EventOutput[];
   /** cm_analog_set_perm_bkpt(time). */
@@ -87,6 +92,7 @@ export interface EventInstanceView<S> {
   readonly state: S;
   readonly previous: S;
   inputState(port: number): number;
+  inputReal(port: number): number;
   /** cm_event_queue(time) from an ANALOG call at `time` (the analog TIME). */
   queue(time: number): void;
   /** cm_analog_set_perm_bkpt(time) from an ANALOG call at TIME `now`. */
@@ -99,6 +105,7 @@ export interface EventInstanceView<S> {
 
 /** A digital port of an instance: the node it reads or drives, and a `~` inversion. */
 export interface EventPort {
+  readonly type?: 'd' | 'real';
   readonly node: string;
   readonly invert: boolean;
 }
@@ -141,6 +148,7 @@ interface InstanceInfo {
 }
 
 interface NodeInfo {
+  readonly type: 'd' | 'real';
   readonly name: string;
   invert: boolean;
   drivers: number;
@@ -213,11 +221,13 @@ export function resolveDigital(values: readonly DigitalValue[]): DigitalValue {
 
 /** idn_digital_invert: 0 and 1 swap; U stays. */
 function inverted(value: DigitalValue): DigitalValue {
+  if (value.real !== undefined) return { ...value, real: -value.real };
   const state = value.state === ZERO ? ONE : value.state === ONE ? ZERO : value.state;
   return { state, strength: value.strength };
 }
 
 function equal(a: DigitalValue, b: DigitalValue): boolean {
+  if (a.real !== undefined || b.real !== undefined) return a.real === b.real;
   return a.state === b.state && a.strength === b.strength;
 }
 
@@ -263,14 +273,14 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
   addInstance<S>(spec: EventInstanceSpec<S>): EventInstanceView<S> {
     const instance = this.instances.length;
     const inputs = spec.inputs.map(port => {
-      const node = this.node(port.node);
+      const node = this.node(port.node, port.type);
       const info = this.nodeInfo[node];
       if (port.invert) info.invert = true;
       if (!info.instances.includes(instance)) info.instances.push(instance);
       return { node, invert: port.invert };
     });
     const outputs = spec.outputs.map(port => {
-      const node = this.node(port.node);
+      const node = this.node(port.node, port.type);
       const sub = this.nodeInfo[node].drivers++;
       return { node, invert: port.invert, index: this.outputCount++, sub };
     });
@@ -295,6 +305,7 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
   nodeHistories(): Map<string, DigitalNodeEvent[]> {
     const histories = new Map<string, DigitalNodeEvent[]>();
     this.nodeInfo.forEach((info, node) => {
+      if (info.type === 'real') return;
       histories.set(info.name, (this.history.get(node) ?? []).map(({ time, value }) => ({
         time, state: STATE_NAMES[value.state], strength: STRENGTH_NAMES[value.strength],
       })));
@@ -380,14 +391,15 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
 
   // ---------------------------------------------------------------- internals
 
-  private node(name: string): number {
+  private node(name: string, type: 'd' | 'real' = 'd'): number {
     const key = name.toLowerCase();
     let index = this.nodeIndex.get(key);
     if (index === undefined) {
       index = this.nodeInfo.length;
       this.nodeIndex.set(key, index);
-      this.nodeInfo.push({ name, invert: false, drivers: 0, instances: [] });
+      this.nodeInfo.push({ name, type, invert: false, drivers: 0, instances: [] });
     }
+    if (this.nodeInfo[index].type !== type) throw new InvalidCircuitError(`XSPICE node '${name}' has conflicting event types`);
     return index;
   }
 
@@ -395,10 +407,10 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
   private reset(): void {
     this.data = {
       nodes: this.nodeInfo.map(info => ({
-        value: initialValue(),
+        value: info.type === 'real' ? { ...initialValue(), real: 0 } : initialValue(),
         totalLoad: 0,
-        drivers: Array.from({ length: info.drivers }, initialValue),
-        inverted: initialValue(),
+        drivers: Array.from({ length: info.drivers }, () => info.type === 'real' ? { ...initialValue(), real: 0 } : initialValue()),
+        inverted: info.type === 'real' ? { ...initialValue(), real: 0 } : initialValue(),
       })),
       outputQueues: Array.from({ length: this.outputCount }, () => []),
       instQueues: this.instances.map(() => []),
@@ -466,6 +478,7 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
     if (equal(value, target)) return;
     target.state = value.state;
     target.strength = value.strength;
+    target.real = value.real;
     this.changedOutputs.add(output.index);
   }
 
@@ -483,7 +496,9 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
         const node = this.data.nodes[index];
         let same = false;
         if (info.drivers > 1) {
-          const resolved = resolveDigital(node.drivers);
+          const resolved = info.type === 'real'
+            ? { ...initialValue(), real: node.drivers.reduce((sum, driver) => sum + driver.real!, 0) }
+            : resolveDigital(node.drivers);
           same = equal(resolved, node.value);
           if (!same) node.value = resolved;
         }
@@ -516,7 +531,7 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
     const outputs: EventOutput[] = instance.outputs.map((output, k) => {
       const node = this.data.nodes[output.node];
       const current = this.nodeInfo[output.node].drivers > 1 ? node.drivers[output.sub] : node.value;
-      return { changed: true, state: current.state, strength: current.strength, delay: data.delays[k], load: 0 };
+      return { changed: true, state: current.state, strength: current.strength, real: current.real, delay: data.delays[k], load: 0 };
     });
     const tran = this.analysis === 'tran';
     instance.behavior.event({
@@ -526,6 +541,8 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
       state: states[states.length - 1],
       previous: states[Math.max(0, states.length - 2)],
       inputState: port => this.inputState(instance.inputs[port]),
+      inputReal: port => this.inputReal(instance.inputs[port]),
+      queue: time => this.queueInstance(index, time),
       outputs,
       setBreakpoint: breakpoint => { if (tran) this.setBreakpoint(breakpoint, this.analogTime); },
       scheduleOutput: (port, delay, value) => {
@@ -540,6 +557,7 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
       if (!result.changed) return;
       const output = instance.outputs[k];
       let value: DigitalValue = { state: result.state, strength: result.strength };
+      if (result.real !== undefined) value.real = result.real;
       if (output.invert) value = inverted(value);
       if (!tran) {
         this.applyOutput(output, value);
@@ -553,6 +571,11 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
   private inputState(port: PortRef): number {
     const node = this.data.nodes[port.node];
     return (port.invert ? node.inverted : node.value).state;
+  }
+
+  private inputReal(port: PortRef): number {
+    const node = this.data.nodes[port.node];
+    return (port.invert ? node.inverted : node.value).real!;
   }
 
   /** EVTqueue_output: insert by time; every queued event at or after it is cancelled. */
@@ -597,6 +620,7 @@ export class XspiceEventNetwork implements DeviceModel, EventDrivenNetwork {
         return states[Math.max(0, states.length - 2)] as S;
       },
       inputState: port => network.inputState(network.instances[index].inputs[port]),
+      inputReal: port => network.inputReal(network.instances[index].inputs[port]),
       queue: time => {
         // cm_event_queue rejects a time before the current event time; in
         // DC the call is queued at TIME = 0 for the first transient pass.

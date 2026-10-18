@@ -12,7 +12,7 @@ import { OTA_SPEC } from './ota-model.js';
 export type XspiceAnalogPortType = 'v' | 'vd' | 'i' | 'id' | 'vnam' | 'g' | 'gd' | 'h' | 'hd';
 
 /** Port types spice-ts resolves: the analog ones plus the event-driven digital `%d`. */
-export type XspicePortType = XspiceAnalogPortType | 'd';
+export type XspicePortType = XspiceAnalogPortType | 'd' | 'real';
 
 export interface XspiceConnectionSpec {
   readonly name: string;
@@ -444,6 +444,18 @@ function controlledOscillator(pwm: boolean): XspiceCodeModelSpec {
   };
 }
 
+/** xtraevt real ports use the same scalar connection syntax as digital nodes. */
+function realPort(name: string, direction: 'in' | 'out'): XspiceConnectionSpec {
+  return { ...digital(name, direction), defaultType: 'real', allowedTypes: ['real'] };
+}
+
+const REAL_SPECS: readonly XspiceCodeModelSpec[] = [
+  { name: 'd_to_real', connections: [digital('in', 'in'), { ...digital('enable', 'in'), nullAllowed: true }, realPort('out', 'out')], params: [real('zero', 0), real('one', 1), real('delay', 1e-9, { limits: [1e-15, undefined] })] },
+  { name: 'real_gain', connections: [realPort('in', 'in'), realPort('out', 'out')], params: [real('in_offset', 0), real('gain', 1), real('out_offset', 0), real('delay', 1e-9), real('ic', 0)] },
+  { name: 'real_delay', connections: [realPort('in', 'in'), digital('clk', 'in'), realPort('out', 'out')], params: [real('delay', 1e-9, { limits: [1e-15, undefined] })] },
+  { name: 'real_to_v', connections: [realPort('in', 'in'), output('out')], params: [real('gain', 1), real('transition_time', 1e-9, { limits: [1e-15, undefined] })] },
+];
+
 /** Implemented code models keyed by lower-case ngspice Spice_Model_Name. */
 export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> = new Map(
   [
@@ -466,7 +478,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
     },
     CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH,
 
-    ADC_BRIDGE, DAC_BRIDGE, pull('d_pulldown'), pull('d_pullup'),
+    ...REAL_SPECS, ADC_BRIDGE, DAC_BRIDGE, pull('d_pulldown'), pull('d_pullup'),
     controlledOscillator(false), controlledOscillator(true),
     flipFlop('d_jkff', ['j', 'k'], 'jk_load'), flipFlop('d_dff', ['data'], 'data_load'),
     unaryGate('d_buffer'), unaryGate('d_inverter'),

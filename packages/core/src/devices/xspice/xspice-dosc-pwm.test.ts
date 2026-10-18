@@ -62,7 +62,7 @@ describe('ngspice-47 controlled digital oscillators (#1221)', () => {
     let inputs = [0];
     const queued: number[] = [];
     const view: EventInstanceView<unknown> = {
-      initialized: true, state, previous: state, inputState: () => 0,
+      initialized: true, state, previous: state, inputState: () => 0, inputReal: () => 0,
       queue: time => queued.push(time), setBreakpoint: () => {},
       setAnalogInputs: values => { inputs = Array.from(values); },
       get analogInputs() { return inputs; },
@@ -76,7 +76,7 @@ describe('ngspice-47 controlled digital oscillators (#1221)', () => {
       const out: EventOutput = { changed: true, state: 2, strength: 3, delay: 0, load: 0 };
       model.event.event({
         analysis: 'tran', init: false, time, state, previous: structuredClone(state),
-        outputs: [out], inputState: () => 0, setBreakpoint() {}, scheduleOutput() {},
+        outputs: [out], inputState: () => 0, inputReal: () => 0, queue() {}, setBreakpoint() {}, scheduleOutput() {},
       });
       return out;
     };

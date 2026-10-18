@@ -56,12 +56,12 @@ export function resolveXspiceConnections(
   };
 
   const readPort = (type: string): XspicePort => {
-    if (type === 'd') {
+    if (type === 'd' || type === 'real') {
       const invert = next()?.kind === 'tilde';
       if (invert) index++;
       const node = tokens[index++];
       if (node === undefined || node.kind !== 'string') return fail('Expected node/instance identifier');
-      return { type: 'd', positive: node.text, invert };
+      return { type, positive: node.text, invert };
     }
     if (next()?.kind === 'tilde') fail('Tilde not allowed on analog nodes');
     const first = tokens[index++];

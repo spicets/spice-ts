@@ -6,6 +6,26 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
+### Scoped rerun #1382: real event nodes
+
+Using ngspice-47 and this branch's core build, run each unchanged fixture with
+`spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts --corpus-f-fixture-child <id>`.
+The committed historical `outcomes.json` is not regenerated for the other fixtures.
+Both historical rows failed at line 19 with unsupported `d_to_real`.
+The scoped rerun changes 2 losses to 2 matches, with 0 mismatches and no next
+unsupported model. No tolerances or deck bytes changed.
+
+| Fixture ID suffix after `examples-xspice-original-examples-` | SHA-256 | Compared signals | Worst normalized error | Outcome |
+| --- | --- | ---: | ---: | --- |
+| `io-types-deck` | `0189e07265ae019f9865827c2d8cc339051adf1c0f65cb546053fd3f82662476` | 4 | 4.84e-14 | matched |
+| `user-defined-nodes-deck` | `8ba69ecec48433a4a4f238a5dae05e3b9c643c562b2a117a3b602eaa1536660a` | 3 | 4.84e-14 | matched |
+
+Both engines return 114 transient samples for each deck. Worst signal is
+`v(analog_node)`. The harness's supplementary fine-reference probe (`tmax=1e-7`)
+reports normalized error 1 for BOTH spice-ts/default-ngspice versus fine-ngspice.
+The default-step match does not establish step-size-independent accuracy.
+These are correctness measurements, not a speed claim or a full-corpus rerun.
+
 - Fixtures: 336. Outcome SHA-256: `89995755bffa71832677a620592e3bd7c8b95fd1c69ccfe18c6e82694760cea2`.
 - ngspice (ngspice-47): 306 success, 18 failed, 12 unsupported.
 - spice-ts (0.3.0): 139 success, 13 failed, 184 unsupported.
