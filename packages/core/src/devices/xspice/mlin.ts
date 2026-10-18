@@ -82,16 +82,45 @@ export function mlin(params: ResolvedXspiceParams): CodeModelBehavior {
     throw new InvalidCircuitError('XSPICE mlin requires finite positive w/h/l, er>1 and nonnegative t/rho/tand/d');
   }
   const { z0, epsilon } = microstrip(w, h, t, er);
+  const tranmodel = real(params, 'tranmodel');
+  const delay = length * Math.sqrt(epsilon) / C0;
+  // ngspice tline_common.c stores port voltage/current samples. Store their
+  // travelling-wave sums instead; only accept() may advance this history.
+  const history: { time: number; forward: number; reverse: number }[] = [];
   return {
-    stateful: false, ac: STATIC,
+    stateful: true, ac: STATIC,
     // ngspice-47 tlines/mlin/cfunc.mod:116-128. DC is ideal, not rho*l/(w*t).
     load(call) {
-      if (call.analysis === 'tran') throw new UnsupportedMlinError('XSPICE mlin transient is not supported');
+      if (call.analysis === 'tran') {
+        if (tranmodel !== 0 && tranmodel !== 1) {
+          throw new UnsupportedMlinError('XSPICE mlin supports only tranmodel=0 or tranmodel=1');
+        }
+        if (tranmodel === 1 && call.time > delay) {
+          // get_state() selects the first sample at or after TIME-delay.
+          // If that is the current trial, use the instantaneous/DC equations
+          // below, including their Jacobian. No trial is stored here.
+          const point = history.find(point => point.time >= call.time - delay);
+          if (point) {
+            call.outputs[0] = point.reverse + z0 * call.inputs[0];
+            call.outputs[1] = point.forward + z0 * call.inputs[1];
+            call.partials.set([z0, 0, 0, 0, 0, z0, 0, 0]);
+            return;
+          }
+        }
+      }
       const sum = z0 * (call.inputs[0] + call.inputs[1]);
       call.outputs[0] = call.inputs[3] + sum;
       call.outputs[1] = call.inputs[2] + sum;
       call.partials.set([z0, z0, 0, 1, z0, z0, 1, 0]);
     },
+    accept(call) {
+      if (tranmodel !== 1) return;
+      // Also support replacing an accepted timepoint on restart/rollback.
+      while (history.length && history[history.length - 1].time >= call.time) history.pop();
+      history.push({ time: call.time, forward: call.inputs[2] + z0 * call.inputs[0], reverse: call.inputs[3] + z0 * call.inputs[1] });
+      while (history.length > 1 && history[0].time < call.time - 1.2 * delay) history.shift();
+    },
+    reset() { history.length = 0; },
     // msline_common.c:315-347 and tlines/mlin/cfunc.mod:130-151.
     acGains(omega) {
       const f = omega / (2 * Math.PI);
