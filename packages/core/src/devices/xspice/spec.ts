@@ -412,20 +412,20 @@ function pull(name: string): XspiceCodeModelSpec {
   return { name, connections: [digital('out', 'out')], params: [real('load', 1e-12)] };
 }
 
-/** digital/{d_jkff,d_dff,d_tff,d_srff}/ifspec.ifs */
-function flipFlop(name: string, data: readonly string[], load: string): XspiceCodeModelSpec {
+/** digital/{d_jkff,d_dff,d_tff,d_srff,d_dlatch,d_srlatch}/ifspec.ifs */
+function flipFlop(name: string, data: readonly string[], load: string, latch = false): XspiceCodeModelSpec {
   return {
     name,
     connections: [
-      ...data.map(port => digital(port, 'in')), digital('clk', 'in'),
+      ...data.map(port => digital(port, 'in')), digital(latch ? 'enable' : 'clk', 'in'),
       ...['set', 'reset'].map(port => ({ ...digital(port, 'in'), nullAllowed: true })),
       ...['out', 'nout'].map(port => ({ ...digital(port, 'out'), nullAllowed: true })),
     ],
     params: [
-      ...['clk_delay', 'set_delay', 'reset_delay'].map(param => real(param, 1e-9, { limits: [1e-12, undefined] })),
+      ...(latch ? [load === 'sr_load' ? 'sr_delay' : 'data_delay', 'enable_delay', 'set_delay', 'reset_delay'] : ['clk_delay', 'set_delay', 'reset_delay']).map(param => real(param, 1e-9, { limits: [1e-12, undefined] })),
       { name: 'ic', type: 'int', defaultValue: [0], limits: [0, 2], vector: false, nullAllowed: true },
       ...DIGITAL_DELAYS,
-      ...[load, 'clk_load', 'set_load', 'reset_load'].map(param => real(param, 1e-12)),
+      ...[load, latch ? 'enable_load' : 'clk_load', 'set_load', 'reset_load'].map(param => real(param, 1e-12)),
     ],
   };
 }
@@ -533,6 +533,14 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
     },
     flipFlop('d_jkff', ['j', 'k'], 'jk_load'), flipFlop('d_dff', ['data'], 'data_load'),
     flipFlop('d_tff', ['t'], 't_load'), flipFlop('d_srff', ['s', 'r'], 'sr_load'),
+    flipFlop('d_dlatch', ['data'], 'data_load', true), flipFlop('d_srlatch', ['s', 'r'], 'sr_load', true),
+    {
+      name: 'd_fdiv', connections: [digital('freq_in', 'in'), digital('freq_out', 'out')],
+      params: [
+        ...([['div_factor', 2, 1], ['high_cycles', 1, 1], ['i_count', 0, 0]] as const).map(([name, value, lower]) => ({ name, type: 'int' as const, defaultValue: [value], limits: [lower, undefined] as const, vector: false, nullAllowed: true })),
+        ...DIGITAL_DELAYS, real('freq_in_load', 1e-12),
+      ],
+    },
     unaryGate('d_buffer'), unaryGate('d_inverter'),
     {
       // ngspice-47 digital/d_tristate/ifspec.ifs:29-62 (default transport-delay mode).

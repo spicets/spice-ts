@@ -14,7 +14,7 @@ import {
 } from './event-network.js';
 import { flag, real, STATIC, type CodeModelBehavior, type CodeModelCall, type ResolvedXspiceParams } from './models.js';
 import type { XspiceConnection } from './connections.js';
-import { flipFlop } from './flipflop-models.js';
+import { flipFlop, frequencyDivider } from './flipflop-models.js';
 import { controlledOscillator } from './dosc-pwm-models.js';
 import { ram } from './ram-model.js';
 import { tristate } from './d-tristate.js';
@@ -476,6 +476,9 @@ export const DIGITAL_MODELS: ReadonlyMap<string, DigitalModelFactory> = new Map<
   ['d_dff', flipFlop('d')],
   ['d_tff', flipFlop('t')],
   ['d_srff', flipFlop('sr')],
+  ['d_dlatch', flipFlop('dlatch')],
+  ['d_srlatch', flipFlop('srlatch')],
+  ['d_fdiv', frequencyDivider],
   ['d_pulldown', pull(ZERO)],
   ['d_pullup', pull(ONE)],
   ['d_buffer', gate(buffer)],
