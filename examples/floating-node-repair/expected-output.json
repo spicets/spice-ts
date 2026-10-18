@@ -10,6 +10,7 @@
     "spice_validate:internal-backend"
   ],
   "tools": [
+    "spice_sensitivity",
     "spice_capabilities",
     "spice_validate",
     "spice_convert",
