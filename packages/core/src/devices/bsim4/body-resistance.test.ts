@@ -48,6 +48,17 @@ describe('BSIM4 RBODYMOD=1', () => {
     expect(parse(override).compile().devices.find(d => d.name === 'M1')!.nodes).toHaveLength(4);
     for (const name of ['Vd', 'Vg', 'Vs', 'Vb']) expect(a.dc!.current(name)).toBe(b.dc!.current(name));
   });
+  it('keeps every RBODYMOD=0 transient time/voltage/current sample bit-identical to main', async () => {
+    const deck = readFileSync(new URL('../rgatemod1/transient.cir', base), 'utf8');
+    expect(createHash('sha256').update(deck).digest('hex')).toBe('27e61e80595f94cbba04885602b292c2864072944abcd0f1819071cdbcda825d');
+    const result = (await simulate(deck)).transient!;
+    // Captured independently using git archive a7b08165, not the new adapter.
+    // JSON preserves the exact double values, including the adaptive time grid.
+    const vectors = [result.time, ...['d', 'g', 'M1.gate'].map(n => result.voltage(n)),
+      ...['Vd', 'Vg'].map(n => result.current(n))];
+    expect(result.time).toHaveLength(1014);
+    expect(createHash('sha256').update(JSON.stringify(vectors)).digest('hex')).toBe('f82c26e941f88ce67a12a945519f1e2ecc7bf999ac1fb5d6d82225d53a1cfe32');
+  });
   it('rejects body-network transient until separate junction charge states are ported', () => {
     const deck = readFileSync(new URL('model.cir', base), 'utf8').replace('.ac dec 2 1k 1meg', '.tran 1n 10n');
     expect(() => parse(deck).compile()).toThrow(UnsupportedModelParameterError);
