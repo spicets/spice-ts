@@ -39,7 +39,7 @@ import {
   type PackedExecution,
   unpackExecution,
 } from './packed.js';
-import { runCorpusFSpiceTs } from './plot-adapter.js';
+import { batchControlPlots, runCorpusFSpiceTs } from './plot-adapter.js';
 import { readNgspiceRawFilePacked } from './raw-stream.js';
 import { declaredSecondaryGrid } from '../../sweep-coordinates.js';
 import {
@@ -396,12 +396,19 @@ export async function runFixture(
   // (#694): compareExecutions scores common signals only, so the outcome is the same either way.
   // Both engines stay packed; the metric sees per-sample objects one bounded batch at a time (#839).
   const spiceTs = { execution: await runBoundedSimulatePacked(input, asClassic(circuit)) };
-  const spiceTsView = lazyExecution(spiceTs.execution);
+  let spiceTsView = lazyExecution(spiceTs.execution);
   const ngspice = await reference(input, circuit, referenceSelection(spiceTsView));
   const ngspiceExecution = asPacked(ngspice.execution);
+  let comparisonExecution = spiceTs.execution;
+  if (reference === runNgspicePacked) {
+    const paired = batchControlPlots(input.toString('utf8'), spiceTs.execution.analyses, ngspiceExecution.analyses);
+    comparisonExecution = { ...spiceTs.execution, analyses: paired.candidate };
+    ngspiceExecution.analyses = paired.reference;
+    spiceTsView = lazyExecution(comparisonExecution);
+  }
   const spiceTsStatus: EngineStatus = spiceTs.execution.status;
   const comparisons = ngspice.status === 'success' && spiceTsStatus === 'success'
-    ? compareInBatches(spiceTs.execution, ngspiceExecution)
+    ? compareInBatches(comparisonExecution, ngspiceExecution)
     : [];
   const { errors, missing } = normalizedSignalErrors(comparisons, pairedReferenceSeries(spiceTsView, lazyExecution(ngspiceExecution)));
   const worst = errors.reduce<typeof errors[number] | null>((current, error) =>

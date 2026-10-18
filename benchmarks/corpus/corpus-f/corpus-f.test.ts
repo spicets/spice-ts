@@ -34,7 +34,7 @@ import {
   thirdPartyNotice,
 } from './lib.js';
 import { type FixtureOutcome, mergeReadme, outcomeDigest, packExecution, referenceSelection, renderMarkdown, runBoundedSimulate, runFixture, summarize, unpackExecution, type CorpusFReport } from './outcomes.js';
-import { controlPlotAnalyses, runCorpusFSpiceTs, sensitivitySignalName } from './plot-adapter.js';
+import { batchControlPlots, controlPlotAnalyses, runCorpusFSpiceTs, sensitivitySignalName } from './plot-adapter.js';
 import { asPacked, compareInBatches, lazyExecution, PACKED_SAMPLES, packEncoded, samples } from './packed.js';
 import { PACKED_COLUMNS, parseRawLines, parseRawLinesInto } from './raw-stream.js';
 import { parseNgspiceRaw } from '../../comparison-harness.js';
@@ -47,6 +47,34 @@ const HAS_NGSPICE = spawnSync('ngspice', ['--version'], { encoding: 'utf8' }).st
 const HAS_CORE_DIST = existsSync('packages/core/dist/index.js');
 
 describe('corpus-f control wrapper (#521)', () => {
+  it('selects batch final plots without changing explicit, multiple-raw or non-dot identities (#1423)', () => {
+    const deck = 'toy\n.dc V1 0 1 .1\n.control\nrepeat 10\nrun\nend\n.endc\n.end';
+    const own = [1, 2, 10].map(n => ({ type: 'dc' as const, plotName: 'DC transfer characteristic', plotId: `dc${n}` }));
+    const raw = [{ type: 'dc' as const, plotName: 'DC transfer characteristic' }];
+    assert.deepEqual(batchControlPlots(deck, own, raw), { candidate: [own[2]], reference: [{ ...raw[0], plotId: 'dc10' }] });
+    for (const [text, reference] of [
+      [deck, own], // source/write exports
+      [deck, [...raw, ...raw]], // repeated batch dot cards
+      [deck.replace('.dc V1 0 1 .1\n', ''), raw], // control-only commands
+      ['toy\n.dc V1 0 1 .1\n.end', raw], // no control block
+    ] as const) {
+      assert.deepEqual(batchControlPlots(text, own, reference), { candidate: own, reference });
+    }
+    assert.deepEqual(own.map(p => p.plotId), ['dc1', 'dc2', 'dc10']);
+    assert.equal('plotId' in raw[0], false);
+  });
+  it('pairs the final control run with the final batch dot-card plot (#1423)', { skip: !HAS_NGSPICE || !HAS_CORE_DIST }, async () => {
+    const data = await manifest();
+    const circuit = data.circuits.find(c => c.sourcePath === 'examples/various/param_sweep.cir')!;
+    const batch = await runFixture(circuit, undefined, { fineReference: false });
+    assert.equal(batch.outcome, 'matched');
+    assert.ok(batch.worstNormalizedError! <= MATCH_THRESHOLD);
+    assert.equal(batch.comparedAnalyses, 1);
+    // The source/write supplement still scores every retained plot by its real ID.
+    const retained = await runFixture(circuit, runControlReference);
+    assert.equal(retained.outcome, 'matched');
+    assert.equal(retained.comparedAnalyses, 10);
+  });
   it('skips only paired unwritable exports and preserves other errors (#1356)', async () => {
     const directory = await mkdtemp(resolve(tmpdir(), 'corpus-f-export-'));
     const warning = 'Warning from checkvalid: vector @r1[i] is not available or has zero length.';
