@@ -235,9 +235,10 @@ export function createXspiceDevice(
   const netlist = new NetlistProbe(metered);
   // delay distinguishes PARAM_NULL from the ifspec defaults (buffer_size/delmax).
   const behavior = analogHalf ?? BEHAVIORS.get(model.codeModel)!(model.codeModel === 'delay' ? model.params : params, { connections, netlist });
-  // astate stores samples, not integrated charge: node LTE would change the history's time grid.
+  // astate, delay and mlin store samples, not integrated charge: node LTE
+  // would change the history's time grid (mlin uses a ceiling lookup).
   // Neither magnetic model calls cm_analog_integrate (lcouple's fake call is commented out).
-  const untruncated = analogHalf !== undefined || model.codeModel === 'astate' || model.codeModel === 'delay' || model.codeModel === 'lcouple' || model.codeModel === 'core';
+  const untruncated = analogHalf !== undefined || model.codeModel === 'astate' || model.codeModel === 'delay' || model.codeModel === 'mlin' || model.codeModel === 'lcouple' || model.codeModel === 'core';
   const device = new XspiceDevice(
     card.name, model.codeModel, inputs, outputs, behavior, model.warnings, untruncated,
   );
