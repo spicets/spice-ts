@@ -3,9 +3,10 @@ import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv
 import { executeTool, MCP_TOOLS } from './server.js';
 import { acMetrics } from './ac-metrics.js';
 import type { SimulationResultV1 } from '@spice-ts/core/protocol';
+import { readFileSync } from 'node:fs';
 
 const rc = '* Original MIT analytic RC probe\nV1 in 0 DC 0 AC 2\nR1 in out 1k\nC1 out 0 1u\n.ac dec 100 0.1 100k\n.end';
-const loop = '* Original MIT buffered two-pole loop\nV1 in 0 DC 0 AC 1\nR1 in p1 1k\nC1 p1 0 1u\nE1 b 0 p1 0 10\nR2 b out 1k\nC2 out 0 1u\n.ac dec 100 0.1 100k\n.end';
+const loop = readFileSync(new URL('../../../benchmarks/mcp-ac-metrics/two-pole.cir', import.meta.url), 'utf8');
 const args = (source = rc) => ({ request: { apiVersion: '1', input: { format: 'spice', source } }, output: 'out', input: 'in' });
 const validator = new AjvJsonSchemaValidator();
 async function metrics(source = rc) {
@@ -15,6 +16,23 @@ async function metrics(source = rc) {
 }
 
 describe('spice_ac_metrics', () => {
+  it('reports sampled peaking relative to the reference and the first peak frequency', () => {
+    const result: SimulationResultV1 = { status: 'complete', analyses: [{
+      type: 'ac', analysisIndex: 0, frequencyHz: [1, 10, 100, 1000], currentPhasors: {},
+      voltagePhasors: { out: [2, 4, 4, 1].map(magnitude => ({ magnitude, phaseDegrees: 0 })) },
+    }] };
+    expect(acMetrics(result, { output: 'out' })).toMatchObject({
+      peakingDb: expect.closeTo(20 * Math.log10(2), 10), peakFrequencyHz: 10,
+    });
+    result.analyses[0] = { ...result.analyses[0], voltagePhasors: {
+      out: [0, 0, 0, 0].map(magnitude => ({ magnitude, phaseDegrees: 0 })),
+    } } as typeof result.analyses[0];
+    expect(acMetrics(result, { output: 'out' })).toMatchObject({
+      peakingDb: null, peakFrequencyHz: null,
+      reasons: { peakingDb: 'NON_FINITE_GAIN', peakFrequencyHz: 'NON_FINITE_GAIN' },
+    });
+  });
+
   it.each([
     { magnitudes: [1, 0.1], phases: [-90, -135], unity: 1, margin: 90, gainMargin: null },
     { magnitudes: [10, 1], phases: [-90, -135], unity: 10, margin: 45, gainMargin: null },
@@ -69,16 +87,16 @@ describe('spice_ac_metrics', () => {
     expect(() => acMetrics(result, { output: 'out', input: 'out' })).toThrow();
   });
 
-  it('matches analytic RC cutoff and reports absent crossings without extrapolation', async () => {
-    const m = await metrics();
+  it.each([20, 100])('matches analytic RC cutoff at %i points/decade without extrapolation', async points => {
+    const m = await metrics(rc.replace('.ac dec 100', `.ac dec ${points}`));
     expect(Math.abs(m.dcGainDb)).toBeLessThan(0.01);
     expect(Math.abs(m.f3dbHz / (1 / (2 * Math.PI * 0.001)) - 1)).toBeLessThan(0.005);
     expect(m.unityGainHz).toBeNull();
     expect(m.phaseMarginDeg).toBeNull();
     expect(m.gainMarginDb).toBeNull();
-    expect(m.reasons.unityGainHz).toMatch(/crossing/i);
-    expect(m.reasons.phaseMarginDeg).toMatch(/unity/i);
-    expect(m.reasons.gainMarginDb).toMatch(/crossing/i);
+    expect(m.reasons.unityGainHz).toBe('NO_UNITY_GAIN_CROSSING');
+    expect(m.reasons.phaseMarginDeg).toBe('NO_UNITY_GAIN_CROSSING');
+    expect(m.reasons.gainMarginDb).toBe('NO_PHASE_CROSSING');
   });
 
   it('matches the analytic two-pole loop phase margin within 0.5 degrees', async () => {

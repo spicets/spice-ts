@@ -285,7 +285,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_ac_metrics',
-    description: 'Simulate and reduce one AC sweep to gain, half-power bandwidth and loop margins. dcGainDb is the lowest-frequency sample, not an extrapolation to DC. Uses first descending crossings with log-frequency interpolation.',
+    description: 'Simulate and reduce one AC sweep to gain, half-power bandwidth, sampled peaking and loop margins. dcGainDb is the lowest-frequency sample, not an extrapolation to DC. Uses first descending crossings with log-frequency interpolation; absent metrics have null values and reason codes.',
     inputSchema: {
       ...requestInputSchema,
       required: ['request', 'output'],

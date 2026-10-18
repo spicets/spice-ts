@@ -1987,3 +1987,16 @@ compared, not ngspice's additional model, geometry or temperature vectors.
 ngspice uses one-sided finite differences; the regression compares DC and complex
 AC derivatives at 1e-5 relative plus 1e-12 absolute tolerance and reports both
 maximum absolute error and nonzero-vector relative error.
+
+## MCP AC metrics (#1391)
+
+`benchmarks/mcp-ac-metrics/two-pole.cir` is an original MIT-licensed buffered
+two-pole op-amp macromodel, derived from H(s) = 10/(1+sRC)^2, R=1k, C=1u.
+Source: https://github.com/spicets/spice-ts/issues/1391 (no third-party model).
+The MCP unit test reads this fixture; `compare.mts` runs the identical elements
+and sweep against ngspice-47 `.meas ac` UGF and phase measurements. Only the
+ngspice observation/control commands differ, not the circuit or solver settings.
+Run `spice-heavy pnpm exec tsx benchmarks/mcp-ac-metrics/compare.mts` after build.
+The script prints both engines' values and errors and fails above 0.5% UGF or
+0.5 degrees phase-margin error. Interpolation differs (linear frequency in
+ngspice, log frequency in MCP). This is correctness evidence, not a speed claim.
