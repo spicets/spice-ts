@@ -66,6 +66,10 @@ export interface ChargeIntegration {
   readonly dt: number;
   /** Previous accepted step t(n) - t(n-1); required for `gear2`. */
   readonly prevDt?: number;
+  /** BDF order for TransientChargeState. Public transient MAXORD=3 is not yet supported. */
+  readonly order?: 2 | 3;
+  /** Second previous accepted step, required by the shared BDF3 charge kernel. */
+  readonly prevPrevDt?: number;
 }
 
 /**
@@ -78,6 +82,8 @@ export interface ChargeTruncation {
    * t(n+1) - t(n), then t(n) - t(n-1) and t(n-1) - t(n-2).
    */
   readonly deltas: readonly [number, number, number];
+  /** Fourth interval for the shared order-3 charge truncation kernel. */
+  readonly olderDelta?: number;
   readonly reltol: number;
   /** Current tolerance (A). */
   readonly abstol: number;
