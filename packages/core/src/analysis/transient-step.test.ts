@@ -5,6 +5,7 @@ import { resolveOptions } from '../types.js';
 import { attemptStep } from './transient-step.js';
 import { SingularMatrixError } from '../errors.js';
 import type { SparseSolver } from '../solver/sparse-solver.js';
+import { SwitchBase, REALLY_ON } from '../devices/switch.js';
 
 function buildRCContext() {
   const ckt = parse(`
@@ -20,6 +21,29 @@ C1 2 0 1u
 }
 
 describe('attemptStep', () => {
+  it.each([
+    ['SW', 'V1 ctrl 0 DC 500n\nS1 out 0 ctrl 0 SW', 'VT=200n'],
+    ['CSW', 'I1 0 ctrl DC 500n\nV1 ctrl 0 0\nW1 out 0 V1 CSW', 'IT=200n'],
+  ])('reloads %s after a first Newton update inside convergence tolerance', (model, control, threshold) => {
+    // NIiter (ngspice-47 niiter.c:287-290) never accepts iteration one.
+    // A small control update can cross VT even when NIconvTest would pass.
+    const compiled = parse(`Switch below convergence tolerance
+${control}
+R1 out 0 1k
+.model ${model} ${model}(${threshold} RON=1 ROFF=1e12)
+.tran 1u 1m
+.end`).compile();
+    const options = resolveOptions(undefined, 1e-3);
+    const assembler = new MNAAssembler(compiled.nodeCount, compiled.branchCount);
+    const result = attemptStep({ compiled, assembler, options }, {
+      dt: 1e-6, time: 1e-6, prevSolution: new Float64Array(assembler.solution),
+      prevB: undefined, gmin: 1e-12, voltageLimit: 3.5,
+    });
+    expect(result.ok).toBe(true);
+    expect(compiled.devices.find(device => device instanceof SwitchBase)!.currentState).toBe(REALLY_ON);
+    expect(result.iterations).toBeGreaterThanOrEqual(2);
+  });
+
   it('converges in a small number of iterations for a linear RC circuit', () => {
     const { compiled, options, assembler } = buildRCContext();
     const prevSol = new Float64Array(assembler.solution);

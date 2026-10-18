@@ -161,7 +161,10 @@ export abstract class SwitchBase implements DeviceModel {
         next = this.floatState(control, old);
         break;
     }
-    this.changedLastLoad = mode === 'float' && next !== old;
+    // NIiter never accepts a predictor load (niiter.c:287-290). Request a
+    // float reload even if the first Newton update is below VNTOL: that
+    // update can still cross VT/IT and change the switch conductance.
+    this.changedLastLoad = mode === 'predict' || (mode === 'float' && next !== old);
     this.state = next;
     this.control = control;
     this.stampConductance(ctx, this.conductance);
