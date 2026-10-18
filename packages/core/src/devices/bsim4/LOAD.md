@@ -77,7 +77,19 @@ poly depletion and nonnominal temperature. Run:
 The parity tests read the native oracle and print maximum normalized gate and
 drain branch-current errors. Before this extension the same IGCMOD=1 cards
 throw UnsupportedModelParameterError. IGCMOD=2, nonbaseline RBODYMOD
-and RGATEMOD=2/3 remain unsupported; see below for the transient charge extension.
+and RGATEMOD=3 remain unsupported; see below for the gate and transient extensions.
+
+### RGATEMOD=2 extension (#1427)
+
+RGATEMOD=2 (#1427) shares the intrinsic gate topology for OP/DC/AC and adds
+the b4ld.c:2191-2225 bias-dependent intrinsic input conductance in series with
+the electrode conductance. Its analytic derivatives are stamped in both channel
+orientations, including the DC gate-current voltage drop. The authored MIT
+common-source fixtures and ngspice-47 generator in `__fixtures__/rgatemod2/`
+cover NMOS, PMOS instance override, reverse operation, NF/M and RSHG=0.
+`gate-resistance2.test.ts` uses the existing OP/AC component bound (relative
+1e-6 or absolute 1e-12), and the five-node tests check KCL/Jacobians.
+RGATEMOD=2 transient and RGATEMOD=3 still raise structured unsupported errors.
 
 ### RGATEMOD=1 extension (#1370)
 
@@ -206,7 +218,7 @@ remaining waveform/current parity work is not solved by charge integration alone
 
 Other unsupported selectors and model paths:
 
-- TRNQSMOD/ACNQSMOD != 0; RDSMOD/RBODYMOD != 0, RGATEMOD=2/3,
+- TRNQSMOD/ACNQSMOD != 0; RDSMOD/RBODYMOD != 0, RGATEMOD=3 (and 2 for transient),
   and positive RSH with given positive NRD/NRS.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,
   MTRLCOMPATMOD, CVCHARGEMOD, GIDLMOD, WPEMOD, FNOIMOD or TNOIMOD selectors.

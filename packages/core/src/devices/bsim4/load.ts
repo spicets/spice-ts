@@ -36,6 +36,7 @@ import type { Bsim4ModelParameter } from './params.js';
  */
 export interface Bsim4Bias { readonly vgs: number; readonly vds: number; readonly vbs: number }
 export interface Bsim4OperatingPoint {
+  readonly gcrg: number; readonly gcrgg: number; readonly gcrgd: number; readonly gcrgb: number; readonly gcrgs: number;
   readonly mode: 1 | -1;
   readonly ids: number; readonly gm: number; readonly gds: number; readonly gmbs: number;
   readonly isub: number; readonly gbgs: number; readonly gbds: number; readonly gbbs: number;
@@ -107,11 +108,18 @@ export function evaluateBsim4(
     throw new InvalidCircuitError('BSIM4 bias and gmin must be finite, gmin nonnegative');
   }
   const here = { ...processed.instance } as Bsim4LoadInstance;
+  // b4temp.c:1926-1938; electrode conductance before the b4ld series reduction.
+  const { model, size, instance } = processed;
+  const resistance = model.rshg * (instance.xgw + size.weffCJ / (3 * instance.ngcon))
+    / (instance.ngcon * instance.nf * (instance.l + model.xl - model.xgl));
+  here.grgeltd = resistance > 0 ? 1 / resistance : 1e3;
   const ids = applyLoad(processed.model, given, here, processed.size as Bsim4LoadSize,
     processed.temperatureK, bias.vgs, bias.vds, bias.vbs) * here.nf;
   const source = evaluateBsim4Junction(processed.sourceJunction, bias.vbs, gmin);
   const drain = evaluateBsim4Junction(processed.drainJunction, bias.vbs - bias.vds, gmin);
   const result: Bsim4OperatingPoint = {
+    gcrg: here.gcrg ?? 0, gcrgg: here.gcrgg ?? 0, gcrgd: here.gcrgd ?? 0,
+    gcrgb: here.gcrgb ?? 0, gcrgs: here.gcrgs ?? 0,
     mode: here.mode as 1 | -1, ids, gm: here.gm * here.nf, gds: here.gds * here.nf, gmbs: here.gmbs * here.nf,
     isub: here.csub * here.nf, gbgs: here.gbgs * here.nf, gbds: here.gbds * here.nf, gbbs: here.gbbs * here.nf,
     cbs: source.current, cbd: drain.current, gbs: source.conductance, gbd: drain.conductance,

@@ -156,8 +156,8 @@ import type { Bsim4TemperatureModel, Bsim4Size } from './temperature-kernel.js';
 import type { Bsim4StaticInstance } from './temp.js';
 import type { Bsim4ModelParameter } from './params.js';
 export type Bsim4LoadModel = Bsim4TemperatureModel & Record<'Eg0' | 'coxe' | 'factor1' | 'vtm' | 'vtm0', number>;
-export type Bsim4LoadSize = Bsim4Size & Record<'Aechvb' | 'AechvbEdgeD' | 'AechvbEdgeS' | 'Bechvb' | 'BechvbEdge' | 'ToxRatio' | 'VgsteffVth' | 'Xdep0' | 'a0' | 'a1' | 'a2' | 'abulkCVfactor' | 'acde' | 'ags' | 'aigbacc' | 'aigbinv' | 'aigc' | 'aigd' | 'aigs' | 'alpha0' | 'alpha1' | 'b0' | 'b1' | 'beta0' | 'bigbacc' | 'bigbinv' | 'bigc' | 'bigd' | 'bigs' | 'cdep0' | 'cdsc' | 'cdscb' | 'cdscd' | 'cigbacc' | 'cigbinv' | 'cigc' | 'cigd' | 'cigs' | 'cit' | 'delta' | 'dvt0' | 'dvt0w' | 'dvt1' | 'dvt1w' | 'dvt2' | 'dvt2w' | 'dvtp0' | 'dvtp1' | 'dvtp2factor' | 'dvtp4' | 'dwb' | 'dwg' | 'eigbinv' | 'etab' | 'eu' | 'fprout' | 'k1' | 'k1ox' | 'k3' | 'k3b' | 'keta' | 'ketac' | 'kt1' | 'kt1l' | 'kt2' | 'lambda' | 'ldeb' | 'leff' | 'leffCV' | 'litl' | 'lpe0' | 'lpeb' | 'moin' | 'mstar' | 'mstarcv' | 'nfactor' | 'ngate' | 'nigbacc' | 'nigbinv' | 'nigc' | 'noff' | 'pclm' | 'pdiblb' | 'pdits' | 'pditsd' | 'phi' | 'pigcd' | 'prwb' | 'prwg' | 'pscbe1' | 'pscbe2' | 'pvag' | 'rds0' | 'rdswmin' | 'sqrtPhi' | 'tfactor' | 'theta0vb0' | 'thetaRout' | 'ua' | 'ub' | 'uc' | 'ucs' | 'ud' | 'vbi' | 'vfbsd' | 'vfbsdoff' | 'voffcbn' | 'voffcbncv' | 'voffcv' | 'vtl' | 'w0' | 'weff' | 'weffCV' | 'xj', number>;
-export type Bsim4LoadInstance = Bsim4StaticInstance & Record<'AbovVgst2Vtm' | 'Abulk' | 'Coxeff' | 'EsatL' | 'IdovVds' | 'Igb' | 'Igcd' | 'Igcs' | 'Igd' | 'Igs' | 'Vdseff' | 'Vgsteff' | 'cbbb' | 'cbdb' | 'cbgb' | 'cbsb' | 'cdbb' | 'cddb' | 'cdgb' | 'cdsb' | 'cgbb' | 'cgdb' | 'cggb' | 'cgsb' | 'coxp' | 'csbb' | 'csdb' | 'csgb' | 'cssb' | 'csub' | 'dvgd_eff_dvg' | 'dvgs_eff_dvg' | 'eta0' | 'gIgbb' | 'gIgbd' | 'gIgbg' | 'gIgbs' | 'gIgcdb' | 'gIgcdd' | 'gIgcdg' | 'gIgcsb' | 'gIgcsd' | 'gIgcsg' | 'gIgdd' | 'gIgdg' | 'gIgsg' | 'gIgss' | 'gbbs' | 'gbds' | 'gbgs' | 'gds' | 'gm' | 'gmbs' | 'grdsw' | 'k2ox' | 'mode' | 'nf' | 'nstar' | 'qbulk' | 'qdrn' | 'qgate' | 'qsrc' | 'thetavth' | 'toxp' | 'u0temp' | 'ueff' | 'vbsc' | 'vdsat' | 'vfb' | 'vfbzb' | 'vgd_eff' | 'vgs_eff' | 'von' | 'vsattemp' | 'vtfbphi1' | 'vtfbphi2' | 'vth0', number>;
+export type Bsim4LoadSize = Bsim4Size & Record<'Aechvb' | 'AechvbEdgeD' | 'AechvbEdgeS' | 'Bechvb' | 'BechvbEdge' | 'ToxRatio' | 'VgsteffVth' | 'Xdep0' | 'a0' | 'a1' | 'a2' | 'abulkCVfactor' | 'acde' | 'ags' | 'aigbacc' | 'aigbinv' | 'aigc' | 'aigd' | 'aigs' | 'alpha0' | 'alpha1' | 'b0' | 'b1' | 'beta0' | 'bigbacc' | 'bigbinv' | 'bigc' | 'bigd' | 'bigs' | 'cdep0' | 'cdsc' | 'cdscb' | 'cdscd' | 'cigbacc' | 'cigbinv' | 'cigc' | 'cigd' | 'cigs' | 'cit' | 'delta' | 'dvt0' | 'dvt0w' | 'dvt1' | 'dvt1w' | 'dvt2' | 'dvt2w' | 'dvtp0' | 'dvtp1' | 'dvtp2factor' | 'dvtp4' | 'dwb' | 'dwg' | 'eigbinv' | 'etab' | 'eu' | 'fprout' | 'k1' | 'k1ox' | 'k3' | 'k3b' | 'keta' | 'ketac' | 'kt1' | 'kt1l' | 'kt2' | 'lambda' | 'ldeb' | 'leff' | 'leffCV' | 'litl' | 'lpe0' | 'lpeb' | 'moin' | 'mstar' | 'mstarcv' | 'nfactor' | 'ngate' | 'nigbacc' | 'nigbinv' | 'nigc' | 'noff' | 'pclm' | 'pdiblb' | 'pdits' | 'pditsd' | 'phi' | 'pigcd' | 'prwb' | 'prwg' | 'pscbe1' | 'pscbe2' | 'pvag' | 'rds0' | 'rdswmin' | 'sqrtPhi' | 'tfactor' | 'theta0vb0' | 'thetaRout' | 'ua' | 'ub' | 'uc' | 'ucs' | 'ud' | 'vbi' | 'vfbsd' | 'vfbsdoff' | 'voffcbn' | 'voffcbncv' | 'voffcv' | 'vtl' | 'w0' | 'weff' | 'weffCV' | 'xj' | 'xrcrg1' | 'xrcrg2', number>;
+export type Bsim4LoadInstance = Bsim4StaticInstance & Record<'AbovVgst2Vtm' | 'Abulk' | 'Coxeff' | 'EsatL' | 'IdovVds' | 'Igb' | 'Igcd' | 'Igcs' | 'Igd' | 'Igs' | 'Vdseff' | 'Vgsteff' | 'acnqsmod' | 'cbbb' | 'cbdb' | 'cbgb' | 'cbsb' | 'cdbb' | 'cddb' | 'cdgb' | 'cdsb' | 'cgbb' | 'cgdb' | 'cggb' | 'cgsb' | 'coxp' | 'csbb' | 'csdb' | 'csgb' | 'cssb' | 'csub' | 'dvgd_eff_dvg' | 'dvgs_eff_dvg' | 'eta0' | 'gIgbb' | 'gIgbd' | 'gIgbg' | 'gIgbs' | 'gIgcdb' | 'gIgcdd' | 'gIgcdg' | 'gIgcsb' | 'gIgcsd' | 'gIgcsg' | 'gIgdd' | 'gIgdg' | 'gIgsg' | 'gIgss' | 'gbbs' | 'gbds' | 'gbgs' | 'gcrg' | 'gcrgb' | 'gcrgd' | 'gcrgg' | 'gcrgs' | 'gds' | 'gm' | 'gmbs' | 'grdsw' | 'grgeltd' | 'k2ox' | 'mode' | 'nf' | 'nstar' | 'qbulk' | 'qdrn' | 'qgate' | 'qsrc' | 'rgatemod' | 'thetavth' | 'toxp' | 'trnqsmod' | 'u0temp' | 'ueff' | 'vbsc' | 'vdsat' | 'vfb' | 'vfbzb' | 'vgd_eff' | 'vgs_eff' | 'von' | 'vsattemp' | 'vtfbphi1' | 'vtfbphi2' | 'vth0', number>;
 const MAX_EXP = 5.834617425e14, MIN_EXP = 1.713908431e-15, EXP_THRESHOLD = 34;
 const EPS0 = 8.85418e-12, EPSSI = 1.03594e-10, Charge_q = 1.60219e-19, MM = 3;
 const DELTA_3 = 0.02, DELTA_4 = 0.02;
@@ -1423,6 +1423,42 @@ export function applyLoad(model: Readonly<Bsim4LoadModel>, given: ReadonlySet<Bs
   here.gmbs = Gmb;
   here.IdovVds = Ids;
   if( here.IdovVds <= model.idovvds) here.IdovVds = model.idovvds;
+
+  /* Calculate Rg */
+  if ((here.rgatemod > 1) ||
+  (here.trnqsmod != 0) || (here.acnqsmod != 0))
+  {   T9 = pParam.xrcrg2 * model.vtm;
+  T0 = T9 * beta;
+  dT0_dVd = (dbeta_dVd + dbeta_dVg * dVgsteff_dVd) * T9;
+  dT0_dVb = (dbeta_dVb + dbeta_dVg * dVgsteff_dVb) * T9;
+  dT0_dVg = dbeta_dVg * T9;
+
+  here.gcrg = pParam.xrcrg1 * ( T0 + Ids);
+  here.gcrgd = pParam.xrcrg1 * (dT0_dVd + tmp1);
+  here.gcrgb = pParam.xrcrg1 * (dT0_dVb + tmp2)
+  * dVbseff_dVb;
+  here.gcrgg = pParam.xrcrg1 * (dT0_dVg + tmp3)
+  * dVgsteff_dVg;
+
+  if (here.nf != 1.0)
+  {   here.gcrg *= here.nf;
+  here.gcrgg *= here.nf;
+  here.gcrgd *= here.nf;
+  here.gcrgb *= here.nf;
+  }
+
+  if (here.rgatemod == 2)
+  {   T10 = here.grgeltd * here.grgeltd;
+  T11 = here.grgeltd + here.gcrg;
+  here.gcrg = here.grgeltd * here.gcrg / T11;
+  T12 = T10 / T11 / T11;
+  here.gcrgg *= T12;
+  here.gcrgd *= T12;
+  here.gcrgb *= T12;
+  }
+  here.gcrgs = -(here.gcrgg + here.gcrgd
+  + here.gcrgb);
+  }
   /* Calculate gate tunneling current */
   if ((model.igcmod != 0) || (model.igbmod != 0))
   {   Vfb = here.vfbzb;

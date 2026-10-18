@@ -762,6 +762,14 @@ licence); `inverter-reference.json` is actual ngspice-47 output consumed by that
 test, not an upstream circuit. The corpus-g FD fixture is unchanged and retains
 its existing source/licence/hash provenance. Dynamic residuals are reported in #1367.
 
+The RGATEMOD=2 OP/DC/AC common-source decks in
+`packages/core/src/devices/bsim4/__fixtures__/rgatemod2/` are project-authored
+under the repository MIT licence. Their committed `generate.py` runs identical
+decks with ngspice-47 (only output controls added), recording SHA-256 hashes and
+native OP/DC/complex AC samples in `ngspice-47.json`. The gcrg equations are
+ported from b4ld.c:2191-2225 at the pinned ngspice revision below, under the
+same ECL-2.0 licence and retained notices. No per-circuit tolerance tuning.
+
 The RGATEMOD=1 gate-RC transient deck at
 `packages/core/src/devices/bsim4/__fixtures__/rgatemod1/transient.cir` is
 project-authored under the repository MIT licence, not copied from upstream.

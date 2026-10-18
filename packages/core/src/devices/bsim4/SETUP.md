@@ -50,13 +50,14 @@ All guards reuse `UnsupportedModelParameterError`, exported here as
   CVCHARGEMOD=0, GIDLMOD=0, WPEMOD=0, FNOIMOD=1, TNOIMOD=0.
   BINUNIT accepts 1/2; PARAMCHK accepts 0/1. Baselines do not imply noise or
   capacitive support. IGCMOD=1 and IGBMOD=1 additionally support static tunneling.
-  RGATEMOD=1 supports the static gate-electrode network (see LOAD.md).
+  RGATEMOD=1 supports the gate-electrode network; RGATEMOD=2 adds intrinsic
+  input resistance for OP/DC/AC only (see LOAD.md).
   Alternate CAPMOD/PERMOD values conservatively reject.
 - Every explicitly nondefault model stress/WPE parameter in `LAYOUT_DEFAULTS`
   rejects, including L/W/P coefficients. This is conservative even where another
   activation input is absent. Defaults such as SAREF=1e-6 and LODK2=1 are neutral.
 - Instance TRNQSMOD/ACNQSMOD/RBODYMOD/GEOMOD/RGEOMOD/WNFLAG
-  must be zero. RGATEMOD accepts 0/1 and overrides the model selector.
+  must be zero. RGATEMOD accepts 0/1/2 and overrides the model selector.
   SA/SB/SD/SCA/SCB/SCC/SC must match their resolved defaults.
 - Positive RSH plus explicitly given positive NRD or NRS rejects, because
   `b4set.c:2434-2515` then needs an unported source/drain node. Positive RSH alone

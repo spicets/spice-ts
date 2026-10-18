@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 SHA = 'a80f6e3e95d51534905b1f23410a951802666656'
-RANGES = [(1004, 2189), (2527, 2921), (3339, 3913)]
+RANGES = [(1004, 2225), (2527, 2921), (3339, 3913)]
 
 
 def generate(source: Path) -> str:
@@ -38,6 +38,9 @@ def generate(source: Path) -> str:
         comments.append(match[0])
         return f'__COMMENT_{len(comments)-1}__'
     body = re.sub(r'/\*.*?\*/|//[^\n]*', save, body, flags=re.S)
+    # Instance selectors use lower-case parameter names in our setup contract.
+    for selector in ['rgate', 'trnqs', 'acnqs']:
+        body = body.replace(f'here->BSIM4{selector}Mod', f'here->BSIM4{selector}mod')
     model_extras = sorted({f for f in re.findall(r'model->BSIM4(\w+)', body) if f not in fields and not f.endswith('Given')})
     size_fields = sorted(set(re.findall(r'pParam->BSIM4(\w+)', body)))
     here_fields = sorted(set(re.findall(r'here->BSIM4(\w+)', body)))
