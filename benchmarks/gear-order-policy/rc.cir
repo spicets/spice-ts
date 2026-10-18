@@ -1,7 +1,0 @@
-RC Gear order policy (original spice-ts fixture, MIT)
-V1 in 0 DC 1
-R1 in out 1k
-C1 out 0 1n
-.options method=gear maxord=2
-.tran 10n 2u 0 10n uic
-.end
