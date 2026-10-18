@@ -297,6 +297,10 @@ function sourceParameter(waveform: SourceDescriptorWaveform | undefined, key: st
   if (key === 'PULSE' && source.type === 'pulse') {
     return PULSE_FIELDS.map(field => (source as Record<string, number>)[field]);
   }
+  if (key === 'SIN' && source.type === 'sin') {
+    return [source.offset, source.amplitude, source.frequency, source.delay, source.damping, source.phase]
+      .map(value => value ?? 0);
+  }
   if (key === 'TRNOISE' && source.type === 'trnoise') {
     return [source.amplitude, source.ts, source.alpha, source.oneOverFAmplitude,
       source.rtsAmplitude, source.rtsCaptureTime, source.rtsEmissionTime].map(value => value ?? 0);
@@ -307,6 +311,7 @@ function sourceParameter(waveform: SourceDescriptorWaveform | undefined, key: st
   if (key === 'AC' || key === 'ACMAG') {
     return [source.type === 'ac' ? (source as { magnitude: number }).magnitude : source.ac?.magnitude ?? 0];
   }
+  if (key === 'ACPHASE') return [source.type === 'ac' ? source.phase ?? 0 : source.ac?.phase ?? 0];
   return undefined;
 }
 
@@ -1005,6 +1010,17 @@ export class Circuit {
   /** Instance-local edits survive re-expansion without changing shared definitions. */
   private _subcircuitAlterations = new Map<string, DeviceDescriptor>();
 
+  /** Resolve both internal X1.R1 and ngspice R.X1.R1 instance names. */
+  private controlDevice(name: string): DeviceDescriptor | undefined {
+    const upper = name.toUpperCase();
+    const topLevel = this.descriptors.find(candidate => candidate.name.toUpperCase() === upper);
+    if (topLevel || !name.includes('.')) return topLevel;
+    // ngspice-47 subckt.c translate_inst_name prefixes the device type.
+    return this.expandAllSubcircuits(this.collectGlobalNodes()).find(candidate =>
+      candidate.name.includes('.') && (candidate.name.toUpperCase() === upper
+        || `${candidate.type}.${candidate.name}`.toUpperCase() === upper));
+  }
+
   /**
    * @internal ngspice `alter`: change an input parameter of a flattened
    * device, with the same effect as editing its card. `parameter` undefined
@@ -1013,18 +1029,11 @@ export class Circuit {
    * @returns undefined on success, or why the change is not supported
    */
   alterInstance(name: string, parameter: string | undefined, values: number[]): string | undefined {
-    const upper = name.toUpperCase();
-    let descriptor = this.descriptors.find(candidate => candidate.name.toUpperCase() === upper);
-    if (!descriptor && name.includes('.')) {
-      // ngspice-47 src/frontend/subckt.c:1131-1142 (translate_inst_name) maps devices to
-      // <type>.<instance path>.<body name>; internally we omit <type>.
-      descriptor = this.expandAllSubcircuits(this.collectGlobalNodes()).find(candidate =>
-        candidate.name.includes('.') && `${candidate.type}.${candidate.name}`.toUpperCase() === upper);
-      if (descriptor) {
-        // Copy on write so snapshotControlState also restores existing overrides.
-        descriptor = { ...descriptor };
-        this._subcircuitAlterations.set(descriptor.name.toUpperCase(), descriptor);
-      }
+    let descriptor = this.controlDevice(name);
+    if (descriptor && !this.descriptors.includes(descriptor)) {
+      // Copy on write so snapshotControlState also restores existing overrides.
+      descriptor = { ...descriptor };
+      this._subcircuitAlterations.set(descriptor.name.toUpperCase(), descriptor);
     }
     if (!descriptor) {
       return `no device named '${name}'`;
@@ -1086,12 +1095,12 @@ export class Circuit {
 
   /**
    * @internal ngspice `@name[parameter]` readout of an input parameter of a
-   * top-level device or `.model`, or undefined when spice-ts cannot report it
-   * (operating-point quantities, internal parameters, subcircuit devices).
+   * device (including expanded subcircuit instances) or `.model`, or undefined
+   * when spice-ts cannot report it (operating-point or internal parameters).
    */
   parameterVector(name: string, parameter: string): number[] | undefined {
     const key = parameter.toUpperCase();
-    const descriptor = this.descriptors.find(candidate => candidate.name.toUpperCase() === name.toUpperCase());
+    const descriptor = this.controlDevice(name);
     if (descriptor) {
       const primary: Record<string, string[]> = { R: ['R', 'RESISTANCE'], C: ['C', 'CAPACITANCE'], L: ['L', 'INDUCTANCE'] };
       if (primary[descriptor.type]?.includes(key)) return descriptor.value === undefined ? undefined : [descriptor.value];
