@@ -347,7 +347,8 @@ function evaluateProbe(node: Extract<ExpressionNode, { kind: 'probe' }>, env: Ex
 }
 
 function evaluateIndex(target: ControlVector, index: ControlVector): ControlVector {
-  const length = target.re.length;
+  const length = target.dims?.[0] ?? target.re.length;
+  const stride = target.re.length / length;
   const at = (raw: number): number => {
     const position = Math.trunc(raw);
     if (!Number.isFinite(raw) || position < 0 || position >= length) {
@@ -359,12 +360,16 @@ function evaluateIndex(target: ControlVector, index: ControlVector): ControlVect
   const high = index.im ? at(index.im[0]) : low;
   const picks: number[] = [];
   for (let position = low; low <= high ? position <= high : position >= high; position += low <= high ? 1 : -1) {
-    picks.push(position);
+    for (let offset = 0; offset < stride; offset++) picks.push(position * stride + offset);
   }
   const re = picks.map(position => target.re[position]);
-  return target.im
+  const result = target.im
     ? complexVector(target.name, re, picks.map(position => target.im![position]))
     : realVector(target.name, re);
+  if (target.dims && target.dims.length > 1) {
+    result.dims = index.im ? [Math.abs(high - low) + 1, ...target.dims.slice(1)] : target.dims.slice(1);
+  }
+  return result;
 }
 
 function element(vector: ControlVector, index: number): Complex {
@@ -390,7 +395,10 @@ function combine(
     if (value.im !== 0) complex = true;
   }
   const scale = left.scale ?? right.scale;
-  return complex ? complexVector('result', re, im, scale) : realVector('result', re, scale);
+  const result = complex ? complexVector('result', re, im, scale) : realVector('result', re, scale);
+  const shape = left.re.length >= right.re.length ? left.dims : right.dims;
+  if (shape) result.dims = [...shape];
+  return result;
 }
 
 function compare(left: ControlVector, right: ControlVector, test: (a: Complex, b: Complex) => boolean): ControlVector {

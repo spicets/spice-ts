@@ -42,14 +42,13 @@ const EXECUTED_CONTROL_COMMANDS = new Set([
   'run', 'let', 'unlet', 'set', 'unset', 'define', 'undefine', 'alter', 'altermod', 'alterparam', 'reset', 'option', 'options',
   'setplot', 'destroy', 'remzerovec', 'compose', 'strcmp', 'setscale', 'meas', 'linearize', 'cutout', 'fft', 'psd', 'fourier',
   // Interactive editor: ngspice-47 batch mode warns and continues unless `interactive` is set.
-  'edit', 'eprint', 'edisplay',
+  'edit', 'eprint', 'edisplay', 'reshape', 'transpose',
 ]);
 
 /** Why a known ngspice command is not executed, for the structured error. */
 const UNSUPPORTED_REASONS: Record<string, string> = {
   measure: "ngspice's control-language measurement command is 'meas'",
   spec: 'the spec spectral command is not implemented (fft and psd are)',
-  reshape: 'multi-dimensional vectors are not implemented',
   source: 'sourcing further netlists or scripts is not implemented',
   shell: 'shell commands are not executed',
   tf: 'control-language transfer-function analysis is not implemented',
@@ -66,7 +65,7 @@ const STRUCTURE_KEYWORDS = new Set(['if', 'else', 'end', 'endif', 'while', 'dowh
 
 /** The contract text listed in an unsupported-command error. */
 const CONTRACT = 'spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod/alterparam, reset, '
-  + 'option, setplot/destroy, remzerovec, compose, strcmp, setscale, meas, linearize, cutout, fft, psd, fourier, the sp and sens analyses, if/else/end, while/dowhile/repeat/foreach/break/continue, label/goto, '
+  + 'option, setplot/destroy, remzerovec, compose, reshape, transpose, strcmp, setscale, meas, linearize, cutout, fft, psd, fourier, the sp and sens analyses, if/else/end, while/dowhile/repeat/foreach/break/continue, label/goto, '
   + 'and treats output-only commands (echo, print, plot, write, wrdata, save, ...) and batch-mode edit as no-ops';
 
 /** Lower-cased command word of a control line. */

@@ -12,6 +12,8 @@ export interface ControlVector {
   re: Float64Array;
   /** Imaginary parts, present only for complex vectors. */
   im?: Float64Array;
+  /** Row-major dimensions; absent means a one-dimensional vector. */
+  dims?: number[];
   /** Scale vector (independent variable) when the vector came from an analysis. */
   scale?: ControlVector;
 }
@@ -49,6 +51,7 @@ export function renamed(vector: ControlVector, name: string): ControlVector {
     re: Float64Array.from(vector.re),
     ...(vector.im ? { im: Float64Array.from(vector.im) } : {}),
     ...(vector.scale ? { scale: vector.scale } : {}),
+    ...(vector.dims ? { dims: [...vector.dims] } : {}),
   };
 }
 
