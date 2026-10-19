@@ -33,6 +33,8 @@ import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } 
 import { noiseMetrics, noiseMetricsArgs, noiseMetricsOutputSchema, noiseMetricsProperties } from './noise-metrics.js';
 import type { NoiseResult, PoleZeroResult } from '@spice-ts/core';
 import { pzMetrics, pzMetricsOutputSchema } from './pz-metrics.js';
+import { distoMetrics, distoOutput, distoMetricsOutputSchema, distoUnsupportedSchema, unsupportedDisto } from './disto-metrics.js';
+import type { DistoSpectrum } from './disto-metrics.js';
 import type { OperatingPointReport } from '@spice-ts/core';
 import type { SensitivityResult } from '@spice-ts/core';
 import type { TransferFunctionResult } from '@spice-ts/core';
@@ -100,7 +102,7 @@ interface WorkerReply {
 }
 
 interface WorkerRequest {
-  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf';
+  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto';
   request: SimulationRequestV1;
   coreModulePath: string;
   sensitivityOutput?: string;
@@ -348,6 +350,12 @@ export const MCP_TOOLS = Object.freeze([
     },
   },
   {
+    name: 'spice_disto_metrics',
+    description: 'Run exactly one unstepped .disto from SPICE text for output v(node). Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
+    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+\\)$' } } },
+    outputSchema: { type: 'object', oneOf: [distoMetricsOutputSchema, toolFailureOutputSchema, distoUnsupportedSchema], $defs: commonSchemaV1.$defs },
+  },
+  {
     name: 'spice_pz_metrics',
     description: 'Run exactly one unstepped .pz (mode pol or pz) from SPICE text. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Other analyses are not executed.',
     inputSchema: requestInputSchema,
@@ -570,7 +578,7 @@ async function executeToolWithStore(
     }
     if (name === 'spice_simulation_read') return success(streamStore.read(streamReadArgs(args)));
     if (name === 'spice_simulation_cancel') return success(streamStore.cancel(streamCancelArgs(args)));
-    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_dc_metrics' && name !== 'spice_ac_metrics' && name !== 'spice_tran_metrics' && name !== 'spice_fourier' && name !== 'spice_pz_metrics' && name !== 'spice_noise_metrics' && name !== 'spice_simulation_start') {
+    if (name !== 'spice_validate' && name !== 'spice_simulate' && name !== 'spice_measure' && name !== 'spice_dc_metrics' && name !== 'spice_ac_metrics' && name !== 'spice_tran_metrics' && name !== 'spice_fourier' && name !== 'spice_pz_metrics' && name !== 'spice_noise_metrics' && name !== 'spice_disto_metrics' && name !== 'spice_simulation_start') {
       return failure(apiError('INVALID_REQUEST', 'Unknown tool', 'transport', {}));
     }
 
@@ -578,6 +586,7 @@ async function executeToolWithStore(
     const tranSelectors = name === 'spice_tran_metrics' ? tranMetricsArgs(args) : undefined;
     const fourierSelectors = name === 'spice_fourier' ? fourierArgs(args) : undefined;
     const noiseSelectors = name === 'spice_noise_metrics' ? noiseMetricsArgs(args) : undefined;
+    const distoSelector = name === 'spice_disto_metrics' ? distoOutput(args) : undefined;
     const measurements = name === 'spice_measure' && isRecord(args) ? args.measurements : undefined;
     if (name === 'spice_measure' && (!Array.isArray(measurements) || measurements.length < 1 || measurements.length > 128)) {
       throw apiError('INVALID_REQUEST', 'Expected 1 through 128 measurements', 'validation', {});
@@ -585,6 +594,7 @@ async function executeToolWithStore(
     if (name === 'spice_measure') enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(measurements)), 'validation');
     const dcInput = name === 'spice_dc_metrics' ? dcMetricsInput(args) : undefined;
     let original = toolRequest(args);
+    if (distoSelector && original.input.format !== 'spice') unsupportedDisto();
     if (name === 'spice_pz_metrics' && original.input.format !== 'spice') {
       throw apiError('UNSUPPORTED_FEATURE', 'Pole-zero metrics require SPICE text input', 'validation', {});
     }
@@ -598,6 +608,15 @@ async function executeToolWithStore(
     throwIfCancelled(options.signal);
     const { request, diagnostics } = convertRequest(original);
     const plan = await boundedRequestPlan(request, effective);
+    if (distoSelector) {
+      if (plan.analyses.length !== 1 || plan.analyses[0].type !== 'disto') unsupportedDisto();
+      const analysis = plan.analyses[0];
+      // Match core distortion's index-based DEC grid exactly, stopping at the resource ceiling.
+      let points = 0;
+      while (analysis.startFreq * Math.pow(10, points / analysis.points) <= analysis.stopFreq) {
+        enforceMaximum('maxResultPoints', effective.maxResultPoints, ++points, 'validation');
+      }
+    }
     throwIfCancelled(options.signal);
 
     if (name === 'spice_validate') {
@@ -616,6 +635,12 @@ async function executeToolWithStore(
     }
     const release = streamStore.acquireOneShotSlot();
     try {
+      if (distoSelector) {
+        const spectrum = await runInWorker<DistoSpectrum>('disto', bounded, effective.maxWallTimeMs, options);
+        const metrics = distoMetrics(spectrum, distoSelector);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(metrics)), 'transport');
+        return success(metrics, diagnostics);
+      }
       if (name === 'spice_pz_metrics') {
         const result = await runInWorker<PoleZeroResult>('pz', bounded, effective.maxWallTimeMs, options);
         const metrics = pzMetrics(result);
@@ -1495,6 +1520,26 @@ async function streamProtocol(core, request) {
 parentPort.once('message', async ({ operation, request, coreModulePath, sensitivityOutput, tfSelector }) => {
   const core = require(coreModulePath);
   try {
+    if (operation === 'disto') {
+      const files = request.input.virtualFiles || {};
+      const circuit = await core.parseTitlelessAsync(request.input.source, async path => {
+        if (files[path] === undefined) throw new core.ParseError('Missing virtual include: ' + path, 0, path);
+        return files[path];
+      });
+      const compiled = circuit.compile();
+      if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript) {
+        parentPort.postMessage({ type: 'error', error: { code: 'UNSUPPORTED_ANALYSIS', message: 'Distortion metrics require an unstepped deck without control blocks or .pz', phase: 'validation', retryable: false, details: {} } });
+        return;
+      }
+      const result = (await core.simulate(circuit, request.options)).distortion;
+      // Project through public selectors rather than depending on private result fields.
+      const voltageArrays = new Map(result.products.map(product => [product,
+        new Map(compiled.nodeNames.map(node => [node, result.voltage(node, product)]))]));
+      const currentArrays = new Map(result.products.map(product => [product,
+        new Map(compiled.branchNames.map(branch => [branch, result.current(branch, product)]))]));
+      parentPort.postMessage({ type: 'result', result: { frequencies: result.frequencies, f2OverF1: result.f2OverF1, voltageArrays, currentArrays } });
+      return;
+    }
     if (operation === 'tf') {
       const circuit = core.parseTitleless(request.input.source);
       const compiled = circuit.compile();
@@ -1614,7 +1659,7 @@ async function runStreamingWorker(
 }
 
 async function runInWorker<T>(
-  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf',
+  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto',
   request: SimulationRequestV1,
   wallTimeMs: number,
   options: ToolExecutionOptions,

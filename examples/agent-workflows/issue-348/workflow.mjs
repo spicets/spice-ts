@@ -34,6 +34,7 @@ const toolNames = [
   'spice_ac_metrics',
   'spice_tran_metrics',
   'spice_fourier',
+  'spice_disto_metrics',
   'spice_pz_metrics',
   'spice_noise_metrics',
   'spice_measure',

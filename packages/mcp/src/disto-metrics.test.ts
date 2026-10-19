@@ -1,0 +1,90 @@
+import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
+import { parseTitleless, simulate } from '@spice-ts/core';
+import { executeTool, MCP_TOOLS } from './server.js';
+
+const diode = `* Single-tone diode distortion with reactive load
+V1 in 0 DC 0.6 DISTOF1 0.01
+D1 in out DM
+R1 out 0 100
+C1 out 0 1n
+.model DM D IS=1e-14 TT=1n CJO=5p
+.disto dec 5 1k 100k
+.end`;
+const request = (source: string) => ({ apiVersion: '1', input: { format: 'spice', source } });
+const validator = new AjvJsonSchemaValidator();
+async function run(source = diode, output = 'v(out)') {
+  const response = await executeTool('spice_disto_metrics', { request: request(source), output });
+  const tool = MCP_TOOLS.find(t => t.name === 'spice_disto_metrics');
+  expect(tool).toBeDefined();
+  expect(validator.getValidator(tool!.outputSchema!)(response.structuredContent).valid).toBe(true);
+  return response;
+}
+
+describe('spice_disto_metrics', () => {
+  it('matches ngspice-47 on identical bytes at all 22 HD2/HD3 points within core distortion tolerance', async () => {
+    const reference = JSON.parse(readFileSync(new URL('../fixtures/disto-ngspice47.json', import.meta.url), 'utf8')) as Record<string, number[][]>;
+    const response = await run();
+    expect(response.isError).not.toBe(true);
+    const metrics = response.structuredContent as unknown as { products: { product: string; points: { frequencyHz: number; real: number; imaginary: number }[] }[] };
+    for (const { product, points } of metrics.products) {
+      expect(points).toHaveLength(reference[product].length);
+      points.forEach((point, i) => {
+        const [frequency, real, imaginary] = reference[product][i];
+        expect(Math.abs(point.frequencyHz / frequency - 1)).toBeLessThan(1e-12);
+        // Existing core expectComplexParity tolerance, never adjusted for this circuit.
+        expect(Math.hypot(point.real - real, point.imaginary - imaginary) / Math.max(Math.hypot(real, imaginary), 1e-15)).toBeLessThan(0.005);
+      });
+    }
+  });
+  it.each([false, true])('matches core solveDistortion bit-for-bit (two-tone=%s)', async twoTone => {
+    const source = twoTone ? diode.replace('DISTOF1 0.01', 'DISTOF1 0.01 DISTOF2 0.005').replace('100k\n', '100k 0.9\n') : diode;
+    const result = (await simulate(parseTitleless(source))).distortion!;
+    const response = await run(source, 'v(OUT)');
+    expect(response.isError).not.toBe(true);
+    expect(response.structuredContent).toEqual({
+      output: 'v(OUT)', magnitudeUnit: 'V', decibelReference: '1 V',
+      f2Hz: twoTone ? 900 : null,
+      products: result.products.map((product, j) => ({
+        product: (twoTone ? ['SIM2', 'DIM2', 'DIM3'] : ['HD2', 'HD3'])[j],
+        points: result.voltage('out', product).map((value, i) => {
+          const magnitude = Math.hypot(value.real, value.imaginary);
+          return { frequencyHz: result.frequencies[i], real: value.real, imaginary: value.imaginary,
+            magnitude, magnitudeDb: magnitude === 0 ? null : 20 * Math.log10(magnitude),
+            phaseDeg: magnitude === 0 ? null : Math.atan2(value.imaginary, value.real) * 180 / Math.PI };
+        }),
+      })),
+    });
+  });
+  it('represents exact linear zero as null dBV/phase, never non-JSON infinity', async () => {
+    const response = await run('V1 out 0 DISTOF1 1\nR1 out 0 1k\n.disto dec 5 1k 100k');
+    expect(response.isError).not.toBe(true);
+    expect(JSON.stringify(response.structuredContent)).toContain('"magnitudeDb":null,"phaseDeg":null');
+  });
+  it.each([
+    ['missing analysis', 'R1 out 0 1k', 'v(out)', 'UNSUPPORTED_ANALYSIS'],
+    ['wrong analysis', 'R1 out 0 1k\n.op', 'v(out)', 'UNSUPPORTED_ANALYSIS'],
+    ['missing node', diode, 'v(missing)', 'INVALID_REQUEST'],
+    ['bad selector', diode, 'v(out,in)', 'INVALID_REQUEST'],
+    ['invalid F2OVERF1', diode.replace('100k\n', '100k 1\n'), 'v(out)', 'PARSE_ERROR'],
+    ['unsupported model', diode.replace('CJO=5p', 'CJO=5p N=2'), 'v(out)', 'INVALID_CIRCUIT'],
+    ['multiple analyses', diode.replace('.end', '.op\n.end'), 'v(out)', 'UNSUPPORTED_ANALYSIS'],
+    ['control block', diode.replace('.end', '.control\nop\n.endc\n.end'), 'v(out)', 'UNSUPPORTED_ANALYSIS'],
+    ['stepped analysis', diode.replace('.end', '.step param x list 1 2\n.end'), 'v(out)', 'PARSE_ERROR'],
+    ['invalid F2 zero', diode.replace('100k\n', '100k 0\n'), 'v(out)', 'PARSE_ERROR'],
+    ['invalid F2 negative', diode.replace('100k\n', '100k -0.9\n'), 'v(out)', 'PARSE_ERROR'],
+  ])('returns structured errors: %s', async (_name, source, output, code) => {
+    expect(await run(source, output)).toMatchObject({ isError: true, structuredContent: { error: { code, retryable: false } } });
+  });
+  it('advertises the tool and enforces point limits before solving', async () => {
+    expect((await executeTool('spice_capabilities', {})).structuredContent?.tools).toContain('spice_disto_metrics');
+    expect(await executeTool('spice_disto_metrics', { request: { ...request(diode), options: { limits: { maxResultPoints: 2 } } }, output: 'v(out)' })).toMatchObject({ isError: true, structuredContent: { error: { code: 'RESOURCE_LIMIT' } } });
+  });
+  it('enforces serialized result limits and cancellation', async () => {
+    expect(await executeTool('spice_disto_metrics', { request: { ...request(diode), options: { limits: { maxSerializedResultBytes: 100 } } }, output: 'v(out)' })).toMatchObject({ isError: true, structuredContent: { error: { code: 'RESOURCE_LIMIT' } } });
+    const abort = new AbortController();
+    abort.abort();
+    expect(await executeTool('spice_disto_metrics', { request: request(diode), output: 'v(out)' }, { signal: abort.signal })).toMatchObject({ isError: true, structuredContent: { error: { code: 'CANCELLED' } } });
+  });
+});
