@@ -31,6 +31,8 @@ export interface DiodeParams {
   TNOM: number;
   /** Series resistance (per AREA*M) at the device temperature. */
   RS: number;
+  /** Sidewall resistance per PJ*M; expanded into its own junction by Circuit. */
+  RSW?: number;
   /**
    * ngspice-47 diotemp.c RS temperature coefficients (TRS is an alias of TRS1):
    * RS(T) = RS * (1 + TRS1*dT + TRS2*dT^2), dT = T - TNOM.
@@ -142,8 +144,7 @@ const MIN_KNEE_CURRENT = 1e-28;
  * result, so they are rejected rather than ignored (#643).
  */
 const UNSUPPORTED_MODEL_PARAMETERS: ReadonlyMap<string, string> = new Map([
-  ['RSW', 'ngspice-47 gives the sidewall its own series resistance and internal node '
-    + '(DIOresistSWGiven), which spice-ts does not model'],
+  ['RSW', 'sidewall resistance requires Circuit compilation to expand the internal sidewall node'],
 ]);
 /** ngspice dioload.c applies the knee only above this junction current. */
 const KNEE_CURRENT_THRESHOLD = 1e-18;
@@ -329,7 +330,8 @@ export class Diode implements DeviceModel {
     }
     const params = canonicalDiodeModelParams(name, modelParams);
     for (const [field, reason] of UNSUPPORTED_MODEL_PARAMETERS) {
-      if ((params as Record<string, number | undefined>)[field] !== undefined) {
+      if ((params as Record<string, number | undefined>)[field] !== undefined
+        && (params as Record<string, number | undefined>)[field] !== 0) {
         throw new UnsupportedModelParameterError(name, field, reason);
       }
     }

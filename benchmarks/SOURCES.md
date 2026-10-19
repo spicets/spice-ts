@@ -2150,3 +2150,17 @@ Run `spice-heavy pnpm exec tsx benchmarks/mcp-ac-metrics/compare.mts` after buil
 The script prints both engines' values and errors and fails above 0.5% UGF or
 0.5 degrees phase-margin error. Interpolation differs (linear frequency in
 ngspice, log frequency in MCP). This is correctness evidence, not a speed claim.
+
+## Diode independent sidewall resistance (#1515)
+
+`benchmarks/diode-rsw/sidewall.cir` is an original spice-ts regression deck
+(repository MIT licence), authored for https://github.com/spicets/spice-ts/issues/1515.
+No third-party model is redistributed. `compare.ts` sources identical fixture
+bytes in ngspice-47 and spice-ts, reports SHA-256, machine, runtimes and max/RMS
+errors for OP/DC/complex AC/TRAN node voltages and source current. Transient
+samples are linearly interpolated onto ngspice's adaptive timepoints; the
+unchanged parity gate is 1% of each reference signal's peak. Run
+`spice-heavy pnpm exec tsx benchmarks/diode-rsw/compare.ts`; add
+`--write-reference` to refresh the JSON oracle consumed by the core test.
+This slice covers positive RSW with explicit NS; self-heating and ngspice's
+NS-absent shared-voltage current path remain explicit errors, not silent approximations.
