@@ -24,6 +24,7 @@ import { sha256CanonicalJson } from '@spice-ts/core/protocol';
  */
 
 const toolNames = [
+  'spice_impedance',
   'spice_tf',
   'spice_sensitivity',
   'spice_capabilities',
@@ -62,6 +63,7 @@ assert.deepEqual(capabilities, {
   inputFormats: ['spice', 'spice-ts', 'circuit-json'],
   sensitivity: { tool: 'spice_sensitivity', analyses: ['dc'] },
   tf: { tool: 'spice_tf', analyses: ['tf'] },
+  impedance: { tool: 'spice_impedance', analyses: ['ac'] },
   parameterOverrides: {
     tools: ['spice_simulate', 'spice_simulation_start'],
     input: 'params',

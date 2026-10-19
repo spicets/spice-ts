@@ -8,6 +8,7 @@
     "spice_simulation_start/read:second"
   ],
   "tools": [
+    "spice_impedance",
     "spice_tf",
     "spice_sensitivity",
     "spice_capabilities",
@@ -43,6 +44,7 @@
       "circuit-json"
     ],
     "tools": [
+      "spice_impedance",
       "spice_tf",
       "spice_sensitivity",
       "spice_capabilities",
@@ -74,6 +76,12 @@
       "tool": "spice_tf",
       "analyses": [
         "tf"
+      ]
+    },
+    "impedance": {
+      "tool": "spice_impedance",
+      "analyses": [
+        "ac"
       ]
     },
     "parameterOverrides": {
