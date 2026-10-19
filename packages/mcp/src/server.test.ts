@@ -28,6 +28,8 @@ describe('bounded protocol-v1 tools', () => {
       protocolVersion: '1',
       analyses: ['op', 'dc', 'tran', 'ac'],
       inputFormats: ['spice', 'spice-ts', 'circuit-json'],
+      tools: expect.arrayContaining(['spice_impedance']),
+      impedance: { tool: 'spice_impedance', analyses: ['ac'] },
       limits: DEFAULT_MCP_LIMITS,
       streaming: {
         defaultChunkPoints: 256,

@@ -77,9 +77,9 @@ describe('BJT Q-card parser', () => {
   it('exposes the next unsupported model fields after classic Q-card parsing', () => {
     expect(() => parse(`classic OFF form
       Q1 c b e QSTD OFF
-      .model QSTD NPN(BF=50 VAF=50 RCO=2)
+      .model QSTD NPN(BF=50 VAF=50 IBE=1f)
       .op
-    `).compile()).toThrow("Unsupported bounded BJT model parameter: 'RCO'");
+    `).compile()).toThrow("Unsupported bounded BJT model parameter: 'IBE'");
 
     expect(() => parse(`classic substrate form
       Q1 c b e substrate QMOD

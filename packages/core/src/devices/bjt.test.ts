@@ -285,9 +285,9 @@ describe('BJT Ebers-Moll', () => {
   it('rejects unsupported Gummel-Poon model parameters explicitly', () => {
     expect(() => parse(`unsupported BJT parameter
       Q1 c b 0 QGP
-      .model QGP NPN(BF=100 IKF=1m RCO=10)
+      .model QGP NPN(BF=100 IKF=1m IBE=1e-15)
       .op
-    `).compile()).toThrow("Unsupported bounded BJT model parameter: 'RCO'");
+    `).compile()).toThrow("Unsupported bounded BJT model parameter: 'IBE'");
   });
 
   // ngspice-47 `print vm(c) vp(c)` on the identical deck (vp in radians).

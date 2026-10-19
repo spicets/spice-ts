@@ -31,12 +31,17 @@ describe('stdio transport', () => {
 
     const listed = await client.listTools();
     expect(listed.tools.map(tool => tool.name)).toEqual([
+      'spice_impedance',
       'spice_tf',
       'spice_sensitivity',
       'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_fourier', 'spice_disto_metrics', 'spice_pz_metrics', 'spice_noise_metrics', 'spice_measure',
       'spice_dc_metrics', 'spice_op_report', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel',
     ]);
     expect(listed.tools.every(tool => tool.inputSchema.type === 'object')).toBe(true);
+    expect(await client.callTool({ name: 'spice_impedance', arguments: {
+      request: { apiVersion: '1', input: { format: 'spice', source: 'R1 in 0 1k\n.ac lin 1 100 100' } },
+      port: { positive: 'in', negative: '0' },
+    } })).toMatchObject({ structuredContent: { points: [{ resistanceOhm: expect.closeTo(1000, 8), reactanceOhm: 0, magnitudeOhm: expect.closeTo(1000, 8) }] } });
     expect(await client.callTool({ name: 'spice_disto_metrics', arguments: {
       request: { apiVersion: '1', input: { format: 'spice', source: 'V1 out 0 DISTOF1 1\nR1 out 0 1k\n.disto dec 5 1k 100k' } }, output: 'v(out)',
     } })).toMatchObject({ structuredContent: { magnitudeUnit: 'V', products: [{ product: 'HD2', points: expect.any(Array) }, { product: 'HD3', points: expect.any(Array) }] } });

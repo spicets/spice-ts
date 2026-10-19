@@ -9,7 +9,7 @@ import { parse } from './index.js';
  * table. A name in neither, such as the MEXTRAM `DTA` on an npn/pnp card that
  * selects the level-1 BJT (LEVEL>99 is read as 1, #747), prints
  * "unrecognized parameter (dta) - ignored" and the card simulates without it.
- * Names ngspice-47 does know (RCO, IBE, ...) stay rejected when spice-ts has no
+ * Names ngspice-47 does know (IBE, IBC, ...) stay rejected when spice-ts has no
  * implementation, and an instance name on the card (an ngspice instance
  * default) is not dropped either.
  */
@@ -58,7 +58,7 @@ describe('BJT .model names ngspice-47 does not recognise are ignored with its wa
   });
 
   it('still rejects names ngspice-47 implements and spice-ts does not', () => {
-    expect(() => parse(card('DTA=0 RCO=10')).compile()).toThrow("Unsupported bounded BJT model parameter: 'RCO'");
+    expect(() => parse(card('DTA=0 IBC=1e-15')).compile()).toThrow("Unsupported bounded BJT model parameter: 'IBC'");
     expect(() => parse(card('IBE=1e-15')).compile()).toThrow("Unsupported bounded BJT model parameter: 'IBE'");
   });
 
