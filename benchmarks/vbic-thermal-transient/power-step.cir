@@ -1,0 +1,7 @@
+VBIC electrothermal power step (project authored, MIT)
+Vc c 0 PWL(0 1 1u 1 1.01u 2)
+Vb b 0 0.7
+Q1 c b 0 0 dt mod
+.model mod npn level=9 rth=300 cth=1n cje=1p cjc=0.5p tf=20p
+.tran 1n 3u
+.end

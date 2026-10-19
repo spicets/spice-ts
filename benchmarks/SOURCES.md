@@ -2207,6 +2207,29 @@ and sidewall-node companion conductance. Run the same command with
 `--default-ns` (and optionally `--write-reference`) for its four-analysis oracle.
 Self-heating with RSW remains an explicit unsupported error.
 
+## VBIC transient thermal capacitance (#1522)
+
+`benchmarks/vbic-thermal-transient/power-step.cir` is project-authored, MIT under
+the repository licence. It steps collector power with an active RTH/CTH node.
+The analytic thermal-source tests are also project-authored and MIT.
+`compare.ts` runs this deck and the unchanged corpus-f
+`examples/vbic/vbic99_tran.sp` through the corpus-f identical-byte harness and
+prints every common signal's peak-normalized error using its uniform 1% rule.
+The public deck retains its pinned corpus-f source, SHA-256 and BSD-3-Clause
+licence (see `benchmarks/corpus/corpus-f/SOURCES.md` and `manifest.json`). It
+still fails on nondefault resistor temperature exponents (first XRE=2), which
+require DC physics outside the CTH slice. No zero-error metric is assigned to
+that failure, and no edited variant is passed off as the public deck.
+
+Equations follow ngspice-47 `src/spicelib/devices/vbic/vbicload.c`, BSD-3-Clause,
+[source](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/vbic/vbicload.c).
+Lines 4012-4013 define Qcth=CTH*dT, 4117-4118 apply instance SCALE,
+901-904 integrate it, and 1419-1423 stamp its companion current/Jacobian.
+Run `spice-heavy pnpm exec tsx benchmarks/vbic-thermal-transient/compare.ts`
+after `pnpm build`. Timings include cold child launch and adapters, not just
+the solver. No performance superiority is claimed.
+
+
 ## MOS3 instance temperature (#1512)
 
 `benchmarks/mos3-instance-temperature/reference.ts` generates original synthetic
