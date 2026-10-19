@@ -31,6 +31,8 @@ export interface DiodeParams {
   TNOM: number;
   /** Series resistance (per AREA*M) at the device temperature. */
   RS: number;
+  /** Sidewall resistance per PJ*M; expanded into its own junction by Circuit. */
+  RSW?: number;
   /**
    * ngspice-47 diotemp.c RS temperature coefficients (TRS is an alias of TRS1):
    * RS(T) = RS * (1 + TRS1*dT + TRS2*dT^2), dT = T - TNOM.
@@ -142,8 +144,7 @@ const MIN_KNEE_CURRENT = 1e-28;
  * result, so they are rejected rather than ignored (#643).
  */
 const UNSUPPORTED_MODEL_PARAMETERS: ReadonlyMap<string, string> = new Map([
-  ['RSW', 'ngspice-47 gives the sidewall its own series resistance and internal node '
-    + '(DIOresistSWGiven), which spice-ts does not model'],
+  ['RSW', 'sidewall resistance requires Circuit compilation to expand the internal sidewall node'],
 ]);
 /** ngspice dioload.c applies the knee only above this junction current. */
 const KNEE_CURRENT_THRESHOLD = 1e-18;
@@ -311,6 +312,7 @@ export class Diode implements DeviceModel {
     modelParams: DiodeModelInput,
     private readonly hasExternalSeriesResistance = false,
     readonly instanceParams: DiodeInstanceParams = {},
+    private readonly currentControlNode?: number,
   ) {
     const pspiceBreakdownLaw = modelParams.LEVEL === 2;
     const lawSpecific = LAW_SPECIFIC_UNSUPPORTED[pspiceBreakdownLaw ? 'pspice' : 'ngspice'];
@@ -329,7 +331,8 @@ export class Diode implements DeviceModel {
     }
     const params = canonicalDiodeModelParams(name, modelParams);
     for (const [field, reason] of UNSUPPORTED_MODEL_PARAMETERS) {
-      if ((params as Record<string, number | undefined>)[field] !== undefined) {
+      if ((params as Record<string, number | undefined>)[field] !== undefined
+        && (params as Record<string, number | undefined>)[field] !== 0) {
         throw new UnsupportedModelParameterError(name, field, reason);
       }
     }
@@ -667,10 +670,12 @@ export class Diode implements DeviceModel {
     const [nA, nK] = this.nodes;
     const terminalVoltage = (nA >= 0 ? solution[nA] : 0) - (nK >= 0 ? solution[nK] : 0);
     const { RS, KF, AF } = this.params;
-    const { current, junctionVoltage } = diodeCurrent(terminalVoltage, this.junction(), RS);
+    const currentVoltage = this.currentControlNode === undefined ? terminalVoltage
+      : (this.currentControlNode >= 0 ? solution[this.currentControlNode] : 0) - (nK >= 0 ? solution[nK] : 0);
+    const { current, junctionVoltage } = diodeCurrent(currentVoltage, this.junction(), RS);
     return {
       // dionoise.c takes the shot noise from DIOcurrent, cdb + cdsw + GMIN*vd.
-      current: current + gmin * junctionVoltage,
+      current: current + gmin * (this.currentControlNode === undefined ? junctionVoltage : terminalVoltage),
       flickerCoefficient: KF!,
       flickerExponent: AF!,
       parallelMultiplier: this.instanceParams.M ?? 1,
@@ -733,11 +738,18 @@ export class Diode implements DeviceModel {
     }
     this.stampedJunctionVoltage = vd;
 
-    const { current: id, conductance, linearizationVoltage } = diodeCurrent(
-      vd,
+    // ngspice-47 dioload.c:385-388 evaluates the default-NS sidewall current
+    // at the bottom voltage even with RSW. Its companion conductance is still
+    // stamped at the sidewall node (also in AC), not as a transconductance.
+    const currentVoltage = this.currentControlNode === undefined ? vd
+      : (this.currentControlNode >= 0 ? ctx.getVoltage(this.currentControlNode) : 0) - vK;
+    const { current: id, conductance, linearizationVoltage: currentLinearizationVoltage } = diodeCurrent(
+      currentVoltage,
       junction,
       this.params.RS,
     );
+    const linearizationVoltage = this.currentControlNode === undefined
+      ? currentLinearizationVoltage : vd;
     const gmin = ctx.gmin ?? DEVICE_GMIN;
     // ngspice dioload.c: cd = cdb + cdsw + CKTgmin*vd, gd = gdb + gdsw + CKTgmin.
     const gd = conductance + gmin;

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { simulate } from '../simulate.js';
-import { UnsupportedModelParameterError } from '../errors.js';
 
 // Reference values come from ngspice-47 (`ngspice -b`, `set numdgt=13`) run on
 // the identical decks (#643). dioload.c computes the bottom current cdb and
@@ -162,12 +161,9 @@ describe('diode bottom/sidewall junction law like ngspice-47 dioload.c (#643)', 
     expectNear(at(45e-9), -2, TRANSIENT_TOLERANCE);
   });
 
-  it('rejects RSW with a typed error instead of ignoring it', async () => {
-    const run = operatingPoint('IS=1e-16 JSW=1e-14 RSW=10');
-    await expect(run).rejects.toBeInstanceOf(UnsupportedModelParameterError);
-    await expect(run).rejects.toMatchObject({
-      code: 'UNSUPPORTED_MODEL_PARAMETER', deviceName: 'D1', parameter: 'RSW',
-    });
+  it('supports RSW on a compiled junction instead of rejecting it', async () => {
+    const result = await operatingPoint('IS=1e-16 JSW=1e-14 NS=1 RSW=10');
+    expect(result.out).toBeGreaterThan(0);
   });
 });
 

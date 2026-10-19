@@ -2190,6 +2190,23 @@ The script prints both engines' values and errors and fails above 0.5% UGF or
 0.5 degrees phase-margin error. Interpolation differs (linear frequency in
 ngspice, log frequency in MCP). This is correctness evidence, not a speed claim.
 
+## Diode independent sidewall resistance (#1515)
+
+`benchmarks/diode-rsw/sidewall.cir` is an original spice-ts regression deck
+(repository MIT licence), authored for https://github.com/spicets/spice-ts/issues/1515.
+No third-party model is redistributed. `compare.ts` sources identical fixture
+bytes in ngspice-47 and spice-ts, reports SHA-256, machine, runtimes and max/RMS
+errors for OP/DC/complex AC/TRAN node voltages and source current. Transient
+samples are linearly interpolated onto ngspice's adaptive timepoints; the
+unchanged parity gate is 1% of each reference signal's peak. Run
+`spice-heavy pnpm exec tsx benchmarks/diode-rsw/compare.ts`; add
+`--write-reference` to refresh the JSON oracle consumed by the core test.
+`default-ns.cir` is the identical original MIT deck with only ` NS=1.4`
+removed, exercising ngspice-47's bottom-voltage-evaluated sidewall current
+and sidewall-node companion conductance. Run the same command with
+`--default-ns` (and optionally `--write-reference`) for its four-analysis oracle.
+Self-heating with RSW remains an explicit unsupported error.
+
 ## VBIC transient thermal capacitance (#1522)
 
 `benchmarks/vbic-thermal-transient/power-step.cir` is project-authored, MIT under
@@ -2211,6 +2228,7 @@ Lines 4012-4013 define Qcth=CTH*dT, 4117-4118 apply instance SCALE,
 Run `spice-heavy pnpm exec tsx benchmarks/vbic-thermal-transient/compare.ts`
 after `pnpm build`. Timings include cold child launch and adapters, not just
 the solver. No performance superiority is claimed.
+
 
 ## MOS3 instance temperature (#1512)
 
