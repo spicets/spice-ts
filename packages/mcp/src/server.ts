@@ -39,6 +39,8 @@ import type { OperatingPointReport } from '@spice-ts/core';
 import type { SensitivityResult } from '@spice-ts/core';
 import type { TransferFunctionResult } from '@spice-ts/core';
 import { tfArgs, tfReport, tfInputSchema, tfOutputSchema } from './tf.js';
+import { impedanceArgs, impedanceInvalid, impedancePlan, impedanceReport, impedanceProperties, impedanceOutputSchema, impedanceFailureSchema, impedanceErrorCodes } from './impedance.js';
+import type { ImpedanceSelectors, ImpedanceSpectrum } from './impedance.js';
 import { sensitivityArgs, sensitivityReport, sensitivityInputSchema, sensitivityOutputSchema } from './sensitivity.js';
 
 export interface McpLimits {
@@ -102,7 +104,8 @@ interface WorkerReply {
 }
 
 interface WorkerRequest {
-  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto';
+  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto' | 'impedance';
+  impedanceSelector?: ImpedanceSelectors;
   request: SimulationRequestV1;
   coreModulePath: string;
   sensitivityOutput?: string;
@@ -154,6 +157,8 @@ const capabilitiesOutputSchema = {
       properties: { tool: { const: 'spice_sensitivity' }, analyses: { type: 'array', items: { const: 'dc' } } } },
     tf: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
       properties: { tool: { const: 'spice_tf' }, analyses: { type: 'array', items: { const: 'tf' } } } },
+    impedance: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
+      properties: { tool: { const: 'spice_impedance' }, analyses: { type: 'array', items: { const: 'ac' } } } },
     parameterOverrides: { type: 'object', properties: {
       tools: { type: 'array', items: { type: 'string' } }, input: { type: 'string' },
       valueType: { type: 'string' }, scope: { type: 'string' }, caseSensitive: { type: 'boolean' },
@@ -251,6 +256,12 @@ const streamToolOutputSchema = {
 };
 
 export const MCP_TOOLS = Object.freeze([
+  {
+    name: 'spice_impedance',
+    description: 'Measure differential port impedance versus frequency with a 1 A AC current injected from negative to positive. Suppress AC excitation of all other independent sources, preserve DC bias and dependent sources. Accept a protocol request (SPICE or circuit-json), port, optional sweep override and SPICE params. Return ohms, degrees, sampled extrema and interpolated phase-zero resonance estimates.',
+    inputSchema: { ...requestInputSchema, required: ['request', 'port'], properties: { ...requestInputSchema.properties, ...impedanceProperties } },
+    outputSchema: { type: 'object', oneOf: [impedanceOutputSchema, toolFailureOutputSchema, impedanceFailureSchema], $defs: commonSchemaV1.$defs },
+  },
   {
     name: 'spice_tf',
     description: 'Run native small-signal .tf for v(node) or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accepts optional top-level params overrides. Rejects conflicting analyses, steps and control blocks.',
@@ -461,6 +472,7 @@ const capabilities = Object.freeze({
   tools: Object.freeze(MCP_TOOLS.map(tool => tool.name)),
   sensitivity: Object.freeze({ tool: 'spice_sensitivity', analyses: Object.freeze(['dc']) }),
   tf: Object.freeze({ tool: 'spice_tf', analyses: Object.freeze(['tf']) }),
+  impedance: Object.freeze({ tool: 'spice_impedance', analyses: Object.freeze(['ac']) }),
   parameterOverrides,
   limits: DEFAULT_MCP_LIMITS,
   streaming: Object.freeze({
@@ -499,6 +511,31 @@ async function executeToolWithStore(
   const limits = options.limits ?? DEFAULT_MCP_LIMITS;
   try {
     if (name === 'spice_capabilities') return success(streamStore.capabilities());
+    if (name === 'spice_impedance') {
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const selectors = impedanceArgs(args);
+      let original = toolRequest(args);
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      original = overrideParameters(original, (args as Record<string, unknown>).params);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original)), 'validation');
+      throwIfCancelled(options.signal);
+      const { request, diagnostics } = convertRequest(original);
+      const plan = await requestPlan(request);
+      if (plan.analyses.some(a => a.type !== 'ac') || plan.analyses.length > 1) impedanceInvalid('Impedance requires one AC sweep without conflicting analyses');
+      const sweep = selectors.sweep ?? plan.analyses.find(a => a.type === 'ac');
+      if (!sweep) impedanceInvalid('Provide an AC sweep or one .ac directive', 'MISSING_AC_SWEEP');
+      selectors.sweep = sweep;
+      await boundedRequestPlan(impedancePlan(request, sweep), effective);
+      const release = streamStore.acquireOneShotSlot();
+      try {
+        const spectrum = await runInWorker<ImpedanceSpectrum>('impedance', boundedRequest(request, effective), effective.maxWallTimeMs, options, undefined, undefined, selectors);
+        enforceMaximum('maxResultPoints', effective.maxResultPoints, spectrum.frequencyHz.length, 'transport');
+        const report = impedanceReport(spectrum, selectors);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(report)), 'transport');
+        return success(report, diagnostics);
+      } finally { release(); }
+    }
     if (name === 'spice_tf') {
       const selectors = tfArgs(args);
       enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
@@ -677,6 +714,10 @@ async function executeToolWithStore(
       release();
     }
   } catch (error) {
+    if (isApiError(error) && impedanceErrorCodes.includes(error.details.impedanceCode as typeof impedanceErrorCodes[number])) {
+      const local = { error: { ...error, code: error.details.impedanceCode } };
+      return { isError: true, content: [{ type: 'text', text: JSON.stringify(local) }], structuredContent: local };
+    }
     if (error instanceof ParameterOverrideError) return failure(error.apiError);
     return failure(publicError(error));
   }
@@ -1517,9 +1558,68 @@ async function streamProtocol(core, request) {
   }
 }
 
-parentPort.once('message', async ({ operation, request, coreModulePath, sensitivityOutput, tfSelector }) => {
+parentPort.once('message', async ({ operation, request, coreModulePath, sensitivityOutput, tfSelector, impedanceSelector }) => {
   const core = require(coreModulePath);
   try {
+    if (operation === 'impedance') {
+      const { port, sweep } = impedanceSelector;
+      const invalid = (message, impedanceCode) => {
+        throw { code: 'INVALID_REQUEST', message, phase: 'validation', retryable: false, details: impedanceCode ? { impedanceCode } : {} };
+      };
+      const node = name => /^(0|gnd)$/i.test(name) ? '0' : name.toLowerCase();
+      let result;
+      if (request.input.format === 'spice') {
+        const files = request.input.virtualFiles || {};
+        const circuit = await core.parseTitlelessAsync(request.input.source, async path => {
+          if (files[path] === undefined) throw new core.ParseError('Missing virtual include: ' + path, 0, path);
+          return files[path];
+        });
+        const compiled = circuit.compile();
+        if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript || /(^|\n)\s*\.control\b/i.test(request.input.source)) invalid('Impedance requires an unstepped deck without control blocks or .pz');
+        const names = compiled.nodeNames;
+        for (const name of [port.positive, port.negative]) {
+          if (name !== '0' && !names.some(n => node(n) === name)) invalid('Unknown port node: ' + name, 'UNKNOWN_NODE');
+        }
+        for (const device of compiled.devices) {
+          if ('waveform' in device) {
+            const error = circuit.alterInstance(device.name, 'acmag', [0]);
+            if (error) invalid(error);
+          }
+        }
+        const actual = name => name === '0' ? '0' : names.find(n => node(n) === name);
+        let source = 'I__spice_impedance';
+        const used = new Set(compiled.devices.map(d => d.name.toLowerCase()));
+        while (used.has(source.toLowerCase())) source += '_';
+        circuit.addCurrentSource(source, actual(port.negative), actual(port.positive), { type: 'ac', magnitude: 1, phase: 0, dc: 0 });
+        circuit.analyses.splice(0, circuit.analyses.length, sweep);
+        const ac = (await core.simulate(circuit, request.options)).ac;
+        const voltage = name => name === '0' ? ac.frequencies.map(() => ({ magnitude: 0, phaseDegrees: 0 }))
+          : ac.voltage(actual(name)).map(v => ({ magnitude: v.magnitude, phaseDegrees: v.phase }));
+        result = { frequencyHz: ac.frequencies, positive: voltage(port.positive), negative: voltage(port.negative) };
+      } else {
+        const document = structuredClone(request.input.document);
+        const components = document.circuit.components;
+        const names = components.flatMap(c => c.ports.map(p => p.net));
+        for (const name of [port.positive, port.negative]) {
+          if (name !== '0' && !names.some(n => node(n) === name)) invalid('Unknown port node: ' + name, 'UNKNOWN_NODE');
+        }
+        const actual = name => name === '0' ? '0' : names.find(n => node(n) === name);
+        for (const component of [...components, ...document.subcircuits.flatMap(s => s.components)]) {
+          if (['V', 'I'].includes(component.type.toUpperCase())) component.params.magnitude = 0;
+        }
+        let source = 'I__spice_impedance';
+        while (components.some(c => c.name.toLowerCase() === source.toLowerCase() || c.id.toLowerCase() === source.toLowerCase())) source += '_';
+        components.push({ type: 'I', id: source, name: source, ports: [{ name: 'p', net: actual(port.negative) }, { name: 'n', net: actual(port.positive) }], params: { waveform: 'ac', magnitude: 1, phase: 0, dc: 0 } });
+        document.analyses = [sweep];
+        const response = await core.simulateProtocolV1({ ...request, input: { format: 'spice-ts', document } });
+        const ac = response.analyses[0];
+        const voltage = name => name === '0' ? ac.frequencyHz.map(() => ({ magnitude: 0, phaseDegrees: 0 }))
+          : ac.voltagePhasors[actual(name)];
+        result = { frequencyHz: ac.frequencyHz, positive: voltage(port.positive), negative: voltage(port.negative) };
+      }
+      parentPort.postMessage({ type: 'result', result });
+      return;
+    }
     if (operation === 'disto') {
       const files = request.input.virtualFiles || {};
       const circuit = await core.parseTitlelessAsync(request.input.source, async path => {
@@ -1581,7 +1681,7 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
       : await core.simulateProtocolV1(request);
     parentPort.postMessage({ type: 'result', result });
   } catch (error) {
-    parentPort.postMessage({ type: 'error', error: core.mapProtocolErrorV1(error) });
+    parentPort.postMessage({ type: 'error', error: error && error.code === 'INVALID_REQUEST' && error.details ? error : core.mapProtocolErrorV1(error) });
   }
 });
 `;
@@ -1659,12 +1759,13 @@ async function runStreamingWorker(
 }
 
 async function runInWorker<T>(
-  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto',
+  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto' | 'impedance',
   request: SimulationRequestV1,
   wallTimeMs: number,
   options: ToolExecutionOptions,
   sensitivityOutput?: string,
   tfSelector?: { output: string; inputSource: string },
+  impedanceSelector?: ImpedanceSelectors,
 ): Promise<T> {
   throwIfCancelled(options.signal);
   const worker = (options.workerFactory ?? createExecutionWorker)();
@@ -1701,7 +1802,7 @@ async function runInWorker<T>(
       { limit: 'maxWallTimeMs', maximum: wallTimeMs },
     ))), wallTimeMs);
     try {
-      const message: WorkerRequest = { operation, request, coreModulePath, sensitivityOutput, tfSelector };
+      const message: WorkerRequest = { operation, request, coreModulePath, sensitivityOutput, tfSelector, impedanceSelector };
       worker.postMessage(message);
     } catch {
       finish(() => reject(workerFailure()));

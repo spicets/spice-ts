@@ -17,6 +17,7 @@ assert.deepEqual(capabilities, {
   inputFormats: ['spice', 'spice-ts', 'circuit-json'],
   sensitivity: { tool: 'spice_sensitivity', analyses: ['dc'] },
   tf: { tool: 'spice_tf', analyses: ['tf'] },
+  impedance: { tool: 'spice_impedance', analyses: ['ac'] },
   parameterOverrides: {
     tools: ['spice_simulate', 'spice_simulation_start'],
     input: 'params',
@@ -25,7 +26,7 @@ assert.deepEqual(capabilities, {
     caseSensitive: false,
     unknownParameterCode: 'UNKNOWN_PARAMETER',
   },
-  tools: ['spice_tf', 'spice_sensitivity', 'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_fourier', 'spice_disto_metrics', 'spice_pz_metrics', 'spice_noise_metrics', 'spice_measure', 'spice_dc_metrics', 'spice_op_report', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel'],
+  tools: ['spice_impedance', 'spice_tf', 'spice_sensitivity', 'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_fourier', 'spice_disto_metrics', 'spice_pz_metrics', 'spice_noise_metrics', 'spice_measure', 'spice_dc_metrics', 'spice_op_report', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel'],
   limits: {
     maxDocumentBytes: 262144,
     maxAnalyses: 8,
