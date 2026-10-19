@@ -350,7 +350,10 @@ class ControlInterpreter {
         return;
       }
       case 'reset':
-        if (rest !== '') throw new ControlScriptError('reset takes no arguments', line.lineNumber, line.text);
+      case 'mc_source':
+        // ngspice-47 com_mc_source ignores arguments and reloads the retained
+        // deck without executing its .control block, just as reset does here.
+        if (name === 'reset' && rest !== '') throw new ControlScriptError('reset takes no arguments', line.lineNumber, line.text);
         for (const [name, value] of Object.entries(this.host.reset(line))) {
           this.plots[0].vectors.set(name, scalar(value, name));
         }

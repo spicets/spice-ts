@@ -1,0 +1,7 @@
+Lossless T-line IC regression (#1497)
+VSTEP source 0 PULSE(0 1 2n 100p 100p 10n 20n)
+RS source input 50
+T1 input 0 output 0 Z0=50 TD=1n IC=1,0.02,1,0.02
+RL output 0 50
+.tran 10p 5n UIC
+.end
