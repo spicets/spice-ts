@@ -1,5 +1,25 @@
 # Benchmark sources
 
+## Diode junction temperature laws (#1533)
+
+`benchmarks/diode-temperature/generate.py` generates original project-authored
+MIT probe decks and the consumed test fixture
+`packages/core/src/devices/fixtures/diode-temperature-1533.json`. No third-party
+netlists are copied. Equations follow ngspice-47's BSD-3-Clause
+[`diotemp.c:52-55,82-112,248-251`](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/dio/diotemp.c).
+Run `spice-heavy python benchmarks/diode-temperature/generate.py` from the repo
+root with ngspice-47 on PATH. The generator recovers adjusted capacitance,
+potential and grading from `@d1[cd]` at ideal junction voltages 0, -1 and -2 V,
+and transit time from `cd/gd` with depletion capacitances disabled. It does not
+substitute the ported temperature equations for the external oracle. Tests
+require relative error below 1e-9 for all six resolved model quantities.
+Both engines use the same circuit/model/options directives for the 100 MHz
+reverse-biased RC AC test; the established diode-depletion thresholds remain
+1e-4 relative magnitude and 1e-4 radians phase. Coverage includes each
+coefficient at -20/100 C, combined coefficients, inactive linear coefficients
+with TLEVC=0, and TNOM=50 C (including TEMP=TNOM). This is correctness evidence,
+not a runtime benchmark or a speed claim.
+
 ## Static BJT quasi-saturation (#1499)
 
 `packages/core/src/devices/fixtures/bjt-quasisat-1499.json` contains original
