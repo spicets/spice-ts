@@ -34,10 +34,14 @@ describe('stdio transport', () => {
       'spice_impedance',
       'spice_tf',
       'spice_sensitivity',
-      'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_monte_carlo', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_fourier', 'spice_disto_metrics', 'spice_pz_metrics', 'spice_noise_metrics', 'spice_measure',
+      'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_monte_carlo', 'spice_sweep', 'spice_corners', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_fourier', 'spice_disto_metrics', 'spice_pz_metrics', 'spice_noise_metrics', 'spice_measure',
       'spice_dc_metrics', 'spice_op_report', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel',
     ]);
     expect(listed.tools.every(tool => tool.inputSchema.type === 'object')).toBe(true);
+    expect(listed.tools.find(tool => tool.name === 'spice_corners')?.inputSchema).toMatchObject({
+      required: ['request', 'corners', 'measurement'],
+      properties: { corners: { maxItems: 64 }, measurement: { type: 'object' } },
+    });
     expect(await client.callTool({ name: 'spice_impedance', arguments: {
       request: { apiVersion: '1', input: { format: 'spice', source: 'R1 in 0 1k\n.ac lin 1 100 100' } },
       port: { positive: 'in', negative: '0' },
