@@ -326,6 +326,8 @@ class ControlInterpreter {
         }
         return;
       case 'let': return this.let(rest, line);
+      case 'reshape': return this.reshape(rest, line);
+      case 'transpose': return this.transpose(rest, line);
       case 'unlet':
         for (const word of splitWords(rest)) this.current.vectors.delete(word.toLowerCase());
         return;
@@ -454,21 +456,41 @@ class ControlInterpreter {
     const expression = rest.slice(equals + 1).trim();
     rejectRedirection('let', expression, line);
     const value = this.evaluate(expression, line);
-    const element = /^([^\s[\]]+)\s*\[(.+)\]$/.exec(target);
+    const element = /^([^\s[\]]+)\s*(\[.+\])$/.exec(target);
     if (element) {
       const name = element[1].toLowerCase();
       const plot = this.assignmentPlot(name);
       const existing = plot.vectors.get(name);
       if (!existing) throw new ControlScriptError(`no such vector '${element[1]}' to index`, line.lineNumber, line.text);
-      const index = Math.trunc(this.evaluate(element[2], line).re[0]);
-      if (!(index >= 0 && index < existing.re.length)) {
-        throw new ControlScriptError(`index ${index} out of range for vector '${element[1]}'`, line.lineNumber, line.text);
+      let tree = this.parse(target, line);
+      const indices: ExpressionNode[] = [];
+      while (tree.kind === 'index') {
+        indices.unshift(tree.index);
+        tree = tree.target;
+      }
+      const dims = existing.dims ?? [existing.re.length];
+      let offset = 0;
+      let count = existing.re.length;
+      for (const [axis, expression] of indices.entries()) {
+        let selected: ControlVector;
+        try { selected = evaluateVectorExpression(expression, this.environment()); } catch (error) {
+          throw this.wrap(error, line);
+        }
+        const index = Math.trunc(selected.re[0]);
+        if (selected.im || selected.re.length !== 1 || !Number.isFinite(index) || axis >= dims.length || index < 0 || index >= dims[axis]) {
+          throw new ControlScriptError(`index ${index} out of range for vector '${element[1]}'`, line.lineNumber, line.text);
+        }
+        count /= dims[axis];
+        offset += index * count;
+      }
+      if (value.re.length !== count) {
+        throw new ControlScriptError(`indexed assignment needs exactly ${count} elements, got ${value.re.length}`, line.lineNumber, line.text);
       }
       const updated = renamed(existing, name);
-      updated.re[index] = value.re[0];
+      updated.re.set(value.re, offset);
       if (value.im || updated.im) {
         updated.im ??= new Float64Array(updated.re.length);
-        updated.im[index] = value.im ? value.im[0] : 0;
+        updated.im.set(value.im ?? new Float64Array(count), offset);
       }
       plot.vectors.set(name, updated);
       return;
@@ -491,6 +513,52 @@ class ControlInterpreter {
     if (this.current.vectors.has(name)) return this.current;
     if (this.plots[0].vectors.has(name)) return this.plots[0];
     return this.current;
+  }
+
+  private reshape(rest: string, line: ControlSourceLine): void {
+    const match = /^(.*?)\s+(\[.*\])$/.exec(rest);
+    const shape = match?.[2];
+    if (!match || !shape || !/^(?:\[\s*\d+\s*\]\s*)+$/.test(shape)) {
+      throw new ControlScriptError('reshape needs vector names and positive integer dimensions', line.lineNumber, line.text);
+    }
+    const dims = Array.from(shape.matchAll(/\[\s*(\d+)\s*\]/g), part => Number(part[1]));
+    const size = dims.reduce((a, b) => a * b, 1);
+    if (dims.length > 8 || dims.some(dim => !Number.isSafeInteger(dim) || dim <= 0) || !Number.isSafeInteger(size)) {
+      throw new ControlScriptError('reshape dimensions must be positive integers (at most 8 axes)', line.lineNumber, line.text);
+    }
+    for (const name of splitWords(match[1])) {
+      const vector = this.vector(name, line);
+      if (vector.re.length !== size) {
+        throw new ControlScriptError(`reshape dimensions do not fit '${name}' (total size = ${vector.re.length})`, line.lineNumber, line.text);
+      }
+      vector.dims = [...dims];
+    }
+  }
+
+  private transpose(rest: string, line: ControlSourceLine): void {
+    if (!rest) throw new ControlScriptError('transpose needs vector names', line.lineNumber, line.text);
+    for (const name of splitWords(rest)) {
+      const vector = this.vector(name, line);
+      const dims = vector.dims;
+      if (!dims || dims.length < 2) continue;
+      const rows = dims[dims.length - 2];
+      const columns = dims[dims.length - 1];
+      const block = rows * columns;
+      const reorder = (values: Float64Array): Float64Array => {
+        const result = new Float64Array(values.length);
+        for (let base = 0; base < values.length; base += block) {
+          for (let row = 0; row < rows; row++) {
+            for (let column = 0; column < columns; column++) {
+              result[base + column * rows + row] = values[base + row * columns + column];
+            }
+          }
+        }
+        return result;
+      };
+      vector.re = reorder(vector.re);
+      if (vector.im) vector.im = reorder(vector.im);
+      vector.dims = [...dims.slice(0, -2), columns, rows];
+    }
   }
 
   private set(rest: string, line: ControlSourceLine, preSet = false): void {
