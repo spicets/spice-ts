@@ -172,7 +172,7 @@ export function setupBsim4Instance(
     if (given.has(parameter)) unsupported(raw, 'duplicate canonical instance parameter');
     const value = numeric(raw, input);
     // b4set.c:2380-2415,2517-2583. Gate modes 1/2 share the GP topology.
-    if (key === 'rgatemod' && value !== 0 && value !== 1 && value !== 2) unsupported(raw, 'only RGATEMOD=0/1/2 is ported (2: OP/DC/AC only)');
+    if (key === 'rgatemod' && value !== 0 && value !== 1 && value !== 2) unsupported(raw, 'only RGATEMOD=0/1/2 is ported');
     if (key === 'rbodymod' && value !== 0 && value !== 1) unsupported(raw, 'only RBODYMOD=0/1 is ported');
     if (['rbpb', 'rbpd', 'rbps', 'rbdb', 'rbsb'].includes(key) && value <= 0) throw new InvalidCircuitError(`BSIM4 ${raw} must be positive`);
     if (['geomod', 'rgeomod', 'trnqsmod', 'acnqsmod', 'wnflag'].includes(key) && value !== 0) {

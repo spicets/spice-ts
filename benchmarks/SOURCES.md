@@ -812,6 +812,15 @@ native OP/DC/complex AC samples in `ngspice-47.json`. The gcrg equations are
 ported from b4ld.c:2191-2225 at the pinned ngspice revision below, under the
 same ECL-2.0 licence and retained notices. No per-circuit tolerance tuning.
 
+The RGATEMOD=2 `transient.cir` common-source deck in the same directory is
+project-authored under the repository MIT licence. `generate-transient.py`
+runs its identical bytes with ngspice-47 (`SPICE_ASCIIRAWFILE=1`, `-b -r`),
+without adding control commands or changing solver options. It records the
+deck SHA-256, native point count and 201 shared-grid v(out)/i(vdd) samples in
+`transient-ngspice-47.json`, consumed by `gate-resistance2-transient.test.ts`
+with the standard 1%-of-peak bound. This is a single-fixture parity check,
+not corpus-wide parity or speed evidence.
+
 The RGATEMOD=1 gate-RC transient deck at
 `packages/core/src/devices/bsim4/__fixtures__/rgatemod1/transient.cir` is
 project-authored under the repository MIT licence, not copied from upstream.
