@@ -168,6 +168,30 @@ Large batches can exhaust the default shared wall-time limit. The server owner c
 raise `ToolExecutionOptions.limits.maxWallTimeMs` (the 200-run integration test uses
 120000 ms); a client request cannot raise the server's ceiling.
 
+## Bounded parameter optimization
+
+Call `spice_optimize` with `{ request, parameters: [{ name: 'rval', min: 100, max: 100000 }], objective: { kind: 'cross', signal: 'db(v(out))', analysis: 0, value: -3.010299956639812, edge: 'falling' }, target: 1000 }`
+to tune an RC low-pass cutoff to 1 kHz. The SPICE request must declare the named
+top-level `.param` values; names are case-insensitive and bounds are inclusive.
+`objective` uses the existing `spice_measure` scalar selector contract.
+
+One parameter uses golden-section search on absolute target error; two or three
+use two coordinate-descent passes from the bounds' midpoint. Endpoints are sampled
+and repeated parameter tuples are cached. `maxEvaluations` defaults to 40 and has a
+hard cap of 100 across all coordinates. `tolerance` is absolute objective error,
+defaulting to `max(abs(target) * 0.001, 1e-9)`. One shared wall-time budget and the
+normal cancellation, simulation and output limits apply to the entire search.
+
+Results contain `bestParams`, `achievedValue`, `target`, `tolerance`, `converged`,
+`evaluations` and ordered `history` entries `{ params, value, error }`. Equal-error
+ties keep the earliest evaluation. An unreachable target or exhausted budget returns
+`isError: true` and `error.code: 'TARGET_NOT_REACHED'` alongside the best result and
+history, not a thrown exception. This is not proof of global infeasibility: golden
+section assumes a unimodal error landscape and coordinate descent can miss coupled
+or local optima. Measurement failures use `OBJECTIVE_ERROR`; simulation failures
+preserve their structured error code. If no evaluation succeeds, best values are null.
+Search output contains no timing fields and is deterministic for identical requests.
+
 ## Parameter sweeps
 
 Call `spice_sweep` with `{ request: SimulationRequestV1, parameter, values, measurements? }`.
