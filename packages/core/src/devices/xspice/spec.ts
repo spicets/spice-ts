@@ -470,6 +470,16 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
       params: [real('w', 1e-3), real('l', 1e-2), real('er', 9.8), real('h', 1e-3), real('t', 35e-6),
         real('tand', 2e-4), real('rho', .022e-6), real('d', .15e-6),
         ...['model', 'disp', 'tranmodel'].map(name => ({ name, type: 'int' as const, defaultValue: [0], vector: false, nullAllowed: true }))],
+    }, {
+      name: 'cpmlin',
+      connections: ['p1', 'p2', 'p3', 'p4', 'p1s', 'p2s', 'p3s', 'p4s'].map((name, i) => ({
+        name, direction: i < 4 ? 'inout' as const : 'in' as const,
+        defaultType: i < 4 ? 'hd' : 'vd', allowedTypes: [i < 4 ? 'hd' : 'vd'], vector: false, nullAllowed: false,
+      })),
+      // ngspice-47 tlines/cpmlin/ifspec.ifs:111-241.
+      params: [real('w', 1e-3), real('l', 1), real('s', 1e-3), real('er', 9.8), real('h', 1e-3), real('t', 35e-6),
+        real('tand', 2e-4), real('rho', .022e-6), real('d', .15e-6),
+        ...['model', 'disp', 'tranmodel'].map(name => ({ name, type: 'int' as const, defaultValue: [0], vector: false, nullAllowed: true }))],
     }, ASTATE, {
       name: 'delay',
       connections: [

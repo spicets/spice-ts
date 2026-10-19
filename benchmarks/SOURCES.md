@@ -2081,6 +2081,31 @@ lines 116-151 (DC/AC). Contrary to the original issue wording, reference DC is a
 ideal short and disp=0 is Kirschning-Jansen, not disabled dispersion.
 Transient remains unsupported, tracked in #1461.
 
+## XSPICE coupled microstrip OP/AC (#1483)
+
+`spice-heavy pnpm exec tsx benchmarks/xspice-cpmlin/compare.ts` sources the
+unchanged BSD-3-Clause corpus-f `examples/xspice/transmission_lines/cpmline_ac.cir`
+(provenance in `corpus/corpus-f/SOURCES.md`). Both engines receive identical
+original bytes. This is an SP sweep (100 frequencies, 0.2–4.2 GHz), despite
+the filename. All 48 common S/Y/Z vectors are compared with the uniform 1%
+max-complex-error/reference-vector-peak rule. The reference's last-excitation
+node/branch vectors have no SP-result counterpart and are listed as exclusions.
+Runtimes include different process boundaries and are not speed evidence.
+
+Formula sources (BSD-3-Clause, Copyright 2025 Vadim Kuznetsov; full notice in
+`packages/core/src/devices/xspice/cpmlin.LICENSE`):
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/tlines/msline_common.c
+lines 225–248 (shared Hammerstad helpers), 315–347 (loss), 350–419
+(model=0 quasi-static), 485–627 (disp=0 dispersion);
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/cpmlin/cfunc.mod
+lines 63–94,125–199 (propagation, DC and AC matrix);
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/tlines/tline_common.h
+lines 41–52 (constants/macros). The port deliberately retains upstream's
+unparenthesized `sqr(er - 1)` expansion, which evaluates to -1 rather than
+the intended square. `tline_common.c:106–172` supplies transient history only;
+none of it is needed or ported for this OP/AC slice. Transient and nonzero
+model/disp selectors are explicitly unsupported, not silently approximated.
+
 
 ## MCP AC metrics (#1391)
 
