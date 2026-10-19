@@ -2162,5 +2162,8 @@ samples are linearly interpolated onto ngspice's adaptive timepoints; the
 unchanged parity gate is 1% of each reference signal's peak. Run
 `spice-heavy pnpm exec tsx benchmarks/diode-rsw/compare.ts`; add
 `--write-reference` to refresh the JSON oracle consumed by the core test.
-This slice covers positive RSW with explicit NS; self-heating and ngspice's
-NS-absent shared-voltage current path remain explicit errors, not silent approximations.
+`default-ns.cir` is the identical original MIT deck with only ` NS=1.4`
+removed, exercising ngspice-47's bottom-voltage-evaluated sidewall current
+and sidewall-node companion conductance. Run the same command with
+`--default-ns` (and optionally `--write-reference`) for its four-analysis oracle.
+Self-heating with RSW remains an explicit unsupported error.

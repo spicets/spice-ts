@@ -9,7 +9,8 @@ import { simulate } from '../../packages/core/src/simulate.js';
 // --write-reference refreshes the test oracle from an installed ngspice-47.
 void main();
 async function main(): Promise<void> {
-const fixture = resolve('benchmarks/diode-rsw/sidewall.cir');
+const fixtureName = process.argv.includes('--default-ns') ? 'default-ns' : 'sidewall';
+const fixture = resolve(`benchmarks/diode-rsw/${fixtureName}.cir`);
 const bytes = readFileSync(fixture);
 const directory = mkdtempSync(join(tmpdir(), 'rsw-'));
 const analyses = ['op', 'dc', 'ac', 'tran'] as const;
@@ -37,7 +38,8 @@ const version = spawnSync('ngspice', ['--version'], { encoding: 'utf8' }).stdout
 if (!version.includes('ngspice-47')) throw new Error('Reference requires ngspice-47');
 const oracle = { version: 'ngspice-47', sha256: createHash('sha256').update(bytes).digest('hex'), reference };
 if (process.argv.includes('--write-reference')) {
-  writeFileSync(resolve('benchmarks/diode-rsw/reference.json'), JSON.stringify(oracle, null, 2) + '\n');
+  const referenceName = fixtureName === 'sidewall' ? 'reference' : `${fixtureName}-reference`;
+  writeFileSync(resolve(`benchmarks/diode-rsw/${referenceName}.json`), JSON.stringify(oracle, null, 2) + '\n');
 }
 const startTs = performance.now();
 const simulation = await simulate(bytes.toString());

@@ -191,6 +191,10 @@ interface DeviceDescriptor {
   modelName?: string;
   /** Resolved junction card for the two branches of an RSW diode. */
   diodeModelParams?: Record<string, number>;
+  /** RSW keeps the bottom RS explicit, including charge-free junctions. */
+  diodeForcePrimeNode?: boolean;
+  /** NS-absent RSW current is evaluated at the bottom prime node (ngspice-47). */
+  diodeCurrentControlNode?: string;
   params?: Record<string, number>;
   controlSource?: string;
   /** Volts for capacitors, amps for inductors. */
@@ -2476,6 +2480,7 @@ export class Circuit {
               : { ...modelParams, RS: seriesResistanceOverride },
             hasExpandedSeriesResistance,
             instanceParams,
+            desc.diodeCurrentControlNode === undefined ? undefined : resolveNode(desc.diodeCurrentControlNode),
           ));
           break;
         }
@@ -3003,14 +3008,12 @@ export class Circuit {
           }
           const card = canonicalDiodeModelParams(desc.name, modelParams!) as Record<string, number>;
           const { RSW, ...common } = card;
-          if ((card.JSW ?? 0) !== 0 && effectivePerimeter > 0 && card.NS === undefined) {
-            throw new InvalidCircuitError(
-              `Diode '${desc.name}': RSW with JSW requires explicit NS; ngspice's shared-voltage sidewall law is not implemented`,
-            );
-          }
           const [anode, cathode] = desc.nodes;
           const junction = internalNodeName(desc.name, 'rsw');
-          const bottom = { ...desc, diodeModelParams: { ...common, JSW: 0, CJSW: 0 } };
+          const bottom = {
+            ...desc, diodeForcePrimeNode: true,
+            diodeModelParams: { ...common, JSW: 0, CJSW: 0 },
+          };
           // diosetup.c/diotemp.c: RSW/(PJ*M), with the same TRS law as RS.
           // The sidewall has no breakdown or diffusion charge (dioload.c).
           if (effectivePerimeter > 0) {
@@ -3026,6 +3029,9 @@ export class Circuit {
             result.push({
               ...desc, name: `${desc.name}.SW`, nodes: [junction, cathode],
               params: { ...desc.params, RS: 0 },
+              diodeCurrentControlNode: card.NS === undefined
+                ? (isPositiveFinite(seriesResistance) ? internalNodeName(desc.name, 'rs') : anode)
+                : undefined,
               diodeModelParams: {
                 ...common, IS: 0, RS: 0, CJO: 0, TT: 0, BV: Infinity, IKF: 0, IKR: 0,
               },
@@ -3042,7 +3048,7 @@ export class Circuit {
         // it into a two-terminal diode unless the junction stores charge or
         // RSHUNT must shunt that node to ground too (#824).
         const needsPrimeNode = !desc.params?.THERMAL
-          && (hasJunctionCharge || this._simulationOptions.rshunt !== undefined);
+          && (desc.diodeForcePrimeNode || hasJunctionCharge || this._simulationOptions.rshunt !== undefined);
         if (isPositiveFinite(seriesResistance) && needsPrimeNode) {
           const [anode, cathode] = desc.nodes;
           const junction = internalNodeName(desc.name, 'rs');

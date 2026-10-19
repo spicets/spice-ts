@@ -7,13 +7,15 @@ import { parse } from '../parser/index.js';
 const deck = readFileSync(new URL('../../../../benchmarks/diode-rsw/sidewall.cir', import.meta.url), 'utf8');
 
 describe('diode independent sidewall series resistance (#1515)', () => {
-  it('runs OP, DC, AC and transient with JSW/CJSW and positive RSW', async () => {
-    const oracle = JSON.parse(readFileSync(new URL('../../../../benchmarks/diode-rsw/reference.json', import.meta.url), 'utf8')) as {
+  it.each(['sidewall', 'default-ns'])('runs OP, DC, AC and transient with JSW/CJSW and positive RSW (%s)', async fixtureName => {
+    const fixture = readFileSync(new URL(`../../../../benchmarks/diode-rsw/${fixtureName}.cir`, import.meta.url), 'utf8');
+    const referenceName = fixtureName === 'sidewall' ? 'reference' : `${fixtureName}-reference`;
+    const oracle = JSON.parse(readFileSync(new URL(`../../../../benchmarks/diode-rsw/${referenceName}.json`, import.meta.url), 'utf8')) as {
       sha256: string;
       reference: Record<string, { names: string[]; rows: number[][][] }>;
     };
-    expect(createHash('sha256').update(deck).digest('hex')).toBe(oracle.sha256);
-    const result = await simulate(deck);
+    expect(createHash('sha256').update(fixture).digest('hex')).toBe(oracle.sha256);
+    const result = await simulate(fixture);
     for (const [analysis, { names, rows }] of Object.entries(oracle.reference)) {
       for (const signal of ['v(in)', 'v(out)', 'i(v1)']) {
         const column = names.indexOf(signal);
@@ -44,20 +46,31 @@ describe('diode independent sidewall series resistance (#1515)', () => {
     }
   });
 
-  it('keeps absent and zero RSW bit-identical', async () => {
-    const absent = await simulate(deck.replace(' RSW=200', ''));
-    const zero = await simulate(deck.replace('RSW=200', 'RSW=0'));
+  it.each([true, false])('keeps absent and zero RSW bit-identical (explicit NS: %s)', async explicitNS => {
+    const fixture = explicitNS ? deck : deck.replace(' NS=1.4', '');
+    const absent = await simulate(fixture.replace(' RSW=200', ''));
+    const zero = await simulate(fixture.replace('RSW=200', 'RSW=0'));
     expect(zero.dc!.voltage('out')).toBe(absent.dc!.voltage('out'));
     expect(zero.dc!.current('V1')).toBe(absent.dc!.current('V1'));
     expect(zero.dcSweep!.voltage('out')).toEqual(absent.dcSweep!.voltage('out'));
     expect(zero.transient!.voltage('out')).toEqual(absent.transient!.voltage('out'));
-    const absentNodes = parse(deck.replace(' RSW=200', '')).compile().nodeNames;
-    expect(parse(deck.replace('RSW=200', 'RSW=0')).compile().nodeNames).toEqual(absentNodes);
-    expect(parse(deck).compile().nodeNames.length).toBe(absentNodes.length + 1);
+    expect(zero.ac!.voltage('out')).toEqual(absent.ac!.voltage('out'));
+    const absentNodes = parse(fixture.replace(' RSW=200', '')).compile().nodeNames;
+    expect(parse(fixture.replace('RSW=200', 'RSW=0')).compile().nodeNames).toEqual(absentNodes);
+    expect(parse(fixture).compile().nodeNames.length).toBe(absentNodes.length + 1);
   });
 
-  it('rejects unimplemented NS-absent and self-heating combinations explicitly', async () => {
-    await expect(simulate(deck.replace(' NS=1.4', ''))).rejects.toThrow('requires explicit NS');
+  it.each([0, 5])('uses the bottom voltage without junction charge (RS=%s)', async rs => {
+    const fixture = deck.replace(' NS=1.4', '').replace('RS=5', `RS=${rs}`);
+    const charged = await simulate(fixture);
+    const chargeFree = fixture.replace(' CJO=20p', '').replace(' CJSW=30p', '').replace(' TT=1n', '');
+    const result = await simulate(chargeFree);
+    expect(result.dc!.voltage('out')).toBeCloseTo(charged.dc!.voltage('out'), 9);
+    expect(result.dc!.current('V1')).toBeCloseTo(charged.dc!.current('V1'), 11);
+    expect(parse(chargeFree).compile().nodeNames.length).toBe(rs > 0 ? 4 : 3);
+  });
+
+  it('rejects unimplemented self-heating combinations explicitly', async () => {
     await expect(simulate(deck.replace('area=2', 'thermal area=2'))).rejects.toThrow('Self-heating diode RSW');
   });
 });
