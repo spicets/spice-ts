@@ -8,6 +8,8 @@ export interface ParsedTransmissionLine {
   impedance: number;
   delay: number;
   initialConditions?: TransmissionLineInitialConditions;
+  relativeTolerance?: number;
+  absoluteTolerance?: number;
 }
 
 export interface ParsedLossyTransmissionLine {
@@ -105,14 +107,18 @@ export function parseTransmissionLine(
       initialConditions = [parsed[0], parsed[1], parsed[2], parsed[3]];
       continue;
     }
-    if (!['Z0', 'TD', 'F', 'NL'].includes(key) || params.has(key)) {
+    if (!['Z0', 'TD', 'F', 'NL', 'REL', 'ABS'].includes(key) || params.has(key)) {
       throw new ParseError(
-        'Unsupported lossless transmission line parameter; only Z0, TD, F, NL and IC are supported (REL/ABS are unsupported)',
+        'Unsupported lossless transmission line parameter; only Z0, TD, F, NL, IC, REL and ABS are supported',
         lineNumber,
         tokens.join(' '),
       );
     }
-    params.set(key, parseNumber(token.slice(separator + 1)));
+    const value = parseNumber(token.slice(separator + 1));
+    if (!Number.isFinite(value)) {
+      throw new ParseError('Lossless transmission line parameters must be finite', lineNumber, tokens.join(' '));
+    }
+    params.set(key, value);
   }
 
   const impedance = params.get('Z0');
@@ -134,7 +140,7 @@ export function parseTransmissionLine(
     );
   }
 
-  return { impedance, delay, initialConditions };
+  return { impedance, delay, initialConditions, relativeTolerance: params.get('REL'), absoluteTolerance: params.get('ABS') };
 }
 
 /** A parsed Y-element (ngspice TXL single lossy line). */
