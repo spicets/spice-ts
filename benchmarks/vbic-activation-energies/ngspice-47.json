@@ -1,0 +1,483 @@
+{
+  "version": "ngspice-47",
+  "signals": [
+    "v(c)",
+    "v(b)",
+    "v(e)",
+    "v(s)",
+    "i(vc)",
+    "i(vb)",
+    "i(ve)",
+    "i(vs)"
+  ],
+  "rows": [
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 ea=1.1095\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.9665771120491014,
+        0.749665769389273,
+        0.0033757118345284043,
+        -0.19999999978366562,
+        -0.0003342288795089865,
+        -0.0000033423061072697207,
+        0.0003375711834528404,
+        2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eaie=1.489271\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.9665771120491014,
+        0.749665769389273,
+        0.0033757118345284043,
+        -0.19999999978366562,
+        -0.0003342288795089865,
+        -0.0000033423061072697207,
+        0.0003375711834528404,
+        2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eaic=1.3\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.9665771120491014,
+        0.749665769389273,
+        0.0033757118345284043,
+        -0.19999999978366562,
+        -0.0003342288795089865,
+        -0.0000033423061072697207,
+        0.0003375711834528404,
+        2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eais=1.25\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.9665771120491014,
+        0.749665769389273,
+        0.0033757118345284043,
+        -0.19999999978366562,
+        -0.0003342288795089865,
+        -0.0000033423061072697207,
+        0.0003375711834528404,
+        2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eane=1.4\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.9665771120491014,
+        0.749665769389273,
+        0.0033757118345284043,
+        -0.19999999978366562,
+        -0.0003342288795089865,
+        -0.0000033423061072697207,
+        0.0003375711834528404,
+        2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eanc=1.35\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.9665771120491014,
+        0.749665769389273,
+        0.0033757118345284043,
+        -0.19999999978366562,
+        -0.0003342288795089865,
+        -0.0000033423061072697207,
+        0.0003375711834528404,
+        2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eans=1.2\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.9665771120491014,
+        0.749665769389273,
+        0.0033757118345284043,
+        -0.19999999978366562,
+        -0.0003342288795089865,
+        -0.0000033423061072697207,
+        0.0003375711834528404,
+        2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eap=1.15\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.9665771120491014,
+        0.749665769389273,
+        0.0033757118345284043,
+        -0.19999999978366562,
+        -0.0003342288795089865,
+        -0.0000033423061072697207,
+        0.0003375711834528404,
+        2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 ea=1.1095 eaie=1.489271 eaic=1.3 eais=1.25 eane=1.4 eanc=1.35 eans=1.2 eap=1.15\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.9665771120491014,
+        0.749665769389273,
+        0.0033757118345284043,
+        -0.19999999978366562,
+        -0.0003342288795089865,
+        -0.0000033423061072697207,
+        0.0003375711834528404,
+        2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 ea=1.1095\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.759466355724316,
+        0.7474312141707874,
+        0.024310242989244227,
+        -0.19999999978755093,
+        -0.0024053364427568404,
+        -0.00002568785829212562,
+        0.002431024298924423,
+        2.1244907499884393e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eaie=1.489271\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.826724463521087,
+        0.7325077489544114,
+        0.019076778730464507,
+        -0.19999999978015257,
+        -0.0017327553647891291,
+        -0.00017492251045588559,
+        0.0019076778730464509,
+        2.1984743470149226e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eaic=1.3\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.7504603504462035,
+        0.7475045986158856,
+        0.02520350507264471,
+        -0.1999999997885416,
+        -0.002495396495537965,
+        -0.000024954013841143718,
+        0.002520350507264471,
+        2.1145839523839526e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eais=1.25\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.750460350655385,
+        0.7475045985780651,
+        0.02520350505313758,
+        -0.199999999764833,
+        -0.0024953964934461494,
+        -0.000024954014219348963,
+        0.002520350505313758,
+        2.351670136402362e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eane=1.4\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.7504603878723206,
+        0.7475045919434782,
+        0.025203501997273697,
+        -0.1999999997885416,
+        -0.002495396121276794,
+        -0.00002495408056521776,
+        0.00252035019972737,
+        2.1145839523839526e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eanc=1.35\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.750460350678578,
+        0.7475045985781523,
+        0.025203505053180753,
+        -0.1999999997885416,
+        -0.0024953964932142195,
+        -0.000024954014218476326,
+        0.0025203505053180753,
+        2.1145839523839526e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eans=1.2\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.7504603506790815,
+        0.7475045985780651,
+        0.02520350505313758,
+        -0.19999999978852925,
+        -0.0024953964932091853,
+        -0.000024954014219348963,
+        0.002520350505313758,
+        2.114707464695442e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eap=1.15\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.750460350679095,
+        0.7475045985780648,
+        0.02520350505313756,
+        -0.1999999997885416,
+        -0.00249539649320905,
+        -0.000024954014219351183,
+        0.0025203505053137563,
+        2.1145839523839526e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 2\nVb bb 0 0.75\nVe ee 0 0\nVs ss 0 -0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod npn level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 ea=1.1095 eaie=1.489271 eaic=1.3 eais=1.25 eane=1.4 eanc=1.35 eans=1.2 eap=1.15\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        1.8349923308449878,
+        0.7322104918370036,
+        0.018279717707352327,
+        -0.1999999997555221,
+        -0.001650076691550122,
+        -0.0001778950816299636,
+        0.0018279717707352329,
+        2.4447789903625504e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 ea=1.1095\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.9665771122675832,
+        -0.7496657693914576,
+        -0.003375711812461715,
+        0.19999999978366562,
+        0.0003342288773241675,
+        0.000003342306085423862,
+        -0.00033757118124617155,
+        -2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eaie=1.489271\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.9665771122675832,
+        -0.7496657693914576,
+        -0.003375711812461715,
+        0.19999999978366562,
+        0.0003342288773241675,
+        0.000003342306085423862,
+        -0.00033757118124617155,
+        -2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eaic=1.3\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.9665771122675832,
+        -0.7496657693914576,
+        -0.003375711812461715,
+        0.19999999978366562,
+        0.0003342288773241675,
+        0.000003342306085423862,
+        -0.00033757118124617155,
+        -2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eais=1.25\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.9665771122675832,
+        -0.7496657693914576,
+        -0.003375711812461715,
+        0.19999999978366562,
+        0.0003342288773241675,
+        0.000003342306085423862,
+        -0.00033757118124617155,
+        -2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eane=1.4\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.9665771122675832,
+        -0.7496657693914576,
+        -0.003375711812461715,
+        0.19999999978366562,
+        0.0003342288773241675,
+        0.000003342306085423862,
+        -0.00033757118124617155,
+        -2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eanc=1.35\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.9665771122675832,
+        -0.7496657693914576,
+        -0.003375711812461715,
+        0.19999999978366562,
+        0.0003342288773241675,
+        0.000003342306085423862,
+        -0.00033757118124617155,
+        -2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eans=1.2\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.9665771122675832,
+        -0.7496657693914576,
+        -0.003375711812461715,
+        0.19999999978366562,
+        0.0003342288773241675,
+        0.000003342306085423862,
+        -0.00033757118124617155,
+        -2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eap=1.15\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.9665771122675832,
+        -0.7496657693914576,
+        -0.003375711812461715,
+        0.19999999978366562,
+        0.0003342288773241675,
+        0.000003342306085423862,
+        -0.00033757118124617155,
+        -2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 ea=1.1095 eaie=1.489271 eaic=1.3 eais=1.25 eane=1.4 eanc=1.35 eans=1.2 eap=1.15\n.temp 27\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.9665771122675832,
+        -0.7496657693914576,
+        -0.003375711812461715,
+        0.19999999978366562,
+        0.0003342288773241675,
+        0.000003342306085423862,
+        -0.00033757118124617155,
+        -2.163343837402465e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 ea=1.1095\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.7594663557262917,
+        -0.747431214170809,
+        -0.024310242989044804,
+        0.19999999978755093,
+        0.0024053364427370828,
+        0.000025687858291909126,
+        -0.0024310242989044805,
+        -2.1244907499884393e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eaie=1.489271\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.8267244615222848,
+        -0.7325077487526314,
+        -0.019076778950522875,
+        0.19999999978015257,
+        0.0017327553847771516,
+        0.00017492251247368595,
+        -0.0019076778950522875,
+        -2.1984743470149226e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eaic=1.3\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.7504603504474177,
+        -0.7475045986158985,
+        -0.02520350507252212,
+        0.1999999997885416,
+        0.0024953964955258235,
+        0.00002495401384101493,
+        -0.002520350507252212,
+        -2.1145839523839526e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eais=1.25\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.750460350668071,
+        -0.7475045985781924,
+        -0.02520350505185653,
+        0.199999999764833,
+        0.002495396493319291,
+        0.000024954014218075538,
+        -0.002520350505185653,
+        -2.351670136402362e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eane=1.4\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.7504603878776472,
+        -0.7475045919435328,
+        -0.0252035019967357,
+        0.1999999997885416,
+        0.0024953961212235277,
+        0.000024954080564671534,
+        -0.0025203501996735704,
+        -2.1145839523839526e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eanc=1.35\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.750460350683903,
+        -0.7475045985782068,
+        -0.025203505052642766,
+        0.1999999997885416,
+        0.002495396493160971,
+        0.00002495401421793121,
+        -0.002520350505264277,
+        -2.1145839523839526e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eans=1.2\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.7504603506844105,
+        -0.7475045985781194,
+        -0.025203505052599603,
+        0.19999999978852925,
+        0.0024953964931558946,
+        0.000024954014218806063,
+        -0.0025203505052599604,
+        -2.114707464695442e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 eap=1.15\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.750460350733863,
+        -0.7475045985786133,
+        -0.025203505047605962,
+        0.1999999997885416,
+        0.0024953964926613705,
+        0.00002495401421386668,
+        -0.0025203505047605964,
+        -2.1145839523839526e-12
+      ]
+    },
+    {
+      "deck": "VBIC activation energies\nVc cc 0 -2\nVb bb 0 -0.75\nVe ee 0 0\nVs ss 0 0.2\nRc cc c 100\nRb bb b 100\nRe ee e 10\nRs ss s 100\nQ1 c b e s mod\n.model mod pnp level=4 tnom=27 rcx=10 rci=10 rbx=10 rbi=10 re=1 rs=10 rbp=10 isp=1e-16 ibeip=1e-18 ibenp=1e-17 ibcip=1e-16 ibcnp=1e-17 ibei=1e-18 iben=1e-17 ibci=1e-16 ibcn=1e-17 ea=1.1095 eaie=1.489271 eaic=1.3 eais=1.25 eane=1.4 eanc=1.35 eans=1.2 eap=1.15\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint v(c) v(b) v(e) v(s) i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "values": [
+        -1.8349923302214501,
+        -0.7322104917697804,
+        -0.018279717776428422,
+        0.1999999997555221,
+        0.0016500766977854985,
+        0.00017789508230219586,
+        -0.0018279717776428423,
+        -2.4447789903625504e-12
+      ]
+    }
+  ]
+}
