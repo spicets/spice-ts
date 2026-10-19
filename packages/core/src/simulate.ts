@@ -14,6 +14,7 @@ import { resolveOptions, withNetlistOptions } from './types.js';
 import { solveDCOperatingPoint } from './analysis/dc.js';
 import { isSavedTransientPoint, runnableTransient, solveTransient } from './analysis/transient.js';
 import { transientStepCap } from './analysis/max-timestep.js';
+import { TransientOutputGrid, interpolateOutputValue } from './analysis/transient-output.js';
 import { buildACRHS, solveAC } from './analysis/ac.js';
 import { assertNoiseDevicesSupported, solveNoise } from './analysis/noise.js';
 import { solveSParameters } from './analysis/s-parameter.js';
@@ -797,6 +798,21 @@ function* streamTransient(
   options: ResolvedOptions,
   initialSolution: Float64Array,
 ): Generator<TransientStep> {
+  const grid = options.interp ? new TransientOutputGrid(analysis) : undefined;
+  let previous: TransientStep | undefined;
+  const output = (step: TransientStep): TransientStep | undefined => {
+    if (!grid) return step;
+    const point = grid.accept(step.time);
+    const interpolate = (values: Map<string, number>, old: Map<string, number> | undefined): Map<string, number> =>
+      new Map([...values].map(([name, value]) => [name, interpolateOutputValue(old?.get(name) ?? 0, value, point!.fraction)]));
+    const result = point ? {
+      time: point.time,
+      voltages: interpolate(step.voltages, previous?.voltages),
+      currents: interpolate(step.currents, previous?.currents),
+    } : undefined;
+    previous = step;
+    return result;
+  };
   const driver = createDriverFromCompiled(compiled, options, {
     stopTime: analysis.stopTime,
     timestep: analysis.timestep,
@@ -810,10 +826,16 @@ function* streamTransient(
 
   try {
     const initialStep = driver.peekInitialStep();
-    if (isSavedTransientPoint(analysis, initialStep.time)) yield initialStep;
+    if (isSavedTransientPoint(analysis, initialStep.time)) {
+      const point = output(initialStep);
+      if (point) yield point;
+    }
     while (!driver.isDone) {
       const step = driver.advance();
-      if (isSavedTransientPoint(analysis, step.time)) yield step;
+      if (isSavedTransientPoint(analysis, step.time)) {
+        const point = output(step);
+        if (point) yield point;
+      }
     }
   } finally {
     driver.dispose();
