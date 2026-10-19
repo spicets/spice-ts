@@ -55,7 +55,7 @@ function sweepValues(args: Record<string, unknown>): number[] {
 }
 
 /** Only top-level R/C/L scalar values are component targets, never models or subcircuit instances. */
-function overrideComponent(request: SimulationRequestV1, name: string, value: number): SimulationRequestV1 {
+export function overrideComponent(request: SimulationRequestV1, name: string, value: number): SimulationRequestV1 {
   const key = name.toLowerCase();
   const field = ({ r: 'resistance', c: 'capacitance', l: 'inductance' } as Record<string, string>)[key[0]];
   if (!field) invalid('Component sweeps support top-level R/C/L values only');

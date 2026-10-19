@@ -3,6 +3,17 @@ import { parseTitleless as parse } from './index.js';
 import { TransmissionLine } from '../devices/transmission-line.js';
 
 describe('lossless transmission-line parser', () => {
+  it.each([
+    ['REL=1 ABS=1', 1, 1],
+    ['rel = .5', 0.5, 1],
+    ['ABS=2m REL=0', 0, 0.002],
+    ['ABS=0', 1, 0],
+    ['', 1, 1],
+  ])('preserves TRA breakpoint controls: %s', (parameters, relativeTolerance, absoluteTolerance) => {
+    const line = parse(`T1 in 0 out 0 Z0=50 TD=5n ${parameters}`).compile().devices[0];
+    expect(line).toMatchObject({ relativeTolerance, absoluteTolerance });
+  });
+
   it.each(['IC=1,20m,1,20m', 'IC = 1 20m 1 20m'])('parses four port initial conditions: %s', ic => {
     const line = parse(`T1 in 0 out 0 ${ic} Z0=50 TD=1n`).compile().devices[0];
     expect(line).toMatchObject({ initialConditions: [1, 0.02, 1, 0.02] });
@@ -24,8 +35,9 @@ describe('lossless transmission-line parser', () => {
   });
 
   it.each([
-    ['absolute tolerance', 'T1 in 0 out 0 Z0=50 TD=5n ABS=1'],
-    ['unknown parameters', 'T1 in 0 out 0 Z0=50 TD=5n REL=1'],
+    ['duplicate tolerance', 'T1 in 0 out 0 Z0=50 TD=5n REL=1 REL=.5'],
+    ['duplicate absolute tolerance', 'T1 in 0 out 0 Z0=50 TD=5n ABS=1 ABS=2'],
+    ['unknown parameters', 'T1 in 0 out 0 Z0=50 TD=5n FOO=1'],
     ['non-positive frequency', 'T1 in 0 out 0 Z0=50 F=0'],
     ['non-positive length', 'T1 in 0 out 0 Z0=50 NL=-1'],
     ['duplicate frequency', 'T1 in 0 out 0 Z0=50 F=1g F=2g'],
