@@ -1,5 +1,5 @@
 import type {
-  ChargeIntegration, ChargeTruncation, DeviceModel, StampContext, TransientBreakpointSink,
+  ChargeIntegration, ChargeTruncation, ConvergenceTolerances, DeviceModel, StampContext, TransientBreakpointSink,
 } from '../device.js';
 import type { CodeModelBehavior, CodeModelCall } from './models.js';
 
@@ -66,6 +66,7 @@ export class XspiceDevice implements DeviceModel {
   private readonly acceptedPartials: Float64Array;
   private initialized = false;
   private limited = false;
+  private nodeCount = 0;
   /** Time of the last accepted transient point; undefined outside a transient run. */
   private acceptedTime: number | undefined;
   private lastIntegration: ChargeIntegration | undefined;
@@ -173,6 +174,28 @@ export class XspiceDevice implements DeviceModel {
     return this.limited;
   }
 
+  /** A small voltage delta need not imply a small nonlinear output-current delta. */
+  convergenceTest(solution: Float64Array, tolerances: ConvergenceTolerances): boolean {
+    const inputCount = this.inputPorts.length;
+    for (let o = 0; o < this.outputPorts.length; o++) {
+      const output = this.outputs[o];
+      let predicted = output;
+      for (let i = 0; i < inputCount; i++) {
+        const port = this.inputPorts[i];
+        const value = port.kind === 'voltage'
+          ? (port.positive < 0 ? 0 : solution[port.positive]) - (port.negative < 0 ? 0 : solution[port.negative])
+          : solution[this.nodeCount + port.branch!];
+        predicted += this.partials[o * inputCount + i] * (value - this.inputs[i]);
+      }
+      const absolute = this.outputPorts[o].kind === 'current' ? tolerances.abstol : tolerances.vntol;
+      if (!Number.isFinite(predicted)
+        || Math.abs(predicted - output) > tolerances.reltol * Math.max(Math.abs(predicted), Math.abs(output)) + absolute) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   acceptTransientStep(ctx: StampContext, breakpoints?: TransientBreakpointSink): void {
     const transient = this.acceptedTime !== undefined && ctx.dt > 0 && ctx.time > this.acceptedTime;
     // The operating point that starts a transient run: drop any earlier run's history.
@@ -222,6 +245,7 @@ export class XspiceDevice implements DeviceModel {
   }
 
   private loadAndStamp(ctx: StampContext, analysis: 'dc' | 'tran', integration: ChargeIntegration | undefined): void {
+    this.nodeCount = ctx.numNodes;
     this.limited = false;
     const call = this.call(ctx, analysis, integration, true);
     this.behavior.load(call);

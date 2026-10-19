@@ -16,6 +16,19 @@ reports point counts, maximum/RMS absolute error, normalized error and runtime
 (oracle wall time explicitly includes semaphore queueing). Raw output is
 temporary, not committed. No performance superiority is claimed.
 
+## Three-dimensional control-loop outputs (#1491)
+
+`corpus/corpus-f/three-dimensional-output.ts` runs the byte-identical upstream
+`examples/various/3d_loop.sp` fixture against ngspice-47. Source URL, revision,
+BSD-3-Clause licence and checksum are recorded in `corpus/corpus-f/SOURCES.md`
+and its manifest. No netlist is copied or changed. After building, run
+`spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/three-dimensional-output.ts`.
+All three constructed output files, including their scale vectors, are scored
+with the corpus-f normalized-error rule and uniform 1% threshold. The harness
+requires 15 DC runs and 66 signal comparisons. ASCII raw output is selected
+through an isolated ngspice initialization file. Temporary outputs are removed.
+
+
 ## Static BJT quasi-saturation (#1499)
 
 `packages/core/src/devices/fixtures/bjt-quasisat-1499.json` contains original
@@ -815,6 +828,15 @@ decks with ngspice-47 (only output controls added), recording SHA-256 hashes and
 native OP/DC/complex AC samples in `ngspice-47.json`. The gcrg equations are
 ported from b4ld.c:2191-2225 at the pinned ngspice revision below, under the
 same ECL-2.0 licence and retained notices. No per-circuit tolerance tuning.
+
+The RGATEMOD=2 `transient.cir` common-source deck in the same directory is
+project-authored under the repository MIT licence. `generate-transient.py`
+runs its identical bytes with ngspice-47 (`SPICE_ASCIIRAWFILE=1`, `-b -r`),
+without adding control commands or changing solver options. It records the
+deck SHA-256, native point count and 201 shared-grid v(out)/i(vdd) samples in
+`transient-ngspice-47.json`, consumed by `gate-resistance2-transient.test.ts`
+with the standard 1%-of-peak bound. This is a single-fixture parity check,
+not corpus-wide parity or speed evidence.
 
 The RGATEMOD=1 gate-RC transient deck at
 `packages/core/src/devices/bsim4/__fixtures__/rgatemod1/transient.cir` is
@@ -2167,3 +2189,23 @@ Run `spice-heavy pnpm exec tsx benchmarks/mcp-ac-metrics/compare.mts` after buil
 The script prints both engines' values and errors and fails above 0.5% UGF or
 0.5 degrees phase-margin error. Interpolation differs (linear frequency in
 ngspice, log frequency in MCP). This is correctness evidence, not a speed claim.
+
+## BJT series-resistance temperature coefficients (#1514)
+
+`benchmarks/bjt-resistor-tempco-1514/compare.ts` generates original MIT-licensed
+bias decks and the oracle consumed by
+`packages/core/src/devices/bjt-resistor-tempco-1514.test.ts`. No upstream circuit
+is redistributed. Formula reference (BSD-3-Clause): ngspice-47 `bjttemp.c`,
+https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/bjt/bjttemp.c
+(RC/RE conductance and independent RB/RBM quadratic temperature laws).
+
+Run `spice-heavy pnpm exec tsx benchmarks/bjt-resistor-tempco-1514/compare.ts`.
+Add `--update` to regenerate the test oracle. Both engines receive identical
+deck bytes, including uniform RELTOL=1e-8, ABSTOL=1e-14 and VNTOL=1e-10 to
+reduce reference Newton residuals; comparison retains the existing temperature
+suite's 2e-5 relative-error threshold. Default-solver-tolerance development runs
+had residuals up to 8.07e-5, exceeding that threshold; no comparison threshold
+was relaxed. The five cases cover 85 C OP, ascending/descending TEMP sweeps,
+non-default TNOM, NPN/PNP, AREA*M, IRB, equal/omitted RBM and fixed RB. Compare
+loaded base/collector voltages and both source currents. Other temperature
+coefficients still fail closed away from TNOM. This is not speed evidence.

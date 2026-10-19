@@ -3128,6 +3128,11 @@ export class Circuit {
             result.push({
               type: 'R', name: `${desc.name}.${parameter}`, nodes: [terminal, internal],
               value: resistance / instanceScale,
+              params: {
+                TC1: model.params[`T${parameter}1`] ?? 0,
+                TC2: model.params[`T${parameter}2`] ?? 0,
+                TNOM: model.params.TNOM ?? model.params.TREF ?? NOMINAL_TEMPERATURE_C,
+              },
             });
             if (parameter === 'RC') collector = internal;
             else if (parameter === 'RB') base = internal;

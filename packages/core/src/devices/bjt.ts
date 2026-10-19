@@ -41,6 +41,14 @@ export interface BJTParams {
   /** High-current roll-off exponent (bjtload.c sqarg = arg^NKF). */
   NKF: number;
   RB: number;
+  TRB1: number;
+  TRB2: number;
+  TRM1: number;
+  TRM2: number;
+  TRC1: number;
+  TRC2: number;
+  TRE1: number;
+  TRE2: number;
   /**
    * Minimum base resistance and the base current where the resistance falls
    * half-way to it (bjtload.c gx). RBM defaults to RB (bjttemp.c).
@@ -116,7 +124,7 @@ const CHARGE_STORAGE_PARAMETERS = [
  */
 const UNSUPPORTED_TEMPERATURE_PARAMETERS = [
   'TRB', 'TRC', 'TRE',
-  'TLEV', 'TLEVC', 'TRE1', 'TRE2', 'TRC1', 'TRC2', 'TRB1', 'TRB2', 'TRM1', 'TRM2',
+  'TLEV', 'TLEVC',
   'TBF1', 'TBF2', 'TBR1', 'TBR2', 'TIKF1', 'TIKF2', 'TIKR1', 'TIKR2', 'TIRB1', 'TIRB2',
   'TNC1', 'TNC2', 'TNE1', 'TNE2', 'TNF1', 'TNF2', 'TNR1', 'TNR2', 'TNS1', 'TNS2',
   'TVAF1', 'TVAF2', 'TVAR1', 'TVAR2', 'TITF1', 'TITF2', 'TTF1', 'TTF2', 'TTR1', 'TTR2',
@@ -143,6 +151,7 @@ const SUPPORTED_MODEL_PARAMETERS = new Set<string>([
   'LEVEL', 'BF', 'BR', 'IS', 'NF', 'NR', 'VAF', 'IKF', 'ISE', 'NE', 'VAR', 'IKR', 'ISC', 'NC',
   'NKF', 'RB', 'RBM', 'IRB', 'RC', 'RE', 'KF', 'AF', 'ISS', 'NS', 'TNOM', 'EG', 'XTI', 'XTB',
   'RCO', 'VO', 'GAMMA', 'QUASIMOD', 'VG', 'CN', 'D',
+  'TRE1', 'TRE2', 'TRC1', 'TRC2', 'TRB1', 'TRB2', 'TRM1', 'TRM2',
   ...CHARGE_STORAGE_PARAMETERS, ...Object.keys(MODEL_PARAMETER_ALIASES),
   ...UNSUPPORTED_TEMPERATURE_PARAMETERS, ...INERT_MODEL_PARAMETERS,
 ]);
@@ -368,6 +377,14 @@ export function resolveBJTParams(
     // bjtsetup.c: NKF defaults to 0.5 (the square root) and is capped at 1.
     NKF: Math.min(params.NKF ?? 0.5, 1),
     RB: baseResistance,
+    TRB1: params.TRB1 ?? 0,
+    TRB2: params.TRB2 ?? 0,
+    TRM1: params.TRM1 ?? 0,
+    TRM2: params.TRM2 ?? 0,
+    TRC1: params.TRC1 ?? 0,
+    TRC2: params.TRC2 ?? 0,
+    TRE1: params.TRE1 ?? 0,
+    TRE2: params.TRE2 ?? 0,
     RBM: params.RBM ?? baseResistance,
     IRB: params.IRB ?? 0,
     RC: params.RC ?? 0,
@@ -456,11 +473,14 @@ export function resolveBJTParams(
  * resolved parameters or the raw model card (RBM defaulting to RB, XCJC to 1).
  */
 export function hasBiasDependentBaseResistance(
-  params: { RB?: number; RBM?: number; XCJC?: number; CJC?: number },
+  params: Partial<Pick<BJTParams, 'RB' | 'RBM' | 'XCJC' | 'CJC' | 'TRB1' | 'TRB2' | 'TRM1' | 'TRM2'>>,
 ): boolean {
   const baseResistance = params.RB ?? 0;
   if (!(baseResistance > 0)) return false;
   if ((params.RBM ?? baseResistance) !== baseResistance) return true;
+  // Equal nominal RB/RBM can separate away from TNOM, including default RBM=RB.
+  if ((params.TRB1 ?? 0) !== (params.TRM1 ?? 0)
+    || (params.TRB2 ?? 0) !== (params.TRM2 ?? 0)) return true;
   return (params.XCJC ?? 1) < 1 && (params.CJC ?? 0) > 0;
 }
 
@@ -706,7 +726,8 @@ export class BJT implements DeviceModel {
    * exp(factlog/NE)/bfactor and ISC by exp(factlog/NC)/bfactor; the B-E, B-C
    * and substrate junction potentials and capacitances by the REFTEMP-mapped
    * band-gap law. VAF, VAR, IKF, IKR, IRB, the transit times and the
-   * resistances have no law without their T* coefficients. At T = TNOM every
+   * resistances have no law without their T* coefficients. RB/RBM/RC/RE use
+   * 1 + T1*dT + T2*dT^2, independently for each resistance. At T = TNOM every
    * factor is exactly 1.
    */
   private applyTemperature(): void {
@@ -726,6 +747,11 @@ export class BJT implements DeviceModel {
       return;
     }
     const ratlog = Math.log(kelvin / nominalKelvin);
+    const dt = this.temperature - nominal.TNOM;
+    params.RB = nominal.RB * (1 + nominal.TRB1 * dt + nominal.TRB2 * dt * dt);
+    params.RBM = nominal.RBM * (1 + nominal.TRM1 * dt + nominal.TRM2 * dt * dt);
+    params.RC = nominal.RC * (1 + nominal.TRC1 * dt + nominal.TRC2 * dt * dt);
+    params.RE = nominal.RE * (1 + nominal.TRE1 * dt + nominal.TRE2 * dt * dt);
     const factlog = (kelvin / nominalKelvin - 1) * nominal.EG / this.vt + nominal.XTI * ratlog;
     const bfactor = Math.exp(ratlog * nominal.XTB);
     params.IS = nominal.IS * Math.exp(factlog);

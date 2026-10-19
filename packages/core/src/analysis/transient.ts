@@ -8,6 +8,7 @@ import { deviceOutputVector } from '../control-device-output.js';
 import { InvalidCircuitError } from '../errors.js';
 import { createDriverFromCompiled } from './transient-driver.js';
 import { transientStepCap } from './max-timestep.js';
+import { interpolateTransientOutput } from './transient-output.js';
 
 export { runnableTransient } from './max-timestep.js';
 import { ColumnRecorder } from './transient-columns.js';
@@ -96,7 +97,8 @@ export function solveTransient(
     // Flush buffered columns before exposing the saved prefix; do not change
     // the driver's stop time or timestep trajectory to reach measurements.
     recorder.flush();
-    return stopWhen(new TransientResult(timePoints, voltageArrays, currentArrays));
+    const prefix = new TransientResult(timePoints, voltageArrays, currentArrays);
+    return stopWhen(options.interp ? interpolateTransientOutput(prefix, analysis) : prefix);
   };
 
   try {
@@ -114,6 +116,7 @@ export function solveTransient(
   recorder.flush();
 
   const events = compiled.devices.find(device => device instanceof XspiceEventNetwork) as XspiceEventNetwork | undefined;
-  return new TransientResult(timePoints, voltageArrays, currentArrays, events?.nodeHistories(),
+  const result = new TransientResult(timePoints, voltageArrays, currentArrays, events?.nodeHistories(),
     new Map([...deviceArrays].map(([name, values]) => [name, Float64Array.from(values)])));
+  return options.interp ? interpolateTransientOutput(result, analysis) : result;
 }

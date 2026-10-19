@@ -14,6 +14,7 @@ import { resolveOptions, withNetlistOptions } from './types.js';
 import { solveDCOperatingPoint } from './analysis/dc.js';
 import { isSavedTransientPoint, runnableTransient, solveTransient } from './analysis/transient.js';
 import { transientStepCap } from './analysis/max-timestep.js';
+import { TransientOutputGrid, interpolateOutputValue } from './analysis/transient-output.js';
 import { buildACRHS, solveAC } from './analysis/ac.js';
 import { assertNoiseDevicesSupported, solveNoise } from './analysis/noise.js';
 import { solveSParameters } from './analysis/s-parameter.js';
@@ -372,6 +373,10 @@ function simulateControlScript(
 
   // ngspice reads `@device[i]` from the circuit's present state: the last analysis's last solution.
   let operatingState: ControlOperatingState | undefined;
+  // mc_source loads another circuit. remcirc selects the previously loaded
+  // circuit, rather than leaving no circuit when a retained one still exists.
+  const previousCircuits: { circuit: Circuit; alterations: typeof runtimeAlterations; operatingState: typeof operatingState }[] = [];
+  let circuitLoaded = true;
 
   const solve = (analyses: AnalysisDirective[], poleZero: PoleZeroAnalysis[], saves: readonly string[] = []): SimulationResult => {
     const savedAnalyses = circuit.analyses.splice(0, circuit.analyses.length, ...analyses);
@@ -445,9 +450,14 @@ function simulateControlScript(
       }
       parameterChanges.push({ subcircuit, name, expression });
     },
-    reset(line) {
+    reset(line, newCircuit = false) {
       if (!reparse) throw unsupported('reset', 'no retained netlist source', line);
-      circuit = reparse(parameterChanges);
+      const reloaded = reparse(parameterChanges);
+      if (newCircuit && circuitLoaded) {
+        previousCircuits.push({ circuit, alterations: [...runtimeAlterations], operatingState });
+      }
+      circuit = reloaded;
+      circuitLoaded = true;
       runtimeAlterations.length = 0;
       deckAnalyses = [...circuit.analyses];
       deckPoleZero = [...circuit.poleZeroAnalyses];
@@ -455,6 +465,22 @@ function simulateControlScript(
       operatingState = undefined;
       measureValues.clear();
       return circuit.controlScript?.constants ?? {};
+    },
+    removeCircuit() {
+      const previous = previousCircuits.pop();
+      circuitLoaded = previous !== undefined;
+      if (previous) {
+        circuit = previous.circuit;
+        runtimeAlterations.splice(0, runtimeAlterations.length, ...previous.alterations);
+        operatingState = previous.operatingState;
+        deckAnalyses = [...circuit.analyses];
+        deckPoleZero = [...circuit.poleZeroAnalyses];
+        measures = measureCards(circuit);
+      } else {
+        operatingState = undefined;
+      }
+      measureValues.clear();
+      return circuitLoaded;
     },
     parameterVector: (device, parameter) =>
       deviceOutputVector(operatingState, device, parameter) ?? circuit.parameterVector(device, parameter),
@@ -468,7 +494,7 @@ function simulateControlScript(
   let finalRuns: ControlHostRun[];
   try {
     outcome = runControlScript(script, host);
-    finalRuns = outcome.quit ? [] : runDeck();
+    finalRuns = outcome.quit || outcome.circuitRemoved ? [] : runDeck();
     if (outcome.squaredNoise) {
       for (const { result } of finalRuns) {
         if (result.noise) result.noise = squaredNoiseOutput(result.noise);
@@ -797,6 +823,21 @@ function* streamTransient(
   options: ResolvedOptions,
   initialSolution: Float64Array,
 ): Generator<TransientStep> {
+  const grid = options.interp ? new TransientOutputGrid(analysis) : undefined;
+  let previous: TransientStep | undefined;
+  const output = (step: TransientStep): TransientStep | undefined => {
+    if (!grid) return step;
+    const point = grid.accept(step.time);
+    const interpolate = (values: Map<string, number>, old: Map<string, number> | undefined): Map<string, number> =>
+      new Map([...values].map(([name, value]) => [name, interpolateOutputValue(old?.get(name) ?? 0, value, point!.fraction)]));
+    const result = point ? {
+      time: point.time,
+      voltages: interpolate(step.voltages, previous?.voltages),
+      currents: interpolate(step.currents, previous?.currents),
+    } : undefined;
+    previous = step;
+    return result;
+  };
   const driver = createDriverFromCompiled(compiled, options, {
     stopTime: analysis.stopTime,
     timestep: analysis.timestep,
@@ -810,10 +851,16 @@ function* streamTransient(
 
   try {
     const initialStep = driver.peekInitialStep();
-    if (isSavedTransientPoint(analysis, initialStep.time)) yield initialStep;
+    if (isSavedTransientPoint(analysis, initialStep.time)) {
+      const point = output(initialStep);
+      if (point) yield point;
+    }
     while (!driver.isDone) {
       const step = driver.advance();
-      if (isSavedTransientPoint(analysis, step.time)) yield step;
+      if (isSavedTransientPoint(analysis, step.time)) {
+        const point = output(step);
+        if (point) yield point;
+      }
     }
   } finally {
     driver.dispose();

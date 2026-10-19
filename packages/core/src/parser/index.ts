@@ -1026,7 +1026,7 @@ function parseSimulationOptions(
   for (const token of optionTokens) {
     const separator = token.indexOf('=');
     const name = token.slice(0, separator < 0 ? token.length : separator).toLowerCase();
-    if (name === 'savecurrents' || name === 'autostop') {
+    if (name === 'savecurrents' || name === 'autostop' || name === 'interp') {
       // These are ngspice boolean flags, not numeric or string-valued options.
       if (separator >= 0) throw new ParseError(`Unsupported .options field: '${token}'`, lineNumber, context);
       options[name] = true;
@@ -1059,15 +1059,6 @@ function parseSimulationOptions(
       // ngspice-47 if_option() silently returns for a name outside OPTtbl
       // that no cp_getvar() reads (WRspice `ysep`, ...), so the card runs (#790).
       unrecognised.push(token);
-      continue;
-    }
-    if (name === 'interp' && separator < 0) {
-      // ngspice-47 interpolates the transient rawfile output onto the TSTEP
-      // grid; the solution and the accepted timepoints are unchanged.
-      hooks.warn?.(
-        '.options interp is output-only: ngspice-47 interpolates its transient rawfile onto the TSTEP grid, '
-        + 'spice-ts returns its accepted timepoints',
-      );
       continue;
     }
     if (separator <= 0 || separator === token.length - 1) {

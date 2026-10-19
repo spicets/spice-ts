@@ -41,10 +41,10 @@ describe('#790 .options names ngspice-47 does not recognise', () => {
   // ngspice-47 reads `interp` with cp_getvar() and interpolates the transient
   // rawfile onto the TSTEP grid ("Warning: Interpolated raw file data!"). It
   // changes the saved points, not the solution.
-  it('accepts INTERP as an output-only flag with a warning', () => {
+  it('accepts INTERP as an implemented output-only flag', () => {
     const circuit = parse('t\nV1 1 0 1\nR1 1 0 1k\n.option INTERP\n.tran 1u 10u\n.end');
-    expect(circuit.parseWarnings).toHaveLength(1);
-    expect(circuit.parseWarnings[0]).toMatch(/interp/i);
+    expect(circuit.parseWarnings).toHaveLength(0);
+    expect(circuit.simulationOptions.interp).toBe(true);
   });
 });
 
