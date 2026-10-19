@@ -1,0 +1,38 @@
+Control vector functions oracle (original spice-ts fixture, MIT)
+V1 1 0 1
+R1 1 0 1k
+.control
+set numdgt=15
+set width=240
+let frequency = vector(5)+1
+setscale frequency
+let r = vector(5)*2-3
+let z = (r, vector(5)-1)
+let a = avg(r)
+let b = real(avg(z))
+let c = imag(avg(z))
+let d = stddev(r)
+let e = stddev(z)
+let f = cph(z)
+let g = unwrap(r)
+let h = group_delay(z)
+print a b c d e f g h
+set units=degrees
+let i = cph(z)
+let j = unwrap(r*100)
+let k = group_delay(z)
+print i j k
+ echo $&a
+ echo $&b
+ echo $&c
+ echo $&d
+ echo $&e
+ echo $&f
+ echo $&g
+ echo $&h
+ echo $&i
+ echo $&j
+ echo $&k
+quit
+.endc
+.end

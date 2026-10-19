@@ -273,7 +273,6 @@ describe('unsupported temperature dependence is rejected, not ignored (#374)', (
   });
 
   it.each([
-    ['diode', 'D1 a 0 DM\n.model DM D IS=1e-14 TTT1=1e-3', 'D1', 'TTT1'],
     ['BJT', 'Q1 a a 0 QM\n.model QM NPN IS=1e-15 TBF1=1e-3', 'Q1', 'TBF1'],
   ])('rejects a %s temperature coefficient without an implemented law', async (_kind, cards, device, field) => {
     const deck = `coefficient temp\nV1 a 0 0.6\n${cards}\n.op`;

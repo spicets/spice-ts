@@ -139,7 +139,9 @@ function simulateOp(
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
-
+  if (compiled.devices.some(device => device.name[0]?.toUpperCase() === 'D')) {
+    return opResult(compiled, solveDiodeOp(compiled, order, request, exports), request);
+  }
   const matrix = new Float64Array(order * order);
   const rhs = new Float64Array(order);
   const zero = new Float64Array(order);
@@ -233,7 +235,48 @@ function simulateOp(
     throw numericError('INVALID_CIRCUIT', 'The bounded WebAssembly solver rejected non-finite numeric data', 'solve', { order, status });
   }
   const solution = new Float64Array(exports.memory.buffer, rhsPointer, order).slice();
+  return opResult(compiled, solution, request);
+}
 
+function solveDiodeOp(
+  compiled: CompiledCircuit, order: number, request: SimulationRequestV1, exports: NumericWasmExports,
+): Float64Array {
+  let previous: Float64Array = new Float64Array(order);
+  const matrix = new Float64Array(order * order);
+  const rhs = new Float64Array(order);
+  // Core tolerances, with bounded caller-controlled work and no fallback solver.
+  const maxIterations = Math.min(request.options?.maxIterations ?? 100, 1000);
+  const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
+  const context: StampContext = {
+    stampG(row, column, value) { matrix[row * order + column] += value; },
+    stampB(row, value) { rhs[row] += value; },
+    stampC() {},
+    getVoltage(node) { return node < 0 ? 0 : previous[node]!; },
+    getCurrent(branch) { return previous[compiled.nodeCount + branch]!; },
+    time: 0, dt: 0, numNodes: compiled.nodeCount, sourceScale: 1, useDcSourceValue: true,
+  };
+  for (let iteration = 0; iteration < maxIterations; iteration++) {
+    matrix.fill(0);
+    rhs.fill(0);
+    // Reuse core's ngspice-style pnjlim and optional RS junction solve.
+    for (const device of compiled.devices) device.stamp(context);
+    addGmin(matrix, compiled.nodeCount, order, request.options?.gmin ?? 0);
+    if (!matrix.every(Number.isFinite) || !rhs.every(Number.isFinite)) break;
+    const solution = solveReal(exports, order, matrix, rhs);
+    const converged = solution.every((value, index) => Math.abs(value - previous[index]!)
+      <= (index < compiled.nodeCount ? request.options?.vntol ?? 1e-6 : request.options?.abstol ?? 1e-12)
+        + reltol * Math.abs(value))
+      && !compiled.devices.some(device => device.limitedLastStamp?.());
+    // Like core, do not accept an initial/fixed-junction iteration.
+    if (iteration >= 2 && converged) return solution;
+    previous = solution;
+  }
+  throw numericError('CONVERGENCE_FAILED', 'The bounded WebAssembly diode operating point did not converge', 'solve', {
+    maxIterations,
+  });
+}
+
+function opResult(compiled: CompiledCircuit, solution: Float64Array, request: SimulationRequestV1): SimulationResultV1 {
   const result: SimulationResultV1 = {
     status: 'complete',
     analyses: [{
@@ -539,7 +582,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     || compiled.analyses.length !== 1 || compiled.analyses[0]?.type !== analysis) {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
-  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H']
+  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D']
     : analysis === 'dc' ? ['R', 'I', 'V']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
@@ -597,12 +640,22 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 }
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
-  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H']
+  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D']
     : analysis === 'dc' ? ['R', 'I', 'V']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
+    if (analysis === 'op' && /^\.model\b/i.test(card)) {
+      const model = /^\.model\s+\S+\s+D(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
+      if (!model) unsupported('diode-model', 'Only diode models are supported in nonlinear operating points');
+      const parameters = (model[1] ?? model[2] ?? '').trim();
+      const parameter = new RegExp(`(?:IS|N|RS)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|,\\s*|$)`, 'gi');
+      if (parameters.replace(parameter, '').trim()) {
+        unsupported('diode-model-parameter', 'Only diode model parameters IS, N, and RS are supported');
+      }
+      continue;
+    }
     const tokens = card.split(/\s+/);
     const type = tokens[0]?.[0]?.toUpperCase() ?? '';
     if (type === 'K' && allowedDevices.includes('L')) {
@@ -611,7 +664,9 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
     if (!allowedDevices.includes(type)) {
       unsupported('device-or-directive', `Unsupported linear .${analysis} card '${tokens[0] ?? ''}'`);
     }
-    if (type === 'L') {
+    if (type === 'D') {
+      if (tokens.length !== 4) unsupported('diode-form', 'Diodes must use name anode cathode model');
+    } else if (type === 'L') {
       if (/\bIC\s*=/i.test(card)) {
         unsupported('inductor-initial-condition', 'Inductor initial conditions (IC=) are not supported');
       }

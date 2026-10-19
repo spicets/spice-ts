@@ -5,7 +5,7 @@ import {
 } from './device.js';
 import { chargeTruncationTimestep } from './charge-state.js';
 import { gear3Coefficients } from './gear3.js';
-import { assertNoUnsupportedTemperatureParameters, temperatureJunction } from './junction-temperature.js';
+import { temperatureJunction } from './junction-temperature.js';
 import { pnjlim } from './devsup.js';
 
 export interface DiodeParams {
@@ -59,6 +59,19 @@ export interface DiodeParams {
   FC?: number;
   FCS?: number;
   TT?: number;
+  /** Junction capacitance temperature law: 0 = band-gap, 1 = linear about 27 C. */
+  TLEVC?: number;
+  /** Linear bottom/sidewall capacitance coefficients (1/K), used with TLEVC=1. */
+  CTA?: number;
+  CTP?: number;
+  /** Bottom/sidewall potential coefficients (V/K), used with TLEVC=1. */
+  TPB?: number;
+  TPHP?: number;
+  /** Bottom grading and transit-time polynomial coefficients about TNOM. */
+  TM1?: number;
+  TM2?: number;
+  TTT1?: number;
+  TTT2?: number;
   KF?: number;
   AF?: number;
   /** Forward knee current (high injection) of the bottom junction; ngspice alias IK. */
@@ -75,14 +88,6 @@ export interface DiodeParams {
   CTH0?: number;
 }
 
-/**
- * diotemp.c fields whose temperature laws are not implemented. They only act
- * away from TNOM, where they are rejected rather than ignored (#374).
- */
-const UNSUPPORTED_TEMPERATURE_PARAMETERS = [
-  'TLEVC', 'CTA', 'CTP', 'TPB', 'TPHP', 'TM1', 'TM2', 'TTT1', 'TTT2',
-] as const;
-
 /** Values at TNOM that diotemp.c maps to the device temperature. */
 interface DiodeNominalParams {
   /** Area saturation current IS*AREA*M and sidewall JSW*PJ*M. */
@@ -92,6 +97,8 @@ interface DiodeNominalParams {
   CJSW: number;
   VJ: number;
   VJSW: number;
+  M: number;
+  TT: number;
   /** Series resistance RS/(AREA*M) before the TRS1/TRS2 law. */
   RS: number;
 }
@@ -330,6 +337,9 @@ export class Diode implements DeviceModel {
       }
     }
     const params = canonicalDiodeModelParams(name, modelParams);
+    if (params.TLEVC !== undefined && params.TLEVC !== 0 && params.TLEVC !== 1) {
+      throw new UnsupportedModelParameterError(name, 'TLEVC', 'only TLEVC=0 and TLEVC=1 are implemented');
+    }
     for (const [field, reason] of UNSUPPORTED_MODEL_PARAMETERS) {
       if ((params as Record<string, number | undefined>)[field] !== undefined
         && (params as Record<string, number | undefined>)[field] !== 0) {
@@ -381,6 +391,15 @@ export class Diode implements DeviceModel {
       FC: params.FC ?? 0.5,
       FCS: params.FCS ?? 0.5,
       TT: params.TT ?? 0,
+      TLEVC: params.TLEVC ?? 0,
+      CTA: params.CTA ?? 0,
+      CTP: params.CTP ?? 0,
+      TPB: params.TPB ?? 0,
+      TPHP: params.TPHP ?? 0,
+      TM1: params.TM1 ?? 0,
+      TM2: params.TM2 ?? 0,
+      TTT1: params.TTT1 ?? 0,
+      TTT2: params.TTT2 ?? 0,
       KF: params.KF ?? 0,
       AF: params.AF ?? 1,
       // ngspice-47 diosetup.c:110-129, 362-364: knees below CKTepsmin are
@@ -398,6 +417,8 @@ export class Diode implements DeviceModel {
       CJSW: this.params.CJSW!,
       VJ: this.params.VJ!,
       VJSW: this.params.VJSW!,
+      M: this.params.M!,
+      TT: this.params.TT!,
       RS: this.params.RS,
     };
     this.separateSidewall = params.NS !== undefined && params.JSW !== undefined;
@@ -495,18 +516,15 @@ export class Diode implements DeviceModel {
   }
 
   /**
-   * ngspice-47 diotemp.c (TLEV = TLEVC = 0) at the device temperature: the
+   * ngspice-47 diotemp.c (TLEV = 0) at the device temperature: the
    * saturation currents follow exp((T/TNOM - 1)*EG/(N*vt) + XTI/N*ln(T/TNOM))
    * (the sidewall current with its emission coefficient NS, default 1), and the
    * junction potentials and zero-bias capacitances follow the REFTEMP-mapped
    * band-gap law. BV is mapped in {@link breakdownParams}; RS follows the
-   * TRS1/TRS2 polynomial. At T = TNOM every factor is exactly 1.
+   * TRS1/TRS2 polynomial. TLEVC=1 instead uses a linear law about REFTEMP,
+   * not TNOM, even when the device is at its nominal temperature.
    */
   private applyTemperature(): void {
-    assertNoUnsupportedTemperatureParameters(
-      this.name, this.suppliedParams as Record<string, number | undefined>,
-      UNSUPPORTED_TEMPERATURE_PARAMETERS, this.temperature, this.params.TNOM,
-    );
     const nominal = this.nominal;
     const params = this.params;
     const kelvin = this.temperature + KELVIN_OFFSET;
@@ -515,14 +533,34 @@ export class Diode implements DeviceModel {
     // AREA*M/RS divided by 1 + TRS1*dT + TRS2*dT^2, so RS(T) scales by it.
     const dt = kelvin - nominalKelvin;
     params.RS = nominal.RS * (1 + params.TRS1! * dt + params.TRS2! * dt * dt);
-    if (kelvin === nominalKelvin) {
-      this.bottomSaturationCurrent = nominal.areaSaturationCurrent;
-      this.sidewallSaturationCurrent = nominal.sidewallSaturationCurrent;
-      params.IS = nominal.areaSaturationCurrent + nominal.sidewallSaturationCurrent;
+    // ngspice-47 diotemp.c:52-55,248-251. Always use immutable nominal values.
+    params.M = nominal.M * (1 + params.TM1! * dt + params.TM2! * dt * dt);
+    params.TT = nominal.TT * (1 + params.TTT1! * dt + params.TTT2! * dt * dt);
+    if (params.TLEVC === 1) {
+      // diotemp.c:92-96,108-112: these four coefficients use Temp-REFTEMP.
+      const referenceDelta = this.temperature - 27;
+      params.VJ = nominal.VJ - params.TPB! * referenceDelta;
+      params.CJ0 = nominal.CJ0 * (1 + params.CTA! * referenceDelta);
+      params.VJSW = nominal.VJSW - params.TPHP! * referenceDelta;
+      params.CJSW = nominal.CJSW * (1 + params.CTP! * referenceDelta);
+    } else if (kelvin === nominalKelvin) {
       params.CJ0 = nominal.CJ0;
       params.CJSW = nominal.CJSW;
       params.VJ = nominal.VJ;
       params.VJSW = nominal.VJSW;
+    } else {
+      // diotemp.c:82-91,98-107: only the bottom grading is temperature adjusted.
+      const bottom = temperatureJunction(nominal.VJ, nominal.CJ0, params.M, kelvin, nominalKelvin);
+      const sidewall = temperatureJunction(nominal.VJSW, nominal.CJSW, params.MJSW!, kelvin, nominalKelvin);
+      params.VJ = bottom.potential;
+      params.CJ0 = bottom.capacitance;
+      params.VJSW = sidewall.potential;
+      params.CJSW = sidewall.capacitance;
+    }
+    if (kelvin === nominalKelvin) {
+      this.bottomSaturationCurrent = nominal.areaSaturationCurrent;
+      this.sidewallSaturationCurrent = nominal.sidewallSaturationCurrent;
+      params.IS = nominal.areaSaturationCurrent + nominal.sidewallSaturationCurrent;
       return;
     }
     const vt = K_OVER_Q * kelvin;
@@ -535,12 +573,6 @@ export class Diode implements DeviceModel {
     this.bottomSaturationCurrent = nominal.areaSaturationCurrent * saturationScale(params.N);
     this.sidewallSaturationCurrent = nominal.sidewallSaturationCurrent * saturationScale(params.NS!);
     params.IS = this.bottomSaturationCurrent + this.sidewallSaturationCurrent;
-    const bottom = temperatureJunction(nominal.VJ, nominal.CJ0, params.M!, kelvin, nominalKelvin);
-    const sidewall = temperatureJunction(nominal.VJSW, nominal.CJSW, params.MJSW!, kelvin, nominalKelvin);
-    params.VJ = bottom.potential;
-    params.CJ0 = bottom.capacitance;
-    params.VJSW = sidewall.potential;
-    params.CJSW = sidewall.capacitance;
   }
 
   getTemperature(): number {

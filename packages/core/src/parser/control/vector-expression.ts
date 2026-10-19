@@ -532,9 +532,54 @@ function evaluateLogarithm(arg: ControlVector, { errorName, real }: Logarithm): 
 
 /** Functions of ngspice's front end that spice-ts deliberately does not evaluate. */
 const UNSUPPORTED_FUNCTIONS = new Set([
-  'interpolate', 'avg', 'group_delay', 'cph', 'unwrap',
-  'sunif', 'sgauss', 'rnd', 'poisson', 'exponential', 'stddev', 'sum',
+  'interpolate', 'sum',
+  'sunif', 'sgauss', 'rnd', 'poisson', 'exponential',
 ]);
+
+/** ngspice-47 cmath1.c:93-136. The unit conversions depend on cx_degrees,
+ * including unwrap's unusual first sample (left in radians in degree mode).
+ */
+function continuousPhase(arg: ControlVector, unwrap: boolean, degrees: boolean): ControlVector {
+  const result = new Float64Array(arg.re.length);
+  if (unwrap === isComplex(arg) || result.length === 0) return realVector('result', result, arg.scale);
+  const factor = degrees ? 180 / Math.PI : 1;
+  let last = unwrap ? arg.re[0] / factor : Math.atan2(arg.im![0], arg.re[0]);
+  result[0] = unwrap ? last : last * factor;
+  for (let i = 1; i < result.length; i++) {
+    const phase = unwrap ? arg.re[i] / factor : Math.atan2(arg.im![i], arg.re[i]);
+    last = phase - 2 * Math.PI * Math.floor((phase - last) / (2 * Math.PI) + 0.5);
+    result[i] = last * factor;
+  }
+  return realVector('result', result, arg.scale);
+}
+
+/** ngspice-47 cmath2.c:323-362,465-516: cumulative average, but a scalar
+ * sample standard deviation (squared complex distance from the complex mean).
+ */
+function vectorStatistic(name: 'avg' | 'stddev', arg: ControlVector): ControlVector {
+  const length = arg.re.length;
+  if (name === 'stddev' && length === 0) throw new ExpressionError('stddev() needs at least one element');
+  const re = new Float64Array(length);
+  const im = arg.im ? new Float64Array(length) : undefined;
+  let sumRe = 0;
+  let sumIm = 0;
+  for (let i = 0; i < length; i++) {
+    sumRe += arg.re[i];
+    re[i] = sumRe / (i + 1);
+    if (im) {
+      sumIm += arg.im![i];
+      im[i] = sumIm / (i + 1);
+    }
+  }
+  if (name === 'avg') return im ? complexVector('result', re, im, arg.scale) : realVector('result', re, arg.scale);
+  let variance = 0;
+  for (let i = 0; i < length; i++) {
+    const a = arg.re[i] - re[length - 1];
+    const b = arg.im ? arg.im[i] - im![length - 1] : 0;
+    variance += a * a + b * b;
+  }
+  return scalar(Math.sqrt(variance / (length - 1)));
+}
 
 function mapComplex(vector: ControlVector, operation: (value: Complex) => Complex): ControlVector {
   return combine(vector, vector, value => operation(value));
@@ -657,6 +702,20 @@ function evaluateCall(node: Extract<ExpressionNode, { kind: 'call' }>, env: Expr
     throw new ExpressionError(`unknown function '${node.name}' with ${node.args.length} arguments`);
   }
   const arg = evaluateVectorExpression(node.args[0], env);
+  if (node.name === 'avg' || node.name === 'stddev') return vectorStatistic(node.name, arg);
+  if (node.name === 'cph' || node.name === 'cphase' || node.name === 'unwrap') {
+    return continuousPhase(arg, node.name === 'unwrap', env.degrees());
+  }
+  if (node.name === 'group_delay') {
+    // ngspice-47 cmath4.c:489-564 uses the current plot's frequency scale,
+    // the same quadratic derivative as deriv(), and either angle unit mode.
+    const scale = env.scale?.() ?? arg.scale;
+    if (!scale || scale.name !== 'frequency') throw new ExpressionError('group_delay() needs a frequency scale');
+    if (!isComplex(arg)) throw new ExpressionError('group_delay() needs complex data');
+    const phase = continuousPhase(arg, false, env.degrees());
+    const derivative = calculus('deriv', phase, scale);
+    return mapReal(derivative, value => -value / (env.degrees() ? 360 : 2 * Math.PI));
+  }
   if (node.name === 'fft' || node.name === 'ifft') {
     if (!env.spectralTransform) throw new ExpressionError(`${node.name}() needs a plot context`);
     return env.spectralTransform(node.name, arg);
