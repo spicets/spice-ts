@@ -217,6 +217,8 @@ export interface Ngbehavior {
  * All fields are optional; SPICE-convention defaults are used when omitted.
  */
 export interface SimulationOptions {
+  /** Interpolate transient output onto the ngspice TSTEP grid. Does not change solver steps. */
+  interp?: boolean;
   /** Input deck path, when known. Defines the control-language $inputdir; never inferred from cwd. */
   sourcePath?: string;
   /** Optional caller-owned output sink. Core never accesses the filesystem; callers enforce their sandbox. */
@@ -341,6 +343,7 @@ export type SimulatorBackend = SimulatorBackendName | SimulatorAdapter;
 
 /** Resolved options with all defaults filled in */
 export interface ResolvedOptions {
+  interp?: boolean;
   maxOrder: number;
   rampTime: number;
   abstol: number;
@@ -402,6 +405,7 @@ export function resolveOptions(opts?: SimulationOptions, stopTime?: number): Res
   }
   return {
     maxOrder: opts?.maxOrder ?? DEFAULT_OPTIONS.maxOrder,
+    interp: opts?.interp,
     rampTime: opts?.rampTime ?? DEFAULT_OPTIONS.rampTime,
     abstol: opts?.abstol ?? DEFAULT_OPTIONS.abstol,
     vntol: opts?.vntol ?? DEFAULT_OPTIONS.vntol,
