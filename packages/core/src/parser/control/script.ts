@@ -1,4 +1,5 @@
 import { UnsupportedControlCommandError } from './errors.js';
+import { isNgspice47Command } from './ngspice-commands.js';
 import { validatePreSet } from './pre-set.js';
 import type { ControlSourceBlock, ControlSourceLine } from './source.js';
 
@@ -18,7 +19,7 @@ export type ControlStatement =
 /** A parsed `.control` script (all blocks of the deck, in order). */
 export interface ControlScript {
   statements: ControlStatement[];
-  /** Hoisted pre_set lines, validated before circuit setup, not runtime statements. */
+  /** Hoisted pre_<command> lines in source order. Legacy name also disables dot-card lowering. */
   preSet?: ControlSourceLine[];
   /** Deck `.csparam` values, installed before executing any control statement. */
   constants?: Readonly<Record<string, number>>;
@@ -77,16 +78,25 @@ function unsupported(name: string, line: ControlSourceLine): UnsupportedControlC
 }
 
 /**
- * Parse the blocks of a deck into one statement tree, rejecting every command
- * spice-ts does not execute with an {@link UnsupportedControlCommandError}.
+ * Parse the blocks of a deck into one statement tree, rejecting known ngspice
+ * commands spice-ts does not execute. Absent commands warn at execution time.
  * Commands are checked everywhere, including branches that may never run, so a
  * script is either fully executable or rejected up front.
  */
 export function parseControlScript(blocks: ControlSourceBlock[]): ControlScript {
   const preSet: ControlSourceLine[] = [];
   const lines = blocks.flatMap(block => block.lines).filter(line => {
-    if (commandName(line.text) !== 'pre_set') return true;
-    validatePreSet(line);
+    const name = commandName(line.text);
+    if (!name.startsWith('pre_')) return true;
+    if (name === 'pre_set') validatePreSet(line);
+    else {
+      const command = name.slice(4);
+      // Only circuit-independent effects can be reproduced before loading.
+      // Never run analyses or loading commands against the already-built host.
+      if ((isNgspice47Command(command) || isExecutableCommand(command)) && !['echo', 'let', 'unlet', 'define', 'undefine'].includes(command)) {
+        throw new UnsupportedControlCommandError(command, 'its pre-load effect is not implemented', line.lineNumber, line.text);
+      }
+    }
     preSet.push(line);
     return false;
   });
@@ -156,7 +166,7 @@ export function parseControlScript(blocks: ControlSourceBlock[]): ControlScript 
           name, `'${name}' without a matching opening statement`, line.lineNumber, line.text,
         );
       default:
-        if (!isExecutableCommand(name)) throw unsupported(name, line);
+        if (!isExecutableCommand(name) && isNgspice47Command(name)) throw unsupported(name, line);
         return { kind: 'command', name, line };
     }
   }
@@ -165,7 +175,7 @@ export function parseControlScript(blocks: ControlSourceBlock[]): ControlScript 
   return preSet.length > 0 ? { statements, preSet } : { statements };
 }
 
-function isExecutableCommand(name: string): boolean {
+export function isExecutableCommand(name: string): boolean {
   return CONTROL_ANALYSIS_COMMANDS.has(name)
     || OUTPUT_ONLY_CONTROL_COMMANDS.has(name)
     || EXECUTED_CONTROL_COMMANDS.has(name)

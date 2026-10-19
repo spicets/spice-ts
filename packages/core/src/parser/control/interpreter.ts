@@ -5,7 +5,7 @@ import { gettokWords } from '../../measure/dot-measure.js';
 import { inpEvaluate } from '../../measure/numparse.js';
 import { tokenizeNetlist } from '../tokenizer.js';
 import { ControlScriptError, ControlScriptExitError, UnsupportedControlCommandError } from './errors.js';
-import { CONTROL_ANALYSIS_COMMANDS, type ControlScript, type ControlStatement } from './script.js';
+import { CONTROL_ANALYSIS_COMMANDS, commandName, isExecutableCommand, type ControlScript, type ControlStatement } from './script.js';
 import type { ControlSourceLine } from './source.js';
 import { setArguments, splitWords, unquote } from './set-arguments.js';
 import { validatePreSet } from './pre-set.js';
@@ -159,6 +159,7 @@ export function runControlScript(script: ControlScript, host: ControlHost): Cont
 
 class ControlInterpreter {
   private circuitRemoved = false;
+  private preLoading = true;
   private readonly plots: Plot[] = [constantPlot()];
   private current: Plot = this.plots[0];
   private plotNumber = 1;
@@ -187,16 +188,22 @@ class ControlInterpreter {
   }
 
   run(script: ControlScript): ControlScriptOutcome {
-    for (const line of script.preSet ?? []) {
-      const expanded = { ...line, text: this.substitute(line.text, line) };
-      // Substitution must not smuggle a loading option through the allowlist.
-      validatePreSet(expanded);
-      this.set(expanded.text.slice('pre_set'.length).trim(), line, true);
-    }
-    for (const [name, value] of Object.entries(script.constants ?? {})) {
-      this.plots[0].vectors.set(name, scalar(value, name));
-    }
     try {
+      for (const line of script.preSet ?? []) {
+        const name = commandName(line.text).slice(4);
+        if (name === 'set') {
+          const expanded = { ...line, text: this.substitute(line.text, line) };
+          // Substitution must not smuggle a loading option through the allowlist.
+          validatePreSet(expanded);
+          this.set(expanded.text.slice('pre_set'.length).trim(), line, true);
+        } else {
+          this.command(name, { ...line, text: line.text.slice(4) });
+        }
+      }
+      this.preLoading = false;
+      for (const [name, value] of Object.entries(script.constants ?? {})) {
+        this.plots[0].vectors.set(name, scalar(value, name));
+      }
       const flow = this.block(script.statements);
       if (typeof flow === 'object') {
         throw new ControlScriptError(`label ${flow.target} not found`, flow.line.lineNumber, flow.line.text);
@@ -308,6 +315,10 @@ class ControlInterpreter {
   }
 
   private command(name: string, line: ControlSourceLine): void {
+    if (!isExecutableCommand(name)) {
+      this.warnings.push(`${name}: no such command available in ngspice`);
+      return;
+    }
     const text = this.substitute(line.text, line);
     const rest = text.slice(/^\s*[^\s=(]*/.exec(text)![0].length).trim();
     // ngspice keeps plots and the retained source after remcirc. Only
@@ -1440,7 +1451,7 @@ class ControlInterpreter {
         throw new UnsupportedExpressionFeature(rawName, `saved device-parameter vector '${rawName}' is not produced by spice-ts analyses`);
       }
       const match = /^@([^[]+)\[([^\]]+)\]$/.exec(name);
-      const values = match && !this.circuitRemoved ? this.host.parameterVector(match[1], match[2]) : undefined;
+      const values = match && !this.circuitRemoved && !this.preLoading ? this.host.parameterVector(match[1], match[2]) : undefined;
       if (values === undefined) {
         throw new UnsupportedExpressionFeature(rawName, `device or model parameter '${rawName}' is not available to the spice-ts control language`);
       }

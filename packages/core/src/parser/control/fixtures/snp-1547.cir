@@ -1,0 +1,11 @@
+Pre command oracle
+V1 in 0 1
+R1 in 0 1k
+.control
+echo RUNTIME
+snp -native missing.s2p
+op
+echo CONTINUED $&v(in)
+quit
+.endc
+.end

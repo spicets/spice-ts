@@ -1,0 +1,20 @@
+Hoisted commands oracle
+V1 in 0 1
+R1 in 0 1k
+.control
+echo runtime $numdgt $&answer
+if 0
+pre_set numdgt=4
+pre_echo first $numdgt
+pre_let answer=3
+end
+pre_set numdgt=7
+pre_echo second $numdgt
+pre_let answer=answer+2
+.endc
+.control
+pre_echo third $numdgt
+op
+quit
+.endc
+.end
