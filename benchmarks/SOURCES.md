@@ -2150,3 +2150,23 @@ Run `spice-heavy pnpm exec tsx benchmarks/mcp-ac-metrics/compare.mts` after buil
 The script prints both engines' values and errors and fails above 0.5% UGF or
 0.5 degrees phase-margin error. Interpolation differs (linear frequency in
 ngspice, log frequency in MCP). This is correctness evidence, not a speed claim.
+
+## BJT series-resistance temperature coefficients (#1514)
+
+`benchmarks/bjt-resistor-tempco-1514/compare.ts` generates original MIT-licensed
+bias decks and the oracle consumed by
+`packages/core/src/devices/bjt-resistor-tempco-1514.test.ts`. No upstream circuit
+is redistributed. Formula reference (BSD-3-Clause): ngspice-47 `bjttemp.c`,
+https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/bjt/bjttemp.c
+(RC/RE conductance and independent RB/RBM quadratic temperature laws).
+
+Run `spice-heavy pnpm exec tsx benchmarks/bjt-resistor-tempco-1514/compare.ts`.
+Add `--update` to regenerate the test oracle. Both engines receive identical
+deck bytes, including uniform RELTOL=1e-8, ABSTOL=1e-14 and VNTOL=1e-10 to
+reduce reference Newton residuals; comparison retains the existing temperature
+suite's 2e-5 relative-error threshold. Default-solver-tolerance development runs
+had residuals up to 8.07e-5, exceeding that threshold; no comparison threshold
+was relaxed. The five cases cover 85 C OP, ascending/descending TEMP sweeps,
+non-default TNOM, NPN/PNP, AREA*M, IRB, equal/omitted RBM and fixed RB. Compare
+loaded base/collector voltages and both source currents. Other temperature
+coefficients still fail closed away from TNOM. This is not speed evidence.
