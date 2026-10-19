@@ -35,6 +35,8 @@ import type { NoiseResult, PoleZeroResult } from '@spice-ts/core';
 import { pzMetrics, pzMetricsOutputSchema } from './pz-metrics.js';
 import type { OperatingPointReport } from '@spice-ts/core';
 import type { SensitivityResult } from '@spice-ts/core';
+import type { TransferFunctionResult } from '@spice-ts/core';
+import { tfArgs, tfReport, tfInputSchema, tfOutputSchema } from './tf.js';
 import { sensitivityArgs, sensitivityReport, sensitivityInputSchema, sensitivityOutputSchema } from './sensitivity.js';
 
 export interface McpLimits {
@@ -98,10 +100,11 @@ interface WorkerReply {
 }
 
 interface WorkerRequest {
-  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report' | 'sensitivity';
+  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf';
   request: SimulationRequestV1;
   coreModulePath: string;
   sensitivityOutput?: string;
+  tfSelector?: { output: string; inputSource: string };
 }
 
 export const DEFAULT_MCP_LIMITS: Readonly<McpLimits> = Object.freeze({
@@ -147,6 +150,8 @@ const capabilitiesOutputSchema = {
     tools: { type: 'array', items: { type: 'string' } },
     sensitivity: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
       properties: { tool: { const: 'spice_sensitivity' }, analyses: { type: 'array', items: { const: 'dc' } } } },
+    tf: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
+      properties: { tool: { const: 'spice_tf' }, analyses: { type: 'array', items: { const: 'tf' } } } },
     parameterOverrides: { type: 'object', properties: {
       tools: { type: 'array', items: { type: 'string' } }, input: { type: 'string' },
       valueType: { type: 'string' }, scope: { type: 'string' }, caseSensitive: { type: 'boolean' },
@@ -244,6 +249,12 @@ const streamToolOutputSchema = {
 };
 
 export const MCP_TOOLS = Object.freeze([
+  {
+    name: 'spice_tf',
+    description: 'Run native small-signal .tf for v(node) or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accepts optional top-level params overrides. Rejects conflicting analyses, steps and control blocks.',
+    inputSchema: tfInputSchema,
+    outputSchema: { type: 'object', oneOf: [tfOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
+  },
   {
     name: 'spice_sensitivity',
     description: 'Run native DC sensitivity for v(node), v(a,b) or i(vsrc). Return signed absolute derivatives and value*dOut/dParam, ranked by descending absolute normalised sensitivity, with optional top. Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected. AC is not supported.',
@@ -441,6 +452,7 @@ const capabilities = Object.freeze({
   inputFormats: Object.freeze(['spice', 'spice-ts', 'circuit-json']),
   tools: Object.freeze(MCP_TOOLS.map(tool => tool.name)),
   sensitivity: Object.freeze({ tool: 'spice_sensitivity', analyses: Object.freeze(['dc']) }),
+  tf: Object.freeze({ tool: 'spice_tf', analyses: Object.freeze(['tf']) }),
   parameterOverrides,
   limits: DEFAULT_MCP_LIMITS,
   streaming: Object.freeze({
@@ -479,6 +491,24 @@ async function executeToolWithStore(
   const limits = options.limits ?? DEFAULT_MCP_LIMITS;
   try {
     if (name === 'spice_capabilities') return success(streamStore.capabilities());
+    if (name === 'spice_tf') {
+      const selectors = tfArgs(args);
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const request = overrideParameters({
+        apiVersion: '1', input: { format: 'spice', source: selectors.netlist },
+      }, selectors.params);
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(request)), 'validation');
+      enforceMaximum('maxAnalyses', limits.maxAnalyses, 1, 'validation');
+      const release = streamStore.acquireOneShotSlot();
+      try {
+        const raw = await runInWorker<TransferFunctionResult>('tf', request, limits.maxWallTimeMs, options, undefined,
+          { output: selectors.output, inputSource: selectors.input_source });
+        enforceMaximum('maxResultPoints', limits.maxResultPoints, 3, 'transport');
+        const result = tfReport(raw, selectors);
+        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        return success(result);
+      } finally { release(); }
+    }
     if (name === 'spice_sensitivity') {
       const selectors = sensitivityArgs(args);
       enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
@@ -1462,9 +1492,28 @@ async function streamProtocol(core, request) {
   }
 }
 
-parentPort.once('message', async ({ operation, request, coreModulePath, sensitivityOutput }) => {
+parentPort.once('message', async ({ operation, request, coreModulePath, sensitivityOutput, tfSelector }) => {
   const core = require(coreModulePath);
   try {
+    if (operation === 'tf') {
+      const circuit = core.parseTitleless(request.input.source);
+      const compiled = circuit.compile();
+      const analysis = core.parseTitleless('.tf ' + tfSelector.output + ' ' + tfSelector.inputSource).analyses[0];
+      const sameAnalysis = a => a.type === 'tf'
+        && a.inputSource.toLowerCase() === analysis.inputSource.toLowerCase()
+        && (a.outputNode || '').toLowerCase() === (analysis.outputNode || '').toLowerCase()
+        && (a.outputReferenceNode || '').toLowerCase() === (analysis.outputReferenceNode || '').toLowerCase()
+        && (a.outputSource || '').toLowerCase() === (analysis.outputSource || '').toLowerCase();
+      if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript
+        || /(^|\n)\s*\.control\b/i.test(request.input.source)
+        || circuit.analyses.length > 1 || circuit.analyses.some(a => !sameAnalysis(a))) {
+        throw new core.InvalidCircuitError('Transfer function requires an unstepped deck without control blocks or conflicting analyses');
+      }
+      circuit.analyses.splice(0, circuit.analyses.length, analysis);
+      const result = (await core.simulate(circuit)).transferFunction;
+      parentPort.postMessage({ type: 'result', result });
+      return;
+    }
     if (operation === 'sensitivity') {
       const circuit = core.parseTitleless(request.input.source);
       const compiled = circuit.compile();
@@ -1565,11 +1614,12 @@ async function runStreamingWorker(
 }
 
 async function runInWorker<T>(
-  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report' | 'sensitivity',
+  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf',
   request: SimulationRequestV1,
   wallTimeMs: number,
   options: ToolExecutionOptions,
   sensitivityOutput?: string,
+  tfSelector?: { output: string; inputSource: string },
 ): Promise<T> {
   throwIfCancelled(options.signal);
   const worker = (options.workerFactory ?? createExecutionWorker)();
@@ -1606,7 +1656,7 @@ async function runInWorker<T>(
       { limit: 'maxWallTimeMs', maximum: wallTimeMs },
     ))), wallTimeMs);
     try {
-      const message: WorkerRequest = { operation, request, coreModulePath, sensitivityOutput };
+      const message: WorkerRequest = { operation, request, coreModulePath, sensitivityOutput, tfSelector };
       worker.postMessage(message);
     } catch {
       finish(() => reject(workerFailure()));

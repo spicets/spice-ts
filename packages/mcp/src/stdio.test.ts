@@ -31,11 +31,15 @@ describe('stdio transport', () => {
 
     const listed = await client.listTools();
     expect(listed.tools.map(tool => tool.name)).toEqual([
+      'spice_tf',
       'spice_sensitivity',
       'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_fourier', 'spice_pz_metrics', 'spice_noise_metrics', 'spice_measure',
       'spice_dc_metrics', 'spice_op_report', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel',
     ]);
     expect(listed.tools.every(tool => tool.inputSchema.type === 'object')).toBe(true);
+    expect(await client.callTool({ name: 'spice_tf', arguments: {
+      netlist: 'V1 in 0 1\nR1 in out 1k\nR2 out 0 3k', output: 'v(out)', input_source: 'V1',
+    } })).toMatchObject({ structuredContent: { transfer_function: 0.75, input_resistance: 4000, output_resistance: 750 } });
     expect(await client.callTool({ name: 'spice_op_report', arguments: {
       netlist: 'V1 in 0 10\nR1 in out 1k\nR2 out 0 1k', topN: 1,
     } })).toMatchObject({ structuredContent: {

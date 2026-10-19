@@ -37,6 +37,7 @@ Reproduce the identical-deck ngspice-47 cross-check after building core:
 - `spice_dc_metrics`: return DC transfer gain, switching threshold, unity-gain points and noise margins without raw vectors.
 - `spice_op_report`: return operating-point node voltages, terminal currents, device powers and top dissipators.
 - `spice_sensitivity`: DC `.sens` derivatives for voltage/differential voltage or independent voltage-source current, ranked by absolute normalised sensitivity.
+- `spice_tf`: native small-signal gain and input/output resistances. Accepts `{ netlist, output: "v(out)", input_source: "V1", params?: { name: number } }` with single-node voltage or `i(vsrc)` output and an independent voltage/current input source. Returns exact selector names, `transfer_function`, `input_resistance`, `output_resistance`, and `units` (V/V, V/A, A/V or A/A; resistances in ohm). Uses shared case-insensitive top-level parameter overrides. A matching `.tf` is allowed; conflicting analyses, steps, and control blocks return structured errors. Differential voltage output is not supported by core `.tf`.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, sampled peaking, and loop stability margins without vectors.
