@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { simulate } from './simulate.js';
 import { InvalidCircuitError } from './errors.js';
-import { UnsupportedControlCommandError } from './parser/control/errors.js';
+import { ControlScriptError, UnsupportedControlCommandError } from './parser/control/errors.js';
 
 const pair = (l1 = '1u', l2 = '4u', k = '0.99') => `Coupled pair
 .subckt pair a
@@ -98,11 +98,15 @@ describe('coupled inductance setup (#1419)', () => {
     await expect(simulate(pair().replace('quit 0\n', ''))).resolves.toBeDefined();
   });
 
-  it.each(['op', 'quit\nop', 'echo later', 'remcirc'])('rejects non-trailing circuit removal before %s', async tail => {
-    await expect(simulate(pair().replace('quit 0', tail))).rejects.toBeInstanceOf(UnsupportedControlCommandError);
+  it('rejects analysis after circuit removal at runtime', async () => {
+    await expect(simulate(pair().replace('quit 0', 'op'))).rejects.toBeInstanceOf(ControlScriptError);
   });
 
-  it.each(['remcirc other', 'if 1\nremcirc\nend'])('rejects circuit-management use: %s', async command => {
+  it.each(['quit\nop', 'echo later', 'remcirc'])('accepts commands after removal: %s', async tail => {
+    await expect(simulate(pair().replace('quit 0', tail))).resolves.toBeDefined();
+  });
+
+  it.each(['remcirc other'])('rejects named circuit-management use: %s', async command => {
     await expect(simulate(pair().replace('remcirc', command))).rejects.toBeInstanceOf(UnsupportedControlCommandError);
   });
 });
