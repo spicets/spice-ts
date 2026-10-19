@@ -2190,6 +2190,23 @@ The script prints both engines' values and errors and fails above 0.5% UGF or
 0.5 degrees phase-margin error. Interpolation differs (linear frequency in
 ngspice, log frequency in MCP). This is correctness evidence, not a speed claim.
 
+## MOS3 instance temperature (#1512)
+
+`benchmarks/mos3-instance-temperature/reference.ts` generates original synthetic
+NMOS/PMOS bias decks under the repository MIT licence, with source and rationale
+at https://github.com/spicets/spice-ts/issues/1512. No third-party netlist or model
+is copied. The temperature precedence follows
+[ngspice-47 mos3temp.c](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/mos3/mos3temp.c).
+The test reads `reference.json`, including identical deck bytes, SHA-256 hashes,
+ngspice-47 invocation, OP and DC TEMP samples. Cases cover TEMP=75, DTEMP=25,
+ambient TEMP=50, and TEMP overriding DTEMP for both polarities, including
+series resistance, body bias and junction parameters.
+Regenerate with `spice-heavy pnpm exec tsx benchmarks/mos3-instance-temperature/reference.ts`.
+Check with `spice-heavy pnpm exec tsx benchmarks/mos3-instance-temperature/compare.mts`.
+The comparison prints maximum relative error per quantity and retains the
+existing MOS3 OP tolerance (1e-12 absolute + 1e-7 relative). This is correctness
+evidence, not a speed claim.
+
 ## BJT series-resistance temperature coefficients (#1514)
 
 `benchmarks/bjt-resistor-tempco-1514/compare.ts` generates original MIT-licensed
