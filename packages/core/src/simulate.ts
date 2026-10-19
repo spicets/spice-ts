@@ -366,6 +366,7 @@ function simulateControlScript(
   const measureValues = new Map<string, number>();
   const reparse = circuit.reparseWithParameters;
   const parameterChanges: import('./parser/preprocessor.js').ParameterAlteration[] = [];
+  const runtimeAlterations: ((evaluated: Circuit) => void)[] = [];
   let deckAnalyses = [...circuit.analyses];
   let deckPoleZero = [...circuit.poleZeroAnalyses];
 
@@ -377,7 +378,13 @@ function simulateControlScript(
     const savedPoleZero = circuit.poleZeroAnalyses.splice(0, circuit.poleZeroAnalyses.length, ...poleZero);
     let compiled: CompiledCircuit;
     try {
-      compiled = circuit.compile(guard);
+      const evaluated = circuit.temperature !== undefined && circuit.reparseAtTemperature
+        ? circuit.reparseAtTemperature(circuit.temperature) : circuit;
+      if (evaluated !== circuit) {
+        for (const alter of runtimeAlterations) alter(evaluated);
+        evaluated.setSimulationOptions(circuit.simulationOptions);
+      }
+      compiled = evaluated.compile(guard);
     } finally {
       circuit.analyses.splice(0, circuit.analyses.length, ...savedAnalyses);
       circuit.poleZeroAnalyses.splice(0, circuit.poleZeroAnalyses.length, ...savedPoleZero);
@@ -421,10 +428,12 @@ function simulateControlScript(
     alterInstance(device, parameter, values, line) {
       const reason = circuit.alterInstance(device, parameter, values);
       if (reason !== undefined) throw unsupported('alter', reason, line);
+      runtimeAlterations.push(evaluated => { evaluated.alterInstance(device, parameter, values); });
     },
     alterModel(model, parameter, value, line) {
       const reason = circuit.alterModel(model, parameter, value);
       if (reason !== undefined) throw unsupported('altermod', reason, line);
+      runtimeAlterations.push(evaluated => { evaluated.alterModel(model, parameter, value); });
     },
     alterParameter(subcircuit, name, expression, line) {
       if (!reparse) throw unsupported('alterparam', 'no retained netlist source', line);
@@ -439,6 +448,7 @@ function simulateControlScript(
     reset(line) {
       if (!reparse) throw unsupported('reset', 'no retained netlist source', line);
       circuit = reparse(parameterChanges);
+      runtimeAlterations.length = 0;
       deckAnalyses = [...circuit.analyses];
       deckPoleZero = [...circuit.poleZeroAnalyses];
       measures = measureCards(circuit);
@@ -449,7 +459,7 @@ function simulateControlScript(
     parameterVector: (device, parameter) =>
       deviceOutputVector(operatingState, device, parameter) ?? circuit.parameterVector(device, parameter),
     setOptions(tokens, line) {
-      circuit.setSimulationOptions(parseControlOptions(tokens, line.lineNumber, line.text));
+      circuit.setSimulationOptions(parseControlOptions(tokens, line.lineNumber, line.text, circuit));
     },
   };
 

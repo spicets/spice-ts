@@ -378,6 +378,7 @@ class ControlInterpreter {
       case 'psd': return this.spectrum('psd', rest, line);
       case 'fourier': return this.fourier(rest, line);
       case 'wrs2p': return this.wrs2p(rest, line);
+      case 'write': return this.writeRaw(rest, line);
       case 'eprint': case 'edisplay':
         this.output.push(...eventOutput(name, rest, this.runs, line));
         return;
@@ -415,6 +416,41 @@ class ControlInterpreter {
 
   // -------------------------------------------------------------------------
   // Commands
+
+  /** Export constructed vectors as ASCII raw without launching any external process. */
+  private writeRaw(rest: string, line: ControlSourceLine): void {
+    const [path, ...names] = splitWords(rest).map(unquote);
+    if (!path) throw new ControlScriptError('write needs an output filename', line.lineNumber, line.text);
+    const selected = names.length === 0 || names[0].toLowerCase() === 'all'
+      ? [...this.current.vectors.values()].filter(vector => vector !== this.current.scale)
+      : names.map(name => renamed(this.evaluate(name, line), name));
+    const scale = this.current.scale ?? selected[0];
+    if (!scale) throw new ControlScriptError('write needs writable vectors', line.lineNumber, line.text);
+    const vectors = [scale, ...selected.filter(vector => vector !== scale)];
+    if (vectors.some(vector => vector.re.length !== scale.re.length)) {
+      throw new ControlScriptError('write needs vectors with matching scale lengths', line.lineNumber, line.text);
+    }
+    const complex = vectors.some(vector => vector.im);
+    const lines = [
+      `Title: ${this.current.title}`, `Plotname: ${this.current.name}`,
+      `Flags: ${complex ? 'complex' : 'real'}`, `No. Variables: ${vectors.length}`,
+      `No. Points: ${scale.re.length}`, 'Variables:',
+      ...vectors.map((vector, index) => `\t${index}\t${vector.name}\tnotype`), 'Values:',
+    ];
+    for (let sample = 0; sample < scale.re.length; sample++) {
+      for (let index = 0; index < vectors.length; index++) {
+        const vector = vectors[index];
+        lines.push(`${index === 0 ? sample : ''}\t${vector.re[sample]}${complex ? `,${vector.im?.[sample] ?? 0}` : ''}`);
+      }
+    }
+    const file = { path, contents: `${lines.join('\n')}\n` };
+    try {
+      this.host.writeFile?.(path, file.contents);
+    } catch (error) {
+      throw new ControlScriptError(`write: ${error instanceof Error ? error.message : String(error)}`, line.lineNumber, line.text);
+    }
+    this.files.push(file);
+  }
 
   private wrs2p(rest: string, line: ControlSourceLine): void {
     const words = splitWords(rest).map(unquote);
