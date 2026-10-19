@@ -2286,3 +2286,26 @@ PNP thermal cases are excluded explicitly, not reported as passing. The unchange
 public `examples/vbic/vbic99_tran.sp` now passes resistor-exponent validation but
 still fails closed on nondefault EA/EAIE/EAIC/EANE/EANC; it is not claimed to run.
 
+### VBIC activation energies (#1529)
+
+`benchmarks/vbic-activation-energies/compare.ts` authors 36 identical-byte OP
+decks under the repository MIT licence. Its generated `ngspice-47.json` oracle
+is consumed by `vbic-activation-energies.test.ts`. Covers each of EA, EAIE,
+EAIC, EAIS, EANE, EANC, EANS and EAP separately and combined, NPN/PNP,
+TEMP=27/85 C, four node voltages and four terminal/source currents.
+Equation source: ngspice-47 `src/spicelib/devices/vbic/vbictemp.c`,
+https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/vbic/vbictemp.c
+(ngspice BSD-style licence; independently implemented equations).
+Run `spice-heavy pnpm exec tsx benchmarks/vbic-activation-energies/compare.ts`;
+use `--generate` to regenerate the oracle. Default solver tolerances and the
+existing fixed 1e-6 relative threshold are unchanged. Before: 36 OP cases rejected
+nondefault EA*. After: maximum relative error 3.3613865080273087e-7 across all
+eight signals. No speed claim. Unit tests additionally cover unequal emission
+coefficients, parasitic cross-mapping, GAMM, junction potentials and capacitances.
+ISRR remains fixed at 1, XISR/DEAR at 0; EA must not change that ratio.
+
+The unchanged public `examples/vbic/vbic99_tran.sp` advances past EA* but still
+fails with `Invalid bounded VBIC DC model parameter: 'HRCF'` (its HRCF=0 is
+outside the current bounded domain). ngspice-47 runs the unchanged deck with
+2065 transient rows. No spice-ts waveform parity is claimed for that deck.
+
