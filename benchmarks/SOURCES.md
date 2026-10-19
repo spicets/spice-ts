@@ -2267,3 +2267,22 @@ non-default TNOM, NPN/PNP, AREA*M, IRB, equal/omitted RBM and fixed RB. Compare
 loaded base/collector voltages and both source currents. Other temperature
 coefficients still fail closed away from TNOM. This is not speed evidence.
 
+### VBIC resistor temperature exponents (#1526)
+
+`benchmarks/vbic-resistor-temperature/compare.ts` authors 48 identical-byte OP
+decks under the repository MIT licence. `ngspice-47.json` is its generated
+oracle, consumed by the core regression test (not a benchmark receipt).
+Equation source: ngspice `src/spicelib/devices/vbic/vbictemp.c`,
+https://github.com/ngspice/ngspice/blob/master/src/spicelib/devices/vbic/vbictemp.c
+(ngspice BSD-style licence; equations independently implemented in TypeScript).
+Run `spice-heavy pnpm exec tsx benchmarks/vbic-resistor-temperature/compare.ts`;
+use `--generate` to regenerate the oracle. Covers seven isolated exponents and
+their combination, -20/85 C, NPN/PNP, AREA=2, substrate transport, and NPN
+self-heating. Default solver tolerances, fixed 1e-6 relative current threshold.
+Before: all cases rejected; after: maximum relative error 7.165004900500094e-7
+over four source currents in 48 cases. This is correctness, not speed evidence.
+Losses: ngspice-47 PNP self-heating at 85 C failed with NaN temperature;
+PNP thermal cases are excluded explicitly, not reported as passing. The unchanged
+public `examples/vbic/vbic99_tran.sp` now passes resistor-exponent validation but
+still fails closed on nondefault EA/EAIE/EAIC/EANE/EANC; it is not claimed to run.
+

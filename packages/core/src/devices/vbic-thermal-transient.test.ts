@@ -86,12 +86,11 @@ describe('VBIC transient self heating', () => {
     expect(Math.abs(temperature.at(-1)! / 0.03419172976017186 - 1)).toBeLessThan(1e-3);
   });
 
-  it('retains the explicit resistor-temperature limitation of the unchanged public deck', async () => {
+  it('retains the explicit activation-energy limitation of the unchanged public deck', async () => {
     const source = readFileSync(new URL('../../../../benchmarks/corpus/corpus-f/fixtures/examples/vbic/vbic99_tran.sp', import.meta.url), 'utf8');
-    // CTH alone cannot make this deck run: its nondefault XRE/XRCX/XRBX/
-    // XRCI/XRBI/XRS require new DC resistor-temperature physics.
+    // Resistor exponents are supported; nondefault activation energies remain separate.
     await expect(simulate(source)).rejects.toThrow(InvalidCircuitError);
-    await expect(simulate(source)).rejects.toThrow("Unsupported bounded VBIC DC model parameter: 'XRE'");
+    await expect(simulate(source)).rejects.toThrow("Unsupported bounded VBIC DC model parameter: 'EA'");
   }, 30_000);
 
   it('keeps four-terminal CTH inert, including the adaptive time grid', async () => {

@@ -3112,28 +3112,28 @@ export class Circuit {
             let substrateInternal = substrate;
             if (params.RCX > 0) {
               collectorExternal = internalNodeName(desc.name, 'cx');
-              result.push({
+              if (params.XRCX === 0) result.push({
                 type: 'R', name: `${desc.name}.RCX`, nodes: [collector, collectorExternal],
                 value: params.RCX / instanceScale,
               });
             }
             if (params.RBX > 0) {
               baseExternal = internalNodeName(desc.name, 'bx');
-              result.push({
+              if (params.XRBX === 0) result.push({
                 type: 'R', name: `${desc.name}.RBX`, nodes: [base, baseExternal],
                 value: params.RBX / instanceScale,
               });
             }
             if (params.RE > 0) {
               emitterInternal = internalNodeName(desc.name, 'ei');
-              result.push({
+              if (params.XRE === 0) result.push({
                 type: 'R', name: `${desc.name}.RE`, nodes: [emitter, emitterInternal],
                 value: params.RE / instanceScale,
               });
             }
             if (params.RS > 0) {
               substrateInternal = internalNodeName(desc.name, 'si');
-              result.push({
+              if (params.XRS === 0) result.push({
                 type: 'R', name: `${desc.name}.RS`, nodes: [substrate, substrateInternal],
                 value: params.RS / instanceScale,
               });
