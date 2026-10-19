@@ -5,8 +5,8 @@
  * Parameters outside that subset are held at their ngspice vbicsetup.c
  * defaults: EA = EAIE = EAIC = EAIS = EANE = EANC = EANS = EAP = 1.12 eV,
  * XIS = XII = XIN = 3, and every other temperature
- * exponent (XRCI, XRBI, XRBP, XIKF, XVO, TNF, TAVC, XISR, DEAR) at 0, which
- * leaves RCI, RBI, RBP, IKF, VO, AVC2, NF, NR and ISRR temperature independent.
+ * exponent (XIKF, XVO, TNF, TAVC, XISR, DEAR) at 0, which
+ * leaves IKF, VO, AVC2, NF, NR and ISRR temperature independent.
  */
 
 /** ngspice CONSTCtoK and the Boltzmann/charge constants used by vbictemp.c. */
@@ -35,6 +35,10 @@ export const VBIC_PS = 0.75;
 export const VBIC_MS = 0.33;
 
 export interface VBICTemperatureInput {
+  RE: number; RBI: number; RCI: number; RS: number;
+  RBP: number; RCX: number; RBX: number;
+  XRE: number; XRBI: number; XRCI: number; XRS: number;
+  XRBP: number; XRCX: number; XRBX: number;
   IBEIP: number;
   IBENP: number;
   NF: number;
@@ -69,6 +73,8 @@ export interface VBICTemperatureInput {
 
 /** Temperature-resolved values that differ from the nominal model card. */
 export interface VBICTemperatureState {
+  RE: number; RBI: number; RCI: number; RS: number;
+  RBP: number; RCX: number; RBX: number;
   IBEIP: number;
   IBENP: number;
   IBCIP: number;
@@ -119,6 +125,13 @@ export function resolveVBICTemperature(
   const PC = potential(params.PC, EAIC);
   const PS = potential(params.PS, EAIS);
   return {
+    RE: params.RE * Math.pow(rT, params.XRE),
+    RBI: params.RBI * Math.pow(rT, params.XRBI),
+    RCI: params.RCI * Math.pow(rT, params.XRCI),
+    RS: params.RS * Math.pow(rT, params.XRS),
+    RBP: params.RBP * Math.pow(rT, params.XRBP),
+    RCX: params.RCX * Math.pow(rT, params.XRCX),
+    RBX: params.RBX * Math.pow(rT, params.XRBX),
     vt: vtv,
     IS: saturation(params.IS, XIS, EA, params.NF),
     IBEI: saturation(params.IBEI, XII, EAIE, params.NEI),

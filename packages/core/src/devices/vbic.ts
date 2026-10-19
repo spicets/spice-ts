@@ -30,17 +30,17 @@ const DC_INERT_PARAMETERS = [
   'KFN', 'AFN', 'BFN', 'CTH',
 ] as const;
 /** Temperature mapping inputs (ngspice vbictemp.c); TNOM defaults to 27 C. */
-const TEMPERATURE_PARAMETERS = ['TNOM'] as const;
+const TEMPERATURE_PARAMETERS = ['TNOM', 'XRE', 'XRBI', 'XRCI', 'XRS', 'XRBP', 'XRCX', 'XRBX'] as const;
 /** Explicit ngspice defaults for features outside the bounded equations.
  * Accept only their inactive/default values, never silently ignore a change.
  */
 const FIXED_PARAMETERS: Record<string, number> = {
   AJE: -0.5, AJC: -0.5, AJS: -0.5, CBEO: 0, CBCO: 0, CCSO: 0,
-  QTF: 0, XRE: 0, XRBI: 0, XRCI: 0, XRS: 0, XVO: 0,
+  QTF: 0, XVO: 0,
   EA: 1.12, EAIE: 1.12, EAIC: 1.12, EAIS: 1.12, EANE: 1.12, EANC: 1.12,
   EANS: 1.12, EAP: 1.12, XIS: 3, XII: 3, XIN: 3, TNF: 0, TAVC: 0,
-  VRT: 0, ART: 0.1, QBM: 0, NKF: 0.5, XIKF: 0, XRCX: 0, XRBX: 0,
-  XRBP: 0, ISRR: 1, XISR: 0, DEAR: 0, VBBE: 0, NBBE: 1,
+  VRT: 0, ART: 0.1, QBM: 0, NKF: 0.5, XIKF: 0,
+  ISRR: 1, XISR: 0, DEAR: 0, VBBE: 0, NBBE: 1,
   IBBE: 1e-6, TVBBE1: 0, TVBBE2: 0, TNBBE: 0, EBBE: 0,
 };
 const SUPPORTED_PARAMETERS = new Set<string>([
@@ -122,6 +122,7 @@ const DEFAULTS: VBICParams = {
   AFN: 1,
   BFN: 1,
   TNOM: NOMINAL_TEMPERATURE_C,
+  XRE: 0, XRBI: 0, XRCI: 0, XRS: 0, XRBP: 0, XRCX: 0, XRBX: 0,
 };
 
 /** ngspice-47 inpdomod.c:58-65 routes BJT levels 4 and 9 to the same VBIC model. */
@@ -446,7 +447,7 @@ const EXCESS_PHASE_BRANCHES: readonly (readonly [number, number])[] = [[XF1, NO_
 /**
  * Evaluate the isothermal VBIC 1.2 currents and charges. `thermal` carries the
  * ngspice vbictemp.c values at the device temperature (kT/q, saturation
- * currents, GAMM, built-in potentials and zero-bias capacitances); every other
+ * currents, resistances, GAMM, built-in potentials and zero-bias capacitances); every other
  * parameter is temperature independent with ngspice's default exponents.
  * Charges follow ngspice vbic_4T_et_cf_fj with AJE/AJC/AJS <= 0,
  * QTF = CBEO = CBCO = CCSO = 0. With TD > 0 the forward transport current
@@ -517,15 +518,15 @@ function evaluate(
   const kbci = sqrt(addConstant(scale(exp(scale(vbci, 1 / vt)), thermal.GAMM), 1));
   const kbcx = sqrt(addConstant(scale(exp(scale(vbcx, 1 / vt)), thermal.GAMM), 1));
   const ratio = div(addConstant(kbci, 1), addConstant(kbcx, 1));
-  const iohm = scale(add(vrci, scale(sub(sub(kbci, kbcx), log(ratio)), vt)), 1 / params.RCI);
+  const iohm = scale(add(vrci, scale(sub(sub(kbci, kbcx), log(ratio)), vt)), 1 / thermal.RCI);
   const derf = div(
-    scale(iohm, params.RCI * reciprocalOrZero(params.VO)),
+    scale(iohm, thermal.RCI * reciprocalOrZero(params.VO)),
     addConstant(scale(sqrt(addConstant(mul(vrci, vrci), 0.01)), 0.5 * reciprocalOrZero(params.VO) / params.HRCF), 1),
   );
   const irci = div(iohm, sqrt(addConstant(mul(derf, derf), 1)));
-  const irbi = scale(mul(vrbi, qb), 1 / params.RBI);
+  const irbi = scale(mul(vrbi, qb), 1 / thermal.RBI);
   // Explicit RBP=0 is clamped by vbicmpar.c before vbicload.c sees it.
-  const irbp = scale(mul(vrbp, qbp), 1 / params.RBP);
+  const irbp = scale(mul(vrbp, qbp), 1 / thermal.RBP);
 
   // ngspice: Iciei = Itxf - Itzr, with Itxf = V(xf2) when excess phase is on.
   const iciei = excessPhase ? sub(xf2, itzr) : transport;
@@ -692,7 +693,7 @@ export class VBIC implements DeviceModel {
   }
 
   /** ngspice vbicnoise.c: internal resistor derivatives and junction currents.
-   * External RCX/RBX/RE/RS noise is already carried by expanded resistors.
+   * Zero-exponent RCX/RBX/RE/RS noise is carried by expanded resistors.
    */
   noiseOperatingPoint(solution: Float64Array, gmin = DEVICE_GMIN, emitterNode = this.nodes[EI]): Array<{
     positive: number;
@@ -718,6 +719,12 @@ export class VBIC implements DeviceModel {
     const flicker = (current: number): number => this.parallelMultiplier * this.params.KFN
       * Math.pow(Math.max(current / this.parallelMultiplier, 1e-38), this.params.AFN);
     return [
+      ...(['RCX', 'RBX', 'RE', 'RS'] as const).flatMap((name, i) => {
+        if (!this.externalTerminals || this.params[`X${name}`] === 0 || this.params[name] <= 0) return [];
+        return [{ positive: this.externalTerminals[i], negative: this.nodes[[CX, BX, EI, SI][i]],
+          conductance: this.instanceScale / this.thermal[name], shotCurrent: 0, flickerCoefficient: 0,
+          excludeFromSpectrum: name === 'RS' }];
+      }),
       source(CX, CI, noise.irci.derivative[6] * this.instanceScale + gmin),
       source(BX, BI, noise.irbi.derivative[7] * this.instanceScale),
       // vbicnoise.c intentionally projects RBP noise across EI/emitter,
@@ -860,21 +867,22 @@ export class VBIC implements DeviceModel {
         rhs -= powerJacobian[column] * potentials[column];
       }
     }
-    // RCX/RBX/RE/RS are constant resistors stamped by the circuit rather than
-    // the intrinsic evaluator. Include their Joule heat and exact voltage
-    // derivatives in the same thermal Newton row. XRx != 0 is unsupported,
-    // so these conductances have no junction-temperature derivative.
+    // Expanded series resistors dissipate heat outside the intrinsic evaluator.
     if (this.externalTerminals) {
       const parameters = ['RCX', 'RBX', 'RE', 'RS'] as const;
       const internal = [this.nodes[0], this.nodes[2], this.nodes[4], this.nodes[6]];
       for (let i = 0; i < parameters.length; i++) {
-        const resistance = this.params[parameters[i]];
+        const resistance = this.thermal[parameters[i]];
         if (resistance <= 0) continue;
         const a = this.externalTerminals[i];
         const b = internal[i];
         const voltage = (a >= 0 ? ctx.getVoltage(a) : 0) - (b >= 0 ? ctx.getVoltage(b) : 0);
         const g = this.instanceScale / resistance;
         const derivative = 2 * g * voltage;
+        const exponent = this.params[`X${parameters[i]}`];
+        const powerT = -exponent * g * voltage * voltage / (temperature + 273.15);
+        ctx.stampG(this.thermalNode, this.thermalNode, -powerT);
+        rhs -= powerT * dt;
         // P - (dP/dV)*V = -P for a quadratic constant-resistor loss.
         rhs -= g * voltage * voltage;
         if (a >= 0) ctx.stampG(this.thermalNode, a, -derivative);
@@ -882,6 +890,34 @@ export class VBIC implements DeviceModel {
       }
     }
     ctx.stampB(this.thermalNode, rhs);
+    this.stampSeries(ctx, true);
+  }
+
+  /** Nonzero-exponent series resistors belong here, not in constant R devices. */
+  private stampSeries(ctx: StampContext, heated = false): void {
+    if (!this.externalTerminals) return;
+    const parameters = ['RCX', 'RBX', 'RE', 'RS'] as const;
+    const internal = [this.nodes[CX], this.nodes[BX], this.nodes[EI], this.nodes[SI]];
+    for (let i = 0; i < parameters.length; i++) {
+      const name = parameters[i];
+      const exponent = this.params[`X${name}`];
+      if (exponent === 0 || this.params[name] <= 0) continue;
+      const a = this.externalTerminals[i];
+      const b = internal[i];
+      const g = this.instanceScale / this.thermal[name];
+      const voltage = (a >= 0 ? ctx.getVoltage(a) : 0) - (b >= 0 ? ctx.getVoltage(b) : 0);
+      const dt = heated ? ctx.getVoltage(this.thermalNode) : 0;
+      const derivativeT = heated ? -exponent * g * voltage / (this.temperature + dt + 273.15) : 0;
+      for (const [row, sign] of [[a, 1], [b, -1]]) {
+        if (row < 0) continue;
+        if (a >= 0) ctx.stampG(row, a, sign * g);
+        if (b >= 0) ctx.stampG(row, b, -sign * g);
+        if (heated) {
+          ctx.stampG(row, this.thermalNode, sign * derivativeT);
+          ctx.stampB(row, sign * derivativeT * dt);
+        }
+      }
+    }
   }
 
   stamp(ctx: StampContext): void {
@@ -890,6 +926,7 @@ export class VBIC implements DeviceModel {
       return;
     }
     if (this.thermalNode >= 0) ctx.stampG(this.thermalNode, this.thermalNode, 1);
+    this.stampSeries(ctx);
     const voltages = this.branchVoltages(ctx);
     this.limitJunctions(voltages);
     this.loadVoltages = voltages;
