@@ -10,6 +10,7 @@ import {
   temperatureJunction,
 } from './junction-temperature.js';
 import { pnjlim } from './devsup.js';
+import { stampEpiRegion } from './bjt-quasisat.js';
 
 // Share readers instead of allocating and naming closures in every Newton iterate.
 function contextVoltage(ctx: StampContext, node: number): number {
@@ -47,6 +48,10 @@ export interface BJTParams {
   RBM: number;
   IRB: number;
   RC: number;
+  /** Static Kull epi-region parameters (ngspice-47 bjtload.c). */
+  RCO: number;
+  VO: number;
+  GAMMA: number;
   RE: number;
   KF: number;
   AF: number;
@@ -120,23 +125,24 @@ const UNSUPPORTED_TEMPERATURE_PARAMETERS = [
 ] as const;
 
 /**
- * ngspice-47 bjt.c model fields with no effect on these cards: the Kull
- * quasi-saturation inputs only act with RCO (which is rejected), and the
+ * ngspice-47 bjt.c model fields with no effect on these static cards: the Kull
+ * quasi-saturation charge only acts dynamically (not supported with RCO), and the
  * bjtsoachk.c safe-operating-area limits only print warnings.
  */
 const INERT_MODEL_PARAMETERS = [
-  'QCO', 'VO', 'GAMMA', 'QUASIMOD', 'VG', 'CN', 'D',
+  'QCO',
   'VBE_MAX', 'VBC_MAX', 'VCE_MAX', 'PD_MAX', 'IC_MAX', 'IB_MAX', 'TE_MAX', 'RTH0',
 ] as const;
 
 /**
  * Every Gummel-Poon model parameter spice-ts accepts. Anything else on the
- * card (RCO quasi-saturation, the IBE/IBC split saturation currents, unknown
+ * card (the IBE/IBC split saturation currents, unknown
  * names) is rejected whatever else the card sets (#633).
  */
 const SUPPORTED_MODEL_PARAMETERS = new Set<string>([
   'LEVEL', 'BF', 'BR', 'IS', 'NF', 'NR', 'VAF', 'IKF', 'ISE', 'NE', 'VAR', 'IKR', 'ISC', 'NC',
   'NKF', 'RB', 'RBM', 'IRB', 'RC', 'RE', 'KF', 'AF', 'ISS', 'NS', 'TNOM', 'EG', 'XTI', 'XTB',
+  'RCO', 'VO', 'GAMMA', 'QUASIMOD', 'VG', 'CN', 'D',
   ...CHARGE_STORAGE_PARAMETERS, ...Object.keys(MODEL_PARAMETER_ALIASES),
   ...UNSUPPORTED_TEMPERATURE_PARAMETERS, ...INERT_MODEL_PARAMETERS,
 ]);
@@ -365,6 +371,9 @@ export function resolveBJTParams(
     RBM: params.RBM ?? baseResistance,
     IRB: params.IRB ?? 0,
     RC: params.RC ?? 0,
+    RCO: params.RCO ?? 0,
+    VO: params.VO ?? 10,
+    GAMMA: params.GAMMA ?? 1e-11,
     RE: params.RE ?? 0,
     KF: params.KF ?? 0,
     AF: params.AF ?? 1,
@@ -425,6 +434,11 @@ export function resolveBJTParams(
     throw new Error('Invalid bounded BJT noise parameter: expected finite BJT AF > 0');
   }
   validateChargeStorage(resolved, params.PTF ?? 0);
+  if (!(resolved.RCO >= 0) || !Number.isFinite(resolved.RCO)
+    || (resolved.RCO > 0 && (!(resolved.VO > 0) || !Number.isFinite(resolved.VO)
+      || !(resolved.GAMMA >= 0) || !Number.isFinite(resolved.GAMMA)))) {
+    throw new Error('Invalid bounded BJT quasi-saturation parameter: expected RCO, GAMMA >= 0 and VO > 0');
+  }
   return resolved;
 }
 
@@ -664,7 +678,7 @@ export class BJT implements DeviceModel {
     this.baseCollectorSatCur = this.nominal.IS * this.baseCollectorArea;
     this.applyTemperature();
     this.stampsBaseResistance = hasBiasDependentBaseResistance(this.nominal);
-    if (this.stampsBaseResistance !== (nodes[4] !== undefined)) {
+    if (this.stampsBaseResistance !== (nodes[4] !== undefined && nodes[4] !== nodes[1])) {
       throw new Error(
         `BJT '${name}' needs ${this.stampsBaseResistance ? 'an' : 'no'} external base node for its base resistance`,
       );
@@ -721,6 +735,19 @@ export class BJT implements DeviceModel {
     params.ISC = nominal.ISC * Math.exp(factlog / nominal.NC) / bfactor;
     params.BF = nominal.BF * bfactor;
     params.BR = nominal.BR * bfactor;
+    // bjttemp.c: QUASIMOD=0 keeps the epi parameters temperature independent.
+    const ratio = kelvin / nominalKelvin;
+    const quasiTemperature = this.suppliedParams.QUASIMOD === 1;
+    params.RCO = quasiTemperature
+      ? nominal.RCO * Math.pow(ratio, this.suppliedParams.CN ?? (params.polarity > 0 ? 2.42 : 2.2))
+      : nominal.RCO;
+    params.VO = quasiTemperature
+      ? nominal.VO * Math.pow(ratio, this.suppliedParams.D ?? (params.polarity > 0 ? 0.87 : 0.52))
+      : nominal.VO;
+    params.GAMMA = quasiTemperature
+      ? nominal.GAMMA * Math.pow(ratio, nominal.XTI)
+        * Math.exp(-(this.suppliedParams.VG ?? 1.206) * (1 - ratio) / this.vt)
+      : nominal.GAMMA;
     const junction = (potential: number, capacitance: number, grading: number) =>
       temperatureJunction(potential, capacitance, grading, kelvin, nominalKelvin);
     const emitter = junction(nominal.VJE, nominal.CJE, nominal.MJE);
@@ -1294,6 +1321,9 @@ export class BJT implements DeviceModel {
       stampConductance(ctx, this.nodes[4], nB, gx);
     }
     if (substrateJunction) this.stampSubstrateJunction(ctx);
+    if (this.params.RCO > 0) {
+      stampEpiRegion(ctx, this.nodes, this.params, this.vt, this.multiplier);
+    }
   }
 
   /**
