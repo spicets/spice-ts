@@ -616,13 +616,15 @@ export class VBIC implements DeviceModel {
   readonly isNonlinear = true;
   readonly integratesTransientCharge = true;
   // acceptTransientStep visits every conservative charge row, including both
-  // TD excess-phase states. CBEO/CBCO/CTH are outside the bounded subset.
+  // TD excess-phase states and the active thermal capacitance.
   readonly truncationCoversCharges = true;
   readonly limitsOwnJunctions = true;
   private readonly charges: TransientChargeState;
   private loadVoltages: number[] | undefined;
   /** Charges already evaluated at the limited static load's branch voltages. */
   private loadCharge: ScalarQuantity[] | undefined;
+  /** Electrical dQ/dT at the same limited voltages as loadCharge. */
+  private loadChargeTemperature: Float64Array | undefined;
   private readonly scalarLoadWorkspace = new ScalarWorkspace();
   private readonly scalarEvaluationWorkspace = new ScalarWorkspace();
   /** Retained until the next static load; other evaluations must not reset it. */
@@ -654,8 +656,8 @@ export class VBIC implements DeviceModel {
   ) {
     this.params = resolveVBICParams(supplied, polarity);
     const expected = vbicNodeCount(this.params);
-    this.charges = new TransientChargeState(expected);
     this.thermalNode = nodes.length === expected + 1 ? nodes[expected] : -1;
+    this.charges = new TransientChargeState(expected + (this.hasThermalCharge() ? 1 : 0));
     this.nodes = nodes.slice(0, expected);
     if (nodes.length !== expected && nodes.length !== expected + 1) {
       throw new InvalidCircuitError(`Bounded VBIC device requires ${expected} internal nodes`);
@@ -683,6 +685,10 @@ export class VBIC implements DeviceModel {
 
   getTemperature(): number {
     return this.temperature;
+  }
+
+  private hasThermalCharge(): boolean {
+    return this.thermalNode >= 0 && this.params.RTH > 0 && this.params.CTH > 0;
   }
 
   /** ngspice vbicnoise.c: internal resistor derivatives and junction currents.
@@ -790,7 +796,7 @@ export class VBIC implements DeviceModel {
       load ? this.scalarLoadWorkspace : this.scalarEvaluationWorkspace);
   }
 
-  /** DC electrothermal Newton system. Temperature partials use a symmetric
+  /** Electrothermal Newton system. Temperature partials use a symmetric
    * 1 mK perturbation of the same temperature mapper as the electrical model.
    * Electrical and power voltage partials retain the evaluator's exact Jacobian.
    */
@@ -809,19 +815,23 @@ export class VBIC implements DeviceModel {
       voltages[1] - voltages[4] + voltages[5], ...voltages.slice(BRANCHES.length)];
     const sample = (t: number) => {
       this.thermal = resolveVBICTemperature(this.params, t);
-      return this.evaluate(voltages, ctx.gmin ?? DEVICE_GMIN).residual.map(q => q.value);
+      const { residual, charge } = this.evaluate(voltages, ctx.gmin ?? DEVICE_GMIN);
+      return { residual: residual.map(q => q.value), charge: charge.map(q => q.value) };
     };
     const h = 1e-3;
     const plus = sample(temperature + h);
     const minus = sample(temperature - h);
     this.thermal = resolveVBICTemperature(this.params, temperature);
-    const { residual } = this.evaluate(voltages, ctx.gmin ?? DEVICE_GMIN, true);
+    const { residual, charge } = this.evaluate(voltages, ctx.gmin ?? DEVICE_GMIN, true);
+    this.loadVoltages = voltages;
+    this.loadCharge = charge;
+    this.loadChargeTemperature = Float64Array.from(plus.charge, (q, row) => (q - minus.charge[row]) / (2 * h));
     const powerJacobian = new Float64Array(this.nodes.length);
     let power = 0;
     let powerTemperature = 0;
     for (let row = 0; row < this.nodes.length; row++) {
       const quantity = residual[row];
-      const derivativeT = (plus[row] - minus[row]) / (2 * h);
+      const derivativeT = (plus.residual[row] - minus.residual[row]) / (2 * h);
       const jacobian = this.nodeJacobian(quantity);
       if (row < 7) {
         power += potentials[row] * quantity.value;
@@ -930,9 +940,6 @@ export class VBIC implements DeviceModel {
 
   /** Integrate conservative terminal charges and both excess-phase state rows. */
   stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {
-    if (this.thermalNode >= 0 && this.params.RTH > 0) {
-      throw new InvalidCircuitError('Unsupported VBIC self-heating transient analysis (CTH)');
-    }
     const voltages = this.loadVoltages ?? this.branchVoltages(ctx);
     // evaluate computes currents and charges together. Reuse the charge half
     // from stamp at these exact limited voltages; gmin affects residuals only.
@@ -944,6 +951,11 @@ export class VBIC implements DeviceModel {
       if (node < 0) continue;
       const quantity = charge[row];
       let rhs = -this.charges.current(row, quantity.value);
+      if (this.loadChargeTemperature !== undefined) {
+        const derivativeT = this.charges.factor * this.loadChargeTemperature[row];
+        ctx.stampG(node, this.thermalNode, this.params.polarity * derivativeT);
+        rhs += derivativeT * ctx.getVoltage(this.thermalNode);
+      }
       for (let index = 0; index < voltages.length; index++) {
         rhs += this.charges.factor * quantity.derivative[index] * voltages[index];
       }
@@ -953,17 +965,35 @@ export class VBIC implements DeviceModel {
       }
       ctx.stampB(node, this.params.polarity * rhs);
     }
+    if (this.hasThermalCharge()) {
+      // ngspice-47 vbicload.c:4012-4013,4117-4118: Qcth = SCALE*CTH*dT.
+      // NIintegrate at :901-904 and the companion stamp at :1419-1423.
+      const capacitance = this.instanceScale * this.params.CTH;
+      const dt = ctx.getVoltage(this.thermalNode);
+      const g = this.charges.factor * capacitance;
+      ctx.stampG(this.thermalNode, this.thermalNode, g);
+      ctx.stampB(this.thermalNode, g * dt - this.charges.current(this.nodes.length, capacitance * dt));
+    }
   }
 
   stampAcceptedChargeCurrent(ctx: StampContext): void {
     this.nodes.forEach((node, row) => {
       if (node >= 0) ctx.stampB(node, -this.params.polarity * this.charges.acceptedChargeCurrent(row));
     });
+    if (this.hasThermalCharge()) {
+      ctx.stampB(this.thermalNode, -this.charges.acceptedChargeCurrent(this.nodes.length));
+    }
   }
 
   acceptTransientStep(ctx: StampContext): void {
+    if (this.thermalNode >= 0 && this.params.RTH > 0) {
+      this.thermal = resolveVBICTemperature(this.params, this.temperature + ctx.getVoltage(this.thermalNode));
+    }
     const { charge } = this.evaluate(this.branchVoltages(ctx), ctx.gmin ?? DEVICE_GMIN);
     charge.forEach((quantity, row) => this.charges.accept(row, quantity.value));
+    if (this.hasThermalCharge()) {
+      this.charges.accept(this.nodes.length, this.instanceScale * this.params.CTH * ctx.getVoltage(this.thermalNode));
+    }
     this.charges.commit();
   }
 
@@ -976,5 +1006,6 @@ export class VBIC implements DeviceModel {
     this.junctions = undefined;
     this.loadVoltages = undefined;
     this.loadCharge = undefined;
+    this.loadChargeTemperature = undefined;
   }
 }
