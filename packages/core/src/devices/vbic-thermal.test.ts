@@ -97,8 +97,10 @@ Q1 c b 0 s dt mod ${area}
       expect(inert.current('Vc')).toBe(four.current('Vc'));
   });
 
-  it('rejects active transient thermal storage with a typed error', async () => {
-    await expect(simulate(deck('dt', 300, 'cth=1u', '.tran 1n 2n')))
-      .rejects.toThrow(InvalidCircuitError);
-  });
+  it.each(['.ac lin 1 1k 1k', '.noise v(c) Vb dec 2 1k 10k'])(
+    'still rejects active self-heating small-signal analysis (%s) with a typed error', async analysis => {
+      await expect(simulate(deck('dt', 300, 'cth=1u', analysis)))
+        .rejects.toThrow(InvalidCircuitError);
+    },
+  );
 });

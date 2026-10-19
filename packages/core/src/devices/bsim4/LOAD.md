@@ -89,7 +89,15 @@ common-source fixtures and ngspice-47 generator in `__fixtures__/rgatemod2/`
 cover NMOS, PMOS instance override, reverse operation, NF/M and RSHG=0.
 `gate-resistance2.test.ts` uses the existing OP/AC component bound (relative
 1e-6 or absolute 1e-12), and the five-node tests check KCL/Jacobians.
-RGATEMOD=2 transient and RGATEMOD=3 still raise structured unsupported errors.
+RGATEMOD=2 transient (#1513) uses the same GP charge topology, including native
+default fringe capacitance, as AC. The nonlinear gate resistor remains in the
+static Newton stamp; charge companions, accepted currents and LTE use GP.
+`generate-transient.py` runs identical `transient.cir` bytes with ngspice-47.
+`gate-resistance2-transient.test.ts` checks v(out) and i(vdd) at 201 shared
+timepoints with the standard 1%-of-peak bound and no solver/tolerance overrides.
+It also checks GP Jacobians and accepted currents for both polarities and channel
+orientations. RGATEMOD=0/1 retain their existing transient preprocessing and
+known residuals. RGATEMOD=3 and RBODYMOD=2 remain structured unsupported errors.
 
 ### RGATEMOD=1 extension (#1370)
 
@@ -218,7 +226,7 @@ remaining waveform/current parity work is not solved by charge integration alone
 
 Other unsupported selectors and model paths:
 
-- TRNQSMOD/ACNQSMOD != 0; RDSMOD/RBODYMOD != 0, RGATEMOD=3 (and 2 for transient),
+- TRNQSMOD/ACNQSMOD != 0; RDSMOD/RBODYMOD != 0, RGATEMOD=3,
   and positive RSH with given positive NRD/NRS.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,
   MTRLCOMPATMOD, CVCHARGEMOD, GIDLMOD, WPEMOD, FNOIMOD or TNOIMOD selectors.

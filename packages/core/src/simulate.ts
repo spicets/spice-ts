@@ -373,6 +373,10 @@ function simulateControlScript(
 
   // ngspice reads `@device[i]` from the circuit's present state: the last analysis's last solution.
   let operatingState: ControlOperatingState | undefined;
+  // mc_source loads another circuit. remcirc selects the previously loaded
+  // circuit, rather than leaving no circuit when a retained one still exists.
+  const previousCircuits: { circuit: Circuit; alterations: typeof runtimeAlterations; operatingState: typeof operatingState }[] = [];
+  let circuitLoaded = true;
 
   const solve = (analyses: AnalysisDirective[], poleZero: PoleZeroAnalysis[], saves: readonly string[] = []): SimulationResult => {
     const savedAnalyses = circuit.analyses.splice(0, circuit.analyses.length, ...analyses);
@@ -446,9 +450,14 @@ function simulateControlScript(
       }
       parameterChanges.push({ subcircuit, name, expression });
     },
-    reset(line) {
+    reset(line, newCircuit = false) {
       if (!reparse) throw unsupported('reset', 'no retained netlist source', line);
-      circuit = reparse(parameterChanges);
+      const reloaded = reparse(parameterChanges);
+      if (newCircuit && circuitLoaded) {
+        previousCircuits.push({ circuit, alterations: [...runtimeAlterations], operatingState });
+      }
+      circuit = reloaded;
+      circuitLoaded = true;
       runtimeAlterations.length = 0;
       deckAnalyses = [...circuit.analyses];
       deckPoleZero = [...circuit.poleZeroAnalyses];
@@ -456,6 +465,22 @@ function simulateControlScript(
       operatingState = undefined;
       measureValues.clear();
       return circuit.controlScript?.constants ?? {};
+    },
+    removeCircuit() {
+      const previous = previousCircuits.pop();
+      circuitLoaded = previous !== undefined;
+      if (previous) {
+        circuit = previous.circuit;
+        runtimeAlterations.splice(0, runtimeAlterations.length, ...previous.alterations);
+        operatingState = previous.operatingState;
+        deckAnalyses = [...circuit.analyses];
+        deckPoleZero = [...circuit.poleZeroAnalyses];
+        measures = measureCards(circuit);
+      } else {
+        operatingState = undefined;
+      }
+      measureValues.clear();
+      return circuitLoaded;
     },
     parameterVector: (device, parameter) =>
       deviceOutputVector(operatingState, device, parameter) ?? circuit.parameterVector(device, parameter),
@@ -469,7 +494,7 @@ function simulateControlScript(
   let finalRuns: ControlHostRun[];
   try {
     outcome = runControlScript(script, host);
-    finalRuns = outcome.quit ? [] : runDeck();
+    finalRuns = outcome.quit || outcome.circuitRemoved ? [] : runDeck();
     if (outcome.squaredNoise) {
       for (const { result } of finalRuns) {
         if (result.noise) result.noise = squaredNoiseOutput(result.noise);

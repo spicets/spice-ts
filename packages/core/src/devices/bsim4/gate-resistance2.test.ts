@@ -38,9 +38,12 @@ describe('BSIM4 RGATEMOD=2', () => {
     });
     console.info(`${item.deck}: max relative ${JSON.stringify(errors)}, max absolute ${JSON.stringify(absolute)}`);
   });
-  it('rejects RGATEMOD=2 transient with a structured error', async () => {
+  it('supports RGATEMOD=2 transient at a constant operating point', async () => {
     const deck = readFileSync(new URL('nmos.cir', base), 'utf8').replace('.ac dec 3 1k 1g', '.tran 1n 10n');
-    await expect(simulate(deck)).rejects.toMatchObject({ code: 'UNSUPPORTED_MODEL_PARAMETER' });
+    const result = await simulate(deck);
+    for (const name of ['d', 'M1.gate']) {
+      for (const value of result.transient!.voltage(name)) expect(value).toBeCloseTo(result.dc!.voltage(name), 8);
+    }
   });
   it('rejects RGATEMOD=3 with a structured error', async () => {
     const deck = readFileSync(new URL('nmos.cir', base), 'utf8').replaceAll('RGATEMOD=2', 'RGATEMOD=3');

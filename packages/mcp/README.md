@@ -39,7 +39,7 @@ Reproduce the identical-deck ngspice-47 cross-check after building core:
 - `spice_sensitivity`: DC `.sens` derivatives for voltage/differential voltage or independent voltage-source current, ranked by absolute normalised sensitivity.
 - `spice_tf`: native small-signal gain and input/output resistances. Accepts `{ netlist, output: "v(out)", input_source: "V1", params?: { name: number } }` with single-node voltage or `i(vsrc)` output and an independent voltage/current input source. Returns exact selector names, `transfer_function`, `input_resistance`, `output_resistance`, and `units` (V/V, V/A, A/V or A/A; resistances in ohm). Uses shared case-insensitive top-level parameter overrides. A matching `.tf` is allowed; conflicting analyses, steps, and control blocks return structured errors. Differential voltage output is not supported by core `.tf`.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
-- `spice_optimize`: deterministic bounded search for a scalar measurement target over one to three top-level SPICE parameters.
+- `spice_corners`: run SPICE text across up to 64 uniquely named deterministic corners with `{ request, corners: [{ name, params?, temp? }], measurement }`. `params` contains finite numeric top-level `.param` overrides; `temp` is Celsius above absolute zero and overrides earlier temperature cards. Uses one `spice_measure` selector. Returns ordered `{ name, status, value, unit }` or `{ name, status: 'failed', error }` entries and `summary: { min: { name, value }, max: { name, value }, spread, unit }` over successful corners only (null if none succeed, first corner wins ties). Shares the existing worker quota, response cap and one wall-time budget. Unlike a single-parameter sweep or random sampling, corners are explicit heterogeneous cases.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, sampled peaking, and loop stability margins without vectors.
 - `spice_impedance`: measure differential port impedance with `{ request, port: { positive: "in", negative: "0" }, sweep?: { variation: "dec", points: 100, startFreq: 10, stopFreq: 100000 }, params?: { name: number } }`. Accepts the usual SPICE or circuit-json protocol request. Use one existing AC sweep or supply `sweep` to override it. Injects a collision-free 1 A AC current from negative to positive on an isolated copy, zeroes all other independent-source AC magnitudes (including subcircuit sources), and preserves DC bias and dependent sources. Returns `points` with `frequencyHz`, `magnitudeOhm`, `phaseDeg`, `resistanceOhm`, and `reactanceOhm`; `summary.min`/`max` are sampled magnitude extrema with frequencies. `summary.resonanceHz` estimates isolated phase-zero crossings by phase interpolation in log frequency (DEC/OCT) or linear frequency (LIN), never extrapolates, and excludes flat zero-phase regions and phase wraps. Increase sweep density to resolve narrow resonances. Ground aliases `0`/`gnd` and node names are case-insensitive. Stable tool-local errors are `UNKNOWN_NODE`, `SHORTED_PORT` (identical terminals), and `MISSING_AC_SWEEP`; invalid/conflicting analyses, steps, and control blocks are rejected. Parameter overrides apply before elaboration and require SPICE text. All normal document, point, output, concurrency, wall-time and cancellation limits apply.
@@ -130,6 +130,43 @@ error code `UNKNOWN_PARAMETER` with `details.unknown` and `details.available`
 (sorted, lower-case available names). This extends the MCP error surface, not the
 protocol-v1 error-code set. `spice_capabilities.parameterOverrides` describes this
 contract. Neither the caller's request nor its source string is mutated.
+
+## Monte Carlo tolerance statistics
+
+Call `spice_monte_carlo` with `{ request, runs, seed, tolerances, measurements }`.
+For a divider with `.op`, an example is
+`{ request, runs: 200, seed: 12345, tolerances: [{ element: 'R1', sigma: 0.01, distribution: 'gaussian' }, { element: 'R2', sigma: 0.01, distribution: 'gaussian' }], measurements: [{ kind: 'at', signal: 'v(out)', analysis: 0, at: 0 }] }`.
+The usual `spice_measure` selectors also support transient, DC and AC reductions.
+
+`runs` is an integer from 1 through 1000; `seed` is an explicit unsigned 32-bit integer.
+Each of 1–128 case-insensitive, unique tolerance targets must be a positive literal
+top-level R/C/L scalar in SPICE text, with no extra card parameters or continuation.
+Numeric engineering suffixes T/G/MEG/K/M/U/N/P/F are supported. Expressions,
+includes, model cards, subcircuit-local targets and JSON inputs are not supported.
+Each draw starts from the original nominal value, independently per target and run,
+in caller-supplied target order. Inputs are not mutated.
+
+`sigma` is relative standard deviation, with `0 <= sigma < 0.5`.
+`gaussian` uses an untruncated standard-normal Box-Muller draw; `uniform` spans
+`[-sqrt(3)*sigma, +sqrt(3)*sigma]` relative to nominal, so both have the same sigma.
+A nonpositive or non-finite draw aborts with `INVALID_REQUEST`, rather than clipping
+or resampling and biasing the distribution. Reduce sigma if that happens.
+
+The result is `{ runs, seed, statistics }`, in measurement order. Each entry contains
+`count`, `unit`, `mean`, sample `std` (N−1 denominator, zero for N=1), `min`, `max`,
+`p5` and `p95`. Percentiles linearly interpolate sorted samples at `(N−1)*p`.
+Same request and seed produce byte-identical successful JSON on the same runtime;
+there are no timestamps or runtime measurements. No cross-runtime math-bit guarantee.
+
+Bad counts, seeds, targets (including unknown elements), tolerances or measurements
+return stable `INVALID_REQUEST`; counts above 1000 return `RESOURCE_LIMIT` with
+`details.limit: 'maxMonteCarloRuns'`, `maximum: 1000`, and `actual`.
+All runs share one wall-time budget and reuse simulation worker/concurrency,
+cancellation, per-run point and result-size limits. The first simulation or measure
+failure aborts the whole request. No failed samples are silently discarded.
+Large batches can exhaust the default shared wall-time limit. The server owner can
+raise `ToolExecutionOptions.limits.maxWallTimeMs` (the 200-run integration test uses
+120000 ms); a client request cannot raise the server's ceiling.
 
 ## Bounded parameter optimization
 

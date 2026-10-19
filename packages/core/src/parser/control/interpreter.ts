@@ -5,7 +5,7 @@ import { gettokWords } from '../../measure/dot-measure.js';
 import { inpEvaluate } from '../../measure/numparse.js';
 import { tokenizeNetlist } from '../tokenizer.js';
 import { ControlScriptError, ControlScriptExitError, UnsupportedControlCommandError } from './errors.js';
-import type { ControlScript, ControlStatement } from './script.js';
+import { CONTROL_ANALYSIS_COMMANDS, type ControlScript, type ControlStatement } from './script.js';
 import type { ControlSourceLine } from './source.js';
 import { setArguments, splitWords, unquote } from './set-arguments.js';
 import { validatePreSet } from './pre-set.js';
@@ -54,7 +54,9 @@ export interface ControlHost {
   /** `altermod`: set a `.model` parameter. */
   alterModel(model: string, parameter: string, value: number, line: ControlSourceLine): void;
   alterParameter(subcircuit: string | undefined, name: string, expression: string, line: ControlSourceLine): void;
-  reset(line: ControlSourceLine): Readonly<Record<string, number>>;
+  reset(line: ControlSourceLine, newCircuit?: boolean): Readonly<Record<string, number>>;
+  /** Remove the current circuit, selecting the previous one if any remains. */
+  removeCircuit(): boolean;
   /** `@device[parameter]` / `@model[parameter]` input-parameter readout, or undefined when unavailable. */
   parameterVector(device: string, parameter: string): number[] | undefined;
   /** `option`/`set` of a simulator option: tokens as on a `.options` card. */
@@ -69,6 +71,8 @@ export interface ControlScriptOutcome {
   output: string[];
   /** True when the script ended with `quit`/`exit` (status 0): ngspice then skips the deck's own run. */
   quit: boolean;
+  /** The current circuit was removed and has not been reloaded with mc_source. */
+  circuitRemoved: boolean;
   /** Final front-end noise-output mode, also used by the deck's implicit batch run. */
   squaredNoise: boolean;
   /** Every `meas` command the script ran, in order; ngspice prints a failed one and continues. */
@@ -154,6 +158,7 @@ export function runControlScript(script: ControlScript, host: ControlHost): Cont
 }
 
 class ControlInterpreter {
+  private circuitRemoved = false;
   private readonly plots: Plot[] = [constantPlot()];
   private current: Plot = this.plots[0];
   private plotNumber = 1;
@@ -199,9 +204,9 @@ class ControlInterpreter {
     } catch (signal) {
       if (!(signal instanceof QuitSignal)) throw signal;
       if (signal.status !== 0) throw new ControlScriptExitError(signal.status, signal.line.lineNumber, this.output);
-      return { files: this.files, runs: this.runs, output: this.output, quit: true, squaredNoise: this.variables.has('sqrnoise'), measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
+      return { files: this.files, runs: this.runs, output: this.output, quit: true, circuitRemoved: this.circuitRemoved, squaredNoise: this.variables.has('sqrnoise'), measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
     }
-    return { files: this.files, runs: this.runs, output: this.output, quit: false, squaredNoise: this.variables.has('sqrnoise'), measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
+    return { files: this.files, runs: this.runs, output: this.output, quit: false, circuitRemoved: this.circuitRemoved, squaredNoise: this.variables.has('sqrnoise'), measurements: this.measurements, warnings: this.warnings, fourier: this.fourierResults };
   }
 
   // -------------------------------------------------------------------------
@@ -305,7 +310,23 @@ class ControlInterpreter {
   private command(name: string, line: ControlSourceLine): void {
     const text = this.substitute(line.text, line);
     const rest = text.slice(/^\s*[^\s=(]*/.exec(text)![0].length).trim();
+    // ngspice keeps plots and the retained source after remcirc. Only
+    // mc_source recreates a circuit; reset/alterparam require a loaded one.
+    if (this.circuitRemoved) {
+      if (name === 'reset' || name === 'alterparam' || name === 'remcirc') {
+        this.warnings.push(`No circuit loaded. Command '${name}' ignored.`);
+        return;
+      }
+      if (CONTROL_ANALYSIS_COMMANDS.has(name) || ['run', 'alter', 'altermod'].includes(name)) {
+        throw new ControlScriptError(`${name}: no circuit loaded`, line.lineNumber, line.text);
+      }
+    }
     switch (name) {
+      case 'remcirc':
+        if (rest !== '') throw new UnsupportedControlCommandError('remcirc', 'removing a named circuit is not implemented', line.lineNumber, line.text);
+        this.circuitRemoved = !this.host.removeCircuit();
+        this.transientTask = undefined;
+        return;
       case 'op': case 'dc': case 'ac': case 'tran': case 'noise': case 'sp': case 'sens': case 'pz': {
         const tokens = tokenizeNetlist(text)[0]?.tokens ?? [];
         const run = this.host.runAnalysis([`.${name.toUpperCase()}`, ...tokens.slice(1)], line, [...this.savedDeviceVectors]);
@@ -351,12 +372,13 @@ class ControlInterpreter {
       }
       case 'reset':
       case 'mc_source':
-        // ngspice-47 com_mc_source ignores arguments and reloads the retained
-        // deck without executing its .control block, just as reset does here.
+        // ngspice-47 com_mc_source ignores arguments and loads another circuit
+        // from the retained deck without re-entering its .control block.
         if (name === 'reset' && rest !== '') throw new ControlScriptError('reset takes no arguments', line.lineNumber, line.text);
-        for (const [name, value] of Object.entries(this.host.reset(line))) {
-          this.plots[0].vectors.set(name, scalar(value, name));
+        for (const [key, value] of Object.entries(this.host.reset(line, name === 'mc_source'))) {
+          this.plots[0].vectors.set(key, scalar(value, key));
         }
+        this.circuitRemoved = false;
         this.transientTask = undefined;
         return;
       case 'option':
@@ -1418,7 +1440,7 @@ class ControlInterpreter {
         throw new UnsupportedExpressionFeature(rawName, `saved device-parameter vector '${rawName}' is not produced by spice-ts analyses`);
       }
       const match = /^@([^[]+)\[([^\]]+)\]$/.exec(name);
-      const values = match ? this.host.parameterVector(match[1], match[2]) : undefined;
+      const values = match && !this.circuitRemoved ? this.host.parameterVector(match[1], match[2]) : undefined;
       if (values === undefined) {
         throw new UnsupportedExpressionFeature(rawName, `device or model parameter '${rawName}' is not available to the spice-ts control language`);
       }
