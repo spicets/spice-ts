@@ -1276,11 +1276,11 @@ function parseDevice(circuit: Circuit, tokens: string[], lineNumber: number, raw
       break;
     }
     case 'T': {
-      const { impedance, delay } = parseTransmissionLine(tokens, lineNumber);
+      const { impedance, delay, initialConditions } = parseTransmissionLine(tokens, lineNumber);
       circuit.addTransmissionLine(
         name,
         tokens[1], tokens[2], tokens[3], tokens[4],
-        impedance, delay,
+        impedance, delay, initialConditions,
       );
       break;
     }

@@ -3,6 +3,17 @@ import { parseTitleless as parse } from './index.js';
 import { TransmissionLine } from '../devices/transmission-line.js';
 
 describe('lossless transmission-line parser', () => {
+  it.each(['IC=1,20m,1,20m', 'IC = 1 20m 1 20m'])('parses four port initial conditions: %s', ic => {
+    const line = parse(`T1 in 0 out 0 ${ic} Z0=50 TD=1n`).compile().devices[0];
+    expect(line).toMatchObject({ initialConditions: [1, 0.02, 1, 0.02] });
+  });
+
+  it.each(['IC=', 'IC=1,0,1', 'IC=1,0,1,0,2', 'IC=1,0,1,0 IC=0,0,0,0'])
+    ('reports a structured parse error for %s', ic => {
+      expect(() => parse(`T1 in 0 out 0 Z0=50 TD=1n ${ic}`)).toThrowError(
+        expect.objectContaining({ name: 'ParseError', line: 1, context: expect.stringContaining('T1') }),
+      );
+    });
   it('parses the bounded Z0/TD T-card form', () => {
     const compiled = parse('T1 in 0 out 0 Z0=50 TD=5n\n.tran 50p 20n').compile();
     const line = compiled.devices[0];
@@ -13,7 +24,7 @@ describe('lossless transmission-line parser', () => {
   });
 
   it.each([
-    ['initial conditions', 'T1 in 0 out 0 Z0=50 TD=5n IC=0,0,0,0'],
+    ['absolute tolerance', 'T1 in 0 out 0 Z0=50 TD=5n ABS=1'],
     ['unknown parameters', 'T1 in 0 out 0 Z0=50 TD=5n REL=1'],
     ['non-positive frequency', 'T1 in 0 out 0 Z0=50 F=0'],
     ['non-positive length', 'T1 in 0 out 0 Z0=50 NL=-1'],

@@ -50,7 +50,7 @@ import { VCVS } from './devices/vcvs.js';
 import { CCCS } from './devices/cccs.js';
 import { CurrentSwitch, resolveSwitchModel, VoltageSwitch } from './devices/switch.js';
 import { CCVS } from './devices/ccvs.js';
-import { TransmissionLine } from './devices/transmission-line.js';
+import { TransmissionLine, type TransmissionLineInitialConditions } from './devices/transmission-line.js';
 import { resolveLtraModel } from './devices/ltra-model.js';
 import { LossyTransmissionLine, LtraModelState } from './devices/lossy-transmission-line.js';
 import {
@@ -1253,6 +1253,7 @@ export class Circuit {
     port2Negative: string,
     impedance: number,
     delay: number,
+    initialConditions?: TransmissionLineInitialConditions,
   ): void {
     for (const node of [port1Positive, port1Negative, port2Positive, port2Negative]) {
       this.nodeSet.add(node);
@@ -1262,7 +1263,13 @@ export class Circuit {
       name,
       nodes: [port1Positive, port1Negative, port2Positive, port2Negative],
       value: impedance,
-      params: { TD: delay },
+      params: {
+        TD: delay,
+        ...(initialConditions ? {
+          IC_V1: initialConditions[0], IC_I1: initialConditions[1],
+          IC_V2: initialConditions[2], IC_I2: initialConditions[3],
+        } : {}),
+      },
     });
   }
 
@@ -2399,6 +2406,9 @@ export class Circuit {
             secondBranch,
             desc.value!,
             desc.params!.TD,
+            desc.params!.IC_V1 === undefined ? undefined : [
+              desc.params!.IC_V1, desc.params!.IC_I1, desc.params!.IC_V2, desc.params!.IC_I2,
+            ],
           ));
           break;
         }

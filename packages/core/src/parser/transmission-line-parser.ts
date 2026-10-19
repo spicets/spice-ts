@@ -2,10 +2,12 @@ import { ParseError } from '../errors.js';
 import { parseUrcParams } from '../devices/urc.js';
 import type { ModelParams } from '../types.js';
 import { parseNumber } from './tokenizer.js';
+import type { TransmissionLineInitialConditions } from '../devices/transmission-line.js';
 
 export interface ParsedTransmissionLine {
   impedance: number;
   delay: number;
+  initialConditions?: TransmissionLineInitialConditions;
 }
 
 export interface ParsedLossyTransmissionLine {
@@ -85,12 +87,27 @@ export function parseTransmissionLine(
   }
 
   const params = new Map<string, number>();
-  for (const token of tokens.slice(5)) {
+  let initialConditions: TransmissionLineInitialConditions | undefined;
+  for (let index = 5; index < tokens.length; index++) {
+    const token = tokens[index];
     const separator = token.indexOf('=');
     const key = separator > 0 ? token.slice(0, separator).toUpperCase() : '';
+    if (key === 'IC') {
+      const values = [token.slice(separator + 1)];
+      while (index + 1 < tokens.length && !tokens[index + 1].includes('=')) values.push(tokens[++index]);
+      if (initialConditions || values.length !== 4 || values.some(value => value === '')) {
+        throw new ParseError('Lossless transmission line IC requires exactly four values V1,I1,V2,I2', lineNumber, tokens.join(' '));
+      }
+      const parsed = values.map(value => parseNumber(value));
+      if (parsed.some(value => !Number.isFinite(value))) {
+        throw new ParseError('Lossless transmission line IC values must be finite', lineNumber, tokens.join(' '));
+      }
+      initialConditions = [parsed[0], parsed[1], parsed[2], parsed[3]];
+      continue;
+    }
     if (!['Z0', 'TD', 'F', 'NL'].includes(key) || params.has(key)) {
       throw new ParseError(
-        'Unsupported lossless transmission line parameter; only Z0, TD, F and NL are supported (IC/REL/ABS are unsupported)',
+        'Unsupported lossless transmission line parameter; only Z0, TD, F, NL and IC are supported (REL/ABS are unsupported)',
         lineNumber,
         tokens.join(' '),
       );
@@ -117,7 +134,7 @@ export function parseTransmissionLine(
     );
   }
 
-  return { impedance, delay };
+  return { impedance, delay, initialConditions };
 }
 
 /** A parsed Y-element (ngspice TXL single lossy line). */
