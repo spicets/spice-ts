@@ -63,7 +63,7 @@ import {
   type PreparedXspiceInstance,
 } from './devices/xspice/compile.js';
 import { parseXspiceInstance, parseXspiceModelCard, xspiceModelType, type XspiceInstanceCard, type XspiceModelCard } from './parser/xspice-parser.js';
-import { resolveXferFile } from './devices/xspice/xfer.js';
+import { resolveXferData, resolveXferFile } from './devices/xspice/xfer.js';
 import type { IncludeResolver } from './types.js';
 import { assertControlledSourceCard, withoutNodePairParentheses } from './parser/controlled-source.js';
 import type { ControlScript } from './parser/control/script.js';
@@ -1553,9 +1553,40 @@ export class Circuit {
 
   /** Resolve XSPICE data files using the same host-provided loader as includes. */
   async resolveXspiceFiles(resolver?: IncludeResolver): Promise<void> {
+    const files = new Map<string, string | undefined>();
+    const load: IncludeResolver | undefined = resolver && (async path => {
+      if (!files.has(path)) {
+        try {
+          files.set(path, await resolver(path));
+        } catch {
+          files.set(path, undefined);
+        }
+      }
+      const text = files.get(path);
+      if (text === undefined) throw new Error(`Cannot open XSPICE file ${path}`);
+      return text;
+    });
     for (const [name, model] of this._xspiceModels) {
-      this._xspiceModels.set(name, await resolveXferFile(model, resolver));
+      this._xspiceModels.set(name, await resolveXferFile(model, load));
     }
+    if (!files.size) return;
+
+    // Reparse callbacks are synchronous: retain file bytes, not resolved model
+    // parameters, so TEMPER/alterparam can still change format and column selection.
+    const retain = (circuit: Circuit): Circuit => {
+      for (const [name, model] of circuit._xspiceModels) {
+        const file = model.codeModel === 'xfer' ? model.params.get('file')?.[0] : undefined;
+        if (file !== undefined && files.has(String(file))) {
+          circuit._xspiceModels.set(name, resolveXferData(model, files.get(String(file))));
+        }
+      }
+      const atTemperature = circuit.reparseAtTemperature;
+      if (atTemperature) circuit.reparseAtTemperature = celsius => retain(atTemperature(celsius));
+      const withParameters = circuit.reparseWithParameters;
+      if (withParameters) circuit.reparseWithParameters = changes => retain(withParameters(changes));
+      return circuit;
+    };
+    retain(this);
   }
 
   /**

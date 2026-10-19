@@ -84,18 +84,26 @@ export function touchstone(text: string, span: number, offset: number): { table:
 export async function resolveXferFile(model: XspiceModelCard, resolver?: IncludeResolver): Promise<XspiceModelCard> {
   const file = model.params.get('file')?.[0];
   if (model.codeModel !== 'xfer' || file === undefined) return model;
+  if (!resolver) fail('file requires async parsing with a resolver');
+  let text: string | undefined;
+  try {
+    text = await resolver!(String(file));
+  } catch {
+    // ngspice leaves an uninitialized model with zero output when fopen fails.
+  }
+  return resolveXferData(model, text);
+}
+
+/** Reuse retained file bytes when synchronous control/temperature reparsing rebuilds a model. */
+export function resolveXferData(model: XspiceModelCard, text: string | undefined): XspiceModelCard {
+  const file = model.params.get('file')?.[0];
+  if (model.codeModel !== 'xfer' || file === undefined) return model;
   if (model.params.has('table')) fail('both file and table parameters given');
   const params = new Map<string, readonly XspiceParamValue[]>(model.params);
   const warnings = [...model.warnings];
   const span = Number(params.get('span')?.[0] ?? 3);
   const offset = Number(params.get('offset')?.[0] ?? 1);
   if (offset < 1 || span < offset + 2) fail('impossible span/offset');
-  let text: string | undefined;
-  try {
-    if (resolver) text = await resolver(String(file));
-  } catch {
-    // ngspice leaves an uninitialized model with zero output when fopen fails.
-  }
   if (text === undefined) {
     warnings.push(`XSPICE xfer: Can not open file ${String(file)}; output is zero (ngspice behavior)`);
     params.set('table', [0, 0, 0]);
