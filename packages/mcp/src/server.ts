@@ -27,6 +27,7 @@ import { compareInputSchema, compareOutputSchema, compareSignals } from './compa
 import { overrideParameters, parameterOverrides, ParameterOverrideError, paramsSchema } from './params.js';
 import type { ParameterOverrideApiError } from './params.js';
 import { runSweep, sweepProperties } from './sweep.js';
+import { runCorners, cornersProperties } from './corners.js';
 import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } from './ac-metrics.js';
 import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProperties } from './tran-metrics.js';
 import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } from './fourier.js';
@@ -322,6 +323,14 @@ export const MCP_TOOLS = Object.freeze([
     },
   },
   {
+    name: 'spice_corners',
+    description: 'Run SPICE text across up to 64 uniquely named deterministic corners with optional top-level .param overrides and/or temp in Celsius. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
+    inputSchema: {
+      ...requestInputSchema, required: ['request', 'corners', 'measurement'],
+      properties: { ...requestInputSchema.properties, ...cornersProperties },
+    },
+  },
+  {
     name: 'spice_ac_metrics',
     description: 'Simulate and reduce one AC sweep to gain, half-power bandwidth, sampled peaking and loop margins. dcGainDb is the lowest-frequency sample, not an extrapolation to DC. Uses first descending crossings with log-frequency interpolation; absent metrics have null values and reason codes.',
     inputSchema: {
@@ -588,6 +597,21 @@ async function executeToolWithStore(
         enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
         return success(result);
       } finally { release(); }
+    }
+    if (name === 'spice_corners') {
+      const original = toolRequest(args);
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const deadline = Date.now() + effective.maxWallTimeMs;
+      const result = await runCorners(args, original, (request, measurements) => executeToolWithStore(
+        'spice_measure', { request, measurements },
+        { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
+      ), result => {
+        throwIfCancelled(options.signal);
+        enforceMaximum('maxWallTimeMs', effective.maxWallTimeMs, effective.maxWallTimeMs - (deadline - Date.now()), 'solve');
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+      });
+      return success(result);
     }
     if (name === 'spice_sweep') {
       const original = toolRequest(args);
