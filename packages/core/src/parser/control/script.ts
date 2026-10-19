@@ -42,7 +42,7 @@ const EXECUTED_CONTROL_COMMANDS = new Set([
   'run', 'let', 'unlet', 'set', 'unset', 'define', 'undefine', 'alter', 'altermod', 'alterparam', 'reset', 'option', 'options',
   'setplot', 'destroy', 'remzerovec', 'compose', 'strcmp', 'setscale', 'meas', 'linearize', 'cutout', 'fft', 'psd', 'fourier',
   // Interactive editor: ngspice-47 batch mode warns and continues unless `interactive` is set.
-  'edit', 'eprint', 'edisplay', 'reshape', 'transpose',
+  'edit', 'eprint', 'edisplay', 'reshape', 'transpose', 'mc_source',
 ]);
 
 /** Why a known ngspice command is not executed, for the structured error. */
@@ -58,13 +58,12 @@ const UNSUPPORTED_REASONS: Record<string, string> = {
   load: 'loading raw files is not implemented',
   remcirc: 'circuit management is not implemented',
   circbyline: 'circuit management is not implemented',
-  mc_source: 'circuit management is not implemented',
 };
 
 const STRUCTURE_KEYWORDS = new Set(['if', 'else', 'end', 'endif', 'while', 'dowhile', 'repeat', 'foreach', 'break', 'continue', 'label', 'goto']);
 
 /** The contract text listed in an unsupported-command error. */
-const CONTRACT = 'spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod/alterparam, reset, '
+const CONTRACT = 'spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod/alterparam, reset/mc_source, '
   + 'option, setplot/destroy, remzerovec, compose, reshape, transpose, strcmp, setscale, meas, linearize, cutout, fft, psd, fourier, the sp and sens analyses, if/else/end, while/dowhile/repeat/foreach/break/continue, label/goto, '
   + 'and treats output-only commands (echo, print, plot, write, wrdata, save, ...) and batch-mode edit as no-ops';
 
