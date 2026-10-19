@@ -1192,6 +1192,8 @@ Run `pnpm exec tsx benchmarks/sensitivity/compare.ts` with ngspice-47. The JSON 
 
 ## Bounded ideal-linear distortion parity fixtures
 
+- MCP diode metric regression: original MIT-licensed analytic diode/R/C deck embedded in `packages/mcp/src/disto-metrics.test.ts` (no third-party source). ngspice-47 values in `packages/mcp/fixtures/disto-ngspice47.json` are consumed by the test and were generated from the identical literal bytes using the recorded command. Covers all 11 frequencies of `.disto dec 5 1k 100k` for HD2/HD3; uses the existing core complex relative tolerance 0.005. No fixture rewrites or core numeric changes.
+
 - Canonical public source: ngspice public corpus A [`tests/filters/lowpass.cir`](https://sourceforge.net/p/ngspice/ngspice/ci/3ef069fb1f04177a153f342a32d941fc20ff047e/tree/tests/filters/lowpass.cir), pinned revision `3ef069fb1f04177a153f342a32d941fc20ff047e`.
 - Licence: BSD-3-Clause under the pinned ngspice [`COPYING`](https://sourceforge.net/p/ngspice/ngspice/ci/3ef069fb1f04177a153f342a32d941fc20ff047e/tree/COPYING); the retained notice is `benchmarks/corpus/ngspice/LICENSE.txt`.
 - Redistribution decision: allowed. The adapted source-form fixture remains under BSD-3-Clause.

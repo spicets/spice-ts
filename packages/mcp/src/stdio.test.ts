@@ -33,10 +33,13 @@ describe('stdio transport', () => {
     expect(listed.tools.map(tool => tool.name)).toEqual([
       'spice_tf',
       'spice_sensitivity',
-      'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_fourier', 'spice_pz_metrics', 'spice_noise_metrics', 'spice_measure',
+      'spice_capabilities', 'spice_validate', 'spice_convert', 'spice_simulate', 'spice_sweep', 'spice_ac_metrics', 'spice_tran_metrics', 'spice_fourier', 'spice_disto_metrics', 'spice_pz_metrics', 'spice_noise_metrics', 'spice_measure',
       'spice_dc_metrics', 'spice_op_report', 'spice_compare', 'spice_simulation_start', 'spice_simulation_read', 'spice_simulation_cancel',
     ]);
     expect(listed.tools.every(tool => tool.inputSchema.type === 'object')).toBe(true);
+    expect(await client.callTool({ name: 'spice_disto_metrics', arguments: {
+      request: { apiVersion: '1', input: { format: 'spice', source: 'V1 out 0 DISTOF1 1\nR1 out 0 1k\n.disto dec 5 1k 100k' } }, output: 'v(out)',
+    } })).toMatchObject({ structuredContent: { magnitudeUnit: 'V', products: [{ product: 'HD2', points: expect.any(Array) }, { product: 'HD3', points: expect.any(Array) }] } });
     expect(await client.callTool({ name: 'spice_tf', arguments: {
       netlist: 'V1 in 0 1\nR1 in out 1k\nR2 out 0 3k', output: 'v(out)', input_source: 'V1',
     } })).toMatchObject({ structuredContent: { transfer_function: 0.75, input_resistance: 4000, output_resistance: 750 } });
