@@ -163,17 +163,28 @@ export class BSIM3v3 implements DeviceModel {
   }
 
   /** Polarity-domain (NMOS convention) Vgs, Vds and Vbs at a solution. */
-  private terminalVoltages(voltage: (node: number) => number): [number, number, number] {
+  private terminalVoltages(ctx: StampContext): [number, number, number] {
     const [nD, nG, nS, nB] = this.nodes;
     const type = this.polarity;
-    const vS = voltage(nS);
-    return [type * (voltage(nG) - vS), type * (voltage(nD) - vS), type * (voltage(nB) - vS)];
+    const vS = nS >= 0 ? ctx.getVoltage(nS) : 0;
+    return [
+      type * ((nG >= 0 ? ctx.getVoltage(nG) : 0) - vS),
+      type * ((nD >= 0 ? ctx.getVoltage(nD) : 0) - vS),
+      type * ((nB >= 0 ? ctx.getVoltage(nB) : 0) - vS),
+    ];
   }
 
   limitNewtonStep(previous: Float64Array, candidate: Float64Array): number {
-    const read = (solution: Float64Array) => (node: number) => (node >= 0 ? solution[node] : 0);
-    const [vgsOld, vdsOld] = this.terminalVoltages(read(previous));
-    const [vgsNew, vdsNew] = this.terminalVoltages(read(candidate));
+    // Read the two solutions directly: per-Newton closures (and their bundled
+    // function-name definitions) otherwise dominate large BSIM3 decks.
+    const [nD, nG, nS] = this.nodes;
+    const type = this.polarity;
+    const oldSource = nS >= 0 ? previous[nS] : 0;
+    const newSource = nS >= 0 ? candidate[nS] : 0;
+    const vgsOld = type * ((nG >= 0 ? previous[nG] : 0) - oldSource);
+    const vdsOld = type * ((nD >= 0 ? previous[nD] : 0) - oldSource);
+    const vgsNew = type * ((nG >= 0 ? candidate[nG] : 0) - newSource);
+    const vdsNew = type * ((nD >= 0 ? candidate[nD] : 0) - newSource);
     const vgdOld = vgsOld - vdsOld;
     const vgdNew = vgsNew - vdsNew;
     const von = this.lastVon;
@@ -204,8 +215,7 @@ export class BSIM3v3 implements DeviceModel {
     const [pD, nG, pS, nB] = this.nodes;
     const type = this.polarity;
     const m = this.multiplier;
-    const voltage = (node: number) => (node >= 0 ? ctx.getVoltage(node) : 0);
-    const [vgs, vds, vbsRaw] = this.terminalVoltages(voltage);
+    const [vgs, vds, vbsRaw] = this.terminalVoltages(ctx);
 
     // b3ld.c junction limiting against the previous load.
     let vbs = vbsRaw;
@@ -317,7 +327,7 @@ export class BSIM3v3 implements DeviceModel {
   stampFrequencyConductance(ctx: StampContext, omega: number): void {
     this.assertQuasiStaticSmallSignal();
     if (!this.acNonQuasiStatic) return;
-    const [vgs, vds, vbs] = this.terminalVoltages(node => node >= 0 ? ctx.getVoltage(node) : 0);
+    const [vgs, vds, vbs] = this.terminalVoltages(ctx);
     const forward = vds >= 0;
     const tc = this.evaluateCharges(ctx);
     const ic = tc.intrinsic;
@@ -440,7 +450,7 @@ export class BSIM3v3 implements DeviceModel {
     const tconst = this.relaxationDriftConstant();
     const history = this.nqsCharges;
     const deficit = (history.current(0, equilibrium) - history.current(1, 0)) / (history.factor + rate);
-    const forward = this.terminalVoltages(node => node >= 0 ? ctx.getVoltage(node) : 0)[1] >= 0;
+    const forward = this.terminalVoltages(ctx)[1] >= 0;
     const small = Math.abs(equilibrium) <= 1e-5 * this.chargeInputs.coxWL;
     const effectivePartition = small
       ? (this.chargeInputs.xpart < 0.5 ? 0.4 : this.chargeInputs.xpart > 0.5 ? 0 : 0.5)
@@ -523,9 +533,7 @@ export class BSIM3v3 implements DeviceModel {
 
   /** b3ld.c terminal charges (NMOS convention, per unit multiplier) at the voltages in `ctx`. */
   private evaluateCharges(ctx: StampContext): BSIM3TerminalCharges {
-    const [vgs, vds, vbs] = this.terminalVoltages(
-      (node: number) => (node >= 0 ? ctx.getVoltage(node) : 0),
-    );
+    const [vgs, vds, vbs] = this.terminalVoltages(ctx);
     const lastDC = this.lastDC;
     const charges = this.terminalCharges;
     const key = this.chargeKey;
@@ -579,7 +587,9 @@ function stampControlledCurrent(
 ): void {
   const ceq = m * type * (current - gG * Vgs - gD * Vds - gB * Vbs);
   const gs = -(gG + gD + gB);
-  for (const [row, sign] of [[into, 1], [outOf, -1]] as const) {
+  for (let index = 0; index < 2; index++) {
+    const row = index === 0 ? into : outOf;
+    const sign = index === 0 ? 1 : -1;
     if (row < 0) continue;
     const s = sign * m;
     if (nG >= 0) ctx.stampG(row, nG, s * gG);
