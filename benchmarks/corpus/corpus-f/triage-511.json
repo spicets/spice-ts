@@ -1,6 +1,12 @@
 {
   "schemaVersion": "spice-ts-corpus-f-triage/v1",
   "issue": "https://github.com/mfiumara/spice-ts/issues/511",
+  "currentSnapshot": {
+    "reportCommit": "7b4452551cc4a89bb741700dca91574bd60a3ee0",
+    "reportIssue": "https://github.com/spicets/spice-ts/pull/1439",
+    "spiceTsCommit": "0f2e519c81f52ff5c6a7f19207ebd89995d4502f",
+    "note": "The current fields and deferred mismatch membership reflect the committed outcomes.json refreshed by #1439 against ngspice-47, not a new corpus run. Historical evidence and measuredOn below retain their original diagnostic provenance. Stochastic current values are this report's samples, not reproducible parity claims."
+  },
   "measuredOn": {
     "spiceTsCommit": "3b9c836f6d29d8d026117b688726695b2bbc5dfa",
     "ngspice": "ngspice-47",
@@ -152,7 +158,7 @@
     {
       "id": "examples-probe-switches-manual-p92-cir",
       "issueTable": null,
-      "current": { "outcome": "mismatch", "worst": 0.75, "signal": "tran v(10)" },
+      "current": { "outcome": "mismatch", "worst": 0.72, "signal": "tran v(10)" },
       "rootCauses": ["reference-grid-artefact"],
       "evidence": "spice-ts-loss (unsupported S card) at bf2e4169; runnable since #579. Ideal S/W switches make v(10), v(20), v(30), v(40) jump between consecutive output points. ngspice-47's default output on the unchanged deck has 2 us between the points that bracket every edge, and spice-ts places each edge inside that interval: v(10) crosses 0.5 V at 1.20029/3.20006 ms (spice-ts) and at 1.19856-1.20056/3.19900-3.20100 ms (ngspice). Interpolating that 2 us chord gives 0.865 (abs 0.865 V, spice-ts 1 vs ngspice 0.135 at t=1.2 ms). At ngspice points: 2.7e-20. With both engines at TMAX 0.1 us, crossing times agree within 1e-8 s, but the metric still reports 1.0 because the edge is vertical. Its max over a step edge is set by sub-step timing, not by the waveform. 8/13 signals agree to <= 5.4e-16. Recorded under #592 (metric); not counted as a match. On main 3b9c836f (merge of #593 with main after #689 ngspice CKTtrunc step control, #686, #691, #696, #479; not bisected): still a mismatch, 0.74 tran v(10) (#592)."
     },
@@ -166,26 +172,25 @@
     {
       "id": "examples-transient-noise-simple-noise-cir",
       "issueTable": null,
-      "current": { "outcome": "mismatch", "worst": 2.63, "signal": "tran v(3)" },
+      "current": { "outcome": "mismatch", "worst": 1.82, "signal": "tran v(3)" },
       "rootCauses": ["stochastic-sources"],
       "evidence": "Runnable since #640 (TRNOISE/TRRANDOM). The metric compares independent random waveforms. spice-ts gives identical values on repeated runs; two ngspice-47 batch runs of the same deck differ. Published 4.71 on 4bdbe0c2, a triage-detail rerun gave 3.75, the b3f04506 regeneration gave 2.5 and the 03706cc7 regeneration 5.44. The value is not reproducible and says nothing about parity. Kept as a published loss → #655. On main 3b9c836f (merge of #593 with main after #689 ngspice CKTtrunc step control, #686, #691, #696, #479; not bisected): 3.04 (stochastic, #655)."
     },
     {
       "id": "examples-transient-noise-rts-1-cir",
       "issueTable": null,
-      "current": { "outcome": "mismatch", "worst": 1.41, "signal": "tran v(9)" },
+      "current": { "outcome": "mismatch", "worst": 1.09, "signal": "tran v(21)" },
       "rootCauses": ["stochastic-sources"],
       "evidence": "Runnable since #640 (TRNOISE/TRRANDOM). The metric compares independent random waveforms. spice-ts gives identical values on repeated runs; two ngspice-47 batch runs of the same deck differ. Published 1.55 (v(9)) on 4bdbe0c2, a triage-detail rerun gave 1.45, the b3f04506 regeneration gave 1.36 (v(21)) and the 03706cc7 regeneration 1.14 (v(9)). The value is not reproducible and says nothing about parity. Kept as a published loss → #655. On main 3b9c836f (merge of #593 with main after #689 ngspice CKTtrunc step control, #686, #691, #696, #479; not bisected): 1.24 (stochastic, #655)."
     }
   ],
   "deferredMismatches": {
     "issue": "https://github.com/mfiumara/spice-ts/issues/597",
-    "reason": "Newly runnable after prior feature merges, not rows of #511 or mismatches in the imported report. Published losses, root causes not established; follow-up investigation required. adder_bip (completes inside the 120 s bound on 03706cc7, 0.0242) and measure/func-cap (runnable since #647 .measure, 0.5) were added on the 03706cc7 refresh on the same basis. original-examples/analog-models3-transient (runnable since #670 XSPICE hyst, 0.0181 tran v(10)) was added on the b1a1ff58 refresh on the same basis. On the 3b9c836f refresh, res-array (0.000452) and cpl-ibm2 (0.00669) became matches and left this list (not root-caused here), and tests/transmission/cpl3_4_line (no longer fails with timestep too small after a merge after b1a1ff58, not bisected; 0.116 tran v(9)) was added on the same basis. On the 449ce900 refresh (#592), txl1_1_line (0.0036) and cpl3_4_line (2.44e-11) became matches and left this list (not root-caused here), and four decks that had been spice-ts losses became runnable after merges after 3b9c836f (not bisected) and were added on the same basis: transient-noise/shot_ng (1.48 tran v(x1.11), a TRNOISE deck whose realisations are not reproducible, #655), original-examples digital_models (1 tran i(v1)), mixed_io_size (0.208 tran v(4)) and mixed_ref (0.0123 tran v(10)).",
+    "reason": "On the #1439 report refresh (7b445255, measured on 0f2e519c), txl2_3_line (0.0056 tran v(6)) and supply_ramping (3.32e-12 tran v(2)) are matched and leave this list; no root cause is inferred. Ten previously untracked report mismatches are added: monte-carlo/opwien, noise/baker-252-gain, switch_oscillators, transient-noise/noi-sc-tr, various/tmp_noise, vdmos/100W, analog-models2-transient, analog-models4-transient, vswitch-test-lin and mesa11. All remain published losses under #597, including stochastic comparisons (#655) and lost comparison coverage: a below-threshold worst common-signal error alone does not imply a match (mesa11 has worst 0 but only 6 compared signals versus 12 previously, as documented in #1439; the mismatch classification is retained without inferring a root cause). No fixture, tolerance or report classification is changed. Historical additions follow. Newly runnable after prior feature merges, not rows of #511 or mismatches in the imported report. Published losses, root causes not established; follow-up investigation required. adder_bip (completes inside the 120 s bound on 03706cc7, 0.0242) and measure/func-cap (runnable since #647 .measure, 0.5) were added on the 03706cc7 refresh on the same basis. original-examples/analog-models3-transient (runnable since #670 XSPICE hyst, 0.0181 tran v(10)) was added on the b1a1ff58 refresh on the same basis. On the 3b9c836f refresh, res-array (0.000452) and cpl-ibm2 (0.00669) became matches and left this list (not root-caused here), and tests/transmission/cpl3_4_line (no longer fails with timestep too small after a merge after b1a1ff58, not bisected; 0.116 tran v(9)) was added on the same basis. On the 449ce900 refresh (#592), txl1_1_line (0.0036) and cpl3_4_line (2.44e-11) became matches and left this list (not root-caused here), and four decks that had been spice-ts losses became runnable after merges after 3b9c836f (not bisected) and were added on the same basis: transient-noise/shot_ng (1.48 tran v(x1.11), a TRNOISE deck whose realisations are not reproducible, #655), original-examples digital_models (1 tran i(v1)), mixed_io_size (0.208 tran v(4)) and mixed_ref (0.0123 tran v(10)).",
     "fixtures": [
       "examples-ddt-ddt-test1-cir",
       "examples-ddt-ddt-test3-cir",
       "examples-xspice-original-examples-analog-models1-transient-deck",
-      "tests-transmission-txl2-3-line-cir",
       "examples-digital-compare-adder-bip-cir",
       "examples-measure-func-cap-sp",
       "examples-xspice-original-examples-analog-models3-transient-deck",
@@ -193,8 +198,17 @@
       "examples-xspice-original-examples-digital-models-deck",
       "examples-xspice-original-examples-mixed-io-size-deck",
       "examples-xspice-original-examples-mixed-ref-deck",
-      "examples-xspice-original-examples-supply-ramping-deck",
-      "examples-xspice-see-repeat-loop-seegen-net"
+      "examples-xspice-see-repeat-loop-seegen-net",
+      "examples-monte-carlo-opwien-sp",
+      "examples-noise-baker-252-gain-cir",
+      "examples-p-to-n-examples-switch-oscillators-cir",
+      "examples-transient-noise-noi-sc-tr-cir",
+      "examples-various-tmp-noise-cir",
+      "examples-vdmos-100w-sp",
+      "examples-xspice-original-examples-analog-models2-transient-deck",
+      "examples-xspice-original-examples-analog-models4-transient-deck",
+      "examples-xspice-various-vswitch-test-lin-cir",
+      "tests-mesa-mesa11-cir"
     ]
   }
 }
