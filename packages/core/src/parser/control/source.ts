@@ -55,6 +55,9 @@ export function extractControlBlocks(
   const physical = netlist.split('\n');
   const blocks: ControlSourceBlock[] = [];
   const warnings: ControlSourceWarning[] = [];
+  const saves: ControlSourceLine[] = [];
+  let subcircuitDepth = 0;
+  let saveContinuation = false;
   let current: ControlSourceBlock | null = null;
   let currentRaw = '';
 
@@ -66,6 +69,17 @@ export function extractControlBlocks(
     const directive = /^\.(control|endc)(?=\s|$)/.exec(card)?.[1];
 
     if (current === null) {
+      const text = stripControlComment(raw).trim();
+      if (/^\.subckt\b/i.test(text)) subcircuitDepth++;
+      if (/^\.ends\b/i.test(text)) subcircuitDepth = Math.max(0, subcircuitDepth - 1);
+      if (subcircuitDepth === 0 && /^\.save\b/i.test(text)) {
+        saves.push({ lineNumber, text: text.slice(1) });
+        saveContinuation = true;
+      } else if (saveContinuation && text.startsWith('+')) {
+        saves[saves.length - 1].text += ` ${text.slice(1).trim()}`;
+      } else if (text !== '' && !text.startsWith('*') && !text.startsWith('#')) {
+        saveContinuation = false;
+      }
       if (directive === 'endc') {
         warnings.push({ message: `misplaced .endc card (line ${lineNumber})`, line: lineNumber });
         physical[index] = '';
@@ -102,6 +116,9 @@ export function extractControlBlocks(
   if (current !== null) {
     throw new ParseError("Unterminated .control block: missing '.endc'", current.startLine, currentRaw);
   }
+  // Dot-card saves apply before any analysis, even when written after .endc.
+  // Keep the original cards in the netlist and reuse the runtime save command.
+  if (blocks.length > 0) blocks[0].lines.unshift(...saves);
   return { netlist: physical.join('\n'), blocks, warnings };
 }
 

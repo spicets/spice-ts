@@ -138,8 +138,9 @@ function tokenize(text: string, starts?: number[]): Token[] {
     if (name) {
       let value = name[0];
       rest = rest.slice(value.length);
-      // `@device[parameter]` keeps its bracket as part of the vector name.
-      if (value.startsWith('@') && rest.startsWith('[')) {
+      // Device-parameter brackets belong to the name, including plot.@device.
+      // A subsequent bracket remains an ordinary vector index.
+      if ((value.startsWith('@') || value.includes('.@')) && rest.startsWith('[')) {
         const close = rest.indexOf(']');
         if (close < 0) throw new ExpressionError(`unterminated '[' in '${text}'`);
         value += rest.slice(0, close + 1);
