@@ -1,0 +1,437 @@
+{
+  "version": "ngspice-47",
+  "rows": [
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003274862331595685,
+        -3.274851915220471e-7,
+        0.00003307610630913633,
+        2.1983618259113767e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.0000327739010901551,
+        -3.2773796926966955e-7,
+        0.00003310163686106351,
+        2.1983607156883523e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbi=-1.5\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003266369609243203,
+        -3.2663591915628106e-7,
+        0.000032990329813227016,
+        2.1983662668034753e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbi=-1.5\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.000032688798671696164,
+        -3.2688694495531734e-7,
+        0.00003301568341828064,
+        2.1983646014689384e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrci=2.5\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.000032677784677028756,
+        -3.2677680445415346e-7,
+        0.000033004559283114576,
+        2.198365156580451e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrci=2.5\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.000032702915465949723,
+        -3.2702811234975803e-7,
+        0.00003302994137992959,
+        2.198364046357426e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrs=1.8\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003267778467628268,
+        -3.2677680501814675e-7,
+        0.00003300455928294483,
+        2.198364955589248e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrs=1.8\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003270291546519033,
+        -3.2702811291153087e-7,
+        0.000033029941379757334,
+        2.19836465609979e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbp=1.3\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003267778467628268,
+        -3.2677680501814675e-7,
+        0.00003300455928294483,
+        2.198365156580451e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbp=1.3\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003270291546519033,
+        -3.2702811291153087e-7,
+        0.000033029941379757334,
+        2.198364046357426e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrcx=1.2\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003267778467732992,
+        -3.2677680441529567e-7,
+        0.000033004559283080485,
+        2.1986671372431486e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrcx=1.2\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003270291546622724,
+        -3.2702811231090023e-7,
+        0.000033029941379893836,
+        2.198666027020124e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbx=-0.7\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003267165377433656,
+        -3.2671549598473723e-7,
+        0.00003299836707196907,
+        2.1983657116919633e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbx=-0.7\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003269677218293854,
+        -3.26966680075401e-7,
+        0.0000330237366646501,
+        2.1983646014689384e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2 xrbi=-1.5 xrci=2.5 xrs=1.8 xrbp=1.3 xrcx=1.2 xrbx=-0.7\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003272828050789976,
+        -3.272817622186227e-7,
+        0.00003305556007146112,
+        2.1986651427097616e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2 xrbi=-1.5 xrci=2.5 xrs=1.8 xrbp=1.3 xrcx=1.2 xrbx=-0.7\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.00003275351727281112,
+        -3.27534129869618e-7,
+        0.000033081049204020785,
+        2.198664845437926e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004046692497262061,
+        -0.00004046692416688381,
+        0.004087159419054011,
+        2.374953345096742e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004138110108769326,
+        -0.00004138110023857845,
+        0.004179491206582476,
+        2.4254507291487926e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbi=-1.5\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004739701615615592,
+        -0.00004739701548144805,
+        0.004787098628756755,
+        2.3403027293866785e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbi=-1.5\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004895223627618211,
+        -0.00004895223555802587,
+        0.0049441758607778165,
+        2.3984634278662045e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrci=2.5\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004658676624647633,
+        -0.00004658676568715504,
+        0.0047052633879904405,
+        2.344353933203536e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrci=2.5\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004805946366007415,
+        -0.000048059463065164964,
+        0.004854005826670978,
+        2.4016331146015092e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrs=1.8\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004658676626668758,
+        -0.00004658676557672449,
+        0.004705263389901138,
+        2.344354442305877e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrs=1.8\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.0048059463682323415,
+        -0.00004805946294881581,
+        0.004854005828779535,
+        2.401634251180872e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbp=1.3\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004658676626668758,
+        -0.00004658676557672449,
+        0.004705263389901138,
+        2.344353933203536e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbp=1.3\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004805946369278473,
+        -0.000048059462959279665,
+        0.004854005829836139,
+        2.4016331146015092e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrcx=1.2\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004658676625296975,
+        -0.000046586765674671694,
+        0.004705263388682311,
+        2.2893462681139456e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrcx=1.2\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004805946366740326,
+        -0.00004805946305201659,
+        0.004854005827448942,
+        2.34344521565788e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbx=-0.7\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.0046987301129238854,
+        -0.0000469873004479159,
+        0.004745717411029456,
+        2.3423516459786244e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbx=-0.7\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.004850105796434194,
+        -0.000048501057239591365,
+        0.004898606851273742,
+        2.4000643694677138e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s  mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2 xrbi=-1.5 xrci=2.5 xrs=1.8 xrbp=1.3 xrcx=1.2 xrbx=-0.7\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.0041329032646169606,
+        -0.00004132903207276192,
+        0.004174232294367911,
+        2.3218435581333093e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 2\nVb b 0 0.75\nVe e 0 0\nVs s 0 -0.2\nQ1 c b e s dt mod 2\n.model mod npn level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2 xrbi=-1.5 xrci=2.5 xrs=1.8 xrbp=1.3 xrcx=1.2 xrbx=-0.7\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        -0.0042304946885821275,
+        -0.00004230494627909106,
+        0.004272799632490162,
+        2.371075978855043e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.00003274862331595685,
+        3.2748519152315736e-7,
+        -0.000033076106309136014,
+        -2.1983618259113767e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbi=-1.5\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.00003266369609243203,
+        3.266359191573913e-7,
+        -0.00003299032981322663,
+        -2.1983662668034753e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrci=2.5\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.000032677784677028756,
+        3.2677680445415346e-7,
+        -0.000033004559283114515,
+        -2.198365156580451e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrs=1.8\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.00003267778467628268,
+        3.2677680501925695e-7,
+        -0.00003300455928294466,
+        -2.198364955589248e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbp=1.3\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.00003267778467628268,
+        3.2677680501925695e-7,
+        -0.00003300455928294481,
+        -2.198365156580451e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrcx=1.2\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.00003267778467732992,
+        3.267768044175161e-7,
+        -0.000033004559283080146,
+        -2.1986671372431486e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbx=-0.7\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.00003267165377433656,
+        3.2671549598375176e-7,
+        -0.00003299836707196947,
+        -2.1983657116919633e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2 xrbi=-1.5 xrci=2.5 xrs=1.8 xrbp=1.3 xrcx=1.2 xrbx=-0.7\n.temp -20\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.00003272828050789976,
+        3.272817622176372e-7,
+        -0.000033055560071461655,
+        -2.1986651427097616e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.0040466926377989544,
+        0.00004046692557225185,
+        -0.004087159560996287,
+        -2.374953345096742e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbi=-1.5\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.004739701614791221,
+        0.00004739701547320353,
+        -0.004787098627924122,
+        -2.3403027293866785e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrci=2.5\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.0046586766347308075,
+        0.00004658676578798661,
+        -0.004705263398174463,
+        -2.344353933203536e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrs=1.8\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.004658676636763341,
+        0.00004658676567767152,
+        -0.004705263400096695,
+        -2.344354442305877e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbp=1.3\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.004658676631857573,
+        0.00004658676562861076,
+        -0.004705263395141862,
+        -2.344353933203536e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrcx=1.2\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.004658675459468187,
+        0.00004658675401638402,
+        -0.004705262211195233,
+        -2.2893462681139456e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xrbx=-0.7\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.00469873012008502,
+        0.00004698730051952543,
+        -0.004745717418262224,
+        -2.3423516459786244e-12
+      ]
+    },
+    {
+      "deck": "VBIC resistor temperature\nVc c 0 -2\nVb b 0 -0.75\nVe e 0 0\nVs s 0 0.2\nQ1 c b e s  mod 2\n.model mod pnp level=4 tnom=27 rcx=100 rci=100 rbx=200 rbi=200 re=10 rs=100 rbp=100 isp=1e-16 ibeip=1e-18 ibcip=1e-16 rth=300 xre=2 xrbi=-1.5 xrci=2.5 xrs=1.8 xrbp=1.3 xrcx=1.2 xrbx=-0.7\n.temp 85\n.op\n.control\nset numdgt=17\nrun\nprint i(vc) i(vb) i(ve) i(vs)\n.endc\n.end\n",
+      "currents": [
+        0.00413290333768244,
+        0.00004132903280341487,
+        -0.004174232368164029,
+        -2.3218435581333093e-12
+      ]
+    }
+  ]
+}
