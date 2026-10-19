@@ -42,7 +42,7 @@ const EXECUTED_CONTROL_COMMANDS = new Set([
   'run', 'let', 'unlet', 'set', 'unset', 'define', 'undefine', 'alter', 'altermod', 'alterparam', 'reset', 'option', 'options',
   'setplot', 'destroy', 'remzerovec', 'compose', 'strcmp', 'setscale', 'meas', 'linearize', 'cutout', 'fft', 'psd', 'fourier',
   // Interactive editor: ngspice-47 batch mode warns and continues unless `interactive` is set.
-  'edit', 'eprint', 'edisplay', 'reshape', 'transpose', 'mc_source',
+  'edit', 'eprint', 'edisplay', 'reshape', 'transpose', 'mc_source', 'remcirc',
 ]);
 
 /** Why a known ngspice command is not executed, for the structured error. */
@@ -56,7 +56,6 @@ const UNSUPPORTED_REASONS: Record<string, string> = {
   pss: 'periodic steady-state analysis is not implemented',
   hbosc: 'harmonic-balance oscillator analysis is not implemented',
   load: 'loading raw files is not implemented',
-  remcirc: 'circuit management is not implemented',
   circbyline: 'circuit management is not implemented',
 };
 
@@ -157,12 +156,6 @@ export function parseControlScript(blocks: ControlSourceBlock[]): ControlScript 
           name, `'${name}' without a matching opening statement`, line.lineNumber, line.text,
         );
       default:
-        // Removing the current circuit is harmless only after all work has
-        // finished. Do not whitelist circuit management in executable scripts.
-        if (name === 'remcirc' && rest === ''
-          && lines.slice(position).every(next => commandName(next.text) === 'quit')) {
-          return { kind: 'command', name, line };
-        }
         if (!isExecutableCommand(name)) throw unsupported(name, line);
         return { kind: 'command', name, line };
     }

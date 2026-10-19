@@ -1,5 +1,17 @@
 # Benchmark sources
 
+## Three-dimensional control-loop outputs (#1491)
+
+`corpus/corpus-f/three-dimensional-output.ts` runs the byte-identical upstream
+`examples/various/3d_loop.sp` fixture against ngspice-47. Source URL, revision,
+BSD-3-Clause licence and checksum are recorded in `corpus/corpus-f/SOURCES.md`
+and its manifest. No netlist is copied or changed. After building, run
+`spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/three-dimensional-output.ts`.
+All three constructed output files, including their scale vectors, are scored
+with the corpus-f normalized-error rule and uniform 1% threshold. The harness
+requires 15 DC runs and 66 signal comparisons. ASCII raw output is selected
+through an isolated ngspice initialization file. Temporary outputs are removed.
+
 ## Static BJT quasi-saturation (#1499)
 
 `packages/core/src/devices/fixtures/bjt-quasisat-1499.json` contains original
@@ -11,6 +23,7 @@ commands; both engines receive identical circuit/model/analysis directives.
 It checks source current and intrinsic collector voltage at every point for
 NPN at two base voltages, PNP, OP, series resistance, AREA/M, and temperature.
 This is a static correctness test, not a speed claim or AC/transient support.
+
 
 ## Lossless transmission-line IC with UIC (#1497)
 
