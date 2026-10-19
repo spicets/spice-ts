@@ -1,0 +1,10 @@
+Diode independent sidewall series resistance (#1515)
+V1 in 0 DC 0.8 AC 1 SIN(0.8 0.02 1meg)
+R1 in out 100
+D1 out 0 DM area=2 pj=3 m=2
+.model DM D(IS=1e-15 N=1.1 RS=5 JSW=1e-13 RSW=200 CJO=20p CJSW=30p VJ=1 VJSW=1 FC=0.5 FCS=0.5 TT=1n)
+.op
+.dc V1 0.2 1.0 0.1
+.ac dec 2 1k 100meg
+.tran 1n 100n
+.end

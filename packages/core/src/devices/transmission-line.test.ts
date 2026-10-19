@@ -36,6 +36,52 @@ const NGSPICE_MISMATCHED: ReadonlyArray<{ time: number; node: string; value: num
 ];
 
 describe('bounded lossless transmission line transient execution', () => {
+  it.each([
+    ['REL=1 ABS=1', 414],
+    ['REL=0.5', 432],
+    ['REL=0.5 ABS=1g', 426],
+  ])('runs a T-card with %s on the ngspice-47 point count', async (parameters, points) => {
+    const transient = (await simulate(fixture(25, 100).replace('TD=5n', `TD=5n ${parameters}`))).transient!;
+    expect(transient.time).toHaveLength(points);
+    expect(valueAtOrAfter(transient.time, transient.voltage('output'), 8e-9)).toBeCloseTo(8 / 9, 9);
+  });
+
+  it('keeps the default time grid and port waves unchanged when REL/ABS are omitted', async () => {
+    const omitted = (await simulate(fixture(25, 100))).transient!;
+    const explicit = (await simulate(fixture(25, 100).replace('TD=5n', 'TD=5n REL=1 ABS=1'))).transient!;
+    expect(explicit.time).toEqual(omitted.time);
+    for (const node of ['input', 'output']) expect(explicit.voltage(node)).toEqual(omitted.voltage(node));
+  });
+
+  it.each([
+    ['REL=1 ABS=1', false],
+    ['REL=.5 ABS=1', true],
+    ['REL=.25 ABS=2', true],
+    ['REL=.25 ABS=2.01', false],
+    ['REL=0 ABS=3', true],
+  ])('uses the TRA slope threshold in accept and truncation: %s', (parameters, bends) => {
+    for (const port of [0, 1]) {
+      const line = parse(`Slope control\nT1 in 0 out 0 Z0=50 TD=5 ${parameters}\n.end`).compile().devices[0] as TransmissionLine;
+      let wave = 0;
+      const ctx: StampContext = {
+        time: 0, dt: 1, numNodes: 2, sourceScale: 1, useDcSourceValue: false,
+        stampG: () => {}, stampC: () => {}, stampB: () => {},
+        getVoltage: node => node === port ? wave : 0, getCurrent: () => 0,
+      };
+      line.acceptTransientStep(ctx);
+      ctx.time = 1;
+      wave = 1;
+      line.acceptTransientStep(ctx);
+      ctx.time = 2;
+      wave = 5; // slopes 4 and 1: |4-1| >= REL*4 + ABS, inclusive.
+      expect(line.truncateTransientStep(ctx, { deltas: [1, 1, 1], reltol: 1e-3, abstol: 1e-12, chgtol: 1e-14, trtol: 7 }))
+        .toBe(bends ? 4 : Infinity);
+      const scheduled: number[] = [];
+      line.acceptTransientStep(ctx, { schedule: time => { scheduled.push(time); } });
+      expect(scheduled).toEqual(bends ? [6] : []);
+    }
+  });
+
   const icDeck = readFileSync(new URL('../../../../benchmarks/transmission-line-ic/step.cir', import.meta.url), 'utf8');
 
   it.each([

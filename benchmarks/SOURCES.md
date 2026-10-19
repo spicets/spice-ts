@@ -1,5 +1,6 @@
 # Benchmark sources
 
+
 ## Diode junction temperature laws (#1533)
 
 `benchmarks/diode-temperature/generate.py` generates original project-authored
@@ -20,6 +21,36 @@ coefficient at -20/100 C, combined coefficients, inactive linear coefficients
 with TLEVC=0, and TNOM=50 C (including TEMP=TNOM). This is correctness evidence,
 not a runtime benchmark or a speed claim.
 
+## Lossless transmission-line REL/ABS controls (#1504)
+
+`benchmarks/transmission-line-controls/step.cir` and the parameter variants in
+`compare.ts` are project-authored MIT regression circuits for
+https://github.com/spicets/spice-ts/issues/1504. No third-party netlist is copied.
+The external oracle is ngspice-47, specifically `trasetup.c`, `traacct.c` and
+`tratrunc.c` in https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/tra.
+Run `pnpm build && pnpm exec tsx benchmarks/transmission-line-controls/compare.ts`.
+Each oracle batch is wrapped in `spice-heavy`; both engines receive identical
+netlists. Coverage includes omitted controls, explicit defaults, REL=0.5,
+REL=0.5 ABS=1g and suppressed slope triggers. The unchanged corpus 1% gate
+uses peak-normalized maximum error and the standard voltage floor. The script
+reports point counts, maximum/RMS absolute error, normalized error and runtime
+(oracle wall time explicitly includes semaphore queueing). Raw output is
+temporary, not committed. No performance superiority is claimed.
+
+## Three-dimensional control-loop outputs (#1491)
+
+`corpus/corpus-f/three-dimensional-output.ts` runs the byte-identical upstream
+`examples/various/3d_loop.sp` fixture against ngspice-47. Source URL, revision,
+BSD-3-Clause licence and checksum are recorded in `corpus/corpus-f/SOURCES.md`
+and its manifest. No netlist is copied or changed. After building, run
+`spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/three-dimensional-output.ts`.
+All three constructed output files, including their scale vectors, are scored
+with the corpus-f normalized-error rule and uniform 1% threshold. The harness
+requires 15 DC runs and 66 signal comparisons. ASCII raw output is selected
+through an isolated ngspice initialization file. Temporary outputs are removed.
+
+
+
 ## Static BJT quasi-saturation (#1499)
 
 `packages/core/src/devices/fixtures/bjt-quasisat-1499.json` contains original
@@ -31,6 +62,7 @@ commands; both engines receive identical circuit/model/analysis directives.
 It checks source current and intrinsic collector voltage at every point for
 NPN at two base voltages, PNP, OP, series resistance, AREA/M, and temperature.
 This is a static correctness test, not a speed claim or AC/transient support.
+
 
 ## Lossless transmission-line IC with UIC (#1497)
 
@@ -818,6 +850,15 @@ decks with ngspice-47 (only output controls added), recording SHA-256 hashes and
 native OP/DC/complex AC samples in `ngspice-47.json`. The gcrg equations are
 ported from b4ld.c:2191-2225 at the pinned ngspice revision below, under the
 same ECL-2.0 licence and retained notices. No per-circuit tolerance tuning.
+
+The RGATEMOD=2 `transient.cir` common-source deck in the same directory is
+project-authored under the repository MIT licence. `generate-transient.py`
+runs its identical bytes with ngspice-47 (`SPICE_ASCIIRAWFILE=1`, `-b -r`),
+without adding control commands or changing solver options. It records the
+deck SHA-256, native point count and 201 shared-grid v(out)/i(vdd) samples in
+`transient-ngspice-47.json`, consumed by `gate-resistance2-transient.test.ts`
+with the standard 1%-of-peak bound. This is a single-fixture parity check,
+not corpus-wide parity or speed evidence.
 
 The RGATEMOD=1 gate-RC transient deck at
 `packages/core/src/devices/bsim4/__fixtures__/rgatemod1/transient.cir` is
@@ -2170,3 +2211,81 @@ Run `spice-heavy pnpm exec tsx benchmarks/mcp-ac-metrics/compare.mts` after buil
 The script prints both engines' values and errors and fails above 0.5% UGF or
 0.5 degrees phase-margin error. Interpolation differs (linear frequency in
 ngspice, log frequency in MCP). This is correctness evidence, not a speed claim.
+
+## Diode independent sidewall resistance (#1515)
+
+`benchmarks/diode-rsw/sidewall.cir` is an original spice-ts regression deck
+(repository MIT licence), authored for https://github.com/spicets/spice-ts/issues/1515.
+No third-party model is redistributed. `compare.ts` sources identical fixture
+bytes in ngspice-47 and spice-ts, reports SHA-256, machine, runtimes and max/RMS
+errors for OP/DC/complex AC/TRAN node voltages and source current. Transient
+samples are linearly interpolated onto ngspice's adaptive timepoints; the
+unchanged parity gate is 1% of each reference signal's peak. Run
+`spice-heavy pnpm exec tsx benchmarks/diode-rsw/compare.ts`; add
+`--write-reference` to refresh the JSON oracle consumed by the core test.
+`default-ns.cir` is the identical original MIT deck with only ` NS=1.4`
+removed, exercising ngspice-47's bottom-voltage-evaluated sidewall current
+and sidewall-node companion conductance. Run the same command with
+`--default-ns` (and optionally `--write-reference`) for its four-analysis oracle.
+Self-heating with RSW remains an explicit unsupported error.
+
+## VBIC transient thermal capacitance (#1522)
+
+`benchmarks/vbic-thermal-transient/power-step.cir` is project-authored, MIT under
+the repository licence. It steps collector power with an active RTH/CTH node.
+The analytic thermal-source tests are also project-authored and MIT.
+`compare.ts` runs this deck and the unchanged corpus-f
+`examples/vbic/vbic99_tran.sp` through the corpus-f identical-byte harness and
+prints every common signal's peak-normalized error using its uniform 1% rule.
+The public deck retains its pinned corpus-f source, SHA-256 and BSD-3-Clause
+licence (see `benchmarks/corpus/corpus-f/SOURCES.md` and `manifest.json`). It
+still fails on nondefault resistor temperature exponents (first XRE=2), which
+require DC physics outside the CTH slice. No zero-error metric is assigned to
+that failure, and no edited variant is passed off as the public deck.
+
+Equations follow ngspice-47 `src/spicelib/devices/vbic/vbicload.c`, BSD-3-Clause,
+[source](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/vbic/vbicload.c).
+Lines 4012-4013 define Qcth=CTH*dT, 4117-4118 apply instance SCALE,
+901-904 integrate it, and 1419-1423 stamp its companion current/Jacobian.
+Run `spice-heavy pnpm exec tsx benchmarks/vbic-thermal-transient/compare.ts`
+after `pnpm build`. Timings include cold child launch and adapters, not just
+the solver. No performance superiority is claimed.
+
+
+## MOS3 instance temperature (#1512)
+
+`benchmarks/mos3-instance-temperature/reference.ts` generates original synthetic
+NMOS/PMOS bias decks under the repository MIT licence, with source and rationale
+at https://github.com/spicets/spice-ts/issues/1512. No third-party netlist or model
+is copied. The temperature precedence follows
+[ngspice-47 mos3temp.c](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/mos3/mos3temp.c).
+The test reads `reference.json`, including identical deck bytes, SHA-256 hashes,
+ngspice-47 invocation, OP and DC TEMP samples. Cases cover TEMP=75, DTEMP=25,
+ambient TEMP=50, and TEMP overriding DTEMP for both polarities, including
+series resistance, body bias and junction parameters.
+Regenerate with `spice-heavy pnpm exec tsx benchmarks/mos3-instance-temperature/reference.ts`.
+Check with `spice-heavy pnpm exec tsx benchmarks/mos3-instance-temperature/compare.mts`.
+The comparison prints maximum relative error per quantity and retains the
+existing MOS3 OP tolerance (1e-12 absolute + 1e-7 relative). This is correctness
+evidence, not a speed claim.
+
+## BJT series-resistance temperature coefficients (#1514)
+
+`benchmarks/bjt-resistor-tempco-1514/compare.ts` generates original MIT-licensed
+bias decks and the oracle consumed by
+`packages/core/src/devices/bjt-resistor-tempco-1514.test.ts`. No upstream circuit
+is redistributed. Formula reference (BSD-3-Clause): ngspice-47 `bjttemp.c`,
+https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/bjt/bjttemp.c
+(RC/RE conductance and independent RB/RBM quadratic temperature laws).
+
+Run `spice-heavy pnpm exec tsx benchmarks/bjt-resistor-tempco-1514/compare.ts`.
+Add `--update` to regenerate the test oracle. Both engines receive identical
+deck bytes, including uniform RELTOL=1e-8, ABSTOL=1e-14 and VNTOL=1e-10 to
+reduce reference Newton residuals; comparison retains the existing temperature
+suite's 2e-5 relative-error threshold. Default-solver-tolerance development runs
+had residuals up to 8.07e-5, exceeding that threshold; no comparison threshold
+was relaxed. The five cases cover 85 C OP, ascending/descending TEMP sweeps,
+non-default TNOM, NPN/PNP, AREA*M, IRB, equal/omitted RBM and fixed RB. Compare
+loaded base/collector voltages and both source currents. Other temperature
+coefficients still fail closed away from TNOM. This is not speed evidence.
+

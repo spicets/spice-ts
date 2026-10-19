@@ -27,6 +27,8 @@ import { compareInputSchema, compareOutputSchema, compareSignals } from './compa
 import { overrideParameters, parameterOverrides, ParameterOverrideError, paramsSchema } from './params.js';
 import type { ParameterOverrideApiError } from './params.js';
 import { runSweep, sweepProperties } from './sweep.js';
+import { runCorners, cornersProperties } from './corners.js';
+import { runMonteCarlo, monteCarloProperties } from './monte-carlo.js';
 import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } from './ac-metrics.js';
 import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProperties } from './tran-metrics.js';
 import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } from './fourier.js';
@@ -313,12 +315,28 @@ export const MCP_TOOLS = Object.freeze([
     outputSchema: { ...commonSchemaV1.$defs.simulationResult, $defs: commonSchemaV1.$defs },
   },
   {
+    name: 'spice_monte_carlo',
+    description: 'Seeded tolerance statistics for 1–1000 sequential SPICE-text runs under one shared wall-time budget. Perturb literal positive top-level R/C/L scalars independently using relative sigma (0 <= sigma < 0.5); uniform has half-width sqrt(3)*sigma, gaussian is untruncated. Explicit unsigned 32-bit seed. Uses spice_measure selectors, including at=0 for OP. Returns sample std and linearly interpolated p5/p95. Aborts on any failed run or measure, never silently drops samples.',
+    inputSchema: {
+      ...requestInputSchema, required: ['request', 'runs', 'seed', 'tolerances', 'measurements'],
+      properties: { ...requestInputSchema.properties, ...monteCarloProperties },
+    },
+  },
+  {
     name: 'spice_sweep',
     description: 'Sequential bounded parameter sweep. Target a top-level .param (SPICE only) or R/C/L component scalar value (SPICE or native JSON IR). Supply exactly one of values or range. lin points is total samples; dec points is samples per decade including exact stop. Returns ordered statuses and optional spice_measure-style measurements; individual simulation failures do not abort other points. Maximum 100 points and one shared wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'parameter'],
       properties: { ...requestInputSchema.properties, ...sweepProperties },
       oneOf: [{ required: ['values'], not: { required: ['range'] } }, { required: ['range'], not: { required: ['values'] } }],
+    },
+  },
+  {
+    name: 'spice_corners',
+    description: 'Run SPICE text across up to 64 uniquely named deterministic corners with optional top-level .param overrides and/or temp in Celsius. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
+    inputSchema: {
+      ...requestInputSchema, required: ['request', 'corners', 'measurement'],
+      properties: { ...requestInputSchema.properties, ...cornersProperties },
     },
   },
   {
@@ -588,6 +606,36 @@ async function executeToolWithStore(
         enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
         return success(result);
       } finally { release(); }
+    }
+    if (name === 'spice_corners') {
+      const original = toolRequest(args);
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const deadline = Date.now() + effective.maxWallTimeMs;
+      const result = await runCorners(args, original, (request, measurements) => executeToolWithStore(
+        'spice_measure', { request, measurements },
+        { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
+      ), result => {
+        throwIfCancelled(options.signal);
+        enforceMaximum('maxWallTimeMs', effective.maxWallTimeMs, effective.maxWallTimeMs - (deadline - Date.now()), 'solve');
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+      });
+      return success(result);
+    }
+    if (name === 'spice_monte_carlo') {
+      const original = toolRequest(args);
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const deadline = Date.now() + effective.maxWallTimeMs;
+      const result = await runMonteCarlo(args, original, (request, measurements) => executeToolWithStore(
+        'spice_measure', { request, measurements },
+        { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
+      ), () => {
+        throwIfCancelled(options.signal);
+        enforceMaximum('maxWallTimeMs', effective.maxWallTimeMs, effective.maxWallTimeMs - (deadline - Date.now()), 'solve');
+      });
+      enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+      return success(result);
     }
     if (name === 'spice_sweep') {
       const original = toolRequest(args);
