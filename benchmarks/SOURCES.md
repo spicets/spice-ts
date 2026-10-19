@@ -1,5 +1,17 @@
 # Benchmark sources
 
+## Static BJT quasi-saturation (#1499)
+
+`packages/core/src/devices/fixtures/bjt-quasisat-1499.json` contains original
+project-authored MIT decks and ngspice-47 reference values. No upstream decks
+are redistributed. Equations and defaults follow ngspice-47's BSD-3-Clause
+[`bjtload.c` and `bjttemp.c`](https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/bjt).
+The paired unit test documents the `spice-heavy ngspice -b` control/export
+commands; both engines receive identical circuit/model/analysis directives.
+It checks source current and intrinsic collector voltage at every point for
+NPN at two base voltages, PNP, OP, series resistance, AREA/M, and temperature.
+This is a static correctness test, not a speed claim or AC/transient support.
+
 ## Public Gear MAXORD=3 (#1406)
 
 `benchmarks/gear3-enable/compare.ts` runs the byte-identical corpus-f

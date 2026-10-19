@@ -111,7 +111,7 @@ import {
 } from './devices/passive-model.js';
 import {
   CycleError, InvalidCircuitError, ParseError, UnsupportedModelLevelError, UnsupportedModelVersionError,
-  UnsupportedTemperatureError, UnsupportedMultiplicityError,
+  UnsupportedTemperatureError, UnsupportedMultiplicityError, UnsupportedModelParameterError,
 } from './errors.js';
 import type { ProtocolExecutionGuard } from './protocol/execution-guard.js';
 import { CaseFoldedNameSet, CaseInsensitiveMap } from './case-fold.js';
@@ -2185,6 +2185,17 @@ export class Circuit {
 
     const hasBoundedVBIC = expandedDescriptors.some(desc =>
       desc.type === 'Q' && isVBICLevel(this._models.get(desc.modelName!)?.params.LEVEL));
+    const quasiBJT = expandedDescriptors.find(desc => desc.type === 'Q'
+      && !isVBICLevel(this._models.get(desc.modelName!)?.params.LEVEL)
+      && (this._models.get(desc.modelName!)?.params.RCO ?? 0) > 0);
+    if (quasiBJT) {
+      const unsupported = this._poleZeroAnalyses.length > 0 ? 'pz'
+        : this._analyses.find(analysis => analysis.type !== 'op' && analysis.type !== 'dc')?.type;
+      if (unsupported) {
+        throw new UnsupportedModelParameterError(quasiBJT.name, 'RCO',
+          `BJT quasi-saturation supports only static op/dc; ${unsupported} is unsupported`);
+      }
+    }
     if (hasBoundedVBIC) {
       const unsupportedStep = this._steps.find(step => step.param.toUpperCase() === 'TEMP');
       if (unsupportedStep) {
@@ -3106,9 +3117,15 @@ export class Circuit {
             else if (parameter === 'RB') base = internal;
             else emitter = internal;
           }
+          const collectorEpi = collector;
+          const quasiSaturation = isPositiveFinite(model.params.RCO);
+          if (quasiSaturation) collector = internalNodeName(desc.name, 'collector');
           result.push({
             ...desc,
-            nodes: variableBaseResistance && base !== externalBase
+            nodes: quasiSaturation
+              ? [collector, base, emitter, terminals[3] ?? GROUND_NODE,
+                variableBaseResistance ? externalBase : base, collectorEpi]
+              : variableBaseResistance && base !== externalBase
               ? [collector, base, emitter, terminals[3] ?? GROUND_NODE, externalBase]
               : [collector, base, emitter, ...terminals.slice(3)],
             bjtICTerminals: terminals.slice(0, 3),

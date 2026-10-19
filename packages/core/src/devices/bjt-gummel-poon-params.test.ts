@@ -7,7 +7,7 @@ import { simulate } from '../simulate.js';
  * IRB/RBM, NKF and their ngspice-47 aliases VB, C4, NK, TREF) used to be
  * silently dropped unless the card also set VAF/IKF/ISE/NE. They are now
  * ported from ngspice-47 bjtload.c/bjttemp.c/bjtsetup.c, and the parameters
- * that are not (RCO quasi-saturation, the IBE/IBC split) are rejected
+ * that are not (the IBE/IBC split) are rejected
  * whatever else is on the card.
  *
  * Every reference is ngspice-47 `ngspice -b` on the identical deck with
@@ -182,9 +182,8 @@ describe('BJT Gummel-Poon parameters past the forward set match ngspice-47 (#633
   });
 
   it.each([
-    ['RCO=10', 'RCO'],
     ['IBE=1e-15 IBC=2e-15', 'IBE'],
-    ['VAF=50 RCO=10', 'RCO'],
+    ['VAF=50 IBE=1e-15', 'IBE'],
     ['ISE=1e-14 IBC=2e-15', 'IBC'],
   ])('rejects the unported %s whatever else is on the card', (model, parameter) => {
     expect(() => parse(issueDeck(model)).compile())
