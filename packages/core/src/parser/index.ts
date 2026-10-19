@@ -282,14 +282,16 @@ function parseNetlist(
   }
   assertMaxOrderIsNoOp(circuit);
 
-  if (atTemperature) circuit.recompileAtTemperature = celsius => {
+  if (atTemperature) circuit.reparseAtTemperature = celsius => {
     const deck = atTemperature(celsius);
     const title = firstLineIsTitle ? `${netlist.split('\n', 1)[0]}\n` : '';
     const evaluated = parseNetlist(`${title}${deck.text}`, firstLineIsTitle, guard,
       [], deck.parameters, [], deck.controlConstants);
     evaluated.setTemperature(celsius);
-    return evaluated.compile(guard);
+    return evaluated;
   };
+  if (circuit.reparseAtTemperature) circuit.recompileAtTemperature = celsius =>
+    circuit.reparseAtTemperature!(celsius).compile(guard);
 
   if (withParameters) circuit.reparseWithParameters = changes => {
     const deck = withParameters(changes);
@@ -387,11 +389,15 @@ export function parseControlAnalysisCard(tokens: string[], lineNumber: number, c
 }
 
 /** @internal Parse `.options` tokens for the control-language `option`/`set` commands. */
-export function parseControlOptions(tokens: string[], lineNumber: number, context: string): SimulationOptions {
+export function parseControlOptions(tokens: string[], lineNumber: number, context: string, circuit?: Circuit): SimulationOptions {
   try {
     // Control splitWords retains spaces around '='; normalize assignments
     // with the same tokenizer as dot cards (e.g. `option xmu = 0.49`).
-    return parseSimulationOptions(splitXyceOptionPackage(tokenizeLine(tokens.join(' '))).fields, lineNumber, context);
+    const fields = splitXyceOptionPackage(tokenizeLine(tokens.join(' '))).fields;
+    const temperature = circuit ? takeCircuitTemperatureOption(fields, lineNumber, context) : undefined;
+    const options = parseSimulationOptions(fields, lineNumber, context);
+    if (temperature !== undefined) circuit!.setTemperature(temperature);
+    return options;
   } catch (e) {
     if (e instanceof ParseError) throw e;
     throw new ParseError((e as Error).message, lineNumber, context);

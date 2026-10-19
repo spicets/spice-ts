@@ -873,6 +873,8 @@ export class Circuit {
   private _temperature: number | undefined;
   /** @internal Parser-supplied evaluator for TEMPER-dependent parameter expressions. */
   recompileAtTemperature?: (celsius: number) => CompiledCircuit;
+  /** @internal Re-evaluate TEMPER before applying runtime control alterations. */
+  reparseAtTemperature?: (celsius: number) => Circuit;
   /** @internal Re-elaborate retained source after control-language parameter edits. */
   #reparseWithParameters?: (changes: readonly import('./parser/preprocessor.js').ParameterAlteration[]) => Circuit;
   get reparseWithParameters(): ((changes: readonly import('./parser/preprocessor.js').ParameterAlteration[]) => Circuit) | undefined {
