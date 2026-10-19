@@ -53,10 +53,13 @@ describe('element-free transient decks (#1192)', () => {
     }
   });
 
-  it('still rejects an empty operating-point deck', async () => {
-    await expect(simulate('empty\n.op\n')).rejects.toThrow('Circuit has no nodes');
+  // ngspice-47 tests/regression/misc/empty-1.cir runs op on a 0x0 matrix.
+  it('accepts an empty operating-point deck like ngspice-47', async () => {
+    const result = await simulate('empty\n.op\n');
+    expect(result.dc!.voltages.size).toBe(0);
+    expect(result.dc!.currents.size).toBe(0);
     await expect(validateProtocolV1({
       apiVersion: '1', input: { format: 'spice', source: '.op' },
-    })).rejects.toThrow('Circuit has no nodes');
+    })).resolves.toMatchObject({ status: 'valid', nodeCount: 0 });
   });
 });

@@ -29,7 +29,7 @@ export class ParseError extends SpiceError {
 }
 
 /**
- * Thrown when the circuit structure is invalid (e.g., no nodes or no analysis command).
+ * Thrown when the circuit structure is invalid (e.g., no analysis command).
  */
 export class InvalidCircuitError extends SpiceError {
   constructor(message: string) {
