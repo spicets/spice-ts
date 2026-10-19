@@ -5,7 +5,10 @@ import { simulateStepStream, simulate, parse } from '@spice-ts/core';
 import type { StepStreamEvent, DCSweepResult, IntegrationMethod, SimulationOptions } from '@spice-ts/core';
 import { TransientPlot, BodePlot, DCSweepPlot, CursorTooltip, Legend, SchematicView } from '@spice-ts/ui/react';
 import type { LegendSignal } from '@spice-ts/ui/react';
-import { DARK_THEME, formatTime, formatFrequency, formatVoltage, formatSI, DEFAULT_PALETTE } from '@spice-ts/ui';
+import { formatTime, formatFrequency, formatVoltage, formatSI } from '@spice-ts/ui';
+import { version as coreVersion } from '../../packages/core/package.json';
+import { plotTheme, traceColors, tracePalette } from './branding.js';
+import type { ColorMode } from './branding.js';
 import type { TransientDataset, ACDataset, DCSweepDataset, CursorState } from '@spice-ts/ui';
 import {
   BJT_COMMON_EMITTER_DEMO,
@@ -487,8 +490,7 @@ async function copyText(text: string): Promise<void> {
   if (!copied) throw new Error('Clipboard copy failed');
 }
 
-function buildLegendSignals(datasets: { label: string }[], signals: string[], visibility: Record<string, boolean>, palette?: string[]): LegendSignal[] {
-  const pal = palette ?? DEFAULT_PALETTE as unknown as string[];
+function buildLegendSignals(datasets: { label: string }[], signals: string[], visibility: Record<string, boolean>, pal: string[]): LegendSignal[] {
   const result: LegendSignal[] = [];
   let colorIdx = 0;
   for (const ds of datasets) {
@@ -558,29 +560,6 @@ function NetlistView({ netlist }: { netlist: string }) {
   );
 }
 
-// ─── Konami code hook ───────────────────────────────────────────────
-
-const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
-
-function useKonamiCode(onActivate: () => void) {
-  const pos = useRef(0);
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === KONAMI[pos.current]) {
-        pos.current++;
-        if (pos.current === KONAMI.length) {
-          pos.current = 0;
-          onActivate();
-        }
-      } else {
-        pos.current = 0;
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onActivate]);
-}
-
 // ─── App ────────────────────────────────────────────────────────────
 
 function App() {
@@ -588,7 +567,25 @@ function App() {
   if (!initialStateRef.current) initialStateRef.current = readInitialEditorState();
   const initialState = initialStateRef.current;
 
-  const [vaultTec, setVaultTec] = useState(false);
+  const [colorMode, setColorMode] = useState<ColorMode>('dark');
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [compactPlots, setCompactPlots] = useState(() => window.matchMedia('(max-width: 760px)').matches);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 760px)');
+    const update = () => setCompactPlots(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const librarySearchRef = useRef<HTMLInputElement>(null);
+  const libraryToggleRef = useRef<HTMLButtonElement>(null);
+  const wasLibraryOpen = useRef(false);
+  useEffect(() => {
+    if (libraryOpen) librarySearchRef.current?.focus();
+    else if (wasLibraryOpen.current) libraryToggleRef.current?.focus();
+    wasLibraryOpen.current = libraryOpen;
+  }, [libraryOpen]);
+  const theme = useMemo(() => ({ ...plotTheme(colorMode), fontSize: compactPlots ? 10 : 11 }), [colorMode, compactPlots]);
+  const palette = useMemo(() => tracePalette(colorMode), [colorMode]);
   const [activeCircuit, setActiveCircuit] = useState(initialState.activeCircuit);
   const [activeView, setActiveView] = useState<AnalysisView>(initialState.activeView);
   const [searchQuery, setSearchQuery] = useState('');
@@ -597,48 +594,7 @@ function App() {
   const [tranStep, setTranStep] = useState(initialState.tranStep);
   const [editedNetlist, setEditedNetlist] = useState<string>(initialState.editedNetlist);
   const [shareStatus, setShareStatus] = useState<string | null>(initialState.shareStatus);
-  useKonamiCode(useCallback(() => setVaultTec(prev => !prev), []));
 
-  // Apply vault-tec class to body for scanlines/vignette pseudo-elements
-  useEffect(() => {
-    document.body.classList.toggle('vault-tec', vaultTec);
-    if (vaultTec) {
-      document.body.classList.add('vault-tec-enter');
-      const t = setTimeout(() => document.body.classList.remove('vault-tec-enter'), 600);
-      return () => clearTimeout(t);
-    }
-  }, [vaultTec]);
-
-  // Monochrome CRT colors for vault-tec mode (differentiated by brightness)
-  const vaultTecPalette = ['#33ff66', '#22cc44', '#119922'];
-  const vaultTecTheme = useMemo(() => vaultTec ? {
-    background: '#050a04',
-    surface: '#0a1208',
-    border: '#1a2816',
-    grid: 'rgba(51, 255, 102, 0.05)',
-    text: '#33ff66',
-    textMuted: '#146628',
-    cursor: '#22aa44',
-    tooltipBg: '#0a1208',
-    tooltipBorder: '#243820',
-    font: "'Share Tech Mono', monospace",
-    fontSize: 11,
-  } : undefined, [vaultTec]);
-
-  // Build color overrides from datasets for vault-tec mode
-  const vaultTecColors = useCallback((datasets: { label: string }[] | null, signals: string[]) => {
-    if (!vaultTec || !datasets) return undefined;
-    const colors: Record<string, string> = {};
-    let idx = 0;
-    for (const ds of datasets) {
-      for (const name of signals) {
-        const id = ds.label ? `${ds.label}:${name}` : name;
-        colors[id] = vaultTecPalette[idx % vaultTecPalette.length];
-        idx++;
-      }
-    }
-    return colors;
-  }, [vaultTec]);
 
   const [tranData, setTranData] = useState<TransientDataset[] | null>(null);
   const [acData, setAcData] = useState<ACDataset[] | null>(null);
@@ -880,30 +836,35 @@ function App() {
   }, [diagramNetlist]);
 
   return (
-    <div className="app">
+    <div className="app" data-theme={colorMode}>
       {/* ── Top Bar ── */}
       <header className="topbar">
-        <div className="topbar-logo">
-          <WaveIcon />
-          <span>spice-<span className="ts">ts</span></span>
-        </div>
+        <a className="topbar-logo" href="https://spicets.com" aria-label="spice-ts home">
+          <img src={`${import.meta.env.BASE_URL}brand-mark.svg`} alt="" width="24" height="24" />
+          <span>spice<span className="wordmark-suffix">-ts</span></span>
+        </a>
+        <span className="topbar-label">playground</span>
+        <nav className="topbar-links" aria-label="Product links">
+          <a href="https://spicets.com">Website</a>
+          <a href="https://github.com/spicets/spice-ts">GitHub</a>
+          <a href="https://www.npmjs.com/package/@spice-ts/core">npm</a>
+          <a href="https://github.com/spicets/spice-ts#readme">Docs</a>
+        </nav>
+        <button className="theme-toggle" onClick={() => setColorMode(mode => mode === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} theme`}>
+          {colorMode === 'dark' ? 'Light' : 'Dark'}
+        </button>
       </header>
 
-      {/* ── Icon Rail ── */}
-      <nav className="rail">
-        <button className="rail-btn active" title="Circuits"><GridIcon /></button>
-        <div className="rail-spacer" />
-        <button className="rail-btn" title="Help"><HelpIcon /></button>
-      </nav>
-
       {/* ── Sidebar ── */}
-      <aside className="sidebar">
+      <aside id="circuit-library" className={`sidebar ${libraryOpen ? 'is-open' : ''}`} aria-label="Circuit library" onKeyDown={event => { if (event.key === 'Escape') setLibraryOpen(false); }}>
         <div className="sidebar-header">
           <h2>Circuits</h2>
           <input
             className="sidebar-search"
+            ref={librarySearchRef}
             type="text"
             placeholder="Search circuits..."
+            aria-label="Search circuits"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -911,8 +872,10 @@ function App() {
         <div className="sidebar-list">
           {[...filteredGroups.entries()].map(([groupName, items]) => (
             <div key={groupName} style={{ marginBottom: 4 }}>
-              <div
+              <button
+                type="button"
                 className="circuit-group-header"
+                aria-expanded={!collapsed[groupName]}
                 onClick={() => toggleGroup(groupName)}
               >
                 <svg
@@ -923,14 +886,17 @@ function App() {
                 </svg>
                 <span>{groupName}</span>
                 <span className="circuit-group-count">{items.length}</span>
-              </div>
+              </button>
               {!collapsed[groupName] && items.map(c => {
                 const implemented = !!(c.tranNetlist || c.acNetlist || c.dcNetlist);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={c.id}
                     className={`circuit-item ${c.id === activeCircuit ? 'active' : ''} ${!implemented ? 'disabled' : ''}`}
-                    onClick={() => implemented && handleSelectCircuit(c.id)}
+                    aria-pressed={c.id === activeCircuit}
+                    disabled={!implemented}
+                    onClick={() => { handleSelectCircuit(c.id); setLibraryOpen(false); }}
                   >
                     <div className="circuit-item-icon">{c.icon}</div>
                     <div>
@@ -938,7 +904,7 @@ function App() {
                       <div className="circuit-item-desc">{implemented ? c.desc : 'Coming soon'}</div>
                     </div>
                     {c.tag && <span className="circuit-item-tag">{c.tag}</span>}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -950,7 +916,16 @@ function App() {
       </aside>
 
       {/* ── Main Content ── */}
-      <div className="main">
+      <main className="main">
+        <div className="workspace-heading">
+          <div>
+            <p className="eyebrow">Circuit workspace</p>
+            <h1>{circuit.name}</h1>
+            <p className="workspace-description">{circuit.desc}</p>
+          </div>
+          <button ref={libraryToggleRef} className="library-toggle" aria-expanded={libraryOpen} aria-controls="circuit-library" onClick={() => setLibraryOpen(open => !open)}>Circuits {libraryOpen ? '−' : '+'}</button>
+          <span className="runtime-label">In-browser simulation</span>
+        </div>
         {/* Toolbar */}
         <div className="toolbar">
           <button className="toolbar-btn primary" onClick={handleRun} disabled={running || !hasNetlist}>
@@ -1021,7 +996,7 @@ function App() {
               />
             </>
           )}
-          <div className="toolbar-info">
+          <div className="toolbar-info" role="status">
             {shareStatus && (
               <span><span className="value">{shareStatus}</span></span>
             )}
@@ -1033,7 +1008,7 @@ function App() {
 
         {/* Panels */}
         <div className="panels">
-          {error && <div className="panel"><div className="panel-error">Simulation error: {error}</div></div>}
+          {error && <div className="panel error-panel" role="alert"><div className="panel-error">Simulation error: {error}</div></div>}
 
           {!hasNetlist && (
             <div className="panel">
@@ -1045,7 +1020,7 @@ function App() {
 
           {/* Netlist + Schematic panel */}
           {diagramNetlist && (
-            <div className="panel">
+            <div className="panel source-panel">
               <div className="panel-header">
                 <span className="netlist-panel-label">Netlist</span>
                 <span className="netlist-panel-name">{circuit.name}</span>
@@ -1066,7 +1041,8 @@ function App() {
                   <div className="schematic-split-pane">
                     <SchematicView
                       circuit={diagramCircuit}
-                      theme={vaultTecTheme ?? 'dark'}
+                      key={colorMode}
+                      theme={theme}
                       height={250}
                     />
                   </div>
@@ -1087,24 +1063,24 @@ function App() {
                   <div className="panel-placeholder">Press Run to simulate</div>
                 )}
                 {!tranData && running && (
-                  <div className="panel-placeholder">Simulating transient...</div>
+                  <div className="panel-placeholder loading" role="status">Simulating transient...</div>
                 )}
                 {tranData && (
                   <div style={{ position: 'relative' }}>
                     <TransientPlot
                       data={tranData}
                       signals={circuit.signals}
-                      theme={vaultTecTheme ?? 'dark'}
-                      colors={vaultTecColors(tranData, circuit.signals)}
-                      height={280}
+                      theme={theme}
+                      colors={traceColors(tranData, circuit.signals, colorMode)}
+                      height={320}
                       onCursorMove={setTranCursor}
                       signalVisibility={visibility}
                     />
                     <Legend
-                      signals={buildLegendSignals(tranData, circuit.signals, visibility, vaultTec ? vaultTecPalette : undefined)}
+                      signals={buildLegendSignals(tranData, circuit.signals, visibility, palette)}
                       onToggle={handleToggle}
                     />
-                    <CursorTooltip cursor={tranCursor} theme={vaultTecTheme ?? DARK_THEME} formatX={formatTime} />
+                    <CursorTooltip cursor={tranCursor} theme={theme} formatX={formatTime} />
                   </div>
                 )}
               </div>
@@ -1123,25 +1099,25 @@ function App() {
                   <div className="panel-placeholder">Press Run to simulate</div>
                 )}
                 {!acData && running && (
-                  <div className="panel-placeholder">Simulating AC...</div>
+                  <div className="panel-placeholder loading" role="status">Simulating AC...</div>
                 )}
                 {acData && (
                   <div style={{ position: 'relative' }}>
                     <BodePlot
                       data={acData}
                       signals={circuit.signals}
-                      theme={vaultTecTheme ?? 'dark'}
-                      colors={vaultTecColors(acData, circuit.signals)}
+                      theme={theme}
+                      colors={traceColors(acData, circuit.signals, colorMode)}
                       height={200}
                       xDomain={[1, 10e6]}
                       onCursorMove={setAcCursor}
                       signalVisibility={visibility}
                     />
                     <Legend
-                      signals={buildLegendSignals(acData, circuit.signals, visibility, vaultTec ? vaultTecPalette : undefined)}
+                      signals={buildLegendSignals(acData, circuit.signals, visibility, palette)}
                       onToggle={handleToggle}
                     />
-                    <CursorTooltip cursor={acCursor} theme={vaultTecTheme ?? DARK_THEME} formatX={formatFrequency} />
+                    <CursorTooltip cursor={acCursor} theme={theme} formatX={formatFrequency} />
                   </div>
                 )}
               </div>
@@ -1160,28 +1136,28 @@ function App() {
                   <div className="panel-placeholder">Press Run to simulate</div>
                 )}
                 {!dcData && running && (
-                  <div className="panel-placeholder">Simulating DC sweep...</div>
+                  <div className="panel-placeholder loading" role="status">Simulating DC sweep...</div>
                 )}
                 {dcData && (
                   <div style={{ position: 'relative' }}>
-                    <div style={circuit.squarePlot ? { width: 490, margin: '0 auto' } : undefined}>
+                    <div style={circuit.squarePlot ? { width: '100%', maxWidth: 490, aspectRatio: '490 / 460', margin: '0 auto' } : undefined}>
                       <DCSweepPlot
                         data={dcData}
                         signals={circuit.signals}
-                        theme={vaultTecTheme ?? 'dark'}
-                        colors={vaultTecColors(dcData, circuit.signals)}
-                        width={circuit.squarePlot ? 490 : '100%'}
-                        height={circuit.squarePlot ? 460 : 280}
+                        theme={theme}
+                        colors={traceColors(dcData, circuit.signals, colorMode)}
+                        width="100%"
+                        height={circuit.squarePlot ? '100%' : 280}
                         xLabel={circuit.xLabel ?? 'Sweep (V)'}
                         onCursorMove={setDcCursor}
                         signalVisibility={visibility}
                       />
                     </div>
                     <Legend
-                      signals={buildLegendSignals(dcData, circuit.signals, visibility, vaultTec ? vaultTecPalette : undefined)}
+                      signals={buildLegendSignals(dcData, circuit.signals, visibility, palette)}
                       onToggle={handleToggle}
                     />
-                    <CursorTooltip cursor={dcCursor} theme={vaultTecTheme ?? DARK_THEME} formatX={v => `${formatVoltage(v)}`} />
+                    <CursorTooltip cursor={dcCursor} theme={theme} formatX={v => `${formatVoltage(v)}`} />
                   </div>
                 )}
               </div>
@@ -1191,11 +1167,12 @@ function App() {
         </div>
 
         {/* Status Bar */}
-        <div className="statusbar">
-          <span>spice-ts v0.3.0</span>
+        <footer className="statusbar">
+          <span>spice-ts v{coreVersion}</span>
           <span className="sep" />
-          <span>Browser Runtime</span>
+          <a href="https://github.com/spicets/spice-ts/blob/main/LICENSE">MIT licence</a>
           <span className="sep" />
+          <span role="status">
           {elapsed !== null ? (
             <span className="ok">Simulation complete &mdash; {elapsed}ms</span>
           ) : running ? (
@@ -1203,8 +1180,9 @@ function App() {
           ) : (
             <span>Ready</span>
           )}
-        </div>
-      </div>
+          </span>
+        </footer>
+      </main>
     </div>
   );
 }
