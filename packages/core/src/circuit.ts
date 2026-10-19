@@ -63,6 +63,8 @@ import {
   type PreparedXspiceInstance,
 } from './devices/xspice/compile.js';
 import { parseXspiceInstance, parseXspiceModelCard, xspiceModelType, type XspiceInstanceCard, type XspiceModelCard } from './parser/xspice-parser.js';
+import { resolveXferFile } from './devices/xspice/xfer.js';
+import type { IncludeResolver } from './types.js';
 import { assertControlledSourceCard, withoutNodePairParentheses } from './parser/controlled-source.js';
 import type { ControlScript } from './parser/control/script.js';
 import { DEFAULT_OPTIONS, GROUND_NODE } from './types.js';
@@ -1547,6 +1549,13 @@ export class Circuit {
    */
   addXspiceModel(model: XspiceModelCard): void {
     this._xspiceModels.set(model.name.toUpperCase(), model);
+  }
+
+  /** Resolve XSPICE data files using the same host-provided loader as includes. */
+  async resolveXspiceFiles(resolver?: IncludeResolver): Promise<void> {
+    for (const [name, model] of this._xspiceModels) {
+      this._xspiceModels.set(name, await resolveXferFile(model, resolver));
+    }
   }
 
   /**

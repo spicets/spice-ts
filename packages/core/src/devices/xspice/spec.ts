@@ -183,6 +183,19 @@ const D_DT: XspiceCodeModelSpec = {
   ],
 };
 
+/** xfer/ifspec.ifs (not s_xfer: no gain or input offset). */
+const XFER: XspiceCodeModelSpec = {
+  name: 'xfer',
+  connections: [input('in'), output('out')].map(port => ({ ...port, allowedTypes: ['v', 'vd', 'i', 'id'] })),
+  params: [
+    { name: 'table', type: 'real', defaultValue: [0], vector: true, vectorBounds: [3, undefined], nullAllowed: true },
+    { name: 'file', type: 'string', vector: false, nullAllowed: true },
+    boolean('r_i', false), boolean('db', true), boolean('rad', false),
+    { name: 'span', type: 'int', defaultValue: [3], limits: [3, undefined], vector: false, nullAllowed: true },
+    { name: 'offset', type: 'int', defaultValue: [1], limits: [1, undefined], vector: false, nullAllowed: true },
+  ],
+};
+
 /** s_xfer/ifspec.ifs; omitted ICs are expanded to zero at the model boundary. */
 const S_XFER: XspiceCodeModelSpec = {
   name: 's_xfer',
@@ -493,7 +506,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
     }, GAIN, SUMMER, MULT, DIVIDE, PWL,
     // analog/pwlts/ifspec.ifs:30-75 shares pwl parameters, but has only an output.
     { name: 'pwlts', connections: [output('out')], params: PWL.params },
-    LIMIT, INT, D_DT, S_XFER, OTA_SPEC, ...REACTIVE_IC_SPECS,
+    LIMIT, INT, D_DT, S_XFER, XFER, OTA_SPEC, ...REACTIVE_IC_SPECS,
 
     {
       name: 'lcouple',

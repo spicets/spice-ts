@@ -1,5 +1,36 @@
 # XSPICE analog code models (issue #487, slice 1)
 
+## xfer frequency-table model (#1539)
+
+`xfer` accepts a frequency/magnitude/phase `table` or a Touchstone `file`,
+`span`/`offset`, and `r_i`/`db`/`rad` format flags. AC interpolates real and
+imaginary components linearly and clamps beyond the endpoints. DC and transient
+use the first real table value times the input, with no PARTIAL (as upstream);
+this is not a transient convolution model. There are no gain/in_offset parameters.
+Files use the existing `resolveInclude` callback in async parsing/simulation;
+the core never opens host files. Missing files warn and produce zero, matching
+ngspice's uninitialized-model behavior. Invalid table/file contents fail closed.
+For ngspice-47 parity, frequency values are interpreted as Hz even when the
+Touchstone option line says MHz/GHz: upstream computes but never applies `mult`.
+
+Reproduce numerical microdeck comparisons (identical bytes, default solver
+tolerances, 31 frequencies per case):
+`spice-heavy pnpm exec tsx benchmarks/xspice/xfer-compare.ts`.
+The four cases cover dB/degrees, strided RI, linear magnitude/radians, and file
+input. This is correctness evidence, not a speed comparison.
+
+The unchanged corpus-f `examples/rf/sp/file.cir` still does not run: before this
+slice it rejected `xfer`; afterwards it rejects the independent `.control
+pre_snp` command at line 42. ngspice-47 reports success but the existing corpus-f
+path exports no vectors: 0 compared analyses/signals, error metric null, still
+`spice-ts-loss`. It also lacks the referenced `137MHz_BPF.s2p` companion.
+No successful full-fixture simulation or numerical parity is claimed.
+Run `spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts
+--corpus-f-fixture-child examples-rf-sp-file-cir` after building to reproduce.
+
+The remainder below is the historical initial slice, not the current complete
+list of supported models.
+
 spice-ts now parses XSPICE `A` cards and the `.model` cards of eight ngspice-47
 analog code models: `gain`, `summer`, `mult`, `divide`, `pwl`, `limit`, `int`
 and `d_dt`. Every other ngspice code model (`adc_bridge`, `d_*`, `s_xfer`,

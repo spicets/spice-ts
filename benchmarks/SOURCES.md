@@ -2308,3 +2308,16 @@ PNP thermal cases are excluded explicitly, not reported as passing. The unchange
 public `examples/vbic/vbic99_tran.sp` now passes resistor-exponent validation but
 still fails closed on nondefault EA/EAIE/EAIC/EANE/EANC; it is not claimed to run.
 
+## XSPICE xfer frequency tables (#1539)
+
+Contract sources: ngspice-47 `src/xspice/icm/analog/xfer/cfunc.mod` and
+`ifspec.ifs`, https://github.com/imr/ngspice/tree/ngspice-47/src/xspice/icm/analog/xfer
+(ngspice source distribution COPYING, BSD-style licence). Independently
+implemented equations/parser in TypeScript; no upstream C code copied.
+`benchmarks/xspice/xfer-compare.ts` contains original MIT microdecks, sends
+identical netlist bytes to both engines, and reports all four cases with a fixed
+1e-10 normalized complex-error threshold, without per-circuit tuning.
+The corpus-f rf/sp/file.cir bytes/source/licence remain unchanged (BSD-3-Clause,
+revision 3ef069fb1f04177a153f342a32d941fc20ff047e). Its remaining pre_snp gap and
+unavailable comparison metric are documented in `benchmarks/xspice/README.md`.
+
