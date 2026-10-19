@@ -39,6 +39,7 @@ Reproduce the identical-deck ngspice-47 cross-check after building core:
 - `spice_sensitivity`: DC `.sens` derivatives for voltage/differential voltage or independent voltage-source current, ranked by absolute normalised sensitivity.
 - `spice_tf`: native small-signal gain and input/output resistances. Accepts `{ netlist, output: "v(out)", input_source: "V1", params?: { name: number } }` with single-node voltage or `i(vsrc)` output and an independent voltage/current input source. Returns exact selector names, `transfer_function`, `input_resistance`, `output_resistance`, and `units` (V/V, V/A, A/V or A/A; resistances in ohm). Uses shared case-insensitive top-level parameter overrides. A matching `.tf` is allowed; conflicting analyses, steps, and control blocks return structured errors. Differential voltage output is not supported by core `.tf`.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
+- `spice_optimize`: deterministic bounded search for a scalar measurement target over one to three top-level SPICE parameters.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, sampled peaking, and loop stability margins without vectors.
 - `spice_impedance`: measure differential port impedance with `{ request, port: { positive: "in", negative: "0" }, sweep?: { variation: "dec", points: 100, startFreq: 10, stopFreq: 100000 }, params?: { name: number } }`. Accepts the usual SPICE or circuit-json protocol request. Use one existing AC sweep or supply `sweep` to override it. Injects a collision-free 1 A AC current from negative to positive on an isolated copy, zeroes all other independent-source AC magnitudes (including subcircuit sources), and preserves DC bias and dependent sources. Returns `points` with `frequencyHz`, `magnitudeOhm`, `phaseDeg`, `resistanceOhm`, and `reactanceOhm`; `summary.min`/`max` are sampled magnitude extrema with frequencies. `summary.resonanceHz` estimates isolated phase-zero crossings by phase interpolation in log frequency (DEC/OCT) or linear frequency (LIN), never extrapolates, and excludes flat zero-phase regions and phase wraps. Increase sweep density to resolve narrow resonances. Ground aliases `0`/`gnd` and node names are case-insensitive. Stable tool-local errors are `UNKNOWN_NODE`, `SHORTED_PORT` (identical terminals), and `MISSING_AC_SWEEP`; invalid/conflicting analyses, steps, and control blocks are rejected. Parameter overrides apply before elaboration and require SPICE text. All normal document, point, output, concurrency, wall-time and cancellation limits apply.
@@ -129,6 +130,30 @@ error code `UNKNOWN_PARAMETER` with `details.unknown` and `details.available`
 (sorted, lower-case available names). This extends the MCP error surface, not the
 protocol-v1 error-code set. `spice_capabilities.parameterOverrides` describes this
 contract. Neither the caller's request nor its source string is mutated.
+
+## Bounded parameter optimization
+
+Call `spice_optimize` with `{ request, parameters: [{ name: 'rval', min: 100, max: 100000 }], objective: { kind: 'cross', signal: 'db(v(out))', analysis: 0, value: -3.010299956639812, edge: 'falling' }, target: 1000 }`
+to tune an RC low-pass cutoff to 1 kHz. The SPICE request must declare the named
+top-level `.param` values; names are case-insensitive and bounds are inclusive.
+`objective` uses the existing `spice_measure` scalar selector contract.
+
+One parameter uses golden-section search on absolute target error; two or three
+use two coordinate-descent passes from the bounds' midpoint. Endpoints are sampled
+and repeated parameter tuples are cached. `maxEvaluations` defaults to 40 and has a
+hard cap of 100 across all coordinates. `tolerance` is absolute objective error,
+defaulting to `max(abs(target) * 0.001, 1e-9)`. One shared wall-time budget and the
+normal cancellation, simulation and output limits apply to the entire search.
+
+Results contain `bestParams`, `achievedValue`, `target`, `tolerance`, `converged`,
+`evaluations` and ordered `history` entries `{ params, value, error }`. Equal-error
+ties keep the earliest evaluation. An unreachable target or exhausted budget returns
+`isError: true` and `error.code: 'TARGET_NOT_REACHED'` alongside the best result and
+history, not a thrown exception. This is not proof of global infeasibility: golden
+section assumes a unimodal error landscape and coordinate descent can miss coupled
+or local optima. Measurement failures use `OBJECTIVE_ERROR`; simulation failures
+preserve their structured error code. If no evaluation succeeds, best values are null.
+Search output contains no timing fields and is deterministic for identical requests.
 
 ## Parameter sweeps
 

@@ -27,6 +27,7 @@ import { compareInputSchema, compareOutputSchema, compareSignals } from './compa
 import { overrideParameters, parameterOverrides, ParameterOverrideError, paramsSchema } from './params.js';
 import type { ParameterOverrideApiError } from './params.js';
 import { runSweep, sweepProperties } from './sweep.js';
+import { runOptimize, optimizeProperties } from './optimize.js';
 import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } from './ac-metrics.js';
 import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProperties } from './tran-metrics.js';
 import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } from './fourier.js';
@@ -313,6 +314,14 @@ export const MCP_TOOLS = Object.freeze([
     outputSchema: { ...commonSchemaV1.$defs.simulationResult, $defs: commonSchemaV1.$defs },
   },
   {
+    name: 'spice_optimize',
+    description: 'Deterministic bounded search over one to three top-level SPICE .param values toward a scalar spice_measure objective. Golden-section search for one parameter, coordinate descent for two or three. Absolute objective tolerance, default 40 and hard maximum 100 evaluations. Returns best parameters, achieved value and ordered history; TARGET_NOT_REACHED means no convergence, not proof of global infeasibility. One shared wall-time budget.',
+    inputSchema: {
+      ...requestInputSchema, required: ['request', 'parameters', 'objective', 'target'],
+      properties: { ...requestInputSchema.properties, ...optimizeProperties },
+    },
+  },
+  {
     name: 'spice_sweep',
     description: 'Sequential bounded parameter sweep. Target a top-level .param (SPICE only) or R/C/L component scalar value (SPICE or native JSON IR). Supply exactly one of values or range. lin points is total samples; dec points is samples per decade including exact stop. Returns ordered statuses and optional spice_measure-style measurements; individual simulation failures do not abort other points. Maximum 100 points and one shared wall-time budget.',
     inputSchema: {
@@ -588,6 +597,22 @@ async function executeToolWithStore(
         enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
         return success(result);
       } finally { release(); }
+    }
+    if (name === 'spice_optimize') {
+      const original = toolRequest(args);
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const deadline = Date.now() + effective.maxWallTimeMs;
+      const result = await runOptimize(args, original, (request, measurements) => executeToolWithStore(
+        'spice_measure', { request, measurements },
+        { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
+      ), history => {
+        throwIfCancelled(options.signal);
+        enforceMaximum('maxWallTimeMs', effective.maxWallTimeMs, effective.maxWallTimeMs - (deadline - Date.now()), 'solve');
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(history)), 'transport');
+      });
+      enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+      return { ...success(result), ...('error' in result ? { isError: true } : {}) };
     }
     if (name === 'spice_sweep') {
       const original = toolRequest(args);
