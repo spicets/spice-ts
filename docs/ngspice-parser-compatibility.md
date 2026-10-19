@@ -84,6 +84,27 @@ Solver-backed fields, the diagnostic-only fields below, and the explicitly diagn
 
 The ngspice definitions and defaults for these fields are documented in [11.1.1 General Options](https://ngspice.sourceforge.io/docs/ngspice-html-manual/manual.xhtml#magicparlabel-23074). `maxTimestep` remains controlled by `.tran ... tmax` or the API; it is not exposed through an invented ngspice `.options` spelling.
 
+## Intentional divergences
+
+### Intentional divergence: degenerate noise output (#1481)
+
+When both `.noise` output terminals resolve to the same node, including
+case-folded names and `v(0,0)` (or implicit-ground `v(0)`), spice-ts preserves
+the physical zero spectra and integrated totals. It returns one structured
+`SimulationWarning` with `type: 'noise'`, `code: 'noise-degenerate-output'`,
+`node` set to the positive output name, and a message naming both terminals.
+Non-degenerate `v(out)` and `v(out,0)` are unchanged and do not warn.
+
+This intentionally differs from ngspice-47's
+[`src/maths/ni/niniter.c`, `NInzIter`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/maths/ni/niniter.c/),
+which assigns `rhs[posDrive] = 1` and then `rhs[negDrive] = -1`. When the
+indices alias, the second assignment overwrites the first instead of cancelling
+it. The resulting nonzero output noise and input noise amplified by the minimum
+gain floor are artifacts, not circuit physics. Do not emulate this behavior.
+Exclude these degenerate decks from parity scoring as an intentional divergence,
+not a parity loss. See [#1481](https://github.com/spicets/spice-ts/issues/1481)
+for the identical-input deck and ngspice-47 observations.
+
 ## Scope decisions
 
 Option semantics were checked against the [ngspice-47 release source](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/): `src/frontend/spiceif.c` (`noinit`), `src/frontend/inp.c` (`warn`, `maxwarns`, `seedinfo`), `src/spicelib/analysis/cktsopt.c` (`bypass`, `ramptime`), and `src/spicelib/analysis/dctran.c` (ramp-end breakpoint). The V/I source ramp calls in `src/spicelib/devices/{vsrc/vsrcload,isrc/isrcload}.c` are guarded by `XSPICE_EXP`. `src/xspice/cm/cm.c` defines the linear `time/ramptime` factor used by participating code models. This is not the separate cosine ramp used by `optran`. See `benchmarks/options-494` for identical-input receipts and remaining corpus losses.

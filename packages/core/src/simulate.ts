@@ -273,6 +273,17 @@ function solveCompiledAnalyses(
           compiled, opts, undefined, convergence,
         );
         result.noise = run.noise = solveNoise(compiled, analysis, opts, dcAsm.solution);
+        const referenceNode = analysis.outputReferenceNode ?? '0';
+        // Node identity folds case. Do not compare noise matrix indices here:
+        // distinct unreferenced terminals also share the solver's -1 sentinel.
+        if (analysis.outputNode.toLowerCase() === referenceNode.toLowerCase()) {
+          warnings.push({
+            type: 'noise',
+            code: 'noise-degenerate-output',
+            node: analysis.outputNode,
+            message: `.noise output nodes '${analysis.outputNode}' and '${referenceNode}' resolve to the same node; output and input noise spectra and totals are zero.`,
+          });
+        }
         break;
       }
       case 'sp': {
