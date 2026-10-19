@@ -131,6 +131,43 @@ error code `UNKNOWN_PARAMETER` with `details.unknown` and `details.available`
 protocol-v1 error-code set. `spice_capabilities.parameterOverrides` describes this
 contract. Neither the caller's request nor its source string is mutated.
 
+## Monte Carlo tolerance statistics
+
+Call `spice_monte_carlo` with `{ request, runs, seed, tolerances, measurements }`.
+For a divider with `.op`, an example is
+`{ request, runs: 200, seed: 12345, tolerances: [{ element: 'R1', sigma: 0.01, distribution: 'gaussian' }, { element: 'R2', sigma: 0.01, distribution: 'gaussian' }], measurements: [{ kind: 'at', signal: 'v(out)', analysis: 0, at: 0 }] }`.
+The usual `spice_measure` selectors also support transient, DC and AC reductions.
+
+`runs` is an integer from 1 through 1000; `seed` is an explicit unsigned 32-bit integer.
+Each of 1–128 case-insensitive, unique tolerance targets must be a positive literal
+top-level R/C/L scalar in SPICE text, with no extra card parameters or continuation.
+Numeric engineering suffixes T/G/MEG/K/M/U/N/P/F are supported. Expressions,
+includes, model cards, subcircuit-local targets and JSON inputs are not supported.
+Each draw starts from the original nominal value, independently per target and run,
+in caller-supplied target order. Inputs are not mutated.
+
+`sigma` is relative standard deviation, with `0 <= sigma < 0.5`.
+`gaussian` uses an untruncated standard-normal Box-Muller draw; `uniform` spans
+`[-sqrt(3)*sigma, +sqrt(3)*sigma]` relative to nominal, so both have the same sigma.
+A nonpositive or non-finite draw aborts with `INVALID_REQUEST`, rather than clipping
+or resampling and biasing the distribution. Reduce sigma if that happens.
+
+The result is `{ runs, seed, statistics }`, in measurement order. Each entry contains
+`count`, `unit`, `mean`, sample `std` (N−1 denominator, zero for N=1), `min`, `max`,
+`p5` and `p95`. Percentiles linearly interpolate sorted samples at `(N−1)*p`.
+Same request and seed produce byte-identical successful JSON on the same runtime;
+there are no timestamps or runtime measurements. No cross-runtime math-bit guarantee.
+
+Bad counts, seeds, targets (including unknown elements), tolerances or measurements
+return stable `INVALID_REQUEST`; counts above 1000 return `RESOURCE_LIMIT` with
+`details.limit: 'maxMonteCarloRuns'`, `maximum: 1000`, and `actual`.
+All runs share one wall-time budget and reuse simulation worker/concurrency,
+cancellation, per-run point and result-size limits. The first simulation or measure
+failure aborts the whole request. No failed samples are silently discarded.
+Large batches can exhaust the default shared wall-time limit. The server owner can
+raise `ToolExecutionOptions.limits.maxWallTimeMs` (the 200-run integration test uses
+120000 ms); a client request cannot raise the server's ceiling.
+
 ## Parameter sweeps
 
 Call `spice_sweep` with `{ request: SimulationRequestV1, parameter, values, measurements? }`.
