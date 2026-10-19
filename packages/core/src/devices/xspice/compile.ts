@@ -20,6 +20,7 @@ import { registerGainNoise } from './gain-noise.js';
 import { SWITCH_BEHAVIORS } from './switch-models.js';
 import { MAGNETIC_BEHAVIORS } from './magnetic-models.js';
 import { mlin } from './mlin.js';
+import { cpmlin } from './cpmlin.js';
 import { REACTIVE_IC_BEHAVIORS } from './reactive-ic-models.js';
 import { zener } from './zener.js';
 import { memristor } from './memristor.js';
@@ -32,6 +33,7 @@ import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xsp
 const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, BehaviorFactory>([
   ['astate', astate],
   ['mlin', mlin],
+  ['cpmlin', cpmlin],
   ['delay', delay],
   ...REACTIVE_IC_BEHAVIORS,
   ...XSPICE_BEHAVIORS, ...LIMITER_BEHAVIORS, ...OSCILLATOR_BEHAVIORS, ...SWITCH_BEHAVIORS, ...MAGNETIC_BEHAVIORS, ...OTA_BEHAVIORS,
