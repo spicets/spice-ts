@@ -139,8 +139,8 @@ function simulateOp(
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
-  if (compiled.devices.some(device => device.name[0]?.toUpperCase() === 'D')) {
-    return opResult(compiled, solveDiodeOp(compiled, order, request, exports), request);
+  if (compiled.devices.some(device => ['D', 'Q'].includes(device.name[0]?.toUpperCase() ?? ''))) {
+    return opResult(compiled, solveNonlinearOp(compiled, order, request, exports), request);
   }
   const matrix = new Float64Array(order * order);
   const rhs = new Float64Array(order);
@@ -238,7 +238,7 @@ function simulateOp(
   return opResult(compiled, solution, request);
 }
 
-function solveDiodeOp(
+function solveNonlinearOp(
   compiled: CompiledCircuit, order: number, request: SimulationRequestV1, exports: NumericWasmExports,
 ): Float64Array {
   let previous: Float64Array = new Float64Array(order);
@@ -258,20 +258,33 @@ function solveDiodeOp(
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     matrix.fill(0);
     rhs.fill(0);
-    // Reuse core's ngspice-style pnjlim and optional RS junction solve.
+    // Reuse core's nonlinear companion models; the linear solve stays in WASM.
     for (const device of compiled.devices) device.stamp(context);
     addGmin(matrix, compiled.nodeCount, order, request.options?.gmin ?? 0);
     if (!matrix.every(Number.isFinite) || !rhs.every(Number.isFinite)) break;
     const solution = solveReal(exports, order, matrix, rhs);
+    let stepScale = 1;
+    for (const device of compiled.devices) {
+      stepScale = Math.min(stepScale, device.limitNewtonStep?.(previous, solution) ?? 1);
+    }
+    if (stepScale < 1) {
+      for (let index = 0; index < order; index++) {
+        solution[index] = previous[index]! + stepScale * (solution[index]! - previous[index]!);
+      }
+    }
     const converged = solution.every((value, index) => Math.abs(value - previous[index]!)
       <= (index < compiled.nodeCount ? request.options?.vntol ?? 1e-6 : request.options?.abstol ?? 1e-12)
         + reltol * Math.abs(value))
-      && !compiled.devices.some(device => device.limitedLastStamp?.());
+      && stepScale === 1 && !compiled.devices.some(device => device.limitedLastStamp?.())
+      && compiled.devices.every(device => device.convergenceTest?.(solution, {
+        reltol, abstol: request.options?.abstol ?? 1e-12, vntol: request.options?.vntol ?? 1e-6,
+      }) ?? true);
     // Like core, do not accept an initial/fixed-junction iteration.
     if (iteration >= 2 && converged) return solution;
     previous = solution;
   }
-  throw numericError('CONVERGENCE_FAILED', 'The bounded WebAssembly diode operating point did not converge', 'solve', {
+  const deviceKind = compiled.devices.some(device => device.name[0]?.toUpperCase() === 'Q') ? 'BJT' : 'diode';
+  throw numericError('CONVERGENCE_FAILED', `The bounded WebAssembly ${deviceKind} operating point did not converge`, 'solve', {
     maxIterations,
   });
 }
@@ -582,7 +595,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     || compiled.analyses.length !== 1 || compiled.analyses[0]?.type !== analysis) {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
-  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D']
+  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q']
     : analysis === 'dc' ? ['R', 'I', 'V']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
@@ -640,18 +653,21 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 }
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
-  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D']
+  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q']
     : analysis === 'dc' ? ['R', 'I', 'V']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (analysis === 'op' && /^\.model\b/i.test(card)) {
-      const model = /^\.model\s+\S+\s+D(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
-      if (!model) unsupported('diode-model', 'Only diode models are supported in nonlinear operating points');
-      const parameters = (model[1] ?? model[2] ?? '').trim();
-      const parameter = new RegExp(`(?:IS|N|RS)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|,\\s*|$)`, 'gi');
+      const model = /^\.model\s+\S+\s+(D|NPN|PNP)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
+      if (!model) unsupported('nonlinear-model', 'Only bounded diode and BJT models are supported in nonlinear operating points');
+      const bjt = model[1]!.toUpperCase() !== 'D';
+      const parameters = (model[2] ?? model[3] ?? '').trim();
+      const names = bjt ? 'IS|BF|BR|NF|NR|VAF' : 'IS|N|RS';
+      const parameter = new RegExp(`(?:${names})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|,\\s*|$)`, 'gi');
       if (parameters.replace(parameter, '').trim()) {
+        if (bjt) unsupported('bjt-model-parameter', 'Only BJT model parameters IS, BF, BR, NF, NR, and VAF are supported');
         unsupported('diode-model-parameter', 'Only diode model parameters IS, N, and RS are supported');
       }
       continue;
@@ -666,6 +682,8 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
     }
     if (type === 'D') {
       if (tokens.length !== 4) unsupported('diode-form', 'Diodes must use name anode cathode model');
+    } else if (type === 'Q') {
+      if (tokens.length !== 5) unsupported('bjt-form', 'BJTs must use name collector base emitter model');
     } else if (type === 'L') {
       if (/\bIC\s*=/i.test(card)) {
         unsupported('inductor-initial-condition', 'Inductor initial conditions (IC=) are not supported');
