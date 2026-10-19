@@ -1,5 +1,8 @@
 import type { ChargeTruncation, DeviceModel, StampContext, TransientBreakpointSink } from './device.js';
 
+/** Port voltages and currents into the line: V1, I1, V2, I2 (used only with UIC). */
+export type TransmissionLineInitialConditions = readonly [number, number, number, number];
+
 interface PortSample {
   time: number;
   /** Wave launched at port 1, V1 + Z0*I1: the port-2 input one delay later. */
@@ -48,6 +51,7 @@ export class TransmissionLine implements DeviceModel {
     readonly branch2: number,
     readonly impedance: number,
     readonly delay: number,
+    readonly initialConditions?: TransmissionLineInitialConditions,
   ) {
     this.branches = [branch1, branch2];
   }
@@ -92,6 +96,13 @@ export class TransmissionLine implements DeviceModel {
     const sample = this.launchedWaves(ctx);
     const history = this.history;
     if (history.length === 0) {
+      if (ctx.initialUIC) {
+        // traload.c MODEINITTRAN | MODEUIC uses the instance IC, not the
+        // unsolved circuit seed; omitted port values default to zero.
+        const [v1, i1, v2, i2] = this.initialConditions ?? [0, 0, 0, 0];
+        sample.port1Incoming = v1 + this.impedance * i1;
+        sample.port2Incoming = v2 + this.impedance * i2;
+      }
       // traload.c MODEINITTRAN: the history starts at -2TD, -TD and 0 with
       // the operating-point waves.
       history.push(

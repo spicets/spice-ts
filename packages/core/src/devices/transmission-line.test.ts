@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { parse } from '../parser/index.js';
 import { simulate } from '../simulate.js';
 import type { StampContext } from './device.js';
@@ -35,6 +36,35 @@ const NGSPICE_MISMATCHED: ReadonlyArray<{ time: number; node: string; value: num
 ];
 
 describe('bounded lossless transmission line transient execution', () => {
+  const icDeck = readFileSync(new URL('../../../../benchmarks/transmission-line-ic/step.cir', import.meta.url), 'utf8');
+
+  it.each([
+    { ic: '1,0.02,1,0.02', input: 1, output: 1 },
+    { ic: '2,0.01,-0.5,0.03', input: 0.5, output: 1.25 },
+  ])('uses IC=$ic for UIC prehistory (ngspice-47)', async ({ ic, input, output }) => {
+    const deck = icDeck.replace('IC=1,0.02,1,0.02', `IC=${ic}`);
+    const transient = (await simulate(deck)).transient!;
+    expect(transient.time).toHaveLength(517);
+    for (const [node, initial] of [['input', input], ['output', output]] as const) {
+      // Native ngspice-47 oracle plateaus, including the delayed source edge.
+      const values = transient.voltage(node);
+      expect(valueAtOrAfter(transient.time, values, 0.5e-9)).toBeCloseTo(initial, 9);
+      expect(valueAtOrAfter(transient.time, values, 1.5e-9)).toBeCloseTo(0, 9);
+      expect(valueAtOrAfter(transient.time, values, 3.5e-9)).toBeCloseTo(0.5, 9);
+    }
+  });
+
+  it('ignores IC without UIC and seeds the DC operating point (ngspice-47)', async () => {
+    const deck = icDeck.replace(' UIC', '').replace('PULSE(0 1', 'PULSE(0.4 1');
+    const withoutUIC = (await simulate(deck)).transient!;
+    const withoutIC = (await simulate(deck.replace(' IC=1,0.02,1,0.02', ''))).transient!;
+    expect(withoutUIC.time).toHaveLength(514);
+    expect(withoutUIC.time).toEqual(withoutIC.time);
+    for (const node of ['input', 'output']) {
+      expect(withoutUIC.voltage(node)[0]).toBeCloseTo(0.2, 9);
+      expect(withoutUIC.voltage(node)).toEqual(withoutIC.voltage(node));
+    }
+  });
   it('initializes parallel lossless lines without indeterminate DC branch currents', async () => {
     const deck = fixture(50, 50)
       .replace('PULSE(0 1 1n 100p 100p 100n 200n)', '1')
