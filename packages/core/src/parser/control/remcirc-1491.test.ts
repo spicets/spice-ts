@@ -23,7 +23,7 @@ end
 write retained.raw op1.in`);
     expect(result.control!.output).toEqual(['42', '42']);
     expect(result.control!.runs).toHaveLength(1);
-    expect(result.control!.files.map(file => file.path)).toEqual(['retained.raw']);
+    expect(result.control!.files!.map(file => file.path)).toEqual(['retained.raw']);
   });
 
   it.each(['op', 'dc V1 0 1 1', 'run', 'alter R1 2k', 'altermod missing rsh=2'])('rejects %s without a loaded circuit', async command => {
@@ -35,6 +35,7 @@ write retained.raw op1.in`);
     const result = await run(`alterparam rr=2k
 mc_source
 op
+remcirc
 remcirc
 reset
 alterparam rr=4k
@@ -49,5 +50,23 @@ echo $&op1.v1#branch / $&op2.v1#branch`);
     const result = await run('remcirc\necho done', '.op');
     expect(result.dc).toBeUndefined();
     expect(result.control!.output).toEqual(['done']);
+  });
+
+  it('selects the previous circuit after removing a mc_source circuit', async () => {
+    const result = await run(`alter R1 4k
+op
+alterparam rr=2k
+mc_source
+op
+remcirc
+op
+alterparam rr=5k
+mc_source
+op
+remcirc
+op`);
+    expect(result.control!.runs.map(run => run.result.dc!.current('V1'))).toEqual([
+      -0.00025, -0.0005, -0.00025, -0.0002, -0.00025,
+    ]);
   });
 });
