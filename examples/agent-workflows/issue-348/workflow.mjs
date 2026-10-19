@@ -31,6 +31,7 @@ const toolNames = [
   'spice_validate',
   'spice_convert',
   'spice_simulate',
+  'spice_monte_carlo',
   'spice_sweep',
   'spice_ac_metrics',
   'spice_tran_metrics',

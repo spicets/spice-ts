@@ -135,13 +135,18 @@ export class BSIM4 implements DeviceModel {
   }
   resetTransient(): void { this.chargeState.reset(); }
   private terminalCharges(read: (node: number) => number) {
-    if (this.instance.values.rgatemod === 2) this.unsupported('RGATEMOD=2 transient charge');
     if (this.bodyNodes.length) this.unsupported('RBODYMOD=1 transient charge');
     const p = this.model.values.type;
-    // RGATEMOD=1 stores charge behind the gate resistor, at GP, just as
-    // the static channel stamp does. This also governs acceptance and LTE.
+    // RGATEMOD=1/2 store intrinsic and overlap charge at GP (b4ld.c),
+    // behind the static/nonlinear gate resistor. Only RGATEMOD=3 splits
+    // overlap charge onto a mid-gate node. Acceptance and LTE also use GP.
     const v = this.intrinsicNodes.map(node => node < 0 ? 0 : read(node));
-    return evaluateBsim4Charges(this.processed, this.model.given,
+    // The newly enabled mode uses native default fringe capacitance, as AC
+    // does. Preserve the existing RGATEMOD=0/1 transient preprocessing.
+    if (this.instance.values.rgatemod === 2) {
+      this.acProcessed ??= preprocessBsim4(this.model, this.instance, this.processed.temperatureK, 'ac');
+    }
+    return evaluateBsim4Charges(this.instance.values.rgatemod === 2 ? this.acProcessed! : this.processed, this.model.given,
       { vgs: p * (v[1] - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) });
   }
   stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {

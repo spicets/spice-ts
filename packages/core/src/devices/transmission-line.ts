@@ -52,6 +52,10 @@ export class TransmissionLine implements DeviceModel {
     readonly impedance: number,
     readonly delay: number,
     readonly initialConditions?: TransmissionLineInitialConditions,
+    /** T-card REL, applied to launched-wave slopes, not Newton convergence. */
+    readonly relativeTolerance = BREAKPOINT_RELTOL,
+    /** T-card ABS, in launched-wave slope units (V/s). */
+    readonly absoluteTolerance = BREAKPOINT_ABSTOL,
   ) {
     this.branches = [branch1, branch2];
   }
@@ -169,7 +173,7 @@ export class TransmissionLine implements DeviceModel {
     const changes = (a: number, b: number, c: number): boolean => {
       const d1 = (a - b) / newerStep;
       const d2 = (b - c) / olderStep;
-      return Math.abs(d1 - d2) >= BREAKPOINT_RELTOL * Math.max(Math.abs(d1), Math.abs(d2)) + BREAKPOINT_ABSTOL;
+      return Math.abs(d1 - d2) >= this.relativeTolerance * Math.max(Math.abs(d1), Math.abs(d2)) + this.absoluteTolerance;
     };
     return changes(newest.port2Incoming, middle.port2Incoming, oldest.port2Incoming)
       || changes(newest.port1Incoming, middle.port1Incoming, oldest.port1Incoming);

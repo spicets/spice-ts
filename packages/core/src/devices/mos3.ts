@@ -121,8 +121,9 @@ export interface MOS3InstanceParams {
   AS: number;
   PD: number;
   PS: number;
-  /** Instance TEMP/DTEMP overrides are not part of the validated circuit-temperature surface. */
+  /** Absolute instance temperature (C), taking precedence over DTEMP. LEVEL=3 only. */
   TEMP?: number;
+  /** Offset from circuit temperature (C). LEVEL=3 only. */
   DTEMP?: number;
 }
 
@@ -402,10 +403,9 @@ export class MOS3 implements DeviceModel {
     instance: Partial<MOS3InstanceParams>,
   ) {
     this.model = model;
-    // Do not silently replace ngspice's mos3temp.c:131-137 instance overrides
-    // with CKTtemp. Fail closed until these inputs have an identical-byte oracle.
+    // LEVEL=9 instance overrides remain outside the validated temperature surface.
     for (const parameter of ['TEMP', 'DTEMP'] as const) {
-      if (instance[parameter] !== undefined) {
+      if (model.level !== 3 && instance[parameter] !== undefined) {
         throw new UnsupportedTemperatureError(name, instance.TEMP ?? 27 + (instance.DTEMP ?? 0), parameter);
       }
     }
@@ -417,6 +417,8 @@ export class MOS3 implements DeviceModel {
       AS: instance.AS ?? 0,
       PD: instance.PD ?? 0,
       PS: instance.PS ?? 0,
+      TEMP: instance.TEMP,
+      DTEMP: instance.DTEMP,
     };
     const { W, L, M } = this.instance;
     this.effectiveLength = L - 2 * model.LD + model.XL;
@@ -436,7 +438,8 @@ export class MOS3 implements DeviceModel {
     this.overlapGS = model.CGSO * M * weff;
     this.overlapGD = model.CGDO * M * weff;
     this.overlapGB = model.CGBO * M * leff;
-    this.applyTemperature();
+    if (instance.TEMP !== undefined || instance.DTEMP !== undefined) this.setTemperature(27);
+    else this.applyTemperature();
     this.lastVon = this.temp.tVto * model.polarity;
     const { Cbs, Cbssw, Cbd, Cbdsw } = this.temp;
     this.storesCharge = [this.oxideCap, this.overlapGS, this.overlapGD, this.overlapGB, Cbs, Cbssw, Cbd, Cbdsw]
@@ -447,14 +450,16 @@ export class MOS3 implements DeviceModel {
     // LEVEL=9 remains outside this validation slice, including direct hooks
     // used by .dc/.step TEMP (not just the circuit compilation guard).
     if (this.model.level !== 3 && value !== 27) throw new UnsupportedTemperatureError(this.name, value);
-    if (value !== this.model.TNOM - CONSTCTOK && this.model.unsupportedTemperatureParameter !== undefined) {
-      throw new UnsupportedTemperatureError(this.name, value, this.model.unsupportedTemperatureParameter);
+    const effective = this.instance.TEMP ?? value + (this.instance.DTEMP ?? 0);
+    if (effective !== this.model.TNOM - CONSTCTOK && this.model.unsupportedTemperatureParameter !== undefined) {
+      throw new UnsupportedTemperatureError(this.name, effective, this.model.unsupportedTemperatureParameter);
     }
     this.temperature = value;
     this.applyTemperature();
   }
 
   getTemperature(): number {
+    // Return CKTtemp for sweep restoration, not the offset/overridden temperature.
     return this.temperature;
   }
 
@@ -476,7 +481,8 @@ export class MOS3 implements DeviceModel {
     const arg1 = -egfet1 / (kt1 + kt1) + 1.1150877 / (CONSTBOLTZ * (REFTEMP + REFTEMP));
     const pbfact1 = -2 * vtnom * (1.5 * Math.log(fact1) + CHARGE * arg1);
 
-    const temp = this.temperature + CONSTCTOK;
+    // ngspice-47 mos3temp.c:131-137: TEMP wins; otherwise CKTtemp + DTEMP.
+    const temp = (this.instance.TEMP ?? this.temperature + (this.instance.DTEMP ?? 0)) + CONSTCTOK;
     const vt = temp * CONSTKOVERQ;
     const ratio = temp / tnom;
     const fact2 = temp / REFTEMP;

@@ -1260,6 +1260,8 @@ export class Circuit {
     impedance: number,
     delay: number,
     initialConditions?: TransmissionLineInitialConditions,
+    relativeTolerance?: number,
+    absoluteTolerance?: number,
   ): void {
     for (const node of [port1Positive, port1Negative, port2Positive, port2Negative]) {
       this.nodeSet.add(node);
@@ -1271,6 +1273,8 @@ export class Circuit {
       value: impedance,
       params: {
         TD: delay,
+        ...(relativeTolerance === undefined ? {} : { REL: relativeTolerance }),
+        ...(absoluteTolerance === undefined ? {} : { ABS: absoluteTolerance }),
         ...(initialConditions ? {
           IC_V1: initialConditions[0], IC_I1: initialConditions[1],
           IC_V2: initialConditions[2], IC_I2: initialConditions[3],
@@ -2426,6 +2430,8 @@ export class Circuit {
             desc.params!.IC_V1 === undefined ? undefined : [
               desc.params!.IC_V1, desc.params!.IC_I1, desc.params!.IC_V2, desc.params!.IC_I2,
             ],
+            desc.params!.REL,
+            desc.params!.ABS,
           ));
           break;
         }
@@ -3169,6 +3175,11 @@ export class Circuit {
             result.push({
               type: 'R', name: `${desc.name}.${parameter}`, nodes: [terminal, internal],
               value: resistance / instanceScale,
+              params: {
+                TC1: model.params[`T${parameter}1`] ?? 0,
+                TC2: model.params[`T${parameter}2`] ?? 0,
+                TNOM: model.params.TNOM ?? model.params.TREF ?? NOMINAL_TEMPERATURE_C,
+              },
             });
             if (parameter === 'RC') collector = internal;
             else if (parameter === 'RB') base = internal;
