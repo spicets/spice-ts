@@ -97,7 +97,7 @@ function selectedExternalSimulator(options?: SimulationOptions): SimulatorAdapte
  * @param options - Simulation options (tolerances, integration method, include resolver)
  * @returns Simulation results with `.dc`, `.transient`, `.ac`, `.dcSweep` fields
  * @throws {@link ParseError} if the netlist is malformed
- * @throws {@link InvalidCircuitError} if the circuit has no nodes or no analysis command
+ * @throws {@link InvalidCircuitError} if the circuit has no analysis command
  * @throws {@link ConvergenceError} if Newton-Raphson fails to converge
  * @example
  * ```ts
@@ -496,7 +496,7 @@ function simulateControlScript(
  * @param options - Simulation options (tolerances, integration method, include resolver)
  * @yields {@link TransientStep} for `.tran` analyses, {@link ACPoint} for `.ac` analyses
  * @throws {@link ParseError} if the netlist is malformed
- * @throws {@link InvalidCircuitError} if the circuit has no nodes or no analysis command
+ * @throws {@link InvalidCircuitError} if the circuit has no analysis command
  * @throws {@link ConvergenceError} if Newton-Raphson fails to converge
  * @throws {@link TimestepTooSmallError} if the adaptive timestep shrinks below 1e-12
  * @example
@@ -675,13 +675,8 @@ function parseWarnings(circuit: Circuit): SimulationWarning[] {
 }
 
 function validateCircuit(compiled: CompiledCircuit, warnings: SimulationWarning[]): void {
-  // ngspice-47 runs a deck whose nodes are all XSPICE digital (event) nodes,
-  // such as eSim's half_adder; the analog system is then empty.
-  // ngspice also runs element-free .tran decks, returning only the time axis.
-  if (compiled.nodeCount === 0 && !compiled.devices.some(device => device.eventDriven !== undefined)
-    && !(compiled.analyses.length > 0 && compiled.analyses.every(analysis => analysis.type === 'tran'))) {
-    throw new InvalidCircuitError('Circuit has no nodes');
-  }
+  // A 0x0 analog matrix is valid: ngspice-47's empty-1.cir runs op/tran/ac
+  // without elements, and event-only XSPICE decks also have no analog nodes.
   if (compiled.analyses.length === 0 && compiled.poleZeroAnalyses.length === 0) {
     throw new InvalidCircuitError('No analysis command specified');
   }
