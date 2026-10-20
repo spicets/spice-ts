@@ -6,6 +6,31 @@ import { resolveVdmosModel } from './vdmos-model.js';
 import { MNAAssembler } from '../mna/assembler.js';
 
 describe('VDMOS self heating (#559)', () => {
+  it('reuses the unperturbed temperature state across thermal loads and saved vectors (#1579)', () => {
+    const { model } = resolveVdmosModel({ name: 'power', type: 'VDMOSN', params: {
+      VTO: 1, KP: 0.1, MU: -1.5, RTHJC: 2, CTHJ: 0.001,
+    } });
+    const device = new VDMOS('M1', [0, 1, 4, 0, 1, 4, -1, 2, 3], model, {});
+    const assembler = new MNAAssembler(5, 0);
+    assembler.solution.set([2, 3, 27, 27, 0]);
+    const state = () => (device as unknown as { temp: object }).temp;
+    const initial = state();
+    device.stamp(assembler.getStampContext());
+    expect(state()).toBe(initial);
+    const output = device.outputOperatingPoint(assembler.solution);
+    expect(state()).toBe(initial);
+    device.stampSmallSignal(assembler.getStampContext());
+    expect(state()).toBe(initial);
+    assembler.solution[2] = 50;
+    device.stamp(assembler.getStampContext());
+    expect(state()).not.toBe(initial);
+    expect(device.outputOperatingPoint(assembler.solution)).not.toEqual(output);
+    const hot = state();
+    device.outputOperatingPoint(assembler.solution);
+    expect(state()).toBe(hot);
+    device.setTemperature(40);
+    expect(state()).not.toBe(hot);
+  });
   it.each([1, -1])('stamps the analytic DC power Jacobian without voltage perturbations, polarity %s (#1358)', type => {
     const { model } = resolveVdmosModel({ name: 'power', type: type === 1 ? 'VDMOSN' : 'VDMOSP', params: { VTO: type, KP: 0.1, MU: 0, IS: 1e-100, N: 100, RTHJC: 2 } });
     for (const mode of [1, -1]) {

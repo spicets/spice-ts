@@ -176,6 +176,9 @@ export class VDMOS implements DeviceModel {
     const temp = junctionTemperature !== undefined ? junctionTemperature + CONSTCTOK : this.instance.TEMP !== undefined
       ? this.instance.TEMP + CONSTCTOK
       : this.circuitTemperature + CONSTCTOK + this.instance.DTEMP;
+    // Electrical, charge and saved-vector loads often use the same Tj.
+    // The model/instance parameters are fixed for this compiled device.
+    if (this.temp?.temp === temp) return;
     const tnom = model.tnom;
 
     const fact1 = tnom / REFTEMP;
@@ -527,12 +530,14 @@ export class VDMOS implements DeviceModel {
         t.bodyConductance * (voltage(S) - voltage(BP))];
     };
     const current = currents();
+    const unperturbed = this.temp;
     const h = 1e-3;
     this.applyTemperature(temperature + h);
     const plus = currents();
     this.applyTemperature(temperature - h);
     const minus = currents();
-    this.applyTemperature(temperature);
+    // Restore the exact state instead of recomputing it after the derivative.
+    this.temp = unperturbed;
     let power = 0;
     let dpdt = 0;
     for (let i = 0; i < branchSlots.length; i++) {
