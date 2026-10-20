@@ -1,0 +1,30 @@
+XSPICE potentiometer loaded taper parity (original MIT fixture, issue 1619)
+* Ports use their default single-ended g type: r0, wiper, r1.
+vdrive in 0 dc 5 pwl(0 5 10u 5 30u 1 50u 4 70u 2 80u 2)
+adefault 0 wdefault in defaults
+alinear 0 wlinear in linear
+alog 0 wlog in logarithmic
+rdefault wdefault 0 47k
+rlinear wlinear 0 12k
+rlog wlog 0 33k
+.model defaults potentiometer
+.model linear potentiometer(r=20k position=0.25 log=false)
+.model logarithmic potentiometer(r=80k position=0.4 log=true log_multiplier=2)
+.options reltol=1e-9 abstol=1e-14 vntol=1e-12
+.op
+.dc vdrive 1 5 0.5
+.tran 1u 80u 0 1u
+.control
+set numdgt=17
+set wr_singlescale
+set wr_vecnames
+run
+setplot op1
+wrdata op.txt v(in) v(wdefault) v(wlinear) v(wlog) i(vdrive)
+setplot dc1
+wrdata dc.txt v(in) v(wdefault) v(wlinear) v(wlog) i(vdrive)
+setplot tran1
+wrdata tran.txt v(in) v(wdefault) v(wlinear) v(wlog) i(vdrive)
+quit
+.endc
+.end
