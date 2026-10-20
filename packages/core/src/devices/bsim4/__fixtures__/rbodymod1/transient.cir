@@ -1,0 +1,10 @@
+Authored BSIM4 RBODYMOD=1 common-source transient regression (MIT)
+.model DUT NMOS LEVEL=54 VERSION=4.8.3 RBODYMOD=1 CAPMOD=2
++ RBPB=1000 RBPD=2000 RBPS=3000 RBDB=4000 RBSB=5000
+Vdd vdd 0 1.8
+Rd vdd out 10k
+Vin in 0 PULSE(0 1.2 10n 10n 10n 80n 200n)
+M1 out in 0 0 DUT L=1u W=10u AD=1p AS=2p PD=4u PS=6u
+Cl out 0 100f
+.tran 1n 200n
+.end
