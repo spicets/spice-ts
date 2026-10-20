@@ -22,8 +22,8 @@ describe('VBIC resistor temperature exponents (#1526)', () => {
     const mapped = resolveVBICTemperature(params, 85);
     for (const name of names) expect(mapped[name]).toBeCloseTo(10 * ((85 + 273.15) / (27 + 273.15)) ** -2, 12);
   });
-  it('advances the unchanged public deck past XRE and EA to the HRCF domain limitation', async () => {
+  it('runs the unchanged public deck with resistor exponents, activation energies and zero HRCF', async () => {
     const deck = readFileSync(new URL('../../../../benchmarks/corpus/corpus-f/fixtures/examples/vbic/vbic99_tran.sp', import.meta.url), 'utf8');
-    await expect(simulate(deck)).rejects.toThrow("Invalid bounded VBIC DC model parameter: 'HRCF'");
-  });
+    expect((await simulate(deck)).transient!.time.length).toBeGreaterThan(1);
+  }, 30_000);
 });

@@ -132,7 +132,9 @@ export function evaluateScalar(v: readonly number[], p: VBICParams, t: VBICTempe
   const iohm = (rci + ((kbci - kbcx) - Math.log(logBase)) * vt) * (1 / t.RCI);
   const voFactor = t.RCI * inverse(p.VO);
   const rciRoot = Math.sqrt(Math.max(rci * rci + 0.01, Number.EPSILON));
-  const limitFactor = 0.5 * inverse(p.VO) / p.HRCF;
+  // ngspice-47 a80f6e3e vbicload.c:2210-2222,3722: zero VO/HRCF
+  // disables its inverse, rather than dividing by zero or clamping it.
+  const limitFactor = 0.5 * inverse(p.VO) * inverse(p.HRCF);
   const limitDen = rciRoot * limitFactor + 1;
   const derf = (iohm * voFactor) / limitDen;
   const derfRoot = Math.sqrt(Math.max(derf * derf + 1, Number.EPSILON));
