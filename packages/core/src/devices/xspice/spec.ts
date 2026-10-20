@@ -150,6 +150,20 @@ const PWL: XspiceCodeModelSpec = {
   ],
 };
 
+/** multi_input_pwl/ifspec.ifs (ngspice-47). */
+const MULTI_INPUT_PWL: XspiceCodeModelSpec = {
+  name: 'multi_input_pwl',
+  connections: [
+    { name: 'in', direction: 'in', defaultType: 'vd', allowedTypes: ['vd', 'id'], vector: true, vectorBounds: [2, undefined], nullAllowed: false },
+    { name: 'out', direction: 'out', defaultType: 'vd', allowedTypes: ['vd', 'id'], vector: false, nullAllowed: false },
+  ],
+  params: [
+    real('x', undefined, { vector: true, vectorBounds: [2, undefined], nullAllowed: false }),
+    real('y', undefined, { vector: true, vectorBounds: [2, undefined], nullAllowed: false }),
+    { name: 'model', type: 'string', defaultValue: ['and'], vector: false, nullAllowed: true },
+  ],
+};
+
 /** limit/ifspec.ifs */
 const LIMIT: XspiceCodeModelSpec = {
   name: 'limit',
@@ -542,6 +556,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('delmax', 0, { limits: [0, undefined] }),
         { name: 'buffer_size', type: 'int' as const, defaultValue: [1024], limits: [1, undefined] as const, vector: false, nullAllowed: true }],
     }, GAIN, SUMMER, MULT, DIVIDE, PWL,
+    MULTI_INPUT_PWL,
     // analog/pwlts/ifspec.ifs:30-75 shares pwl parameters, but has only an output.
     { name: 'pwlts', connections: [output('out')], params: PWL.params },
     LIMIT, INT, D_DT, S_XFER, XFER, OTA_SPEC, ...REACTIVE_IC_SPECS,
