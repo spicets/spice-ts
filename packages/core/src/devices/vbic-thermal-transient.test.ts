@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { simulate } from '../simulate.js';
-import { InvalidCircuitError } from '../errors.js';
 import { VBIC } from './vbic.js';
 import type { StampContext } from './device.js';
 

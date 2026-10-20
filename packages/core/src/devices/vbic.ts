@@ -164,7 +164,7 @@ export function resolveVBICParams(
   for (const name of [
     'IS', 'IBEI', 'IBEN', 'IBCI', 'IBCN', 'ISP', 'IBCIP', 'IBCNP', 'IBEIP', 'IBENP',
     'RCX', 'RBX', 'RE', 'RS', 'RBP', 'VEF', 'VER', 'IKF', 'IKR', 'IKP',
-    'VO', 'GAMM', 'AVC1', 'AVC2', ...DC_INERT_PARAMETERS,
+    'VO', 'HRCF', 'GAMM', 'AVC1', 'AVC2', ...DC_INERT_PARAMETERS,
   ] as const) {
     // ngspice vbicload.c disables IVTF for every finite VTF <= 0.
     if (name !== 'VTF' && resolved[name] < 0) throw new InvalidCircuitError(`Invalid bounded VBIC DC model parameter: '${name}'`);
@@ -176,7 +176,7 @@ export function resolveVBICParams(
     if (resolved[name] < 0) throw new InvalidCircuitError(`Invalid bounded VBIC DC model parameter: '${name}'`);
     if (supplied[name] !== undefined) resolved[name] = Math.max(0.01, resolved[name]);
   }
-  for (const name of ['HRCF', 'NF', 'NR', 'NEI', 'NEN', 'NCI', 'NCN', 'NFP', 'NCIP', 'NCNP'] as const) {
+  for (const name of ['NF', 'NR', 'NEI', 'NEN', 'NCI', 'NCN', 'NFP', 'NCIP', 'NCNP'] as const) {
     if (resolved[name] <= 0) throw new InvalidCircuitError(`Invalid bounded VBIC DC model parameter: '${name}'`);
   }
   if (resolved.TNOM <= -273.15) throw new InvalidCircuitError("Invalid bounded VBIC DC model parameter: 'TNOM'");
@@ -525,7 +525,7 @@ function evaluate(
   const iohm = scale(add(vrci, scale(sub(sub(kbci, kbcx), log(ratio)), vt)), 1 / thermal.RCI);
   const derf = div(
     scale(iohm, thermal.RCI * reciprocalOrZero(params.VO)),
-    addConstant(scale(sqrt(addConstant(mul(vrci, vrci), 0.01)), 0.5 * reciprocalOrZero(params.VO) / params.HRCF), 1),
+    addConstant(scale(sqrt(addConstant(mul(vrci, vrci), 0.01)), 0.5 * reciprocalOrZero(params.VO) * reciprocalOrZero(params.HRCF)), 1),
   );
   const irci = div(iohm, sqrt(addConstant(mul(derf, derf), 1)));
   const irbi = scale(mul(vrbi, qb), 1 / thermal.RBI);
