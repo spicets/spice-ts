@@ -8,6 +8,7 @@ export interface WorkerRequest {
   backend: 'spice-ts-js' | 'spice-ts-wasm';
   request: SimulationRequestV1;
   wasmBytes?: Uint8Array;
+  maxPoints?: number;
 }
 
 export interface WorkerSuccess {
