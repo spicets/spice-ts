@@ -192,3 +192,19 @@ pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts --corpus-f-fixture-child ex
 ```
 
 Machine: macOS 27.0.1 arm64 (Apple M5 Pro), Node v22.23.1, ngspice-47 (Homebrew, KLU).
+
+## Simple diode (#1563)
+
+Run `spice-heavy pnpm exec tsx benchmarks/xspice/sidiode-compare.ts`.
+The original MIT decks `sidiode.cir` and `sidiode-ac.cir` go unchanged to both
+engines. Three current traces cover unlimited, smoothed-unlimited and
+smoothed-limited models over a -8 to 8 V DC sweep and two sine periods.
+Six AC bias points cover reverse limiting, reverse smoothing, off, forward
+smoothing and forward limiting. The script prints deck SHA-256, versions,
+sample counts, errors and one-shot DC/transient runtimes. It fails above 1e-6
+peak-normalized error; this is a parity check, not a speed claim.
+
+The implementation follows ngspice-47 `xtradev/sidiode/cfunc.mod:127-239`.
+Its tanh partial is intentionally not the derivative of its output current.
+With smoothing enabled but current limits disabled, the outer linear formulas
+have current discontinuities at the quadratic boundaries, also retained here.
