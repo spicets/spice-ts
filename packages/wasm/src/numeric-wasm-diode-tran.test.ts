@@ -24,7 +24,16 @@ describe('bounded static-diode WASM transient', () => {
       expect(b?.type).toBe('tran');
       if (a?.type !== 'tran' || b?.type !== 'tran') return;
       for (const field of ['voltagesV', 'currentsA'] as const) {
+        expect(Object.keys(a[field]).sort()).toEqual(Object.keys(b[field]).sort());
+        for (const values of Object.values(b[field])) {
+          expect(values).toHaveLength(b.timeS.length);
+          const reference = values[0]!;
+          for (const value of values) {
+            expect(Math.abs(value - reference)).toBeLessThanOrEqual(1e-12 + 1e-9 * Math.abs(reference));
+          }
+        }
         for (const [name, values] of Object.entries(a[field])) {
+          expect(values).toHaveLength(a.timeS.length);
           for (const value of values) {
             const reference = b[field][name]![0]!;
             expect(Math.abs(value - reference)).toBeLessThanOrEqual(1e-12 + 1e-9 * Math.abs(reference));
@@ -61,13 +70,17 @@ describe('bounded static-diode WASM transient', () => {
       // This is a discretisation check, NOT the issue's 1e-9 identical-grid
       // acceptance: core has adaptive points; interpolate only for this bound.
       let j = 0;
+      let squaredError = 0;
       for (let i = 0; i < a.timeS.length; i++) {
         const time = a.timeS[i]!;
         while (j + 1 < b.timeS.length - 1 && b.timeS[j + 1]! < time) j++;
         const weight = (time - b.timeS[j]!) / (b.timeS[j + 1]! - b.timeS[j]!);
         const reference = b.voltagesV.out![j]! + weight * (b.voltagesV.out![j + 1]! - b.voltagesV.out![j]!);
-        expect(Math.abs(a.voltagesV.out![i]! - reference)).toBeLessThan(5e-5);
+        const error = a.voltagesV.out![i]! - reference;
+        squaredError += error * error;
+        expect(Math.abs(error)).toBeLessThan(5e-5);
       }
+      expect(Math.sqrt(squaredError / a.timeS.length)).toBeLessThan(1e-5);
     } finally { await engine.close(); }
   });
 
