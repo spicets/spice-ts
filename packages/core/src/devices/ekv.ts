@@ -1,11 +1,12 @@
 import { InvalidCircuitError, UnsupportedModelParameterError, UnsupportedTemperatureError } from '../errors.js';
-import type { DeviceModel, StampContext } from './device.js';
+import type { ChargeIntegration, ChargeTruncation, DeviceModel, StampContext } from './device.js';
+import { TransientChargeState } from './charge-state.js';
 
 /**
  * Independently implemented from the EPFL EKV 2.6 equations (1999 report),
  * https://ngspice.sourceforge.io/external-documents/models/ekv_v262.pdf.
  * Xyce 7.10 is a behavioral reference for defaults and revision-III smoothing.
- * No GPL implementation is included. Scope: nominal-temperature static DC.
+ * No GPL implementation is included. Scope: nominal-temperature DC and QS transient.
  */
 interface Differential {
   value: number;
@@ -16,6 +17,13 @@ export interface EKVEvaluation {
   current: number;
   /** Derivatives with respect to physical D, G, S, B voltages. */
   derivatives: readonly [number, number, number, number];
+}
+
+export interface EKVCharges {
+  /** Physical terminal charges in D, G, S, B order (coulombs). */
+  charges: readonly number[];
+  /** Signed dQ(row)/dV(column), not the off-diagonal Cxy sign convention. */
+  jacobian: readonly (readonly number[])[];
 }
 
 // Three independent bulk-referenced voltages. The fourth derivative follows
@@ -78,6 +86,7 @@ function normalizedCurrent(v: Differential): Differential {
 
 const DEFAULTS = {
   TNOM: 27, COX: 2e-3, XJ: 300e-9, VTO: 0.5, GAMMA: 0.7, PHI: 0.5,
+  CGSO: 0, CGDO: 0, CGBO: 0,
   KP: 150e-6, THETA: 0, E0: 1e8, UCRIT: 2e6, LAMBDA: 0.8,
   DL: -0.01e-6, DW: -0.01e-6, WETA: 0.2, LETA: 0.3, Q0: 230e-6, LK: 0.4e-6,
   AVTO: 1e-6, AKP: 1e-6, AGAMMA: 1e-6, IBA: 5e8, IBB: 4e8, IBN: 1,
@@ -98,7 +107,9 @@ const DEFERRED = new Set([
 export class EKV26 implements DeviceModel {
   readonly branches: number[] = [];
   readonly isNonlinear = true;
-  readonly storesCharge = false;
+  readonly storesCharge = true;
+  readonly integratesTransientCharge = true;
+  private readonly chargeState = new TransientChargeState(4);
   readonly modelWarnings: readonly string[];
   readonly params: Parameters;
   private readonly length: number;
@@ -115,7 +126,7 @@ export class EKV26 implements DeviceModel {
     model: Readonly<Record<string, number>>, instance: Readonly<Record<string, number>> = {},
     readonly polarity = 1, readonly modelName = name,
   ) {
-    const warnings = [`${name}: EKV26 static-only model. Intrinsic/junction charges, AC/NQS and noise are not implemented; transient uses the static current only.`];
+    const warnings = [`${name}: EKV26 quasi-static intrinsic and overlap charges supported; junction charges, AC/NQS and noise are not implemented.`];
     const values: Parameters = { ...DEFAULTS };
     for (const [key, value] of Object.entries({ ...model, ...instance })) {
       if (!Number.isFinite(value)) throw new InvalidCircuitError(`EKV26 '${name}': ${key} must be finite`);
@@ -137,7 +148,7 @@ export class EKV26 implements DeviceModel {
       if (!(values[key] > 0)) throw new InvalidCircuitError(`EKV26 '${name}': ${key} must be positive`);
     }
     for (const key of ['GAMMA', 'KP', 'THETA', 'E0', 'LAMBDA', 'Q0', 'LK', 'LETA', 'WETA',
-      'IBA', 'IBN', 'HDIF', 'AD', 'AS', 'PD', 'PS', 'XD_JS', 'XD_JSW', 'XD_JSWG'] as const) {
+      'IBA', 'IBN', 'HDIF', 'AD', 'AS', 'PD', 'PS', 'XD_JS', 'XD_JSW', 'XD_JSWG', 'CGSO', 'CGDO', 'CGBO'] as const) {
       if (values[key] < 0) throw new InvalidCircuitError(`EKV26 '${name}': ${key} must be nonnegative`);
     }
     if (values.NS !== 1) this.unsupported('NS', 'multiple series devices are outside this Xyce-validated slice');
@@ -178,6 +189,19 @@ export class EKV26 implements DeviceModel {
   }
 
   evaluate(voltages: readonly [number, number, number, number]): EKVEvaluation {
+    return this.evaluateModel(voltages);
+  }
+
+  evaluateCharges(voltages: readonly [number, number, number, number]): EKVCharges {
+    const charges: Differential[] = [];
+    this.evaluateModel(voltages, charges);
+    return {
+      charges: charges.map(q => this.polarity * q.value),
+      jacobian: charges.map(q => [...q.gradient, -q.gradient[0] - q.gradient[1] - q.gradient[2]]),
+    };
+  }
+
+  private evaluateModel(voltages: readonly [number, number, number, number], charges?: Differential[]): EKVEvaluation {
     const p = this.params;
     const [d, g, s, b] = voltages;
     let drain = variable(this.polarity * (d - b), 0);
@@ -201,6 +225,34 @@ export class EKV26 implements DeviceModel {
       scale(root(offset(longPinch, this.phi + 0.1 * vt)), 3 * epsSi / p.COX * p.WETA * p.M / this.width)), 0.1 * vt);
     const vp = pinch(effectiveGamma);
     const forward = normalizedCurrent(scale(sub(vp, source), 1 / vt));
+    if (charges) {
+      // EPFL EKV 2.6 section 6.1, equations 69-78. Section 5.17.2 uses
+      // the long-channel reverse current for charges, not transport ir.
+      const f = root(offset(forward, 0.25));
+      const r = root(offset(normalizedCurrent(scale(sub(vp, drain), 1 / vt)), 0.25));
+      const bodyRoot = root(offset(vp, this.phi + 1e-6));
+      const nq = offset(div(constant(this.gamma), scale(bodyRoot, 2)), 1);
+      const partition = (a: Differential, z: Differential): Differential => {
+        const polynomial = add(add(scale(mul(square(a), a), 3), scale(mul(square(a), z), 6)),
+          add(scale(mul(a, square(z)), 4), scale(mul(square(z), z), 2)));
+        return scale(mul(nq, offset(scale(div(polynomial, square(add(a, z))), 4 / 15), -0.5)), -vt);
+      };
+      let qd = partition(r, f);
+      let qs = partition(f, r);
+      const qi = add(qd, qs);
+      const qb = sub(scale(bodyRoot, -this.gamma), mul(div(offset(nq, -1), nq), qi));
+      if (reverse) [qd, qs] = [qs, qd];
+      const area = p.COX * this.width * this.length * p.M;
+      const physical = [scale(qd, area), scale(add(qi, qb), -area), scale(qs, area), scale(qb, area)];
+      // Linear overlap capacitances per width (G-S/G-D), per length (G-B).
+      const original = [variable(this.polarity * (d - b), 0), gate, variable(this.polarity * (s - b), 2), constant(0)];
+      for (const [terminal, capacitance] of [[0, p.CGDO * this.width * p.M], [2, p.CGSO * this.width * p.M], [3, p.CGBO * this.length * p.M]]) {
+        const overlap = scale(sub(gate, original[terminal]), capacitance);
+        physical[1] = add(physical[1], overlap);
+        physical[terminal] = sub(physical[terminal], overlap);
+      }
+      charges.push(...physical);
+    }
     const sqrtForward = root(forward);
 
     // Equations 45-56. Vds and the saturation voltage are half voltages here.
@@ -217,8 +269,7 @@ export class EKV26 implements DeviceModel {
     const equivalentLength = positive(add(offset(scale(add(halfDrain, intermediate), 1 / p.UCRIT), this.length), scale(lengthLoss, -1)), (0.1 * this.length) ** 2);
     let beta = div(constant(this.gainWidth), equivalentLength);
 
-    // Equations 59-64, 69-78: the charge expressions here serve only mobility,
-    // not transient storage. E0=0 selects the THETA mobility option.
+    // Equations 59-64, 69-78. E0=0 selects the THETA mobility option.
     if (p.E0 === 0) {
       beta = div(beta, offset(scale(positive(vp, 2 * vt * vt), p.THETA), 1));
     } else {
@@ -279,5 +330,46 @@ export class EKV26 implements DeviceModel {
     let largest = 0;
     for (const node of this.nodes) if (node >= 0) largest = Math.max(largest, Math.abs(candidate[node] - previous[node]));
     return largest > 0.5 ? 0.5 / largest : 1;
+  }
+
+  private chargesAt(ctx: StampContext): EKVCharges {
+    return this.evaluateCharges(this.nodes.map(n => n < 0 ? 0 : ctx.getVoltage(n)) as [number, number, number, number]);
+  }
+
+  stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {
+    const result = this.chargesAt(ctx);
+    this.chargeState.begin(integration);
+    for (let row = 0; row < 4; row++) {
+      const node = this.nodes[row];
+      if (node < 0) continue;
+      let equivalent = this.chargeState.current(row, result.charges[row]);
+      for (let col = 0; col < 4; col++) {
+        const control = this.nodes[col];
+        if (control < 0) continue;
+        const g = this.chargeState.factor * result.jacobian[row][col];
+        ctx.stampG(node, control, g);
+        equivalent -= g * ctx.getVoltage(control);
+      }
+      ctx.stampB(node, -equivalent);
+    }
+  }
+
+  stampAcceptedChargeCurrent(ctx: StampContext): void {
+    this.nodes.forEach((node, row) => {
+      if (node >= 0) ctx.stampB(node, -this.chargeState.acceptedChargeCurrent(row));
+    });
+  }
+
+  acceptTransientStep(ctx: StampContext): void {
+    this.chargesAt(ctx).charges.forEach((q, row) => this.chargeState.accept(row, q));
+    this.chargeState.commit();
+  }
+
+  truncateTimestep(ctx: StampContext, truncation: ChargeTruncation): number {
+    return this.chargeState.truncationTimestep(truncation, () => this.acceptTransientStep(ctx));
+  }
+
+  resetTransient(): void {
+    this.chargeState.reset();
   }
 }
