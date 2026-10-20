@@ -1,0 +1,10 @@
+multi_input_pwl min/max DC regression
+* Original spice-ts fixture, MIT; ngspice-47 multi_input_pwl interface.
+v1 in1 0 dc 0
+v2 in2 0 dc 0.6
+amin [in1 0 in2 0] low 0 minimum
+amax [in1 0 in2 0] high 0 maximum
+.model minimum multi_input_pwl(x=[-1 0 1 2] y=[-2 0 3 4] model="and")
+.model maximum multi_input_pwl(x=[-1 0 1 2] y=[-2 0 3 4] model="or")
+.dc v1 -2 3 0.05
+.end

@@ -31,6 +31,7 @@ import { memristor } from './memristor.js';
 import { seegen } from './seegen.js';
 import { resolveSTransfer, STransferDevice } from './s-xfer.js';
 import { xfer } from './xfer.js';
+import { multiInputPwl } from './multi-input-pwl.js';
 import { XSPICE_CODE_MODEL_SPECS, type XspiceParamValue } from './spec.js';
 import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xspice-device.js';
 
@@ -38,6 +39,7 @@ import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xsp
 const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, BehaviorFactory>([
   ['astate', astate],
   ['xfer', xfer],
+  ['multi_input_pwl', multiInputPwl],
   ['mlin', mlin],
   ['msopen', msopen],
   ['cpmlin', cpmlin],
@@ -138,6 +140,7 @@ export function prepareXspiceInstance(
   const params = resolveXspiceParams(card.name, model, spec, connections);
   if (model.codeModel === 's_xfer') resolveSTransfer(params);
   if (model.codeModel === 'xfer') xfer(params);
+  if (model.codeModel === 'multi_input_pwl') multiInputPwl(params);
   const nodes: string[] = [];
   const digitalNodes: string[] = [];
   for (const connection of connections) {
