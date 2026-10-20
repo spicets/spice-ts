@@ -486,7 +486,10 @@ export function computeBsim3Size(
     p.vjdm = nvtm * Math.log(model.ijth / p.drainSatCurrent + 1.0);
     if (isEvj) p.IsEvjdm = p.drainSatCurrent * Math.exp(p.vjdm / nvtm);
   }
-  return Object.freeze(p);
+  // The incremental construction above uses dictionary properties in V8. Copy
+  // once at the temperature boundary so the DC/charge hot loops can use fixed
+  // property offsets; preserve every computed value and the immutable contract.
+  return Object.freeze({ ...p });
 }
 
 /** b3ld.c (acmMod = 0) junction saturation current from area and perimeter. */

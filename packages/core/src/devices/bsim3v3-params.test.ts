@@ -47,6 +47,9 @@ describe('BSIM3v3 size-dependent parameters (ngspice-47 b3temp.c)', () => {
     expect(size.drainArea).toBe(0);
     expect(size.sourcePerimeter).toBe(0);
     expect(size.sourceSatCurrent).toBe(1e-14);
+    expect(Object.isFrozen(size)).toBe(true);
+    expect(Reflect.set(size, 'leff', 1)).toBe(false);
+    expect(size.leff).toBeCloseTo(5e-6, 15);
   });
 
   it('computes Leff and Weff from L, W, LINT, WINT', () => {
