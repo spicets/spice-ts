@@ -20,6 +20,7 @@ export { ngspiceFourier } from './parser/control/fourier.js';
 export type { FrequencySweepKind } from './analysis/frequency-grid.js';
 export { createTransientSim } from './analysis/transient-driver.js';
 export type { TransientSim, TransientSimOptions } from './analysis/transient-driver.js';
+export type { SparseSolver } from './solver/sparse-solver.js';
 export { WasmNgspiceSimulator } from './simulators/ngspice-wasm.js';
 export type { WasmNgspiceSimulatorOptions } from './simulators/ngspice-wasm.js';
 export { parse, parseAsync, parseTitleless, parseTitlelessAsync } from './parser/index.js';
