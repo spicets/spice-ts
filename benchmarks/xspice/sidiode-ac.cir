@@ -1,0 +1,23 @@
+XSPICE sidiode AC regions (original MIT fixture, issue 1563)
+v0 d0 0 dc -8 ac 1
+v1 d1 0 dc -3.2 ac 1
+v2 d2 0 dc -1 ac 1
+v3 d3 0 dc 1.1 ac 1
+v4 d4 0 dc 2 ac 1
+v5 d5 0 dc 8 ac 1
+a0 (d0 0) sd
+a1 (d1 0) sd
+a2 (d2 0) sd
+a3 (d3 0) sd
+a4 (d4 0) sd
+a5 (d5 0) sd
+.model sd sidiode(ron=2 roff=1000 vfwd=1 vrev=3 rrev=4 epsilon=0.2 revepsilon=0.4 ilimit=0.5 revilimit=0.7)
+.options reltol=1e-9 abstol=1e-14 vntol=1e-12
+.ac lin 3 1 1000
+.control
+set numdgt=15
+set wr_singlescale
+run
+wrdata ac.txt i(v0) i(v1) i(v2) i(v3) i(v4) i(v5)
+.endc
+.end

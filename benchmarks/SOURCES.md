@@ -2388,4 +2388,24 @@ fails with `Invalid bounded VBIC DC model parameter: 'HRCF'` (its HRCF=0 is
 outside the current bounded domain). ngspice-47 runs the unchanged deck with
 2065 transient rows. No spice-ts waveform parity is claimed for that deck.
 
+## XSPICE sidiode (#1563)
+
+Original MIT fixtures `benchmarks/xspice/sidiode.cir` and `sidiode-ac.cir`
+exercise off/forward/reverse regions, quadratic smoothing, tanh current limits
+and AC conductance. Both engines receive identical bytes. Reproduce with
+`spice-heavy pnpm exec tsx benchmarks/xspice/sidiode-compare.ts`.
+The fixed maximum error threshold is 1e-6, normalized by each reference trace's
+peak absolute current (complex magnitude for AC); transient comparison linearly
+interpolates spice-ts onto all ngspice timepoints. RMS error is also reported.
+
+Equation/parameter sources (BSD-3-Clause, copyright 2012/2018 The ngspice team;
+full notice in `packages/core/src/devices/xspice/sidiode.LICENSE`):
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/xtradev/sidiode/cfunc.mod
+(lines 127-184 initialization, 193-239 current/partial/AC), and
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/xtradev/sidiode/ifspec.ifs
+(lines 34-104 ports, defaults and bounds).
+Preserves ngspice's non-derivative tanh partials and its unlimited smoothed-knee
+discontinuities. No upstream circuit deck is copied. Before implementation,
+spice-ts rejected both fixtures as unsupported; no baseline waveform exists.
+
 
