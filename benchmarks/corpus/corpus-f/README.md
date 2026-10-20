@@ -559,6 +559,40 @@ Only this fixture was rerun; all other corpus-f rows retain their prior evidence
 
 This supplement supersedes the historical batch-1 rows above for every `.control` deck. The original `outcomes.json` is deliberately unchanged.
 
+#### Isolated companion resolution (#1548 / #1545)
+
+Refreshed only `examples-rf-sp-file-cir` against ngspice-47 with core tree
+`985293f6b7f1275efeeadf9f403315824fa7a92f`, Node v22.23.1, darwin/arm64:
+`spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/control-vectors.ts --control-vector-child examples-rf-sp-file-cir`.
+The fixture SHA-256 remains `2cc8b6d32c958f320a1f6b3b47995ef654a46559bb224d16de61a7f198779402`.
+Both engines receive the unchanged fixture in a fresh run directory, with no
+`137MHz_BPF.s2p` companion. The resolver is applied uniformly to every bounded
+spice-ts run, including both classic and extra plot simulation paths. Relative
+reads use that run directory, not the repository or upstream source directory;
+missing reads reject. No output is written into the fixtures tree.
+
+Before wiring, spice-ts failed with `XSPICE xfer: file requires async parsing with a resolver`:
+0 compared analyses, 0 compared signals, no numerical error measurement.
+After wiring: **win (matched, not a speed claim)**, `comparedAnalyses=2`,
+`comparedSignals=30`, `worstNormalizedError=2.73e-11` (`sp y_1_1`), using the
+unchanged corpus-wide threshold 0.01. Both engines produce AC and SP at 71 points
+each. ngspice's wrapper also exports `const`; constants are not a scored analysis.
+
+A `spice-heavy` before/after check selected all seven manifest fixtures whose
+bytes match `file\s*=|^\s*\.include\b` (case-insensitive, multiline), using the
+control wrapper for control decks and the batch reference otherwise. The same
+current core build was used for both harness versions. Only this RF fixture changed
+classification. The other six remain: `examples-cider-diode-pd1-cir`,
+`examples-cider-diode-pindiode-cir`, `examples-measure-mos-meas-dc-control-file-sp`
+(spice-ts-loss); `examples-xspice-d-process-checks-cir` (both-failed);
+`examples-xspice-original-examples-digital-models4-deck` (matched);
+`examples-xspice-table-table-generator-q-2d-sp` (not-compared). No full corpus run
+or aggregate refresh is claimed; the historical totals below are not recomputed.
+
+Known non-scored wrs2p differences remain unchanged: spice-ts omits ngspice's
+`!Title:` line and column padding, and preserves filename case whereas ngspice
+writes `new_137mhz_bpf.s2p`. The numbers are identical at `%e`.
+
 Measured with core tree `c5cdd7c232bddf6ccb994efd8e4a1e689b74827d` (`git rev-parse HEAD:packages/core`), ngspice-47, Node v22.23.1, darwin/arm64, Apple M5 Pro.
 `pnpm build && pnpm exec tsx benchmarks/corpus/corpus-f/control-vectors.ts > control-receipt.json` regenerates this section and prints the full receipt. Add `--check` to rerun without changing files; `--jobs N` controls parallelism.
 
@@ -634,7 +668,7 @@ Bucket “loss” includes numerical mismatches and typed-unsupported/failed spi
 | [examples/rf/pss/ring_osc_pss_ctrl.cir](fixtures/examples/rf/pss/ring_osc_pss_ctrl.cir) | loss | spice-ts-loss | — | — | https://github.com/mfiumara/spice-ts/issues/488 | Parse error at line 35: Unsupported .control command 'reset': circuit reset between analyses is not implemented; spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod, option, setplot/destroy,  |
 | [examples/rf/pss/vackar_osc_pss_ctrl.cir](fixtures/examples/rf/pss/vackar_osc_pss_ctrl.cir) | loss | spice-ts-loss | — | — | https://github.com/mfiumara/spice-ts/issues/488 | Parse error at line 28: Unsupported .control command 'reset': circuit reset between analyses is not implemented; spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod, option, setplot/destroy,  |
 | [examples/rf/pss/vdp_osc_pss_ctrl.cir](fixtures/examples/rf/pss/vdp_osc_pss_ctrl.cir) | loss | spice-ts-loss | — | — | https://github.com/mfiumara/spice-ts/issues/488 | Parse error at line 28: Unsupported .control command 'reset': circuit reset between analyses is not implemented; spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod, option, setplot/destroy,  |
-| [examples/rf/sp/file.cir](fixtures/examples/rf/sp/file.cir) | loss | spice-ts-loss | — | — | https://github.com/mfiumara/spice-ts/issues/493 | Parse error at line 30: Cannot parse number: '"137MHz_BPF.s2p"' X1 sin sp_model_out 0 s2p_generic touchstone="137MHz_BPF.s2p" |
+| [examples/rf/sp/file.cir](fixtures/examples/rf/sp/file.cir) | match | matched | 2.73e-11 | sp y_1_1 | — | #1548 isolated companion resolver; 2 analyses / 30 signals |
 | [examples/rf/sp/sp1.cir](fixtures/examples/rf/sp/sp1.cir) | match | matched | 4.35e-14 | sp sopt | — | — |
 | [examples/rf/sp/sp2.cir](fixtures/examples/rf/sp/sp2.cir) | match | matched | 4.08e-11 | sp z_2_2 | — | — |
 | [examples/rf/sp/sp3.cir](fixtures/examples/rf/sp/sp3.cir) | match | matched | 4.08e-11 | sp z_2_2 | — | — |

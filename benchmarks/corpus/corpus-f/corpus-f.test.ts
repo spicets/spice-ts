@@ -38,7 +38,7 @@ import { batchControlPlots, controlPlotAnalyses, runCorpusFSpiceTs, sensitivityS
 import { asPacked, compareInBatches, lazyExecution, PACKED_SAMPLES, packEncoded, samples } from './packed.js';
 import { PACKED_COLUMNS, parseRawLines, parseRawLinesInto } from './raw-stream.js';
 import { parseNgspiceRaw } from '../../comparison-harness.js';
-import { analysisType, type ClassicCircuit, type EngineExecution } from '../classic/report.js';
+import { analysisType, OBJECT_SAMPLES, type ClassicCircuit, type EngineExecution } from '../classic/report.js';
 import { compareExecutions } from '../../aggregate-report.js';
 import { CONTROL_SECTION, controlExportDiagnostics, controlWrapperDeck, hasControlBlock, noReferenceNote, renderControlSection, runControlReference, trackingIssue } from './control-vectors.js';
 
@@ -47,6 +47,23 @@ const HAS_NGSPICE = spawnSync('ngspice', ['--version'], { encoding: 'utf8' }).st
 const HAS_CORE_DIST = existsSync('packages/core/dist/index.js');
 
 describe('corpus-f control wrapper (#521)', () => {
+  it('passes the resolver through classic, extra and mixed simulate paths (#1548)', { skip: !HAS_CORE_DIST }, async () => {
+    const input = Buffer.from('resolver\nv1 in 0 ac 1\n.include model.inc\n.control\nac lin 2 10 20\nsens v(out) ac lin 2 10 20\n.endc\n.end\n');
+    for (const analyses of [['ac'], ['sens'], ['ac', 'sens']]) {
+      const paths: string[] = [];
+      const circuit = { analyses, sourcePath: 'upstream/not-the-cwd/deck.cir' } as ClassicCircuit;
+      const execution = await runCorpusFSpiceTs(input, circuit, OBJECT_SAMPLES, {
+        resolveInclude: async path => {
+          paths.push(path);
+          return 'r1 in out 1k\nr2 out 0 1k\n';
+        },
+      });
+      assert.equal(execution.status, 'success', execution.error);
+      assert.deepEqual(paths, analyses.length === 2 ? ['model.inc', 'model.inc'] : ['model.inc']);
+      assert.equal(execution.analyses.length, analyses.length);
+    }
+  });
+
   it('resolves absent xfer companions in the bounded run (#1548)', { skip: !HAS_NGSPICE || !HAS_CORE_DIST }, async () => {
     const manifest = JSON.parse(await readFile(`${ROOT}/manifest.json`, 'utf8')) as CorpusFManifest;
     const circuit = manifest.circuits.find(c => c.id === 'examples-rf-sp-file-cir')!;
@@ -55,7 +72,7 @@ describe('corpus-f control wrapper (#521)', () => {
     assert.equal(fixture.spiceTs.status, 'success', JSON.stringify(fixture));
     assert.ok(fixture.comparedAnalyses > 0);
     assert.ok(fixture.comparedSignals > 0);
-    assert.equal(fixture.outcome, 'match');
+    assert.equal(fixture.outcome, 'matched');
   });
 
   it('selects batch final plots without changing explicit, multiple-raw or non-dot identities (#1423)', () => {
