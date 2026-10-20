@@ -2464,4 +2464,20 @@ or execution. After: `montecarlo.sp` completes five AC runs; `mc_ring.sp` passes
 the comment line but still fails nominal transient convergence (tracked in #1600).
 This is control-language coverage, not a claim of full Monte Carlo parity.
 
+## XSPICE microstrip open end (#1621)
+
+| Fixture | Source | Licence |
+| --- | --- | --- |
+| `xspice-msopen/terminated.cir` and the generated variants embedded in `xspice-msopen/ngspice-47.json` | Original spice-ts mlin/msopen OP + AC regression decks | MIT |
+
+`xspice-msopen/compare.ts` sources identical deck bytes into ngspice-47 and
+spice-ts, comparing exact OP values and per-point AC magnitude, phase and complex
+relative errors. `ngspice-47.json` archives the numeric ngspice output read by the
+core regression test. See `xspice-msopen/README.md` for regeneration and limits.
+The implementation adapts BSD-3-Clause ngspice-47 formulas, Copyright 2025 Vadim
+Kuznetsov, with the full notice in `packages/core/src/devices/xspice/msopen.LICENSE`:
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/msopen/cfunc.mod
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/msopen/ifspec.ifs
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/tlines/msline_common.c
+
 

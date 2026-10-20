@@ -20,6 +20,7 @@ import { registerGainNoise } from './gain-noise.js';
 import { SWITCH_BEHAVIORS } from './switch-models.js';
 import { MAGNETIC_BEHAVIORS } from './magnetic-models.js';
 import { mlin } from './mlin.js';
+import { msopen } from './msopen.js';
 import { cpmlin } from './cpmlin.js';
 import { cpline } from './cpline.js';
 import { REACTIVE_IC_BEHAVIORS } from './reactive-ic-models.js';
@@ -37,6 +38,7 @@ const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, Behavior
   ['astate', astate],
   ['xfer', xfer],
   ['mlin', mlin],
+  ['msopen', msopen],
   ['cpmlin', cpmlin],
   ['cpline', cpline],
   ['delay', delay],
