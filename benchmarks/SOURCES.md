@@ -1,5 +1,23 @@
 # Benchmark sources
 
+## LTRA small-signal AC (#1604)
+
+`benchmarks/ltra/ac/{rlc,rc,lc}.cir` are original project-authored MIT test
+netlists based on the minimal issue reproduction at
+https://github.com/spicets/spice-ts/issues/1604. Both simulators consume the
+identical committed decks, with `.ac dec 10 1k 1g` and no circuit-specific tuning.
+The adjacent JSON fixtures contain ngspice-47 binary raw-file frequency and
+complex `v(3)` values (61 points each). Regenerate using
+`spice-heavy python3 benchmarks/ltra/ac/generate.py`; run the comparison with
+`pnpm -C packages/core exec vitest run src/devices/lossy-transmission-line-ac.test.ts`.
+The frequency-dependent stamp follows ngspice-47's Berkeley-licensed
+[`ltraacld.c`](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/ltra/ltraacld.c).
+Before this change all three decks were rejected (RC at model validation,
+RLC/LC at the AC guard), so no numeric baseline error exists. Acceptance uses
+maximum relative magnitude error <= 1e-6 and wrapped phase error <= 1e-4 degrees
+at every frequency. RC transient and all LTRA noise analyses remain unsupported.
+This is bounded AC parity evidence, not a transient or performance claim.
+
 ## Corpus-f isolated companion resolution (#1548 / #1545)
 
 The unchanged `examples/rf/sp/file.cir` fixture comes from the ngspice examples

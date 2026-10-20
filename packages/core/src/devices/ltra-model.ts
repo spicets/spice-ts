@@ -3,11 +3,11 @@ import type { ModelParams } from '../types.js';
 /**
  * ngspice-47 LTRA (lossy transmission line) model mathematics, ported from
  * src/spicelib/devices/ltra (ltraset.c, ltratemp.c, ltramisc.c). Only the
- * G=0 special cases the benchmark decks exercise are supported: the lossless
- * LC line and the series-loss RLC line.
+ * G=0 special cases are supported: LC and RLC in DC/AC/transient, and RC in
+ * DC/AC only (its transient convolution kernel is not implemented).
  */
 
-export type LtraSpecialCase = 'LC' | 'RLC';
+export type LtraSpecialCase = 'LC' | 'RLC' | 'RC';
 
 export interface ResolvedLtraModel {
   resistancePerLength: number;
@@ -71,7 +71,7 @@ function requireFinite(
 ): number {
   const value = params[name];
   if (value === undefined || !Number.isFinite(value) || !predicate(value)) {
-    throw new Error(`Unsupported LTRA model: ${name} must be ${name === 'R' ? 'non-negative' : 'positive and finite'}`);
+    throw new Error(`Unsupported LTRA model: ${name} must be ${name === 'R' || name === 'L' ? 'non-negative and finite' : 'positive and finite'}`);
   }
   return value;
 }
@@ -97,7 +97,10 @@ export function resolveLtraModel(
     throw new Error('Unsupported LTRA model: only G=0 is supported');
   }
   const resistancePerLength = requireFinite(model.params, 'R', value => value >= 0);
-  const inductancePerLength = requireFinite(model.params, 'L', value => value > 0);
+  const inductancePerLength = requireFinite(model.params, 'L', value => value >= 0);
+  if (inductancePerLength === 0 && resistancePerLength === 0) {
+    throw new Error('Unsupported LTRA model: R and L cannot both be zero');
+  }
   const capacitancePerLength = requireFinite(model.params, 'C', value => value > 0);
   const length = requireFinite(model.params, 'LEN', value => value > 0);
   // ltraset.c: REL defaults to 1. It steers the LTRAaccept breakpoints.
@@ -113,7 +116,7 @@ export function resolveLtraModel(
   const stLineAbstol = optionalNonNegative(model.params, 'COMPACTABS') || tolerances.abstol;
 
   // ltratemp.c
-  const specialCase: LtraSpecialCase = resistancePerLength === 0 ? 'LC' : 'RLC';
+  const specialCase: LtraSpecialCase = inductancePerLength === 0 ? 'RC' : resistancePerLength === 0 ? 'LC' : 'RLC';
   const impedance = Math.sqrt(inductancePerLength / capacitancePerLength);
   const delay = Math.sqrt(inductancePerLength * capacitancePerLength) * length;
   let alpha = 0;

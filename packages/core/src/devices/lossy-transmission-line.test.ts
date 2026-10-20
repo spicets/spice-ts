@@ -228,12 +228,12 @@ RL b 0 50
     });
   });
 
-  it('rejects small-signal analyses it cannot represent', async () => {
+  it('still rejects noise analysis', async () => {
     await expect(async () => simulate(parse(`V1 in 0 AC 1
 O1 in 0 out 0 LMOD
 RL out 0 50
 .model LMOD LTRA(R=2 L=250n G=0 C=100p LEN=1)
-.ac dec 10 1meg 1g
-`))).rejects.toThrow(/LTRA lossy lines support only .*'\.ac' is unsupported/);
+.noise v(out) V1 dec 10 1meg 1g
+`))).rejects.toThrow(/LTRA lossy lines support only .*'\.noise' is unsupported/);
   });
 });

@@ -3001,16 +3001,19 @@ export class Circuit {
       }
       const model = this._models.get(desc.modelName!);
       if (!model) throw new InvalidCircuitError(`LTRA '${desc.name}' references unknown model '${desc.modelName}'`);
-      resolveLtraModel(model);
+      const resolved = resolveLtraModel(model);
+      if (resolved.specialCase === 'RC' && this._analyses.some(analysis => analysis.type === 'tran')) {
+        throw new InvalidCircuitError('LTRA RC transient analysis is unsupported');
+      }
     }
     if (hasLossyLine) {
-      // The LTRA small-signal response is not a polynomial in s, which the
-      // G + sC frequency-domain assembly cannot represent.
+      // AC uses the frequency-dependent wave stamp; noise and pole-zero
+      // analyses do not support that stamp yet.
       const unsupported = this._poleZeroAnalyses.length > 0
         ? 'pz'
-        : this._analyses.find(analysis => !['op', 'dc', 'tran', 'tf'].includes(analysis.type))?.type;
+        : this._analyses.find(analysis => !['op', 'dc', 'tran', 'tf', 'ac'].includes(analysis.type))?.type;
       if (unsupported) {
-        throw new InvalidCircuitError(`LTRA lossy lines support only .op, .dc, .tf and .tran analyses; '.${unsupported}' is unsupported`);
+        throw new InvalidCircuitError(`LTRA lossy lines support only .op, .dc, .tf, .tran and .ac analyses; '.${unsupported}' is unsupported`);
       }
     }
     return descriptors;
