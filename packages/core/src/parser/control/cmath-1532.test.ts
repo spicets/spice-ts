@@ -62,7 +62,7 @@ describe('ngspice-47 control vector functions (#1532)', () => {
     expect(evaluate('group_delay(v)', signal, false, scale).scale).toBe(scale);
     expect(() => evaluate('stddev(v)', realVector('v', []))).toThrow('at least one');
   });
-  it.each(['sum', 'interpolate', 'sunif', 'sgauss', 'rnd', 'poisson', 'exponential'])('keeps %s explicitly unsupported', name => {
+  it.each(['sum', 'interpolate', 'rnd', 'poisson', 'exponential'])('keeps %s explicitly unsupported', name => {
     expect(() => evaluate(`${name}(v)`)).toThrow(UnsupportedExpressionFeature);
     try { evaluate(`${name}(v)`); } catch (error) { expect((error as UnsupportedExpressionFeature).feature).toBe(name); }
   });

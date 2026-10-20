@@ -1,0 +1,13 @@
+Control random vectors (original MIT fixture)
+V1 out 0 1
+R1 out 0 1k
+.control
+set numdgt=15
+setseed 55
+let u = sunif(vector(4))
+let g = sgauss(vector(4))
+let cu = sunif(vector(3) + j(vector(3)))
+let cg = sgauss(vector(3) + j(vector(3)))
+print u g cu cg
+.endc
+.end

@@ -30,6 +30,7 @@ import { solveStep, generateStepValues, resolveStepTarget } from './analysis/ste
 import type { StepStreamEvent, StepAnalysis } from './types.js';
 import type { MeasurementResult, SimulationResult, StepResult } from './results.js';
 import { InvalidCircuitError } from './errors.js';
+import { parameterRandom } from './parser/statistical-functions.js';
 import { createMatrixVariableIdentities, MNAAssembler } from './mna/assembler.js';
 import { toCsc } from './solver/csc-matrix.js';
 import { ComplexSparseSolver } from './solver/complex-sparse-solver.js';
@@ -367,7 +368,7 @@ function simulateControlScript(
   const measureValues = new Map<string, number>();
   const reparse = circuit.reparseWithParameters;
   const parameterChanges: import('./parser/preprocessor.js').ParameterAlteration[] = [];
-  let parameterSeed: number | undefined;
+
   const runtimeAlterations: ((evaluated: Circuit) => void)[] = [];
   let deckAnalyses = [...circuit.analyses];
   let deckPoleZero = [...circuit.poleZeroAnalyses];
@@ -451,11 +452,16 @@ function simulateControlScript(
       }
       parameterChanges.push({ subcircuit, name, expression });
     },
-    setSeed(seed) { parameterSeed = seed; },
+    setSeed(seed) {
+      parameterRandom(circuit).seed(seed);
+    },
+    random(gaussian, complex) {
+      const random = parameterRandom(circuit);
+      return gaussian ? random.gauss(complex) : random.drand();
+    },
     reset(line, newCircuit = false) {
       if (!reparse) throw unsupported('reset', 'no retained netlist source', line);
-      const reloaded = reparse(parameterChanges, parameterSeed);
-      parameterSeed = undefined;
+      const reloaded = reparse(parameterChanges);
       if (newCircuit && circuitLoaded) {
         previousCircuits.push({ circuit, alterations: [...runtimeAlterations], operatingState });
       }

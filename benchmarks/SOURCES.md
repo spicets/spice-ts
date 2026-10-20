@@ -2439,4 +2439,19 @@ Preserves ngspice's non-derivative tanh partials and its unlimited smoothed-knee
 discontinuities. No upstream circuit deck is copied. Before implementation,
 spice-ts rejected both fixtures as unsupported; no baseline waveform exists.
 
+## Control random vectors (#1597)
+
+`packages/core/src/parser/control/fixtures/random-1597.cir` is an original MIT
+fixture. Golden values in `random-1597.test.ts` were printed by macOS ngspice-47
+using `ngspice -b` on that fixture; spice-ts changes only the output commands to
+capture all real and imaginary components. Semantics follow BSD-3-Clause ngspice
+revision `3ef069fb`, `src/maths/cmaths/cmath2.c` (`cx_sunif`, `cx_sgauss`) and
+`src/maths/misc/randnumb.c` (`drand`, `gauss0`, `gauss1`):
+https://github.com/imr/ngspice/blob/3ef069fb/src/maths/cmaths/cmath2.c
+The unchanged corpus-f `examples/Monte_Carlo/{montecarlo,mc_ring}.sp` decks use
+the existing corpus provenance and licence. Before: both failed control parsing
+or execution. After: `montecarlo.sp` completes five AC runs; `mc_ring.sp` passes
+the comment line but still fails nominal transient convergence (tracked in #1600).
+This is control-language coverage, not a claim of full Monte Carlo parity.
+
 
