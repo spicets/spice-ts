@@ -21,6 +21,7 @@ import { SWITCH_BEHAVIORS } from './switch-models.js';
 import { MAGNETIC_BEHAVIORS } from './magnetic-models.js';
 import { mlin } from './mlin.js';
 import { cpmlin } from './cpmlin.js';
+import { cpline } from './cpline.js';
 import { REACTIVE_IC_BEHAVIORS } from './reactive-ic-models.js';
 import { zener } from './zener.js';
 import { memristor } from './memristor.js';
@@ -36,6 +37,7 @@ const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, Behavior
   ['xfer', xfer],
   ['mlin', mlin],
   ['cpmlin', cpmlin],
+  ['cpline', cpline],
   ['delay', delay],
   ...REACTIVE_IC_BEHAVIORS,
   ...XSPICE_BEHAVIORS, ...LIMITER_BEHAVIORS, ...OSCILLATOR_BEHAVIORS, ...SWITCH_BEHAVIORS, ...MAGNETIC_BEHAVIORS, ...OTA_BEHAVIORS,

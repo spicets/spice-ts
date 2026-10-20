@@ -2173,6 +2173,27 @@ lines 116-151 (DC/AC). Contrary to the original issue wording, reference DC is a
 ideal short and disp=0 is Kirschning-Jansen, not disabled dispersion.
 Transient remains unsupported, tracked in #1461.
 
+## XSPICE ideal coupled line OP/AC (#1551)
+
+The project-authored MIT regression deck and ngspice-47 OP/AC oracle values
+are in `packages/core/src/devices/xspice/cpline.test.ts`, with the reproduction
+command and observation commands. Nonzero even/odd attenuation is covered.
+The original BSD-3-Clause corpus-f `examples/xspice/transmission_lines/cpline_ac.cir`
+is unchanged (provenance in `corpus/corpus-f/SOURCES.md`). Run its single-fixture
+refresh with `spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/control-vectors.ts
+--control-vector-child examples-xspice-transmission-lines-cpline-ac-cir`.
+This uses the existing uniform corpus-f tolerance, not a per-circuit override.
+It compares all 48 S/Y/Z signals at 100 SP frequencies; no speed claim is made.
+
+Formula and parameter sources (BSD-3-Clause, Copyright 2025 Vadim Kuznetsov;
+full notice in `packages/core/src/devices/xspice/cpline.LICENSE`):
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/cpline/cfunc.mod
+lines 68–76 (parameters and attenuation conversion), 84–107 (DC shorts),
+140–164 (AC impedance matrix);
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/cpline/ifspec.ifs
+lines 111–183 (parameter defaults). Transient is explicitly rejected with
+`UNSUPPORTED_XSPICE_CPLINE`; no transient history implementation is adapted.
+
 ## XSPICE coupled microstrip OP/AC (#1483)
 
 `spice-heavy pnpm exec tsx benchmarks/xspice-cpmlin/compare.ts` sources the
