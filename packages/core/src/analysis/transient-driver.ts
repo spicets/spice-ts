@@ -6,6 +6,7 @@ import { resolveOptions, withNetlistOptions } from '../types.js';
 import { parse, parseAsync } from '../parser/index.js';
 import { createMatrixVariableIdentities, MNAAssembler } from '../mna/assembler.js';
 import { stampStaticDevices } from '../mna/linear-stamp.js';
+import type { SparseSolver } from '../solver/sparse-solver.js';
 import { solveDCOperatingPoint } from './dc.js';
 import { attemptStep } from './transient-step.js';
 import { ConvergenceError, TimestepTooSmallError, InvalidCircuitError } from '../errors.js';
@@ -124,6 +125,13 @@ export interface TransientSim {
   /** Immutable snapshot of convergence counters accumulated so far. */
   readonly convergence: ConvergenceTelemetry;
 
+  /**
+   * Snapshot the current state without advancing or solving again.
+   * Call before the first advance (or after reset) for the t=0 point.
+   * After advancing, returns the current accepted point, not the initial point.
+   * Each call returns fresh voltage/current Maps detached from solver state.
+   */
+  peekInitialStep(): TransientStep;
   /** Advance one converged timestep. Throws {@link ConvergenceError} on failure. */
   advance(): TransientStep;
   /** Convenience: loop {@link advance} until `simTime >= targetTime`. */
@@ -146,6 +154,8 @@ export interface TransientRejection {
 }
 
 export interface TransientSimOptions extends SimulationOptions {
+  /** Per-assembler solver, including DC initialization. Factory errors propagate. */
+  solverFactory?: () => SparseSolver;
   stopTime?: number;
   timestep?: number;
   maxTimestep?: number;
@@ -195,6 +205,7 @@ export async function createTransientSim(
   const resolved = resolveOptions(effectiveOptions, stopTime);
 
   return new TransientSimImpl(compiled, resolved, {
+    solverFactory: effectiveOptions.solverFactory,
     stopTime, timestep, maxTimestep, onReject: options?.onReject,
     initialSolution: tranAnalysis?.useInitialConditions
       ? computeUICInitialSolution(compiled)
@@ -204,6 +215,7 @@ export async function createTransientSim(
 }
 
 interface InternalTransientConfig {
+  solverFactory?: () => SparseSolver;
   /** Internal history/companion experiment; not a public MAXORD option. */
   experimentalGearOrder?: 3;
   onReject?: (rejection: TransientRejection) => void;
@@ -785,6 +797,7 @@ class TransientSimImpl implements TransientSim {
 
   private createAssembler(): MNAAssembler {
     return new MNAAssembler(this.compiled.nodeCount, this.compiled.branchCount, {
+      solverFactory: this.config.solverFactory,
       deviceGmin: this.options.deviceGmin,
       useDcSourceValue: this.config.operatingPoint?.useDcSourceValue,
       variables: createMatrixVariableIdentities(
@@ -915,6 +928,7 @@ class TransientSimImpl implements TransientSim {
     const { assembler: dcAsm } = solveDCOperatingPoint(
       this.compiled, this.options, undefined, this.convergenceTelemetry, 'transient',
       this.config.guard,
+      { solverFactory: this.config.solverFactory },
     );
     this.assembler.solution.set(dcAsm.solution);
   }
@@ -1039,6 +1053,7 @@ export function createDriverFromCompiled(
   compiled: CompiledCircuit,
   options: ResolvedOptions,
   config: {
+    solverFactory?: () => SparseSolver;
     stopTime: number | undefined;
     timestep: number;
     maxTimestep: number;
@@ -1052,11 +1067,11 @@ export function createDriverFromCompiled(
     experimentalGearOrder?: 3;
   },
 ): TransientSim & {
-  peekInitialStep(): TransientStep;
   currentSolution(): Float64Array;
   advanceSolution(): Float64Array;
 } {
   const impl = new TransientSimImpl(compiled, options, {
+    solverFactory: config.solverFactory,
     stopTime: config.stopTime,
     timestep: config.timestep,
     maxTimestep: config.maxTimestep,

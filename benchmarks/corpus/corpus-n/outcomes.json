@@ -27,7 +27,7 @@
     }
   ],
   "manifestSha256": "188778e6079cac1dd36c524b6f15fb113714a7941a1db8295499425c19c1a25d",
-  "coreTree": "581e11ef69eed239cd9631fb854162e0d8b00134",
+  "coreTree": "985293f6b7f1275efeeadf9f403315824fa7a92f",
   "tools": {
     "ngspice": "ngspice-47",
     "spiceTs": "0.4.0",
@@ -69,24 +69,24 @@
       "unsupported": 0
     },
     "spiceTs": {
-      "success": 19,
+      "success": 20,
       "failed": 3,
-      "unsupported": 2
+      "unsupported": 1
     },
     "outcomes": {
-      "matched": 9,
+      "matched": 10,
       "mismatch": 10,
       "not-compared": 0,
-      "spice-ts-loss": 5,
+      "spice-ts-loss": 4,
       "ngspice-failed": 0,
       "both-failed": 0
     },
     "bySource": {
       "ngspice": {
-        "matched": 7,
+        "matched": 8,
         "mismatch": 4,
         "not-compared": 0,
-        "spice-ts-loss": 2,
+        "spice-ts-loss": 1,
         "ngspice-failed": 0,
         "both-failed": 0
       },
@@ -118,15 +118,6 @@
       "ngspiceSuccess": 1,
       "ids": [
         "n-1"
-      ],
-      "issue": null
-    },
-    {
-      "bucket": "parse: other unsupported syntax",
-      "fixtures": 1,
-      "ngspiceSuccess": 1,
-      "ids": [
-        "n-9"
       ],
       "issue": null
     }
@@ -162,8 +153,8 @@
       "gapBucket": "directive: .pss",
       "comparisons": [],
       "runtime": {
-        "ngspiceChildWallMs": 1083.9357499999999,
-        "spiceTsChildWallMs": 1245.6246250000002
+        "ngspiceChildWallMs": 505.740083,
+        "spiceTsChildWallMs": 368.2505829999999
       }
     },
     {
@@ -178,7 +169,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [
-          "tran:25001"
+          "tran:24762"
         ]
       },
       "spiceTs": {
@@ -190,8 +181,8 @@
       },
       "comparedAnalyses": 2,
       "comparedSignals": 16,
-      "worstNormalizedError": 1.71,
-      "worstSignal": "tran v(6)",
+      "worstNormalizedError": 1.74,
+      "worstSignal": "tran v(xop.3)",
       "outcome": "mismatch",
       "gapBucket": null,
       "comparisons": [
@@ -223,7 +214,7 @@
           "metrics": {
             "grid": {
               "spiceTsPoints": 25787,
-              "ngspicePoints": 25001,
+              "ngspicePoints": 24762,
               "alignedPoints": 25786,
               "excludedOutOfRange": 1
             },
@@ -288,12 +279,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 13.813922183225086,
-                  "rms": 3.739778121896131
+                  "max": 10.093029485087932,
+                  "rms": 3.4064772359844673
                 },
                 "relativeError": {
-                  "max": 4713.0476473177505,
-                  "rms": 45.81772324856035,
+                  "max": 7809.26341990223,
+                  "rms": 71.03031442890844,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -302,12 +293,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 13.812215391513202,
-                  "rms": 3.7399003250031786
+                  "max": 10.093678201620088,
+                  "rms": 3.4065939946501484
                 },
                 "relativeError": {
-                  "max": 5566.415745970396,
-                  "rms": 52.760587482682055,
+                  "max": 242461.4199148895,
+                  "rms": 1512.0710803615739,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -316,12 +307,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 39.857111650828,
-                  "rms": 11.128815836798317
+                  "max": 29.40941203807448,
+                  "rms": 10.185347224412105
                 },
                 "relativeError": {
-                  "max": 2933.9685391398107,
-                  "rms": 35.47217424133956,
+                  "max": 23346.38946039483,
+                  "rms": 160.71433244965397,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -330,12 +321,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 38.67898518525519,
-                  "rms": 10.471378521667159
+                  "max": 28.260481390556922,
+                  "rms": 9.538136050886296
                 },
                 "relativeError": {
-                  "max": 4726.110485568881,
-                  "rms": 45.82946403035457,
+                  "max": 7817.174047644158,
+                  "rms": 71.06325514128245,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -344,12 +335,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 30.3741127433887,
-                  "rms": 8.310992595115257
+                  "max": 22.402788453559875,
+                  "rms": 7.565947530254945
                 },
                 "relativeError": {
-                  "max": 44485.99666756171,
-                  "rms": 313.0196142031231,
+                  "max": 13825.863890395109,
+                  "rms": 132.93307490653686,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -358,12 +349,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 2.9216001790589043,
-                  "rms": 1.32939438460312
+                  "max": 2.9322505200255033,
+                  "rms": 1.245570119481115
                 },
                 "relativeError": {
-                  "max": 167.6144312684859,
-                  "rms": 17.743392739780987,
+                  "max": 43.58510567012711,
+                  "rms": 7.114430028339415,
                   "sampleCount": 25786,
                   "excludedZeroReferences": 0
                 }
@@ -372,12 +363,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 3.9105234277539545,
-                  "rms": 1.6440699099866942
+                  "max": 3.698807548998041,
+                  "rms": 1.4760679909025736
                 },
                 "relativeError": {
-                  "max": 77.71129585067925,
-                  "rms": 10.511901901575992,
+                  "max": 97.55178604364379,
+                  "rms": 11.96265428762831,
                   "sampleCount": 25786,
                   "excludedZeroReferences": 0
                 }
@@ -386,12 +377,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 3.5615902252908316,
-                  "rms": 1.1599349524684708
+                  "max": 3.7004455285484292,
+                  "rms": 1.4056009221625545
                 },
                 "relativeError": {
-                  "max": 36.48374467092873,
-                  "rms": 6.269934985965367,
+                  "max": 22.79533294024121,
+                  "rms": 3.5486459502575727,
                   "sampleCount": 25786,
                   "excludedZeroReferences": 0
                 }
@@ -400,12 +391,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 3.3965635234632456,
-                  "rms": 1.3850110047964366
+                  "max": 3.48202608953646,
+                  "rms": 1.2807386250945314
                 },
                 "relativeError": {
-                  "max": 117.51761507876124,
-                  "rms": 17.127215600418307,
+                  "max": 1216.4098858781022,
+                  "rms": 122.3025897601114,
                   "sampleCount": 25786,
                   "excludedZeroReferences": 0
                 }
@@ -414,12 +405,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 673.2203260442525,
-                  "rms": 116.56825266251758
+                  "max": 502.36212412849966,
+                  "rms": 106.34644959955382
                 },
                 "relativeError": {
-                  "max": 5105.920596025534,
-                  "rms": 64.99752155934254,
+                  "max": 16038.387218887254,
+                  "rms": 125.02975537965926,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -428,12 +419,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 39.88390843186882,
-                  "rms": 11.136302532541436
+                  "max": 29.428189185678086,
+                  "rms": 10.19221100095966
                 },
                 "relativeError": {
-                  "max": 4983.0325050147385,
-                  "rms": 42.6565738033649,
+                  "max": 7909.836061780003,
+                  "rms": 84.35672230754203,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -442,12 +433,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 39.88390843186882,
-                  "rms": 11.136302532541437
+                  "max": 29.428189185678086,
+                  "rms": 10.19221100095966
                 },
                 "relativeError": {
-                  "max": 4983.0325050147385,
-                  "rms": 42.6565738033649,
+                  "max": 7909.836061780003,
+                  "rms": 84.35672230754203,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -457,7 +448,7 @@
           "linearMetrics": {
             "grid": {
               "spiceTsPoints": 25787,
-              "ngspicePoints": 25001,
+              "ngspicePoints": 24762,
               "alignedPoints": 25786,
               "excludedOutOfRange": 1
             },
@@ -522,12 +513,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 13.813922183225086,
-                  "rms": 3.739778121896146
+                  "max": 10.093029485087932,
+                  "rms": 3.406477235984484
                 },
                 "relativeError": {
-                  "max": 4713.0476473177505,
-                  "rms": 45.81772343770719,
+                  "max": 7809.26341990223,
+                  "rms": 71.03031455160473,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -536,12 +527,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 13.812215391513202,
-                  "rms": 3.7399003250031946
+                  "max": 10.093678201620088,
+                  "rms": 3.406593994650166
                 },
                 "relativeError": {
-                  "max": 5566.415745970396,
-                  "rms": 52.76058768100469,
+                  "max": 242461.4199148895,
+                  "rms": 1512.0710803685283,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -550,12 +541,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 39.857111650828,
-                  "rms": 11.128815836798372
+                  "max": 29.40941203807448,
+                  "rms": 10.185347224412164
                 },
                 "relativeError": {
-                  "max": 2933.9685391398107,
-                  "rms": 35.472174482264265,
+                  "max": 23346.38946039483,
+                  "rms": 160.71433250313157,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -564,12 +555,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 38.67898518525519,
-                  "rms": 10.4713785216672
+                  "max": 28.260481390556922,
+                  "rms": 9.53813605088634
                 },
                 "relativeError": {
-                  "max": 4726.110485568881,
-                  "rms": 45.82946421942029,
+                  "max": 7817.174047644158,
+                  "rms": 71.06325526390073,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -578,12 +569,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 30.3741127433887,
-                  "rms": 8.310992595115264
+                  "max": 22.402788453559875,
+                  "rms": 7.565947530254953
                 },
                 "relativeError": {
-                  "max": 44485.99666756171,
-                  "rms": 313.01961423644207,
+                  "max": 13825.863890395109,
+                  "rms": 132.9330749853829,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -592,12 +583,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 2.9216001790589043,
-                  "rms": 1.32939438460312
+                  "max": 2.9322505200255033,
+                  "rms": 1.2456161470454066
                 },
                 "relativeError": {
-                  "max": 167.6144312684859,
-                  "rms": 17.743392739780987,
+                  "max": 43.58510567012711,
+                  "rms": 7.114286744610138,
                   "sampleCount": 25786,
                   "excludedZeroReferences": 0
                 }
@@ -606,12 +597,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 3.9105234277539545,
-                  "rms": 1.6441627759697393
+                  "max": 3.698807548998041,
+                  "rms": 1.4760771791472238
                 },
                 "relativeError": {
-                  "max": 77.71129585067925,
-                  "rms": 10.511931446545528,
+                  "max": 97.55178604364379,
+                  "rms": 11.962700500556151,
                   "sampleCount": 25786,
                   "excludedZeroReferences": 0
                 }
@@ -620,12 +611,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 3.5615902252908316,
-                  "rms": 1.1599349524684708
+                  "max": 3.7004455285484292,
+                  "rms": 1.4056009221625545
                 },
                 "relativeError": {
-                  "max": 36.48374467092873,
-                  "rms": 6.269934985965367,
+                  "max": 22.79533294024121,
+                  "rms": 3.5486459502575727,
                   "sampleCount": 25786,
                   "excludedZeroReferences": 0
                 }
@@ -634,12 +625,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 3.3965635234632456,
-                  "rms": 1.3850110047964366
+                  "max": 3.48202608953646,
+                  "rms": 1.2809529873607672
                 },
                 "relativeError": {
-                  "max": 117.51761507876124,
-                  "rms": 17.127215600418307,
+                  "max": 1216.4098858781022,
+                  "rms": 122.3018068923372,
                   "sampleCount": 25786,
                   "excludedZeroReferences": 0
                 }
@@ -648,12 +639,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 673.2203260442525,
-                  "rms": 116.56825267081875
+                  "max": 502.36212412849966,
+                  "rms": 106.346449608247
                 },
                 "relativeError": {
-                  "max": 5105.920596025534,
-                  "rms": 64.99752165949687,
+                  "max": 16038.387218887254,
+                  "rms": 125.02975543074855,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -662,12 +653,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 39.88390843186882,
-                  "rms": 11.13630253254149
+                  "max": 29.428189185678086,
+                  "rms": 10.192211000959718
                 },
                 "relativeError": {
-                  "max": 4983.0325050147385,
-                  "rms": 42.656574003701756,
+                  "max": 7909.836061780003,
+                  "rms": 84.3567224094203,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -676,12 +667,12 @@
                 "status": "compared",
                 "sampleCount": 25786,
                 "absoluteError": {
-                  "max": 39.88390843186882,
-                  "rms": 11.136302532541492
+                  "max": 29.428189185678086,
+                  "rms": 10.192211000959718
                 },
                 "relativeError": {
-                  "max": 4983.0325050147385,
-                  "rms": 42.65657400370175,
+                  "max": 7909.836061780003,
+                  "rms": 84.3567224094203,
                   "sampleCount": 25785,
                   "excludedZeroReferences": 1
                 }
@@ -733,8 +724,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 1287.824792,
-        "spiceTsChildWallMs": 2381.5577909999993
+        "ngspiceChildWallMs": 727.3593329999999,
+        "spiceTsChildWallMs": 1389.642875
       }
     },
     {
@@ -761,7 +752,7 @@
       },
       "comparedAnalyses": 2,
       "comparedSignals": 12,
-      "worstNormalizedError": 0.000206,
+      "worstNormalizedError": 0.000329,
       "worstSignal": "tran v(1)",
       "outcome": "mismatch",
       "gapBucket": null,
@@ -883,12 +874,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 2.0595395345164884e-8,
-                  "rms": 6.375925713450664e-9
+                  "max": 3.2889453678078534e-8,
+                  "rms": 9.408778892030051e-9
                 },
                 "relativeError": {
-                  "max": 44917.24648612573,
-                  "rms": 440.881082501564,
+                  "max": 30877.226198614473,
+                  "rms": 381.22572582821675,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -897,12 +888,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 1.7404514521675178e-8,
-                  "rms": 4.257905126673438e-9
+                  "max": 1.8082713361991294e-8,
+                  "rms": 5.632928364078317e-9
                 },
                 "relativeError": {
-                  "max": 9302.772025677323,
-                  "rms": 132.56348289614954,
+                  "max": 10022.7227049641,
+                  "rms": 109.2543214484969,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -911,12 +902,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 1.4683471013220693e-8,
-                  "rms": 2.6273951200560498e-9
+                  "max": 1.1272904042689352e-8,
+                  "rms": 2.4369611360398905e-9
                 },
                 "relativeError": {
-                  "max": 10229.585562405144,
-                  "rms": 130.98170298721112,
+                  "max": 1970.1384243526595,
+                  "rms": 41.01587264544031,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -925,12 +916,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 7.873901747397735e-9,
-                  "rms": 1.6433727903091731e-9
+                  "max": 6.955517182620179e-9,
+                  "rms": 1.5719607444826944e-9
                 },
                 "relativeError": {
-                  "max": 106511.02933311724,
-                  "rms": 979.736082323056,
+                  "max": 2199.4594564504773,
+                  "rms": 40.40230314091537,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -939,12 +930,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 5.516290437027514e-9,
-                  "rms": 1.1938670067162061e-9
+                  "max": 4.89293167959548e-9,
+                  "rms": 1.2035706105318486e-9
                 },
                 "relativeError": {
-                  "max": 5894.644679674178,
-                  "rms": 91.69692637982838,
+                  "max": 17978.537449272666,
+                  "rms": 171.850965280016,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -953,12 +944,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 1.3334544516298643e-8,
-                  "rms": 3.4234739413498543e-9
+                  "max": 1.253217737164508e-8,
+                  "rms": 2.9757837792067604e-9
                 },
                 "relativeError": {
-                  "max": 14862.985713944401,
-                  "rms": 140.76052586505048,
+                  "max": 20120.783309471288,
+                  "rms": 245.3404518640013,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -1061,12 +1052,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 2.0595395345164884e-8,
-                  "rms": 6.375925713450664e-9
+                  "max": 3.2889453678078534e-8,
+                  "rms": 9.408778892030051e-9
                 },
                 "relativeError": {
-                  "max": 44917.24648612573,
-                  "rms": 440.881082501564,
+                  "max": 30877.226198614473,
+                  "rms": 381.22572582821675,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -1075,12 +1066,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 1.7404514521675178e-8,
-                  "rms": 4.257905126673438e-9
+                  "max": 1.8082713361991294e-8,
+                  "rms": 5.632928364078317e-9
                 },
                 "relativeError": {
-                  "max": 9302.772025677323,
-                  "rms": 132.56348289614954,
+                  "max": 10022.7227049641,
+                  "rms": 109.2543214484969,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -1089,12 +1080,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 1.4683471013220693e-8,
-                  "rms": 2.6273951200560498e-9
+                  "max": 1.1272904042689352e-8,
+                  "rms": 2.4369611360398905e-9
                 },
                 "relativeError": {
-                  "max": 10229.585562405144,
-                  "rms": 130.98170298721112,
+                  "max": 1970.1384243526595,
+                  "rms": 41.01587264544031,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -1103,12 +1094,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 7.873901747397735e-9,
-                  "rms": 1.6433727903091731e-9
+                  "max": 6.955517182620179e-9,
+                  "rms": 1.5719607444826944e-9
                 },
                 "relativeError": {
-                  "max": 106511.02933311724,
-                  "rms": 979.736082323056,
+                  "max": 2199.4594564504773,
+                  "rms": 40.40230314091537,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -1117,12 +1108,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 5.516290437027514e-9,
-                  "rms": 1.1938670067162061e-9
+                  "max": 4.89293167959548e-9,
+                  "rms": 1.2035706105318486e-9
                 },
                 "relativeError": {
-                  "max": 5894.644679674178,
-                  "rms": 91.69692637982838,
+                  "max": 17978.537449272666,
+                  "rms": 171.850965280016,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -1131,12 +1122,12 @@
                 "status": "compared",
                 "sampleCount": 12503,
                 "absoluteError": {
-                  "max": 1.3334544516298643e-8,
-                  "rms": 3.4234739413498543e-9
+                  "max": 1.253217737164508e-8,
+                  "rms": 2.9757837792067604e-9
                 },
                 "relativeError": {
-                  "max": 14862.985713944401,
-                  "rms": 140.76052586505048,
+                  "max": 20120.783309471288,
+                  "rms": 245.3404518640013,
                   "sampleCount": 12502,
                   "excludedZeroReferences": 1
                 }
@@ -1331,8 +1322,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 732.7475830000003,
-        "spiceTsChildWallMs": 1410.669084000001
+        "ngspiceChildWallMs": 269.7487090000004,
+        "spiceTsChildWallMs": 632.5031250000002
       }
     },
     {
@@ -1359,7 +1350,7 @@
       },
       "comparedAnalyses": 2,
       "comparedSignals": 5,
-      "worstNormalizedError": 2.63,
+      "worstNormalizedError": 3.52,
       "worstSignal": "tran v(3)",
       "outcome": "mismatch",
       "gapBucket": null,
@@ -1404,12 +1395,12 @@
                 "status": "compared",
                 "sampleCount": 224375,
                 "absoluteError": {
-                  "max": 0.6801857104307986,
-                  "rms": 0.13975194591545914
+                  "max": 0.6097252980132113,
+                  "rms": 0.13893550112845243
                 },
                 "relativeError": {
-                  "max": 44950.60447677168,
-                  "rms": 187.4432856314564,
+                  "max": 32024.04353119605,
+                  "rms": 127.2315396276739,
                   "sampleCount": 224375,
                   "excludedZeroReferences": 0
                 }
@@ -1418,12 +1409,12 @@
                 "status": "compared",
                 "sampleCount": 224375,
                 "absoluteError": {
-                  "max": 0.48589290600514495,
-                  "rms": 0.09849910383487834
+                  "max": 0.49564637237555326,
+                  "rms": 0.09882820873686483
                 },
                 "relativeError": {
-                  "max": 22253.37782743879,
-                  "rms": 84.77207356602001,
+                  "max": 29195.856529614262,
+                  "rms": 87.63580630317759,
                   "sampleCount": 224375,
                   "excludedZeroReferences": 0
                 }
@@ -1432,12 +1423,12 @@
                 "status": "compared",
                 "sampleCount": 224375,
                 "absoluteError": {
-                  "max": 5.73602063785142,
-                  "rms": 1.9263627740963722
+                  "max": 4.7707761136102285,
+                  "rms": 1.435037688976816
                 },
                 "relativeError": {
-                  "max": 3.476898113820521,
-                  "rms": 1.1676555321697264,
+                  "max": 4.6761982555193295,
+                  "rms": 1.406576186469394,
                   "sampleCount": 224375,
                   "excludedZeroReferences": 0
                 }
@@ -1446,12 +1437,12 @@
                 "status": "compared",
                 "sampleCount": 224375,
                 "absoluteError": {
-                  "max": 9.056061975623617,
-                  "rms": 1.7914839608833286
+                  "max": 7.439034148013842,
+                  "rms": 1.779969025316118
                 },
                 "relativeError": {
-                  "max": 79710.61069935591,
-                  "rms": 498.6745654577297,
+                  "max": 265894.71197260695,
+                  "rms": 691.6192948992281,
                   "sampleCount": 224375,
                   "excludedZeroReferences": 0
                 }
@@ -1484,12 +1475,12 @@
                 "status": "compared",
                 "sampleCount": 224375,
                 "absoluteError": {
-                  "max": 0.6801857104307986,
-                  "rms": 0.13975194591545914
+                  "max": 0.6097252980132113,
+                  "rms": 0.13893550112845243
                 },
                 "relativeError": {
-                  "max": 44950.60447677168,
-                  "rms": 187.4432856314564,
+                  "max": 32024.04353119605,
+                  "rms": 127.2315396276739,
                   "sampleCount": 224375,
                   "excludedZeroReferences": 0
                 }
@@ -1498,12 +1489,12 @@
                 "status": "compared",
                 "sampleCount": 224375,
                 "absoluteError": {
-                  "max": 0.48589290600514495,
-                  "rms": 0.09849910383487834
+                  "max": 0.49564637237555326,
+                  "rms": 0.09882820873686483
                 },
                 "relativeError": {
-                  "max": 22253.37782743879,
-                  "rms": 84.77207356602001,
+                  "max": 29195.856529614262,
+                  "rms": 87.63580630317759,
                   "sampleCount": 224375,
                   "excludedZeroReferences": 0
                 }
@@ -1512,12 +1503,12 @@
                 "status": "compared",
                 "sampleCount": 224375,
                 "absoluteError": {
-                  "max": 5.73602063785142,
-                  "rms": 1.9263627740963722
+                  "max": 4.7707761136102285,
+                  "rms": 1.435037688976816
                 },
                 "relativeError": {
-                  "max": 3.476898113820521,
-                  "rms": 1.1676555321697264,
+                  "max": 4.6761982555193295,
+                  "rms": 1.406576186469394,
                   "sampleCount": 224375,
                   "excludedZeroReferences": 0
                 }
@@ -1526,12 +1517,12 @@
                 "status": "compared",
                 "sampleCount": 224375,
                 "absoluteError": {
-                  "max": 9.056061975623617,
-                  "rms": 1.7914839608833286
+                  "max": 7.439034148013842,
+                  "rms": 1.779969025316118
                 },
                 "relativeError": {
-                  "max": 79710.61069935591,
-                  "rms": 498.6745654577297,
+                  "max": 265894.71197260695,
+                  "rms": 691.6192948992281,
                   "sampleCount": 224375,
                   "excludedZeroReferences": 0
                 }
@@ -1635,8 +1626,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 1621.6785,
-        "spiceTsChildWallMs": 4123.081
+        "ngspiceChildWallMs": 1090.9977499999995,
+        "spiceTsChildWallMs": 3258.1253339999994
       }
     },
     {
@@ -2105,8 +2096,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 1176.0750000000007,
-        "spiceTsChildWallMs": 18625.072334000004
+        "ngspiceChildWallMs": 742.6587080000008,
+        "spiceTsChildWallMs": 16293.966125
       }
     },
     {
@@ -2367,8 +2358,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 625.6370419999948,
-        "spiceTsChildWallMs": 1482.9830000000002
+        "ngspiceChildWallMs": 153.77787499999977,
+        "spiceTsChildWallMs": 449.2829579999998
       }
     },
     {
@@ -2571,8 +2562,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 658.4093330000032,
-        "spiceTsChildWallMs": 1207.6378339999937
+        "ngspiceChildWallMs": 161.2802499999998,
+        "spiceTsChildWallMs": 442.77370900000096
       }
     },
     {
@@ -2925,8 +2916,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 540.6654589999962,
-        "spiceTsChildWallMs": 1205.054790999995
+        "ngspiceChildWallMs": 144.0692909999998,
+        "spiceTsChildWallMs": 424.43591599999854
       }
     },
     {
@@ -2945,20 +2936,342 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Unsupported saved device vector '@d1[cd]'"
+        "status": "success",
+        "analyses": [
+          "tran:258"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax",
-      "comparisons": [],
+      "comparedAnalyses": 1,
+      "comparedSignals": 10,
+      "worstNormalizedError": 0.00424,
+      "worstSignal": "tran i(vg)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "tran",
+          "plot": {
+            "spiceTs": "tran1",
+            "ngspice": "Transient Analysis",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "i(va)",
+            "i(vd)",
+            "i(vg)",
+            "i(vk)",
+            "i(vs)",
+            "v(ad)",
+            "v(d)",
+            "v(g)",
+            "v(kd)",
+            "v(s)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 258,
+              "ngspicePoints": 258,
+              "alignedPoints": 258,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(va)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 7.120866396537195e-13,
+                  "rms": 7.325528703896412e-14
+                },
+                "relativeError": {
+                  "max": 0.000008248036750846256,
+                  "rms": 0.000002180034333861442,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vd)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 1.6663146557016617e-12,
+                  "rms": 7.391312721306434e-13
+                },
+                "relativeError": {
+                  "max": 0.005473703950680824,
+                  "rms": 0.0003426469082702517,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vg)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 1.0853540288734496e-12,
+                  "rms": 7.236522507965171e-13
+                },
+                "relativeError": {
+                  "max": 0.004256593888896223,
+                  "rms": 0.003398552473658823,
+                  "sampleCount": 257,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(vk)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 7.258022308165302e-13,
+                  "rms": 5.825813968745845e-14
+                },
+                "relativeError": {
+                  "max": 1.461169702888718e-10,
+                  "rms": 1.4243665213713758e-11,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vs)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 8.920331328879745e-13,
+                  "rms": 8.667099749380662e-14
+                },
+                "relativeError": {
+                  "max": 0.00004309774368045765,
+                  "rms": 0.000003100325047648664,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(ad)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 5.828670879282072e-16,
+                  "rms": 3.0520291259965485e-16
+                },
+                "relativeError": {
+                  "max": 1.7827381436141983e-13,
+                  "rms": 1.244386629888601e-14,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(d)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 5.828670879282072e-16,
+                  "rms": 3.0520291259965485e-16
+                },
+                "relativeError": {
+                  "max": 1.7827381436141983e-13,
+                  "rms": 1.244386629888601e-14,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(g)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 4.724455839266959e-16
+                },
+                "relativeError": {
+                  "max": 1.7763568394002506e-16,
+                  "rms": 9.448911678533922e-17,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(kd)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 258
+                }
+              },
+              "v(s)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 258
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 258,
+              "ngspicePoints": 258,
+              "alignedPoints": 258,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(va)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 7.120866396537195e-13,
+                  "rms": 7.325528912616541e-14
+                },
+                "relativeError": {
+                  "max": 0.000008248036750846256,
+                  "rms": 0.0000021800343338615916,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vd)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 1.6663146557016617e-12,
+                  "rms": 7.391312721306434e-13
+                },
+                "relativeError": {
+                  "max": 0.005473703950680824,
+                  "rms": 0.0003426469082702517,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vg)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 1.0853540288734496e-12,
+                  "rms": 7.236522507965171e-13
+                },
+                "relativeError": {
+                  "max": 0.004256593888896223,
+                  "rms": 0.003398552473658823,
+                  "sampleCount": 257,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(vk)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 7.258022308165302e-13,
+                  "rms": 5.825813968745845e-14
+                },
+                "relativeError": {
+                  "max": 1.461169702888718e-10,
+                  "rms": 1.4243665515835777e-11,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vs)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 8.920331328879745e-13,
+                  "rms": 8.667099749380662e-14
+                },
+                "relativeError": {
+                  "max": 0.00004309774368045765,
+                  "rms": 0.000003100325047648664,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(ad)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 5.828670879282072e-16,
+                  "rms": 3.0520291259965485e-16
+                },
+                "relativeError": {
+                  "max": 1.7827381436141983e-13,
+                  "rms": 1.244386629888601e-14,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(d)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 5.828670879282072e-16,
+                  "rms": 3.0520291259965485e-16
+                },
+                "relativeError": {
+                  "max": 1.7827381436141983e-13,
+                  "rms": 1.244386629888601e-14,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(g)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 4.724455839266959e-16
+                },
+                "relativeError": {
+                  "max": 1.7763568394002506e-16,
+                  "rms": 9.448911678533922e-17,
+                  "sampleCount": 258,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(kd)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 258
+                }
+              },
+              "v(s)": {
+                "status": "compared",
+                "sampleCount": 258,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 258
+                }
+              }
+            }
+          }
+        }
+      ],
       "runtime": {
-        "ngspiceChildWallMs": 587.0645420000001,
-        "spiceTsChildWallMs": 1200.689916000003
+        "ngspiceChildWallMs": 148.21070800000234,
+        "spiceTsChildWallMs": 442.19758300000103
       }
     },
     {
@@ -3304,8 +3617,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 593.4997500000027,
-        "spiceTsChildWallMs": 1196.1385840000003
+        "ngspiceChildWallMs": 178.67237500000192,
+        "spiceTsChildWallMs": 426.284166999998
       }
     },
     {
@@ -3651,8 +3964,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 626.4435000000012,
-        "spiceTsChildWallMs": 1444.9041670000006
+        "ngspiceChildWallMs": 160.77279199999975,
+        "spiceTsChildWallMs": 463.7939579999984
       }
     },
     {
@@ -4387,8 +4700,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 640.4202499999956,
-        "spiceTsChildWallMs": 1644.4352500000023
+        "ngspiceChildWallMs": 186.90366599999834,
+        "spiceTsChildWallMs": 549.6562909999993
       }
     },
     {
@@ -4744,8 +5057,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 710.8315409999996,
-        "spiceTsChildWallMs": 1372.856709000007
+        "ngspiceChildWallMs": 178.10879199999908,
+        "spiceTsChildWallMs": 467.12041699999827
       }
     },
     {
@@ -6195,8 +6508,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 654.1612500000047,
-        "spiceTsChildWallMs": 1386.3389580000003
+        "ngspiceChildWallMs": 172.15554200000042,
+        "spiceTsChildWallMs": 514.2520000000004
       }
     },
     {
@@ -7646,8 +7959,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 639.4125419999982,
-        "spiceTsChildWallMs": 1391.4842910000007
+        "ngspiceChildWallMs": 189.55012500000157,
+        "spiceTsChildWallMs": 509.5301670000008
       }
     },
     {
@@ -7763,8 +8076,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 632.4854590000032,
-        "spiceTsChildWallMs": 1502.0615419999958
+        "ngspiceChildWallMs": 178.65429099999892,
+        "spiceTsChildWallMs": 484.10916700000234
       }
     },
     {
@@ -8083,8 +8396,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 758.9049169999998,
-        "spiceTsChildWallMs": 1378.664542000006
+        "ngspiceChildWallMs": 151.5833749999947,
+        "spiceTsChildWallMs": 487.0897909999985
       }
     },
     {
@@ -24469,8 +24782,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 2007.9419170000037,
-        "spiceTsChildWallMs": 7038.102166999997
+        "ngspiceChildWallMs": 1775.666750000004,
+        "spiceTsChildWallMs": 4675.504417000004
       }
     },
     {
@@ -24501,8 +24814,8 @@
       "gapBucket": "execution: other failure",
       "comparisons": [],
       "runtime": {
-        "ngspiceChildWallMs": 27678.953166000007,
-        "spiceTsChildWallMs": 119008.76254200001
+        "ngspiceChildWallMs": 23945.528542,
+        "spiceTsChildWallMs": 119004.714917
       }
     },
     {
@@ -56344,8 +56657,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 6458.686167000007,
-        "spiceTsChildWallMs": 14145.867666000006
+        "ngspiceChildWallMs": 6784.874624999997,
+        "spiceTsChildWallMs": 19482.409584000008
       }
     },
     {
@@ -61565,8 +61878,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 1429.7113750000135,
-        "spiceTsChildWallMs": 8728.461041000002
+        "ngspiceChildWallMs": 1150.1624580000062,
+        "spiceTsChildWallMs": 10565.619291999988
       }
     },
     {
@@ -73630,8 +73943,8 @@
         }
       ],
       "runtime": {
-        "ngspiceChildWallMs": 18632.70624999999,
-        "spiceTsChildWallMs": 100709.369917
+        "ngspiceChildWallMs": 21646.158959000022,
+        "spiceTsChildWallMs": 99268.50495899998
       }
     },
     {
@@ -73662,8 +73975,8 @@
       "gapBucket": "execution: other failure",
       "comparisons": [],
       "runtime": {
-        "ngspiceChildWallMs": 28552.413500000024,
-        "spiceTsChildWallMs": 119008.31604200002
+        "ngspiceChildWallMs": 23884.746583,
+        "spiceTsChildWallMs": 119006.52012499998
       }
     },
     {
@@ -73694,8 +74007,8 @@
       "gapBucket": "execution: other failure",
       "comparisons": [],
       "runtime": {
-        "ngspiceChildWallMs": 29780.948124999995,
-        "spiceTsChildWallMs": 119021.8346249999
+        "ngspiceChildWallMs": 43527.382040999946,
+        "spiceTsChildWallMs": 119004.9866660001
       }
     }
   ],
@@ -73718,13 +74031,6 @@
         "n-20",
         "n-21",
         "n-22"
-      ]
-    },
-    {
-      "bucket": "parse: other unsupported syntax",
-      "count": 1,
-      "ids": [
-        "n-9"
       ]
     },
     {
@@ -73752,5 +74058,5 @@
       ]
     }
   ],
-  "outcomeSha256": "b2895b11a9246fb20977d23a8bd79e07cce1ef9ff88c3f8ee9cd4d5f78ede071"
+  "outcomeSha256": "7fc69df1e61511570f7929bc1d96e791cabb2b39dc7c5d7d25538b7fd67051f6"
 }

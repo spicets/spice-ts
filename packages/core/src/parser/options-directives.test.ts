@@ -286,8 +286,13 @@ ${control}
     expect(() => parse(`${deck('')}\n.control\nprint v(2)\n.endc`)).not.toThrow();
   });
 
+  it('warns for measure, absent from ngspice-47, and continues (#1547)', async () => {
+    const result = await simulate(`Control contract\n${deck('measure ac gain max vm(2)\necho continued')}`);
+    expect(result.warnings).toContainEqual({ type: 'control', message: 'measure: no such command available in ngspice' });
+    expect(result.control!.output).toEqual(['continued']);
+  });
+
   it.each([
-    ['measure ac gain max vm(2)', 'measure'],
     ['spec 10 1000 10 v(2)', 'spec'],
   ])('rejects an unexecuted control command %s with a structured error at parse time', (control, command) => {
     let error: unknown;

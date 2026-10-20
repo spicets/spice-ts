@@ -884,6 +884,13 @@ export class MOSFET implements DeviceModel {
     return scale;
   }
 
+  /** ngspice mos1ask.c MOS1_CD: native load current, including bulk-drain charge.
+   * Unlike terminal current, this retains the model's polarity-normalized sign.
+   */
+  outputDrainCurrent(): number {
+    return this.stateStore.values[this.stateBase + STATE_CD];
+  }
+
   /** Level-1 DC quantities used by the small-signal noise generators. */
   noiseOperatingPoint(solution: Float64Array): MOSFETOperatingPoint {
     const { polarity } = this.params;

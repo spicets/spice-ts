@@ -21,6 +21,53 @@ function request(source: string, options?: SimulationRequestV1['options']): Simu
 }
 
 describe('bounded diode WASM operating point', () => {
+  it.each([
+    ['forward', '.dc V1 -1 1 0.05'],
+    ['reverse', '.dc V1 1 -1 -0.05'],
+  ])('matches core at every diode DC sweep point: %s', async (_direction, sweep) => {
+    const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      for (const fixture of fixtures) {
+        const source = fixture.replace('.op', sweep!);
+        const actual = await wasm.simulate(request(source), { requestId: 'diode-dc-parity' });
+        expect(actual.ok).toBe(true);
+        if (!actual.ok) throw new Error(actual.error.message);
+        expect(actual.metadata).toMatchObject({ backend: 'spice-ts-wasm' });
+        const reference = await simulateProtocolV1(request(source));
+        const a = actual.data.analyses[0];
+        const b = reference.analyses[0];
+        expect(a?.type).toBe('dc');
+        expect(b?.type).toBe('dc');
+        if (a?.type !== 'dc' || b?.type !== 'dc') throw new Error('Expected DC results');
+        expect(a.axis.values).toHaveLength(41);
+        expect(a.axis.name).toBe(b.axis.name);
+        expect(a.axis.unit).toBe(b.axis.unit);
+        expect(a.axis.values).toHaveLength(b.axis.values.length);
+        a.axis.values.forEach((value, index) => expect(Math.abs(value - b.axis.values[index]!)).toBeLessThanOrEqual(1e-12));
+        for (const field of ['voltagesV', 'currentsA'] as const) {
+          expect(Object.keys(a[field])).toEqual(Object.keys(b[field]));
+          for (const [name, values] of Object.entries(b[field])) {
+            expect(a[field][name]).toHaveLength(values.length);
+            values.forEach((value, index) => {
+              expect(Math.abs(a[field][name]![index]! - value)).toBeLessThanOrEqual(Math.max(1e-12, 1e-9 * Math.abs(value)));
+            });
+          }
+        }
+      }
+    } finally { await wasm.close(); }
+  });
+
+  it.each([
+    [fixtures[0]!.replace('N=1)', 'N=1 BV=10)'), undefined, 'UNSUPPORTED_FEATURE', 'Only diode model parameters IS, N, and RS are supported'],
+    [fixtures[0]!.replace('IS=1e-14', 'IS=1e-300'), { maxIterations: 1 }, 'CONVERGENCE_FAILED', 'The bounded WebAssembly diode operating point did not converge'],
+  ] as const)('preserves structured diode errors in DC sweeps', async (fixture, options, code, message) => {
+    const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      expect(await wasm.simulate(request(fixture.replace('.op', '.dc V1 -1 1 0.05'), options), { requestId: 'diode-dc-error' }))
+        .toMatchObject({ ok: false, error: { code, message } });
+    } finally { await wasm.close(); }
+  });
+
   it.each(fixtures.map((source, index) => ({ source, index })))('matches core and ngspice voltages and branch currents: $index', async ({ source, index }) => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
@@ -46,7 +93,6 @@ describe('bounded diode WASM operating point', () => {
 
   it.each([
     [fixtures[0]!.replace('N=1)', 'N=1 BV=10)'), 'Only diode model parameters IS, N, and RS are supported'],
-    [fixtures[0]!.replace('.op', '.tran 1u 1m'), "Unsupported linear .tran card 'D1'"],
     [fixtures[0]!.replace('.op', '.ac dec 1 1 10'), "Unsupported linear .ac card 'D1'"],
     [fixtures[0]!.replace('N=1)', 'N=1 CJO=1p)'), 'Only diode model parameters IS, N, and RS are supported'],
     [fixtures[0]!.replace('D1 out 0 junction', 'D1 out 0 junction AREA=2'), 'Diodes must use name anode cathode model'],

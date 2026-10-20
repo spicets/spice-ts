@@ -6,15 +6,15 @@ Every deck below is byte-identical to its pinned upstream revision (ahkab `1e893
 
 ## Totals
 
-- Fixtures: 52. Outcome SHA-256: `8c718b9ddd4dca866f6c656be3dfb2febba2a00b2f26ff05b0e73e7c70a5b473`.
+- Fixtures: 52. Outcome SHA-256: `d8061077adef398482b29b446e81dc6eaf1e3f08717181a39fd6af1568296c4f`.
 - ngspice (ngspice-47): 52 success, 0 failed, 0 unsupported.
-- spice-ts (0.4.0): 51 success, 0 failed, 1 unsupported.
-- Outcomes: matched 40, mismatch 8, not-compared 3, spice-ts-loss 1, ngspice-failed 0, both-failed 0.
-- Of the 52 decks ngspice runs successfully, spice-ts matches 40, mismatches 8, produces no comparable result for 3 and fails 1.
+- spice-ts (0.4.0): 52 success, 0 failed, 0 unsupported.
+- Outcomes: matched 41, mismatch 8, not-compared 3, spice-ts-loss 0, ngspice-failed 0, both-failed 0.
+- Of the 52 decks ngspice runs successfully, spice-ts matches 41, mismatches 8, produces no comparable result for 3 and fails 0.
 
 | Source | Fixtures | Matched | Mismatch | Not compared | spice-ts loss | ngspice failed | Both failed |
 |---|---|---|---|---|---|---|---|
-| `kicad` | 5 | 3 | 1 | 0 | 1 | 0 | 0 |
+| `kicad` | 5 | 4 | 1 | 0 | 0 | 0 | 0 |
 | `pyspice` | 8 | 8 | 0 | 0 | 0 | 0 | 0 |
 | `spicelib` | 2 | 2 | 0 | 0 | 0 | 0 | 0 |
 | `spicesharpparser` | 24 | 18 | 6 | 0 | 0 | 0 | 0 |
@@ -45,16 +45,14 @@ Grouped from spice-ts's own first error line (corpus-h rules, then corpus-g and 
 
 | Bucket | Fixtures | ngspice ok | Issue |
 |---|---|---|---|
-| model: VDMOS power MOSFET | 1 | 1 | none filed |
 
-## Losses (12)
+## Losses (11)
 
 Every fixture that is not matched: spice-ts failures, mismatches above the threshold, and results that could not be compared.
 
 | Fixture | ngspice | spice-ts | Outcome | Worst | Worst signal | First error line (ngspice / spice-ts) |
 |---|---|---|---|---|---|---|
-| [kicad/qa/data/eeschema/issue13431.spice](fixtures/kicad/qa/data/eeschema/issue13431.spice) | success | unsupported | spice-ts-loss |  |  | spice-ts: Parse error at line 22: .model 'ctest' has unsupported type 'CMETER' (supported: D, NPN, PNP, NJF, PJF, NMOS, PMOS, VDMOS, VDMOSN, VDMOSP, NHFET, NMF, R, RES, C, L, LTRA, TXL, CPL, URC, SW, CSW) .model ctest cmeter(gain=1.0) |
-| [kicad/qa/data/eeschema/spice_netlists/legacy_sources/legacy_sources.spice](fixtures/kicad/qa/data/eeschema/spice_netlists/legacy_sources/legacy_sources.spice) | success | success | mismatch | 1.8 | tran v(/itrnoise) |  |
+| [kicad/qa/data/eeschema/spice_netlists/legacy_sources/legacy_sources.spice](fixtures/kicad/qa/data/eeschema/spice_netlists/legacy_sources/legacy_sources.spice) | success | success | mismatch | 2.54 | tran i(v9) |  |
 | [spicesharpparser/circuits/cookbook/pure-spice/astable-led-flasher/astable-led-flasher.cir](fixtures/spicesharpparser/circuits/cookbook/pure-spice/astable-led-flasher/astable-led-flasher.cir) | success | success | mismatch | 1.27 | tran v(base2) |  |
 | [spicesharpparser/circuits/cookbook/pure-spice/bjt-relay-driver/bjt-relay-driver.cir](fixtures/spicesharpparser/circuits/cookbook/pure-spice/bjt-relay-driver/bjt-relay-driver.cir) | success | success | mismatch | 0.0215 | tran v(collector) |  |
 | [spicesharpparser/src/SpiceSharpParser.IntegrationTests/Examples/Circuits/Example04.cir](fixtures/spicesharpparser/src/SpiceSharpParser.IntegrationTests/Examples/Circuits/Example04.cir) | success | success | mismatch | 2 | op i(v1) |  |
@@ -66,13 +64,14 @@ Every fixture that is not matched: spice-ts failures, mismatches above the thres
 | [xictools/wrspice/examples/resnoise.cir](fixtures/xictools/wrspice/examples/resnoise.cir) † | success | success | not-compared |  |  |  |
 | [xictools/wrspice/examples/schmitt.cir](fixtures/xictools/wrspice/examples/schmitt.cir) † | success | success | mismatch | 0.107 | tran i(vin) |  |
 
-## Wins (40)
+## Wins (41)
 
 Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every common signal.
 
 | Fixture | ngspice | spice-ts | Outcome | Worst | Worst signal | First error line (ngspice / spice-ts) |
 |---|---|---|---|---|---|---|
 | [kicad/qa/data/eeschema/issue13162.spice](fixtures/kicad/qa/data/eeschema/issue13162.spice) | success | success | matched | 3.65e-13 | tran i(vin1) |  |
+| [kicad/qa/data/eeschema/issue13431.spice](fixtures/kicad/qa/data/eeschema/issue13431.spice) | success | success | matched | 0.00224 | tran i(v1) |  |
 | [kicad/qa/data/eeschema/spice_netlists/legacy_pspice/legacy_pspice.spice](fixtures/kicad/qa/data/eeschema/spice_netlists/legacy_pspice/legacy_pspice.spice) | success | success | matched | 3.3e-7 | ac v(net-_c4-pad2_) |  |
 | [kicad/qa/data/eeschema/spice_netlists/tlines/tlines.spice](fixtures/kicad/qa/data/eeschema/spice_netlists/tlines/tlines.spice) | success | success | matched | 5.46e-14 | tran i(vpulse1) |  |
 | [pyspice/examples/c-examples/ngspice_cb/examples/adder_mos.cir](fixtures/pyspice/examples/c-examples/ngspice_cb/examples/adder_mos.cir) † | success | success | matched | 1.7e-13 | tran v(1) |  |
@@ -117,12 +116,13 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 
 - Fine-step reference (#592): ngspice-47 runs the same deck with every active .tran card rewritten to TMAX_fine = min(TSTEP, (TSTOP - TSTART)/50, deck TMAX if given) / 10, i.e. the ngspice default step ceiling divided by 10; TSTEP, TSTOP, TSTART, UIC and every other card are unchanged. The rule is the same for every transient fixture. No reference is generated when the deck has no parsable .tran card outside .control, or when TSTOP/TMAX_fine exceeds 1000000 steps; the ngspice run is bounded at 600 s. Each default run (spice-ts, ngspice) is scored by the same procedure: at the reference's output points, with the default run linearly interpolated onto them, over the transient signals of the headline comparison, normalised by the reference peak with the same per-quantity floors. The headline's one-sided breakpoint alignment applies at every default-run time point within ngspice's breakpoint merge distance (CKTminBreak = 0.00005 x TMAX_fine) of a reference time point; the headline matches breakpoints bit for bit, which here would favour ngspice, whose default run lands on its own reference's breakpoint times exactly while spice-ts's land a few ulps away. This charges each engine for its own published waveform, so a coarse output grid counts against whichever engine produced it. Status (matched/mismatch) is defined by the headline column only. One fine reference is not a convergence proof, and neither column is an accuracy ranking of the engines.
 - One fine reference is not a convergence proof: it is one more discretisation of the same circuit by the same engine. These columns are diagnostics of grid sensitivity, not an accuracy ranking and not a claim that either engine is more accurate. Status stays defined by the headline column.
-- Transient rows: 25; fine reference compared for 25, unavailable for 0. Above 0.01 among compared rows: headline (transient signals) 4, spice-ts vs fine 9, ngspice default vs fine 9.
+- Transient rows: 26; fine reference compared for 26, unavailable for 0. Above 0.01 among compared rows: headline (transient signals) 4, spice-ts vs fine 10, ngspice default vs fine 10.
 
 | Fixture | Status (headline) | Headline tran worst (vs ngspice default) | spice-ts vs fine | ngspice default vs fine | Fine TMAX | Note |
 |---|---|---|---|---|---|---|
 | [kicad/qa/data/eeschema/issue13162.spice](fixtures/kicad/qa/data/eeschema/issue13162.spice) | matched | 3.65e-13 (i(vin1)) | 0.561 (i(vin1)) | 0.561 (i(vin1)) | 0.00001 |  |
-| [kicad/qa/data/eeschema/spice_netlists/legacy_sources/legacy_sources.spice](fixtures/kicad/qa/data/eeschema/spice_netlists/legacy_sources/legacy_sources.spice) | mismatch | 1.8 (v(/itrnoise)) | 2.1 (v(/itrrandom)) | 1.84 (i(v8)) | 1e-10 |  |
+| [kicad/qa/data/eeschema/issue13431.spice](fixtures/kicad/qa/data/eeschema/issue13431.spice) | matched | 0.00224 (i(v1)) | 0.786 (v(/pwm_to_driver)) | 0.824 (v(/pwm_to_driver)) | 0.000001 |  |
+| [kicad/qa/data/eeschema/spice_netlists/legacy_sources/legacy_sources.spice](fixtures/kicad/qa/data/eeschema/spice_netlists/legacy_sources/legacy_sources.spice) | mismatch | 2.54 (i(v9)) | 3.16 (i(v9)) | 2.89 (v(/vtrrandom)) | 1e-10 |  |
 | [kicad/qa/data/eeschema/spice_netlists/tlines/tlines.spice](fixtures/kicad/qa/data/eeschema/spice_netlists/tlines/tlines.spice) | matched | 5.46e-14 (i(vpulse1)) | 0.0433 (v(/rlgc_out)) | 0.0433 (v(/rlgc_out)) | 1e-7 |  |
 | [pyspice/examples/c-examples/ngspice_cb/examples/adder_mos.cir](fixtures/pyspice/examples/c-examples/ngspice_cb/examples/adder_mos.cir) | matched | 1.7e-13 (v(1)) | 2.19e-13 (v(3)) | 3.39e-13 (v(4)) | 5e-11 |  |
 | [pyspice/examples/spice-examples/ac-coupled-transistor-amplifier.cir](fixtures/pyspice/examples/spice-examples/ac-coupled-transistor-amplifier.cir) | matched | 0.00000806 (v(emit)) | 0.00000845 (i(vin)) | 0.00000494 (i(vin)) | 1e-7 |  |

@@ -537,10 +537,16 @@ function distortionAnalyses(distortion: {
  * pre-check reports the same parse error; corpus-f still passes `parseFirst: false` to report
  * exactly what `simulate()` itself does.
  */
+export interface NativeSpiceTsOptions {
+  parseFirst?: boolean;
+  coreModule?: string;
+  resolveInclude?: (path: string) => Promise<string>;
+}
+
 export async function runNativeSpiceTs(
   input: Buffer,
   circuit: ClassicCircuit,
-  options: { parseFirst?: boolean; coreModule?: string } = {},
+  options: NativeSpiceTsOptions = {},
 ): Promise<EngineExecution> {
   return runNativeSpiceTsEncoded(input, circuit, OBJECT_SAMPLES, options);
 }
@@ -550,7 +556,7 @@ export async function runNativeSpiceTsEncoded<S>(
   input: Buffer,
   circuit: ClassicCircuit,
   encoding: SampleEncoding<S>,
-  options: { parseFirst?: boolean; coreModule?: string } = {},
+  options: NativeSpiceTsOptions = {},
 ): Promise<EncodedExecution<S>> {
   const text = input.toString('utf8');
   if (!Buffer.from(text, 'utf8').equals(input)) {
@@ -565,7 +571,7 @@ export async function runNativeSpiceTsEncoded<S>(
   try {
     const core = await import(options.coreModule ?? pathToFileURL(resolve('packages/core/dist/index.js')).href);
     if (options.parseFirst ?? true) core.parse(text);
-    const simulated = await core.simulate(text, { sourcePath: circuit.sourcePath });
+    const simulated = await core.simulate(text, { sourcePath: circuit.sourcePath, resolveInclude: options.resolveInclude });
     const analyses: EncodedAnalysis<S>[] = [];
     const runs = simulated.control?.runs ?? [];
     // The core also retains lowered straight-line .control runs in analyses[].

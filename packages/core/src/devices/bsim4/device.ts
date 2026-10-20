@@ -52,7 +52,7 @@ function lowercaseCard(card: Readonly<Record<string, number | string | undefined
 export class BSIM4 implements DeviceModel {
   readonly integratesTransientCharge = true;
   readonly truncationCoversCharges = true;
-  private readonly chargeState = new TransientChargeState(3);
+  private readonly chargeState: TransientChargeState;
   readonly branches: number[] = [];
   readonly isNonlinear = true;
   private readonly model: Bsim4ModelSetup;
@@ -87,12 +87,13 @@ export class BSIM4 implements DeviceModel {
       throw new InvalidCircuitError('BSIM4 requires internal nodes for enabled RGATEMOD/RBODYMOD');
     }
     this.bodyNodes = body ? nodes.slice(4 + Number(gate)) : [];
+    this.chargeState = new TransientChargeState(body ? 5 : 3);
     this.intrinsicNodes = [nodes[0], gate ? nodes[4] : nodes[1], nodes[2], this.bodyNodes[1] ?? nodes[3]];
     this.processed = preprocessBsim4(this.model, this.instance);
     this.von = this.evaluate(this.previous).von; // enforce all DC guards at construction
   }
   private unsupported(request: string): never {
-    throw new UnsupportedModelParameterError(this.name, request, 'BSIM4 supports OP/DC, quasi-static AC and capMod=2 transient (RBODYMOD=0) only', { model: 'BSIM4' });
+    throw new UnsupportedModelParameterError(this.name, request, 'BSIM4 supports OP/DC, quasi-static AC and capMod=2 transient (RBODYMOD=0/1) only', { model: 'BSIM4' });
   }
   assertAnalyses(analyses: readonly string[]): void {
     for (const analysis of analyses) {
@@ -135,19 +136,36 @@ export class BSIM4 implements DeviceModel {
   }
   resetTransient(): void { this.chargeState.reset(); }
   private terminalCharges(read: (node: number) => number) {
-    if (this.bodyNodes.length) this.unsupported('RBODYMOD=1 transient charge');
     const p = this.model.values.type;
     // RGATEMOD=1/2 store intrinsic and overlap charge at GP (b4ld.c),
     // behind the static/nonlinear gate resistor. Only RGATEMOD=3 splits
     // overlap charge onto a mid-gate node. Acceptance and LTE also use GP.
     const v = this.intrinsicNodes.map(node => node < 0 ? 0 : read(node));
-    // The newly enabled mode uses native default fringe capacitance, as AC
-    // does. Preserve the existing RGATEMOD=0/1 transient preprocessing.
-    if (this.instance.values.rgatemod === 2) {
+    // Newly enabled gate/body modes use native default fringe capacitance,
+    // as AC does. Preserve legacy RBODYMOD=0, RGATEMOD=0/1 preprocessing.
+    const nativeCharge = this.instance.values.rgatemod === 2 || this.bodyNodes.length > 0;
+    if (nativeCharge) {
       this.acProcessed ??= preprocessBsim4(this.model, this.instance, this.processed.temperatureK, 'ac');
     }
-    return evaluateBsim4Charges(this.instance.values.rgatemod === 2 ? this.acProcessed! : this.processed, this.model.given,
-      { vgs: p * (v[1] - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) });
+    // b4ld.c: RBODYMOD separates qbd/qbs from intrinsic qbulk/qdrn.
+    // Physical junction identities stay DB-D and SB-S in reverse mode too.
+    const junctions = this.bodyNodes.length ? [
+      { body: this.bodyNodes[0], terminal: this.intrinsicNodes[0], charge: 0, capacitance: 0 },
+      { body: this.bodyNodes[2], terminal: this.intrinsicNodes[2], charge: 0, capacitance: 0 },
+    ] : [];
+    const voltage = (node: number) => node < 0 ? 0 : read(node);
+    const tc = evaluateBsim4Charges(nativeCharge ? this.acProcessed! : this.processed, this.model.given,
+      { vgs: p * (v[1] - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) },
+      junctions.length ? {
+        vbd: p * (voltage(junctions[0].body) - v[0]),
+        vbs: p * (voltage(junctions[1].body) - v[2]),
+        stamp: (other, charge, capacitance) => {
+          const junction = junctions[other === 0 ? 0 : 1];
+          junction.charge += charge;
+          junction.capacitance += capacitance;
+        },
+      } : undefined);
+    return { ...tc, junctions };
   }
   stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {
     const tc = this.terminalCharges(node => ctx.getVoltage(node));
@@ -169,16 +187,29 @@ export class BSIM4 implements DeviceModel {
       if (into >= 0) ctx.stampB(into, -equivalent);
       if (source >= 0) ctx.stampB(source, equivalent);
     }
+    for (const [index, junction] of tc.junctions.entries()) {
+      const { body, terminal, charge, capacitance } = junction;
+      const g = state.factor * mult * capacitance;
+      const voltage = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);
+      const equivalent = state.current(3 + index, mult * this.model.values.type * charge)
+        - g * (voltage(body) - voltage(terminal));
+      this.stampConductance(ctx, body, terminal, g);
+      stampChargeCurrent(ctx, body, terminal, equivalent);
+    }
   }
   stampAcceptedChargeCurrent(ctx: StampContext): void {
     for (let index = 0; index < 3; index++) {
       stampChargeCurrent(ctx, this.intrinsicNodes[[1, 0, 3][index]], this.intrinsicNodes[2], this.chargeState.acceptedChargeCurrent(index));
     }
+    if (this.bodyNodes.length) for (const [index, body, terminal] of [
+      [3, this.bodyNodes[0], this.intrinsicNodes[0]], [4, this.bodyNodes[2], this.intrinsicNodes[2]],
+    ]) stampChargeCurrent(ctx, body, terminal, this.chargeState.acceptedChargeCurrent(index));
   }
   acceptTransientStep(ctx: StampContext): void {
     const tc = this.terminalCharges(node => ctx.getVoltage(node));
     const scale = this.instance.values.m * this.instance.values.mult_q * this.model.values.type;
     for (let index = 0; index < 3; index++) this.chargeState.accept(index, scale * tc.q[[1, 0, 3][index]]);
+    for (const [index, junction] of tc.junctions.entries()) this.chargeState.accept(3 + index, scale * junction.charge);
     this.chargeState.commit();
   }
   truncateTransientStep(ctx: StampContext, truncation: ChargeTruncation): number {

@@ -113,7 +113,7 @@ describe('bounded numeric WebAssembly backend', () => {
         ['wrong-direction', 'V1 in 0 0\nR1 in 0 1k\n.dc V1 0 1 -1', 'INVALID_CIRCUIT', { feature: 'dc-grid' }],
         ['nested', 'V1 in 0 0\nR1 in 0 1k\n.dc V1 0 1 1 V2 0 1 1', 'UNSUPPORTED_FEATURE', { feature: 'dc-nested-sweep' }],
         ['nonlinear-source', 'V1 in 0 PULSE(0 1 0 1n 1n 1m 2m)\nR1 in 0 1k\n.dc V1 0 1 1', 'UNSUPPORTED_FEATURE', { feature: 'source-waveform' }],
-        ['nonlinear-device', 'V1 in 0 0\nD1 in 0 D\n.model D D\n.dc V1 0 1 1', 'UNSUPPORTED_FEATURE', {}],
+        ['unsupported-mos-level', 'V1 in 0 0\nM1 in in 0 0 mos\n.model mos NMOS(LEVEL=2)\n.dc V1 0 1 1', 'UNSUPPORTED_FEATURE', { feature: 'mosfet-model-parameter' }],
       ] as const) {
         const result = await wasm.simulate(request(source), { requestId: `dc-${name}` });
         expect(result).toMatchObject({
@@ -162,8 +162,8 @@ describe('bounded numeric WebAssembly backend', () => {
           inputFormats: ['spice'],
           analyses: ['op', 'dc', 'tran', 'ac'],
           devicesByAnalysis: {
-            op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D'],
-            dc: ['R', 'I', 'V'],
+            op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'],
+            dc: ['R', 'I', 'V', 'D'],
             tran: ['R', 'C', 'L', 'I', 'V'],
             ac: ['R', 'C', 'L', 'I', 'V'],
           },
@@ -1275,7 +1275,7 @@ describe('bounded numeric WebAssembly backend', () => {
         capacitor: 'V1 in 0 1\nC1 in 0 1u\n.op',
         waveform: 'V1 in 0 PULSE(0 1 0 1n 1n 1m 2m)\nR1 in 0 1k\n.op',
         coupledInductorTransient: 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m\nL2 b 0 1m\nR2 b 0 1\nK1 L1 L2 0.5\n.tran 1u 1m',
-        nonlinearTransient: 'V1 in 0 1\nD1 in 0 D\n.model D D\n.tran 1u 1m',
+        nonlinearTransient: 'V1 in 0 1\nD1 in 0 D\n.model D D(CJO=1p)\n.tran 1u 1m',
       })) {
         const result = await wasm.simulate(request(source), { requestId: `unsupported-${name}` });
         expect(result).toMatchObject({

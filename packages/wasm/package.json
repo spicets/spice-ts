@@ -41,7 +41,7 @@
     "bench:ccvs-op": "pnpm build && tsx ../../benchmarks/results/issue-362/compare.ts",
     "bench:rlc-tran": "pnpm build && tsx ../../benchmarks/results/issue-368/compare.ts",
     "bench:dc": "pnpm build && tsx ../../benchmarks/wasm-dc-sweep/compare.ts",
-    "test:coverage": "pnpm build && vitest run --coverage",
+    "test:coverage": "pnpm build && vitest run --coverage --exclude src/browser.smoke.test.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

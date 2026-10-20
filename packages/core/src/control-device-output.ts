@@ -5,6 +5,7 @@ import type { DeviceModel } from './devices/device.js';
 import { Resistor } from './devices/resistor.js';
 import { Diode } from './devices/diode.js';
 import { VDMOS } from './devices/vdmos.js';
+import { MOSFET } from './devices/mosfet.js';
 import { CurrentSource } from './devices/current-source.js';
 import { VoltageSource } from './devices/voltage-source.js';
 import { BehavioralCurrentSource, BehavioralVoltageSource } from './devices/behavioral-source.js';
@@ -95,7 +96,10 @@ export function deviceOutputVector(
 ): number[] | undefined {
   if (!state) return undefined;
   const wanted = name.toLowerCase();
-  const device = state.devices.find(candidate => candidate.name.toLowerCase() === wanted);
+  const device = state.devices.find(candidate => candidate.name.toLowerCase() === wanted)
+    // Compiled subcircuit names are X1.M1; ngspice saves use M.X1.M1.
+    ?? state.devices.find(candidate => candidate instanceof MOSFET && candidate.name.includes('.')
+      && `m.${candidate.name}`.toLowerCase() === wanted);
   if (!device) return undefined;
   const key = parameter.toLowerCase();
   const { solution, nodeCount } = state;
@@ -105,6 +109,7 @@ export function deviceOutputVector(
     return [device.noiseOperatingPoint(solution, state.deviceGmin).current];
   }
   if (device instanceof Diode && key === 'cd') return [device.outputCapacitance(solution, state.deviceGmin)];
+  if (device instanceof MOSFET && key === 'id') return [device.outputDrainCurrent()];
   if (device instanceof VDMOS && (key === 'id' || key === 'cgd' || key === 'cgs' || key === 'cds')) {
     return [device.outputOperatingPoint(solution)[key]];
   }

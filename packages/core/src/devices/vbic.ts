@@ -30,15 +30,17 @@ const DC_INERT_PARAMETERS = [
   'KFN', 'AFN', 'BFN', 'CTH',
 ] as const;
 /** Temperature mapping inputs (ngspice vbictemp.c); TNOM defaults to 27 C. */
-const TEMPERATURE_PARAMETERS = ['TNOM', 'XRE', 'XRBI', 'XRCI', 'XRS', 'XRBP', 'XRCX', 'XRBX'] as const;
+const TEMPERATURE_PARAMETERS = [
+  'TNOM', 'XRE', 'XRBI', 'XRCI', 'XRS', 'XRBP', 'XRCX', 'XRBX',
+  'EA', 'EAIE', 'EAIC', 'EAIS', 'EANE', 'EANC', 'EANS', 'EAP',
+] as const;
 /** Explicit ngspice defaults for features outside the bounded equations.
  * Accept only their inactive/default values, never silently ignore a change.
  */
 const FIXED_PARAMETERS: Record<string, number> = {
   AJE: -0.5, AJC: -0.5, AJS: -0.5, CBEO: 0, CBCO: 0, CCSO: 0,
   QTF: 0, XVO: 0,
-  EA: 1.12, EAIE: 1.12, EAIC: 1.12, EAIS: 1.12, EANE: 1.12, EANC: 1.12,
-  EANS: 1.12, EAP: 1.12, XIS: 3, XII: 3, XIN: 3, TNF: 0, TAVC: 0,
+  XIS: 3, XII: 3, XIN: 3, TNF: 0, TAVC: 0,
   VRT: 0, ART: 0.1, QBM: 0, NKF: 0.5, XIKF: 0,
   ISRR: 1, XISR: 0, DEAR: 0, VBBE: 0, NBBE: 1,
   IBBE: 1e-6, TVBBE1: 0, TVBBE2: 0, TNBBE: 0, EBBE: 0,
@@ -123,6 +125,8 @@ const DEFAULTS: VBICParams = {
   BFN: 1,
   TNOM: NOMINAL_TEMPERATURE_C,
   XRE: 0, XRBI: 0, XRCI: 0, XRS: 0, XRBP: 0, XRCX: 0, XRBX: 0,
+  EA: 1.12, EAIE: 1.12, EAIC: 1.12, EAIS: 1.12,
+  EANE: 1.12, EANC: 1.12, EANS: 1.12, EAP: 1.12,
 };
 
 /** ngspice-47 inpdomod.c:58-65 routes BJT levels 4 and 9 to the same VBIC model. */

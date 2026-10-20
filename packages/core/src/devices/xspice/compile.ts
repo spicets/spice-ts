@@ -21,23 +21,29 @@ import { SWITCH_BEHAVIORS } from './switch-models.js';
 import { MAGNETIC_BEHAVIORS } from './magnetic-models.js';
 import { mlin } from './mlin.js';
 import { cpmlin } from './cpmlin.js';
+import { cpline } from './cpline.js';
 import { REACTIVE_IC_BEHAVIORS } from './reactive-ic-models.js';
 import { zener } from './zener.js';
+import { sidiode } from './sidiode.js';
 import { memristor } from './memristor.js';
 import { seegen } from './seegen.js';
 import { resolveSTransfer, STransferDevice } from './s-xfer.js';
+import { xfer } from './xfer.js';
 import { XSPICE_CODE_MODEL_SPECS, type XspiceParamValue } from './spec.js';
 import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xspice-device.js';
 
 /** Every implemented code model behavior keyed by lower-case ngspice Spice_Model_Name. */
 const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, BehaviorFactory>([
   ['astate', astate],
+  ['xfer', xfer],
   ['mlin', mlin],
   ['cpmlin', cpmlin],
+  ['cpline', cpline],
   ['delay', delay],
   ...REACTIVE_IC_BEHAVIORS,
   ...XSPICE_BEHAVIORS, ...LIMITER_BEHAVIORS, ...OSCILLATOR_BEHAVIORS, ...SWITCH_BEHAVIORS, ...MAGNETIC_BEHAVIORS, ...OTA_BEHAVIORS,
   ['zener', zener],
+  ['sidiode', sidiode],
   ['memristor', memristor],
   ['seegen', seegen],
 ]);
@@ -127,6 +133,7 @@ export function prepareXspiceInstance(
   const connections = resolveXspiceConnections(card, spec, ground);
   const params = resolveXspiceParams(card.name, model, spec, connections);
   if (model.codeModel === 's_xfer') resolveSTransfer(params);
+  if (model.codeModel === 'xfer') xfer(params);
   const nodes: string[] = [];
   const digitalNodes: string[] = [];
   for (const connection of connections) {
@@ -240,9 +247,11 @@ export function createXspiceDevice(
   // astate, delay and mlin store samples, not integrated charge: node LTE
   // would change the history's time grid (mlin uses a ceiling lookup).
   // Neither magnetic model calls cm_analog_integrate (lcouple's fake call is commented out).
-  const untruncated = analogHalf !== undefined || model.codeModel === 'astate' || model.codeModel === 'delay' || model.codeModel === 'mlin' || model.codeModel === 'lcouple' || model.codeModel === 'core';
+  const untruncated = analogHalf !== undefined || model.codeModel === 'xfer' || model.codeModel === 'astate' || model.codeModel === 'delay' || model.codeModel === 'mlin' || model.codeModel === 'lcouple' || model.codeModel === 'core';
   const device = new XspiceDevice(
-    card.name, model.codeModel, inputs, outputs, behavior, model.warnings, untruncated,
+    card.name, model.codeModel, inputs, outputs, behavior,
+    model.codeModel === 'xfer' ? [...model.warnings, 'XSPICE xfer: transient analysis uses only the first real table value, not a time-domain transfer function'] : model.warnings,
+    untruncated,
   );
   netlistProbes.set(device, netlist);
   if (model.codeModel === 'ota') registerOtaNoise(device, params, inputs);

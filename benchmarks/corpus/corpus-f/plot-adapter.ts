@@ -11,6 +11,7 @@ import {
   type EncodedExecution,
   type EngineAnalysis,
   type EngineExecution,
+  type NativeSpiceTsOptions,
   encodeAnalysis,
   OBJECT_SAMPLES,
   runNativeSpiceTsEncoded,
@@ -150,16 +151,17 @@ function failedExecution(error: unknown): Omit<EngineExecution, 'analyses'> & { 
  * `encoding` stores the samples (default: one ComplexValue each; the bounded child packs them, #839).
  */
 export async function runCorpusFSpiceTs(input: Buffer, circuit: ClassicCircuit): Promise<EngineExecution>;
-export async function runCorpusFSpiceTs<S>(input: Buffer, circuit: ClassicCircuit, encoding: SampleEncoding<S>): Promise<EncodedExecution<S>>;
+export async function runCorpusFSpiceTs<S>(input: Buffer, circuit: ClassicCircuit, encoding: SampleEncoding<S>, options?: NativeSpiceTsOptions): Promise<EncodedExecution<S>>;
 export async function runCorpusFSpiceTs<S>(
   input: Buffer,
   circuit: ClassicCircuit,
   encoding = OBJECT_SAMPLES as unknown as SampleEncoding<S>,
+  options: NativeSpiceTsOptions = {},
 ): Promise<EncodedExecution<S>> {
   const extra = (circuit.analyses as readonly string[]).filter(isControlPlotType);
-  if (extra.length === 0) return runNativeSpiceTsEncoded(input, circuit, encoding, { parseFirst: false });
+  if (extra.length === 0) return runNativeSpiceTsEncoded(input, circuit, encoding, { ...options, parseFirst: false });
   const classic = circuit.analyses.filter(type => !isControlPlotType(type));
-  const base = classic.length > 0 ? await runNativeSpiceTsEncoded(input, { ...circuit, analyses: classic }, encoding, { parseFirst: false }) : undefined;
+  const base = classic.length > 0 ? await runNativeSpiceTsEncoded(input, { ...circuit, analyses: classic }, encoding, { ...options, parseFirst: false }) : undefined;
   if (base && base.status !== 'success') return base;
   const text = input.toString('utf8');
   if (!Buffer.from(text, 'utf8').equals(input)) {
@@ -167,8 +169,8 @@ export async function runCorpusFSpiceTs<S>(
   }
   let result: CoreResult;
   try {
-    const core = await import(pathToFileURL(resolve('packages/core/dist/index.js')).href) as { simulate(text: string, options: { sourcePath: string }): Promise<CoreResult> };
-    result = await core.simulate(text, { sourcePath: circuit.sourcePath });
+    const core = await import(pathToFileURL(resolve('packages/core/dist/index.js')).href) as { simulate(text: string, options: { sourcePath: string; resolveInclude?: NativeSpiceTsOptions['resolveInclude'] }): Promise<CoreResult> };
+    result = await core.simulate(text, { sourcePath: circuit.sourcePath, resolveInclude: options.resolveInclude });
   } catch (error) {
     return failedExecution(error);
   }

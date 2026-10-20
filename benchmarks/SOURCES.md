@@ -1,5 +1,31 @@
 # Benchmark sources
 
+## Corpus-f isolated companion resolution (#1548 / #1545)
+
+The unchanged `examples/rf/sp/file.cir` fixture comes from the ngspice examples
+at revision `3ef069fb1f04177a153f342a32d941fc20ff047e`:
+https://sourceforge.net/p/ngspice/ngspice/ci/3ef069fb1f04177a153f342a32d941fc20ff047e/tree/examples/rf/sp/file.cir
+Redistribution follows the corpus-f manifest's BSD-3-Clause provenance and retained
+third-party notices. SHA-256:
+`2cc8b6d32c958f320a1f6b3b47995ef654a46559bb224d16de61a7f198779402`.
+No companion file is added. Both engines run identical fixture bytes in fresh
+directories, with `137MHz_BPF.s2p` absent. The ngspice-47 control-export wrapper
+provides the reference; no rewritten fixture, tolerance change or per-deck resolver.
+The single-fixture metric and seven-fixture restricted before/after classification
+check are documented in `corpus/corpus-f/README.md`; no aggregate rerun is claimed.
+
+## Bounded WASM MOS1 operating points (#1552)
+
+`packages/wasm/src/test-support/mos1-fixtures.ts` contains 12 original
+project-authored MIT netlists; no third-party circuit material is copied.
+`benchmarks/wasm-mos1-op/compare.ts` feeds identical bytes to both spice-ts
+backends and ngspice-47, recording input hashes, node voltages, source branch
+currents, uniform tolerances and cold one-shot runtimes in `report.json`.
+Reproduce with `pnpm build` then
+`spice-heavy pnpm exec tsx benchmarks/wasm-mos1-op/compare.ts`.
+The committed receipt is consumed and hash-checked by the WASM MOS1 tests.
+This is bounded MOS1 OP evidence, not a general parity or speed claim.
+
 
 ## Diode junction temperature laws (#1533)
 
@@ -859,6 +885,17 @@ deck SHA-256, native point count and 201 shared-grid v(out)/i(vdd) samples in
 `transient-ngspice-47.json`, consumed by `gate-resistance2-transient.test.ts`
 with the standard 1%-of-peak bound. This is a single-fixture parity check,
 not corpus-wide parity or speed evidence.
+
+The RBODYMOD=1, capMod=2 common-source transient deck at
+`packages/core/src/devices/bsim4/__fixtures__/rbodymod1/transient.cir` is
+project-authored under the repository MIT licence. `generate-transient.py`
+runs identical bytes with ngspice-47 (`SPICE_ASCIIRAWFILE=1`, `-b -r`),
+without solver-option changes. Its hash-pinned `transient-ngspice-47.json`
+stores 201 shared-grid v(out)/i(vdd) samples from 223 native points, consumed
+by `body-resistance-transient.test.ts` at the issue's 1e-3 peak-normalized
+maximum-error bound. The adapter follows the same pinned ECL-2.0 b4ld.c
+body-junction charge separation/integration/stamping and b4trunc.c qbd/qbs
+LTE handling. This is one fixture, not corpus-wide parity or speed evidence.
 
 The RGATEMOD=1 gate-RC transient deck at
 `packages/core/src/devices/bsim4/__fixtures__/rgatemod1/transient.cir` is
@@ -2173,6 +2210,27 @@ lines 116-151 (DC/AC). Contrary to the original issue wording, reference DC is a
 ideal short and disp=0 is Kirschning-Jansen, not disabled dispersion.
 Transient remains unsupported, tracked in #1461.
 
+## XSPICE ideal coupled line OP/AC (#1551)
+
+The project-authored MIT regression deck and ngspice-47 OP/AC oracle values
+are in `packages/core/src/devices/xspice/cpline.test.ts`, with the reproduction
+command and observation commands. Nonzero even/odd attenuation is covered.
+The original BSD-3-Clause corpus-f `examples/xspice/transmission_lines/cpline_ac.cir`
+is unchanged (provenance in `corpus/corpus-f/SOURCES.md`). Run its single-fixture
+refresh with `spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/control-vectors.ts
+--control-vector-child examples-xspice-transmission-lines-cpline-ac-cir`.
+This uses the existing uniform corpus-f tolerance, not a per-circuit override.
+It compares all 48 S/Y/Z signals at 100 SP frequencies; no speed claim is made.
+
+Formula and parameter sources (BSD-3-Clause, Copyright 2025 Vadim Kuznetsov;
+full notice in `packages/core/src/devices/xspice/cpline.LICENSE`):
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/cpline/cfunc.mod
+lines 68–76 (parameters and attenuation conversion), 84–107 (DC shorts),
+140–164 (AC impedance matrix);
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/cpline/ifspec.ifs
+lines 111–183 (parameter defaults). Transient is explicitly rejected with
+`UNSUPPORTED_XSPICE_CPLINE`; no transient history implementation is adapted.
+
 ## XSPICE coupled microstrip OP/AC (#1483)
 
 `spice-heavy pnpm exec tsx benchmarks/xspice-cpmlin/compare.ts` sources the
@@ -2307,4 +2365,61 @@ Losses: ngspice-47 PNP self-heating at 85 C failed with NaN temperature;
 PNP thermal cases are excluded explicitly, not reported as passing. The unchanged
 public `examples/vbic/vbic99_tran.sp` now passes resistor-exponent validation but
 still fails closed on nondefault EA/EAIE/EAIC/EANE/EANC; it is not claimed to run.
+
+## XSPICE xfer frequency tables (#1539)
+
+Contract sources: ngspice-47 `src/xspice/icm/analog/xfer/cfunc.mod` and
+`ifspec.ifs`, https://github.com/imr/ngspice/tree/ngspice-47/src/xspice/icm/analog/xfer
+(ngspice source distribution COPYING, BSD-style licence). Independently
+implemented equations/parser in TypeScript; no upstream C code copied.
+`benchmarks/xspice/xfer-compare.ts` contains original MIT microdecks, sends
+identical netlist bytes to both engines, and reports all four cases with a fixed
+1e-10 normalized complex-error threshold, without per-circuit tuning.
+The corpus-f rf/sp/file.cir bytes/source/licence remain unchanged (BSD-3-Clause,
+revision 3ef069fb1f04177a153f342a32d941fc20ff047e). Its remaining pre_snp gap and
+unavailable comparison metric are documented in `benchmarks/xspice/README.md`.
+
+### VBIC activation energies (#1529)
+
+`benchmarks/vbic-activation-energies/compare.ts` authors 36 identical-byte OP
+decks under the repository MIT licence. Its generated `ngspice-47.json` oracle
+is consumed by `vbic-activation-energies.test.ts`. Covers each of EA, EAIE,
+EAIC, EAIS, EANE, EANC, EANS and EAP separately and combined, NPN/PNP,
+TEMP=27/85 C, four node voltages and four terminal/source currents.
+Equation source: ngspice-47 `src/spicelib/devices/vbic/vbictemp.c`,
+https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/vbic/vbictemp.c
+(ngspice BSD-style licence; independently implemented equations).
+Run `spice-heavy pnpm exec tsx benchmarks/vbic-activation-energies/compare.ts`;
+use `--generate` to regenerate the oracle. Default solver tolerances and the
+existing fixed 1e-6 relative threshold are unchanged. Before: 36 OP cases rejected
+nondefault EA*. After: maximum relative error 3.3613865080273087e-7 across all
+eight signals. No speed claim. Unit tests additionally cover unequal emission
+coefficients, parasitic cross-mapping, GAMM, junction potentials and capacitances.
+ISRR remains fixed at 1, XISR/DEAR at 0; EA must not change that ratio.
+
+The unchanged public `examples/vbic/vbic99_tran.sp` advances past EA* but still
+fails with `Invalid bounded VBIC DC model parameter: 'HRCF'` (its HRCF=0 is
+outside the current bounded domain). ngspice-47 runs the unchanged deck with
+2065 transient rows. No spice-ts waveform parity is claimed for that deck.
+
+## XSPICE sidiode (#1563)
+
+Original MIT fixtures `benchmarks/xspice/sidiode.cir` and `sidiode-ac.cir`
+exercise off/forward/reverse regions, quadratic smoothing, tanh current limits
+and AC conductance. Both engines receive identical bytes. Reproduce with
+`spice-heavy pnpm exec tsx benchmarks/xspice/sidiode-compare.ts`.
+The fixed maximum error threshold is 1e-6, normalized by each reference trace's
+peak absolute current (complex magnitude for AC); transient comparison linearly
+interpolates spice-ts onto all ngspice timepoints. RMS error is also reported.
+
+Equation/parameter sources (BSD-3-Clause, copyright 2012/2018 The ngspice team;
+full notice in `packages/core/src/devices/xspice/sidiode.LICENSE`):
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/xtradev/sidiode/cfunc.mod
+(lines 127-184 initialization, 193-239 current/partial/AC), and
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/xtradev/sidiode/ifspec.ifs
+(lines 34-104 ports, defaults and bounds).
+Preserves ngspice's non-derivative tanh partials and its unlimited smoothed-knee
+discontinuities. No upstream circuit deck is copied. Before implementation,
+spice-ts rejected both fixtures as unsupported; no baseline waveform exists.
+
 
