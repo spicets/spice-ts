@@ -14,7 +14,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { arch, cpus, platform, release, tmpdir } from 'node:os';
 import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -791,7 +791,15 @@ if (process.argv[2] === SPICE_TS_CHILD_FLAG) {
   (async () => {
     const [inputPath, circuitPath, outputPath] = process.argv.slice(3);
     const circuit = JSON.parse(await readFile(circuitPath, 'utf8')) as ClassicCircuit;
-    await writeFile(outputPath, serialize(packEncoded(await runCorpusFSpiceTs(await readFile(inputPath), circuit, PACKED_SAMPLES))));
+    // Match ngspice's isolated cwd: the unchanged fixture, without upstream companions
+    // or the parent's circuit.json/execution.v8 protocol files. Missing reads reject.
+    const directory = resolve(inputPath, '..', 'run');
+    await mkdir(directory);
+    const input = await readFile(inputPath);
+    await writeFile(resolve(directory, 'fixture.cir'), input);
+    await writeFile(outputPath, serialize(packEncoded(await runCorpusFSpiceTs(input, circuit, PACKED_SAMPLES, {
+      resolveInclude: path => readFile(resolve(directory, path), 'utf8'),
+    }))));
   })().catch(error => {
     console.error(error);
     process.exitCode = 1;

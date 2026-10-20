@@ -1,5 +1,19 @@
 # Benchmark sources
 
+## Corpus-f isolated companion resolution (#1548 / #1545)
+
+The unchanged `examples/rf/sp/file.cir` fixture comes from the ngspice examples
+at revision `3ef069fb1f04177a153f342a32d941fc20ff047e`:
+https://sourceforge.net/p/ngspice/ngspice/ci/3ef069fb1f04177a153f342a32d941fc20ff047e/tree/examples/rf/sp/file.cir
+Redistribution follows the corpus-f manifest's BSD-3-Clause provenance and retained
+third-party notices. SHA-256:
+`2cc8b6d32c958f320a1f6b3b47995ef654a46559bb224d16de61a7f198779402`.
+No companion file is added. Both engines run identical fixture bytes in fresh
+directories, with `137MHz_BPF.s2p` absent. The ngspice-47 control-export wrapper
+provides the reference; no rewritten fixture, tolerance change or per-deck resolver.
+The single-fixture metric and seven-fixture restricted before/after classification
+check are documented in `corpus/corpus-f/README.md`; no aggregate rerun is claimed.
+
 ## Bounded WASM MOS1 operating points (#1552)
 
 `packages/wasm/src/test-support/mos1-fixtures.ts` contains 12 original
