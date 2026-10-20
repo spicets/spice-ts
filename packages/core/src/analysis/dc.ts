@@ -1,6 +1,7 @@
 import type { ConvergenceTelemetry, ResolvedOptions } from '../types.js';
 import type { CompiledCircuit } from '../circuit.js';
 import { createMatrixVariableIdentities, MNAAssembler } from '../mna/assembler.js';
+import type { MNAAssemblerOptions } from '../mna/assembler.js';
 import { newtonRaphson } from './newton-raphson.js';
 import { DCResult } from '../results.js';
 import { createConvergenceTelemetry, snapshotConvergenceTelemetry } from '../convergence-telemetry.js';
@@ -20,6 +21,12 @@ import {
 
 type DCSourceMode = 'operating-point' | 'transient';
 
+// Recovery must not mistake backend construction failures for numerical
+// failures, even if a factory throws a SingularMatrixError. Unwrap at the API.
+class SolverFactoryFailure {
+  constructor(readonly error: unknown) {}
+}
+
 export function solveDCOperatingPoint(
   compiled: CompiledCircuit,
   options: ResolvedOptions,
@@ -27,11 +34,40 @@ export function solveDCOperatingPoint(
   convergence: ConvergenceTelemetry = createConvergenceTelemetry(),
   sourceMode: DCSourceMode = 'operating-point',
   guard?: ProtocolExecutionGuard,
+  assemblerOptions: Pick<MNAAssemblerOptions, 'solverFactory'> = {},
+): { result: DCResult; assembler: MNAAssembler; convergence: ConvergenceTelemetry } {
+  const factory = assemblerOptions.solverFactory;
+  const solverFactory = factory && (() => {
+    try {
+      return factory();
+    } catch (error) {
+      throw new SolverFactoryFailure(error);
+    }
+  });
+  try {
+    return solveDCOperatingPointImpl(
+      compiled, options, initialSolution, convergence, sourceMode, guard, { solverFactory },
+    );
+  } catch (error) {
+    if (error instanceof SolverFactoryFailure) throw error.error;
+    throw error;
+  }
+}
+
+function solveDCOperatingPointImpl(
+  compiled: CompiledCircuit,
+  options: ResolvedOptions,
+  initialSolution?: Float64Array,
+  convergence: ConvergenceTelemetry = createConvergenceTelemetry(),
+  sourceMode: DCSourceMode = 'operating-point',
+  guard?: ProtocolExecutionGuard,
+  assemblerOptions: Pick<MNAAssemblerOptions, 'solverFactory'> = {},
 ): { result: DCResult; assembler: MNAAssembler; convergence: ConvergenceTelemetry } {
   const { nodeCount, branchCount, nodeNames, branchNames } = compiled;
   const devices = compiled.devices;
   for (const device of devices) device.setTransientRampTime?.(sourceMode === 'transient' ? options.rampTime : 0);
   const assembler = new MNAAssembler(nodeCount, branchCount, {
+    solverFactory: assemblerOptions.solverFactory,
     deviceGmin: options.deviceGmin,
     variables: createMatrixVariableIdentities(nodeNames, branchNames),
     useDcSourceValue: sourceMode === 'operating-point',
@@ -66,13 +102,13 @@ export function solveDCOperatingPoint(
     try {
       newtonRaphson(assembler, devices, options, options.maxIterations, nodeNames, convergence.dc, guard);
     } catch (err) {
-      if (err instanceof ProtocolExecutionError) throw err;
+      if (err instanceof ProtocolExecutionError || err instanceof SolverFactoryFailure) throw err;
       // A bounded passive subset of ngspice-47's final OPtran fallback.
       // Do not turn arbitrary singular/nonfinite nonlinear stamps into a
       // transient solution, or override an explicitly supplied initial state.
       if (
         err instanceof SingularMatrixError && !hasNonlinear && !initialSolution
-        && passiveTransientOperatingPoint(compiled, assembler, options, guard)
+        && passiveTransientOperatingPoint(compiled, assembler, options, guard, assemblerOptions)
       ) return;
       // Fallbacks: gmin stepping homotopies (dynamic, then true gmin), then
       // source stepping, as ngspice-47 CKTop runs them.
@@ -82,7 +118,7 @@ export function solveDCOperatingPoint(
           gminSteppingHomotopy(assembler, devices, options, nodeNames, convergence, guard)
           || sourceStepping(assembler, devices, options, nodeNames, convergence, initialGuess, guard)
           || (err instanceof SingularMatrixError && !initialSolution
-            && mos2TransientOperatingPoint(compiled, assembler, options, sourceMode, guard))
+            && mos2TransientOperatingPoint(compiled, assembler, options, sourceMode, guard, assemblerOptions))
         )
       ) {
         if (err instanceof ConvergenceError) {
@@ -107,7 +143,7 @@ export function solveDCOperatingPoint(
       try {
         newtonRaphson(assembler, devices, options, options.maxIterations, nodeNames, convergence.dc, guard);
       } catch (err) {
-        if (err instanceof ProtocolExecutionError) throw err;
+        if (err instanceof ProtocolExecutionError || err instanceof SolverFactoryFailure) throw err;
         assembler.solution.set(previous);
         solveOperatingPoint();
       }
@@ -150,6 +186,7 @@ function passiveTransientOperatingPoint(
   assembler: MNAAssembler,
   options: ResolvedOptions,
   guard?: ProtocolExecutionGuard,
+  assemblerOptions: Pick<MNAAssemblerOptions, 'solverFactory'> = {},
 ): boolean {
   if (options.gmin !== 0 || compiled.initialConditions.length || compiled.nodeSets.length) return false;
   const { devices, nodeCount } = compiled;
@@ -213,6 +250,7 @@ function passiveTransientOperatingPoint(
       timestep: 1e-7,
       maxTimestep: 1e-7,
       initialSolution: new Float64Array(assembler.systemSize),
+      solverFactory: assemblerOptions.solverFactory,
       guard,
     });
     for (let steps = 0; steps < 10000 && !driver.isDone; steps++) {
@@ -224,7 +262,7 @@ function passiveTransientOperatingPoint(
     assembler.solution.set(solution);
     return true;
   } catch (error) {
-    if (error instanceof ProtocolExecutionError) throw error;
+    if (error instanceof ProtocolExecutionError || error instanceof SolverFactoryFailure) throw error;
     return false;
   } finally {
     driver?.dispose();
@@ -244,6 +282,7 @@ function mos2TransientOperatingPoint(
   options: ResolvedOptions,
   sourceMode: DCSourceMode,
   guard?: ProtocolExecutionGuard,
+  assemblerOptions: Pick<MNAAssemblerOptions, 'solverFactory'> = {},
 ): boolean {
   if (options.gmin !== 0 || compiled.initialConditions.length || compiled.nodeSets.length) return false;
   if (!compiled.devices.some(device => device instanceof MOS2)) return false;
@@ -262,6 +301,7 @@ function mos2TransientOperatingPoint(
     driver = createDriverFromCompiled(compiled, options, {
       stopTime: 1e-5, timestep: 1e-7, maxTimestep: 1e-7,
       initialSolution: new Float64Array(assembler.solution),
+      solverFactory: assemblerOptions.solverFactory,
       operatingPoint: { useDcSourceValue: sourceMode === 'operating-point' },
       guard,
     });
@@ -274,7 +314,7 @@ function mos2TransientOperatingPoint(
     assembler.solution.set(solution);
     return true;
   } catch (error) {
-    if (error instanceof ProtocolExecutionError) throw error;
+    if (error instanceof ProtocolExecutionError || error instanceof SolverFactoryFailure) throw error;
     return false;
   } finally {
     driver?.dispose();
@@ -330,7 +370,7 @@ function sourceStepping(
       try {
         newtonRaphson(assembler, devices, options, options.maxIterations, nodeNames, convergence.dc, guard);
       } catch (error) {
-        if (error instanceof ProtocolExecutionError) throw error;
+        if (error instanceof ProtocolExecutionError || error instanceof SolverFactoryFailure) throw error;
         convergence.dc.sourceStepFailures++;
         assembler.solution.set(lastGood);
       }
@@ -437,7 +477,7 @@ function stepGmin(
     try {
       iters = solveAt(gmin);
     } catch (error) {
-      if (error instanceof ProtocolExecutionError) throw error;
+      if (error instanceof ProtocolExecutionError || error instanceof SolverFactoryFailure) throw error;
       convergence.dc.gminStepFailures++;
       if (factor < 1.00005) return false;
       factor = Math.sqrt(Math.sqrt(factor));
@@ -473,7 +513,7 @@ function finalGminSolve(
     newtonRaphson(assembler, devices, options, options.maxIterations, nodeNames, convergence.dc, guard);
     return true;
   } catch (error) {
-    if (error instanceof ProtocolExecutionError) throw error;
+    if (error instanceof ProtocolExecutionError || error instanceof SolverFactoryFailure) throw error;
     convergence.dc.gminStepFailures++;
     return false;
   }
