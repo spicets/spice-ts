@@ -67,10 +67,13 @@ describe('BSIM4 RBODYMOD=1', () => {
       expect(createHash('sha256').update(JSON.stringify(vectors)).digest('hex')).toBe('f82c26e941f88ce67a12a945519f1e2ecc7bf999ac1fb5d6d82225d53a1cfe32');
     }
   });
-  it('rejects body-network transient until separate junction charge states are ported', () => {
-    const deck = readFileSync(new URL('model.cir', base), 'utf8').replace('.ac dec 2 1k 1meg', '.tran 1n 10n');
-    expect(() => parse(deck).compile()).toThrow(UnsupportedModelParameterError);
-  });
+  for (const selector of ['capmod=0', 'capmod=1', 'rbodymod=2', 'rgatemod=3', 'trnqsmod=1']) {
+    it(`keeps unsupported body transient combination ${selector} structured`, () => {
+      const deck = readFileSync(new URL('transient.cir', base), 'utf8')
+        .replace(/RBODYMOD=1 CAPMOD=2/, selector.startsWith('rbodymod') ? selector : `RBODYMOD=1 ${selector}`);
+      expect(() => parse(deck).compile()).toThrow(UnsupportedModelParameterError);
+    });
+  }
   for (const location of ['model', 'instance']) {
     for (const value of [-1, 2, 3]) it(`rejects ${location} rbodymod=${value}`, () => {
       const deck = `Invalid body selector\n.model DUT NMOS level=54 ${location === 'model' ? `rbodymod=${value}` : ''}\nM1 d g 0 0 DUT ${location === 'instance' ? `rbodymod=${value}` : ''}\nVd d 0 1\nVg g 0 1\n.op\n.end`;

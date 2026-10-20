@@ -872,6 +872,17 @@ deck SHA-256, native point count and 201 shared-grid v(out)/i(vdd) samples in
 with the standard 1%-of-peak bound. This is a single-fixture parity check,
 not corpus-wide parity or speed evidence.
 
+The RBODYMOD=1, capMod=2 common-source transient deck at
+`packages/core/src/devices/bsim4/__fixtures__/rbodymod1/transient.cir` is
+project-authored under the repository MIT licence. `generate-transient.py`
+runs identical bytes with ngspice-47 (`SPICE_ASCIIRAWFILE=1`, `-b -r`),
+without solver-option changes. Its hash-pinned `transient-ngspice-47.json`
+stores 201 shared-grid v(out)/i(vdd) samples from 223 native points, consumed
+by `body-resistance-transient.test.ts` at the issue's 1e-3 peak-normalized
+maximum-error bound. The adapter follows the same pinned ECL-2.0 b4ld.c
+body-junction charge separation/integration/stamping and b4trunc.c qbd/qbs
+LTE handling. This is one fixture, not corpus-wide parity or speed evidence.
+
 The RGATEMOD=1 gate-RC transient deck at
 `packages/core/src/devices/bsim4/__fixtures__/rgatemod1/transient.cir` is
 project-authored under the repository MIT licence, not copied from upstream.
