@@ -8,6 +8,7 @@
     "spice_simulate:corrected"
   ],
   "tools": [
+    "spice_sparams",
     "spice_impedance",
     "spice_tf",
     "spice_sensitivity",

@@ -24,6 +24,7 @@ import { sha256CanonicalJson } from '@spice-ts/core/protocol';
  */
 
 const toolNames = [
+  'spice_sparams',
   'spice_impedance',
   'spice_tf',
   'spice_sensitivity',
