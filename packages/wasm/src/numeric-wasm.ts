@@ -81,8 +81,8 @@ export async function simulateLinearOpWasmV1(
   if (prepared.analysis === 'op') return simulateOp(prepared, request, exports);
   if (prepared.analysis === 'dc') return simulateDc(prepared, request, exports);
   if (prepared.analysis === 'tran') {
-    if (prepared.compiled.devices.some(device => device.name[0]?.toUpperCase() === 'D')) {
-      return simulateDiodeTransient(prepared, request, exports, maxPoints);
+    if (prepared.compiled.devices.some(device => ['D', 'Q'].includes(device.name[0]?.toUpperCase() ?? ''))) {
+      return simulateNonlinearTransient(prepared, request, exports, maxPoints);
     }
     return simulateTransient(prepared, request, exports);
   }
@@ -384,7 +384,7 @@ function simulateTransient(
 }
 
 /** Shared adaptive driver and device models; every DC/Newton solve stays in WASM. */
-async function simulateDiodeTransient(
+async function simulateNonlinearTransient(
   { compiled }: PreparedPassiveTran,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
@@ -669,7 +669,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   }
   const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D']
+    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q']
       : ['R', 'C', 'L', 'I', 'V'];
   if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
@@ -727,7 +727,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
   const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D']
+    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q']
       : ['R', 'C', 'L', 'I', 'V'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
@@ -736,7 +736,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
-      if (analysis === 'tran' && (mos || bjt)) unsupported('diode-model', 'Only diode models are supported in bounded transients');
+      if (analysis === 'tran' && mos) unsupported('diode-model', 'Only diode and BJT models are supported in bounded transients');
       const parameters = (model[2] ?? model[3] ?? '').trim();
       const names = mos ? 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI' : bjt ? 'IS|BF|BR|NF|NR|VAF' : 'IS|N|RS';
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.

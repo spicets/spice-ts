@@ -53,7 +53,7 @@ export type WorkerFactory = (url: URL) => WorkerLike | Promise<WorkerLike>;
 
 export interface CreateSpiceEngineOptions {
   backend: 'spice-ts-js' | 'spice-ts-wasm';
-  /** Adaptive WASM diode transient point budget, including t=0. Default 4096. */
+  /** Adaptive WASM diode/BJT transient point budget, including t=0. Default 4096. */
   maxPoints?: number;
   manifest?: SpiceWorkerManifestV1;
   manifestUrl?: string | URL;
