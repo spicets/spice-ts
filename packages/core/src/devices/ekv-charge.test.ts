@@ -3,6 +3,35 @@ import { EKV26 } from './ekv.js';
 import type { ChargeIntegration, StampContext } from './device.js';
 
 describe('EKV 2.6 terminal charges', () => {
+  it.each([1, -1])('uses EPFL eq.75 accumulation charge and oxide capacitance for polarity %s', polarity => {
+    const model = new EKV26('m', [0, 1, 2, 3], {
+      VTO: polarity * 0.5, WETA: 0, LETA: 0, Q0: 0,
+      CGSO: 0, CGDO: 0, CGBO: 0,
+    }, {}, polarity);
+    const p = model.params;
+    const vt = 8.617333262145e-5 * (p.TNOM + 273.15);
+    const phi = 0.2 + 0.5 * (p.PHI - 0.2 + Math.hypot(p.PHI - 0.2, vt));
+    const flatBand = 0.5 - phi - p.GAMMA * Math.sqrt(phi);
+    const cox = p.COX * (p.W + p.DW) * (p.L + p.DL) * p.M;
+    // Include shallow accumulation: testing the smoothed positive gate
+    // instead of the unsmoothed V_G' must not suppress this branch.
+    for (const gate of [flatBand - 0.01, -2, -5, -10]) {
+      const point: [number, number, number, number] = [0, polarity * gate, 0, 0];
+      const result = model.evaluateCharges(point);
+      const effectiveGate = gate - flatBand;
+      expect(result.charges[3] / (polarity * cox)).toBeCloseTo(-effectiveGate, 12);
+      expect(result.jacobian[3][1] / cox).toBeCloseTo(-1, 12);
+      if (gate <= -2) {
+        expect(polarity * result.charges[1]).toBeLessThan(0);
+        expect(result.jacobian[1][1] / cox).toBeCloseTo(1, 6);
+        const h = 1e-5;
+        const plus = model.evaluateCharges([0, point[1] + h, 0, 0]);
+        const minus = model.evaluateCharges([0, point[1] - h, 0, 0]);
+        expect((plus.charges[1] - minus.charges[1]) / (2 * h * cox)).toBeCloseTo(1, 6);
+      }
+    }
+  });
+
   it.each([1, -1])('conserves charge and differentiates every terminal for polarity %s', polarity => {
     const model = new EKV26('m', [0, 1, 2, 3], { VTO: polarity * 0.5, CGSO: 2e-10, CGDO: 3e-10, CGBO: 1e-10 }, {}, polarity);
     for (const gate of [-2, -0.3, 0.3, 0.5, 1, 3]) {

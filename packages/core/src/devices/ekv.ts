@@ -215,7 +215,8 @@ export class EKV26 implements DeviceModel {
     const criticalVoltage = p.UCRIT * this.length;
 
     // Equations 33-38 with revision-III smooth gate voltage and charge sharing.
-    const effectiveGate = positive(offset(gate, -this.threshold - this.rsce + this.phi + this.gamma * Math.sqrt(this.phi)), 32 * vt * vt);
+    const unsmoothedGate = offset(gate, -this.threshold - this.rsce + this.phi + this.gamma * Math.sqrt(this.phi));
+    const effectiveGate = positive(unsmoothedGate, 32 * vt * vt);
     const pinch = (gamma: Differential): Differential => sub(offset(effectiveGate, -this.phi),
       mul(gamma, sub(root(add(effectiveGate, scale(square(gamma), 0.25))), scale(gamma, 0.5))));
     const longPinch = pinch(constant(this.gamma));
@@ -240,7 +241,11 @@ export class EKV26 implements DeviceModel {
       let qd = partition(r, f);
       let qs = partition(f, r);
       const qi = add(qd, qs);
-      const qb = sub(scale(bodyRoot, -this.gamma), mul(div(offset(nq, -1), nq), qi));
+      // Eq.75 uses the unsmoothed V_G' to select accumulation. Charges
+      // here are already multiplied by Vt (eq.78), so qB=-V_G'/Vt
+      // becomes -V_G'. Keep the smoothed gate in the static current path.
+      const qb = unsmoothedGate.value <= 0 ? scale(unsmoothedGate, -1)
+        : sub(scale(bodyRoot, -this.gamma), mul(div(offset(nq, -1), nq), qi));
       if (reverse) [qd, qs] = [qs, qd];
       const area = p.COX * this.width * this.length * p.M;
       const physical = [scale(qd, area), scale(add(qi, qb), -area), scale(qs, area), scale(qb, area)];
