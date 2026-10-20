@@ -61,7 +61,9 @@ export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
         const { real, imaginary } = result.vectors.get(`S_${i}_${j}`)![index];
         const magnitude = Math.hypot(real, imaginary);
         const magnitudeDb = magnitude === 0 ? null : 20 * Math.log10(magnitude);
-        return [`S${i}${j}`, {
+        // Keep conventional two-digit names, but delimit multi-digit indices to avoid collisions.
+        const key = i >= 10 || j >= 10 ? `S_${i}_${j}` : `S${i}${j}`;
+        return [key, {
           magnitude, magnitudeDb, phaseDeg: magnitude === 0 ? null : Math.atan2(imaginary, real) * 180 / Math.PI,
           ...(i === j ? { returnLossDb: magnitudeDb === null ? null : -magnitudeDb,
             vswr: magnitude < 1 ? (1 + magnitude) / (1 - magnitude) : null }
