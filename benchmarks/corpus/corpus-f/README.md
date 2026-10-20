@@ -6,7 +6,7 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `34f5cc520d5b15b9a50a36d675ff3dd55ed4ee153d42a7cf0343ebe2b0e3bb16`.
+- Fixtures: 336. Outcome SHA-256: `fae4f142e6ed355a157f7a7dc6d55ba5012165aef1e29ba82aed1065f57231c0`.
 - ngspice (ngspice-47): 306 success, 18 failed, 12 unsupported.
 - spice-ts (0.4.0): 232 success, 13 failed, 91 unsupported.
 - Outcomes: matched 92, mismatch 20, not-compared 116, spice-ts-loss 78, ngspice-failed 4, both-failed 26.
@@ -228,7 +228,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/vbic/vbic99_dc.sp](fixtures/examples/vbic/vbic99_dc.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/vbic/vbic99_tran.sp](fixtures/examples/vbic/vbic99_tran.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/vdmos/100W_wingspread.sp](fixtures/examples/vdmos/100W_wingspread.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
-| [examples/vdmos/100W.sp](fixtures/examples/vdmos/100W.sp) | success | failed | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: spice-ts exceeded the 120000 ms aggregate execution bound |
+| [examples/vdmos/100W.sp](fixtures/examples/vdmos/100W.sp) | success | failed | spice-ts-loss |  |  | ngspice note: Skipped reference plot exports: ac1 (write all rejected an unavailable or zero-length vector) / spice-ts: spice-ts exceeded the 120000 ms aggregate execution bound |
 | [examples/vdmos/crss_coss_ciss.sp](fixtures/examples/vdmos/crss_coss_ciss.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/vdmos/dcdc.sp](fixtures/examples/vdmos/dcdc.sp) | unsupported | unsupported | both-failed |  |  | ngspice: doAnalyses: TRAN: Timestep too small; time = 0.0100365, timestep = 6.25e-21: trouble with node "out" / spice-ts: Parse error at line 18: Cannot parse number: '' R4 out2 OUT R = (time<12ms ? 1.000000000000000e+2 : time<20ms ? 5.000000000000000e+1 : 2.000000000000000e+2) |
 | [examples/vdmos/inv_vdmos.sp](fixtures/examples/vdmos/inv_vdmos.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |

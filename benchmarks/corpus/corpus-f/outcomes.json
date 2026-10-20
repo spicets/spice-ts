@@ -5654,7 +5654,7 @@
           "noise:1",
           "noise:41"
         ],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "note": "Skipped reference plot exports: ac1 (write all rejected an unavailable or zero-length vector)"
       },
       "spiceTs": {
         "status": "failed",
@@ -13352,5 +13352,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "34f5cc520d5b15b9a50a36d675ff3dd55ed4ee153d42a7cf0343ebe2b0e3bb16"
+  "outcomeSha256": "fae4f142e6ed355a157f7a7dc6d55ba5012165aef1e29ba82aed1065f57231c0"
 }
