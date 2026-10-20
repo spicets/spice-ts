@@ -22,6 +22,40 @@ describe('VDMOS self heating (#559)', () => {
     expect(evaluate).toHaveBeenCalledTimes(3);
     expect(readVoltage.mock.calls.length).toBeLessThanOrEqual(32);
   });
+  it('reuses thermal difference temperatures without caching voltage-dependent currents (#1579)', () => {
+    const { model } = resolveVdmosModel({ name: 'power', type: 'VDMOSN', params: {
+      VTO: 1, KP: 0.1, MU: -1.5, RTHJC: 2, CTHJ: 0.001,
+    } });
+    const device = new VDMOS('M1', [0, 1, 4, 0, 1, 4, -1, 2, 3], model, {});
+    const assembler = new MNAAssembler(5, 0);
+    assembler.solution.set([2, 3, 27, 27, 0]);
+    const update = vi.spyOn(device as unknown as { applyTemperature(value?: number): void }, 'applyTemperature');
+    device.stamp(assembler.getStampContext());
+    update.mockClear();
+    assembler.clear();
+    assembler.solution[1] = 4;
+    device.stamp(assembler.getStampContext());
+    expect(update).toHaveBeenCalledTimes(1);
+    const fresh = new VDMOS('M2', [0, 1, 4, 0, 1, 4, -1, 2, 3], model, {});
+    const reference = new MNAAssembler(5, 0);
+    reference.solution.set(assembler.solution);
+    fresh.stamp(reference.getStampContext());
+    // Electrical diode limiting has load history; the thermal row is pure.
+    expect(assembler.b[2]).toBe(reference.b[2]);
+    expect(assembler.G.getRow(2)).toEqual(reference.G.getRow(2));
+    update.mockClear();
+    // Distinct Celsius inputs can round to the same Kelvin base state but
+    // their +/- h perturbations must still be evaluated independently.
+    assembler.solution[2] = 27 + 1e-14;
+    expect(assembler.solution[2] + 273.15).toBe(27 + 273.15);
+    device.stamp(assembler.getStampContext());
+    expect(update).toHaveBeenCalledTimes(3);
+    update.mockClear();
+    assembler.solution[2] = 50;
+    device.stamp(assembler.getStampContext());
+    expect(update).toHaveBeenCalledTimes(3);
+    update.mockRestore();
+  });
   it('reuses the unperturbed temperature state across thermal loads and saved vectors (#1579)', () => {
     const { model } = resolveVdmosModel({ name: 'power', type: 'VDMOSN', params: {
       VTO: 1, KP: 0.1, MU: -1.5, RTHJC: 2, CTHJ: 0.001,

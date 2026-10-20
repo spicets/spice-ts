@@ -111,6 +111,13 @@ export class VDMOS implements DeviceModel {
   private circuitTemperature = 27;
   private readonly thermal: boolean;
   private temp!: VdmosTemperatureState;
+  private readonly nominal: { pbo: number; jctCap: number; xfc: number; f2: number; f3: number };
+  private thermalTemperatures?: {
+    celsius: number;
+    base: VdmosTemperatureState;
+    plus: VdmosTemperatureState;
+    minus: VdmosTemperatureState;
+  };
   /** ngspice CKTstate0 VDMOSvgs/VDMOSvds/VDIOvoltage of the previous load. */
   private lastVgs = 0;
   private lastVds = 0;
@@ -159,6 +166,23 @@ export class VDMOS implements DeviceModel {
       : warnings;
     const m = this.instance.M;
     if (model.rd > 0) this.drainConductance = m / model.rd;
+    const diode = model.diode;
+    const tnom = model.tnom;
+    const fact1 = tnom / REFTEMP;
+    const vtnom = tnom * CONSTKOVERQ;
+    const kt1 = CONSTBOLTZ * tnom;
+    const egfet1 = 1.16 - (7.02e-4 * tnom * tnom) / (tnom + 1108);
+    const arg1Nom = -egfet1 / (kt1 + kt1) + 1.1150877 / (CONSTBOLTZ * (REFTEMP + REFTEMP));
+    const pbfact1 = -2 * vtnom * (1.5 * Math.log(fact1) + CHARGE * arg1Nom);
+    const pbo = (diode.vj - pbfact1) / fact1;
+    const gmaold = (diode.vj - pbo) / pbo;
+    const xfc = Math.log(1 - diode.fc);
+    this.nominal = {
+      pbo, xfc,
+      jctCap: m * diode.cjo / (1 + diode.m * (400e-6 * (tnom - REFTEMP) - gmaold)),
+      f2: Math.exp((1 + diode.m) * xfc),
+      f3: 1 - diode.fc * (1 + diode.m),
+    };
     this.applyTemperature();
     this.storesCharge = model.cgs !== 0 || model.cgdmin !== 0 || model.cgdmax !== 0
       || model.diode.cjo !== 0 || model.diode.tt !== 0 || (this.thermal && model.cthj !== 0);
@@ -186,13 +210,7 @@ export class VDMOS implements DeviceModel {
     if (this.temp?.temp === temp) return;
     const tnom = model.tnom;
 
-    const fact1 = tnom / REFTEMP;
-    const vtnom = tnom * CONSTKOVERQ;
-    const kt1 = CONSTBOLTZ * tnom;
-    const egfet1 = 1.16 - (7.02e-4 * tnom * tnom) / (tnom + 1108);
-    const arg1Nom = -egfet1 / (kt1 + kt1) + 1.1150877 / (CONSTBOLTZ * (REFTEMP + REFTEMP));
-    const pbfact1 = -2 * vtnom * (1.5 * Math.log(fact1) + CHARGE * arg1Nom);
-    const xfc = Math.log(1 - diode.fc);
+    const { pbo, xfc } = this.nominal;
     const dt = temp - tnom;
     const ratio = temp / tnom;
 
@@ -223,9 +241,7 @@ export class VDMOS implements DeviceModel {
     // Body diode. Grading-coefficient temperature coefficients are not
     // settable in ngspice-47, so the factor is 1.
     const gradingCoeff = diode.m;
-    const pbo = (diode.vj - pbfact1) / fact1;
-    const gmaold = (diode.vj - pbo) / pbo;
-    let jctCap = m * diode.cjo / (1 + gradingCoeff * (400e-6 * (tnom - REFTEMP) - gmaold));
+    let jctCap = this.nominal.jctCap;
     let jctPot = pbfact + fact2 * pbo;
     const gmanew = (jctPot - pbo) / pbo;
     jctCap *= 1 + gradingCoeff * (400e-6 * (temp - REFTEMP) - gmanew);
@@ -269,8 +285,8 @@ export class VDMOS implements DeviceModel {
       temp, vt, beta, vth, ksubthres, drainResistance, qsResistance,
       gateConductance, sourceConductance, dsConductance, bodyConductance,
       satCur, vte, vcrit, jctCap, jctPot, gradingCoeff, depCap, f1,
-      f2: Math.exp((1 + gradingCoeff) * xfc),
-      f3: 1 - diode.fc * (1 + gradingCoeff),
+      f2: this.nominal.f2,
+      f3: this.nominal.f3,
       brkdwnV,
       transitTime: diode.tt,
     };
@@ -543,9 +559,19 @@ export class VDMOS implements DeviceModel {
     const current = currents(channel, this.thermalCurrents);
     const unperturbed = this.temp;
     const h = 1e-3;
-    this.applyTemperature(temperature + h);
+    // Repeated loads at the same Tj (including history restamps) need new
+    // electrical currents, but not new temperature-only coefficients. Keep
+    // just this pair; changing the base state invalidates it automatically.
+    let temperatures = this.thermalTemperatures;
+    if (temperatures?.base !== unperturbed || temperatures.celsius !== temperature) {
+      this.applyTemperature(temperature + h);
+      const plus = this.temp;
+      this.applyTemperature(temperature - h);
+      temperatures = this.thermalTemperatures = { celsius: temperature, base: unperturbed, plus, minus: this.temp };
+    }
+    this.temp = temperatures.plus;
     const plus = currents(this.evaluateChannel(vgs, vds), this.thermalPlus);
-    this.applyTemperature(temperature - h);
+    this.temp = temperatures.minus;
     const minus = currents(this.evaluateChannel(vgs, vds), this.thermalMinus);
     // Restore the exact state instead of recomputing it after the derivative.
     this.temp = unperturbed;
