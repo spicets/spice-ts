@@ -321,6 +321,19 @@ const SQUARE: XspiceCodeModelSpec = {
   ],
 };
 
+/** ngspice-47 xtradev/potentiometer/ifspec.ifs (Public Domain). */
+const POTENTIOMETER: XspiceCodeModelSpec = {
+  name: 'potentiometer',
+  connections: ['r0', 'wiper', 'r1'].map(name => ({
+    name, direction: 'inout', defaultType: 'g', allowedTypes: ['g'], vector: false, nullAllowed: false,
+  })),
+  params: [
+    real('position', 0.5, { limits: [0, 1] }),
+    { name: 'log', type: 'boolean', defaultValue: [false], vector: false, nullAllowed: true },
+    real('r', 1e5), real('log_multiplier', 1),
+  ],
+};
+
 /** ngspice-47 xtradev/sidiode/ifspec.ifs:34-104. */
 const SIDIODE: XspiceCodeModelSpec = {
   name: 'sidiode',
@@ -556,7 +569,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('rinit', 7000, { nullAllowed: false }), real('alpha', 0, { nullAllowed: false }),
         real('beta', 1, { nullAllowed: false }), real('vt', 0, { nullAllowed: false })],
     },
-    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, SIDIODE, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH, SEEGEN_SPEC,
+    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, SIDIODE, POTENTIOMETER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH, SEEGEN_SPEC,
 
     ...REAL_SPECS, ADC_BRIDGE, DAC_BRIDGE,
     {

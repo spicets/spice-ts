@@ -2464,4 +2464,40 @@ or execution. After: `montecarlo.sp` completes five AC runs; `mc_ring.sp` passes
 the comment line but still fails nominal transient convergence (tracked in #1600).
 This is control-language coverage, not a claim of full Monte Carlo parity.
 
+## XSPICE potentiometer (#1619)
+
+`benchmarks/xspice/potentiometer.cir` is an original project-authored MIT
+fixture; no upstream circuit is copied. Both engines receive identical bytes.
+It covers the default 100 kOhm midpoint, an explicit linear taper, and a log
+taper with nondefault `log_multiplier=2`, each with a loaded wiper and default
+single-ended `g` ports in `r0, wiper, r1` order. A 5 V operating point, nine-point
+source DC sweep, and short piecewise-linear transient exercise node voltages
+and source branch current without smooth-waveform interpolation error.
+
+Behavior and parameter references are ngspice-47's Public Domain sources
+(Georgia Tech Research Corporation, Jeffrey P. Murray):
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/xtradev/potentiometer/cfunc.mod
+and
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/xtradev/potentiometer/ifspec.ifs.
+The model's lower resistance is `position*r` for linear taper and
+`r/10**(position*log_multiplier)` for logarithmic taper; upper resistance is
+`r-lower`. The benchmark uses interior positions; endpoint clamping and warnings
+belong to unit coverage, not this parity claim. Contrary to the initial issue
+description, ngspice-47 has no `r_end` or `r_wiper` parameters. Out-of-range
+`position` is clamped to [0,1] with a MIF warning, not rejected as a parse error.
+The model then substitutes 1e-9 or 0.999999999 at the respective endpoints.
+
+Run `pnpm exec tsx benchmarks/xspice/potentiometer-compare.ts` from the repo root
+with ngspice and spice-heavy on PATH. The runner wraps every oracle batch in
+`spice-heavy`, uses `HERMES_SCRATCH_DIR` (default `~/.cache/spice-ts/benchmarks`,
+not system temporary storage), and compares both freshly generated and committed raw
+`potentiometer-reference/{op,dc,tran}.txt` ngspice-47 wrdata tables. Missing,
+nonfinite, incomplete, or mismatched samples fail closed. OP/DC use a fixed
+1e-6 pointwise relative threshold; transient uses 1e-6 peak-normalized maximum
+and RMS thresholds after linear interpolation at all reference times. No
+aggregate tolerance is relaxed. Output records fixture SHA-256, oracle version,
+platform, sample counts, metrics, and cold timings (oracle includes process
+startup/semaphore queueing; TS timing covers simulation). This is bounded
+resistive-network parity evidence, not a general speed claim.
+
 
