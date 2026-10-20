@@ -225,7 +225,7 @@ describe('corpus-f spice-ts child transport', () => {
 describe('corpus-f deck classification', () => {
   it('reads dot-card and control-block analyses but never the title line', () => {
     const deck = '.tran in the title\nV1 1 0 1\n.op\n.AC dec 10 1 1k\n.control\ntran 1n 1u\nsens v(1)\n.endc\n.end\n';
-    assert.deepEqual(declaredAnalyses(deck), { mapped: ['op', 'ac', 'tran'], unmapped: ['sens'] });
+    assert.deepEqual(declaredAnalyses(deck), { mapped: ['op', 'ac', 'tran', 'sens'], unmapped: [] });
     assert.deepEqual(declaredAnalyses('title\n* .tran 1 2\nR1 1 0 1\n.end\n'), { mapped: [], unmapped: [] });
   });
 
@@ -452,6 +452,31 @@ describe('corpus-f committed artifacts', () => {
 });
 
 describe('corpus-f sp/sens plots and streamed references (#694)', () => {
+  for (const mode of ['dc', 'ac'] as const) it(`scores a ${mode} sens control deck through the default batch harness (#1612)`, { skip: !HAS_NGSPICE || !HAS_CORE_DIST }, async () => {
+    const directory = await mkdtemp(resolve(tmpdir(), 'corpus-f-1612-'));
+    try {
+      const bytes = Buffer.from(`sens e2e\ni1 0 1 dc 42m ac 1\nr1 1 0 1k\n.control\nsens v(1) ${mode === 'dc' ? 'dc' : 'ac lin 2 10 20'}\nquit\n.endc\n.end\n`);
+      const localPath = resolve(directory, 'sens-e2e.cir');
+      await writeFile(localPath, bytes);
+      const circuit = { id: 'sens-e2e', sourcePath: 'toy/sens-e2e.cir', localPath, sha256: sha256(bytes), analyses: [], unmappedAnalyses: ['sens'], sameNameAs: [] } as unknown as CorpusFManifest['circuits'][number];
+      const fixture = await runFixture(circuit);
+      assert.equal(fixture.outcome, 'matched', JSON.stringify(fixture));
+      assert.deepEqual(fixture.analyses, ['sens']);
+      assert.deepEqual(fixture.unmappedAnalyses, []);
+      assert.equal(fixture.comparedAnalyses, 1);
+      assert.ok(fixture.comparedSignals >= 5);
+      assert.ok(fixture.worstNormalizedError !== null);
+      assert.deepEqual(declaredAnalyses(bytes.toString()), { mapped: ['sens'], unmapped: [] });
+      assert.equal(analysisType('Sensitivity Analysis'), 'sens');
+      const native = await runNativeSpiceTs(bytes, { ...circuit, analyses: ['sens'] } as unknown as ClassicCircuit);
+      assert.equal(native.status, 'success', native.error);
+      const adapted = await runCorpusFSpiceTs(bytes, { ...circuit, analyses: ['sens'] } as unknown as ClassicCircuit);
+      assert.deepEqual(native.analyses, adapted.analyses);
+      assert.equal(sha256(await readFile(localPath)), sha256(bytes));
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   const RAW = [
     'Title: toy', 'Date: today', 'Plotname: Transient Analysis', 'Flags: real', 'No. Variables: 3', 'No. Points: 3',
     'Variables:', '\t0\ttime\ttime', '\t1\tV(1)\tvoltage', '\t2\ti(v1)\tcurrent', 'Values:',

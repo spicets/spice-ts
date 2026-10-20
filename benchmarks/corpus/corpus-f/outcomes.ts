@@ -276,11 +276,12 @@ export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, s
     });
     // -r does not export analyses run inside .control. Reuse the control-vector wrapper
     // on identical bytes, not wrdata expressions (which may square-root the spectra).
-    // Retain noise spectra/totals and S-parameter control plots, with packed, selected columns.
+    // Retain noise, S-parameter and sensitivity control plots, with packed, selected columns.
     let exportNote: string | undefined;
     const exportTypes = [
       ...(/^\s*noise\s+/im.test(input.toString('utf8')) ? ['noise' as const] : []),
       ...(circuit.analyses.includes('sp') ? ['sp' as const] : []),
+      ...(circuit.analyses.includes('sens') ? ['sens' as const] : []),
     ];
     if (analyses.length === 0 && !errorLine && exportTypes.length > 0
       && /^\s*\.control\b/im.test(input.toString('utf8'))) {
@@ -300,13 +301,13 @@ export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, s
           scrub(exported.error?.message ?? exportError ?? `ngspice export exited ${exported.status}`, directory)),
           ...(exportNote ? { note: exportNote } : {}) };
       }
-      const files = (await readdir(directory)).filter(name => /^(?:noise|sp)\d+\.raw$/.test(name))
+      const files = (await readdir(directory)).filter(name => /^(?:noise|sp|sens)\d+\.raw$/.test(name))
         .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]));
       for (const file of files) {
         const retained = await readNgspiceRawFilePacked(resolve(directory, file), keep);
         for (const plot of retained) {
           const type = analysisType(plot.plotName);
-          if (type !== 'noise' && type !== 'sp') continue;
+          if (type !== 'noise' && type !== 'sp' && type !== 'sens') continue;
           analyses.push({ type, plotName: plot.plotName, plotId: file.replace(/\.raw$/, ''),
             grid: Float64Array.from(plot.grid), signals: plot.signals });
         }
@@ -397,12 +398,12 @@ export async function runFixture(
 ): Promise<FixtureOutcome> {
   const input = await readFile(resolve(circuit.localPath));
   if (sha256(input) !== circuit.sha256) throw new Error(`${circuit.id}: fixture SHA-256 mismatch`);
-  // Older manifests predate batch S-parameter support. Promote the declaration without
+  // Older manifests predate batch S-parameter/sensitivity support. Promote declarations without
   // rewriting the ingested corpus identity or changing the bytes sent to either engine.
   circuit = {
     ...circuit,
-    analyses: [...new Set([...circuit.analyses, ...circuit.unmappedAnalyses.filter(type => type === 'sp')])],
-    unmappedAnalyses: circuit.unmappedAnalyses.filter(type => type !== 'sp'),
+    analyses: [...new Set([...circuit.analyses, ...circuit.unmappedAnalyses.filter(type => type === 'sp' || type === 'sens')])],
+    unmappedAnalyses: circuit.unmappedAnalyses.filter(type => type !== 'sp' && type !== 'sens'),
   };
   // spice-ts runs first so a reference reader may keep only the signals that can be compared
   // (#694): compareExecutions scores common signals only, so the outcome is the same either way.
