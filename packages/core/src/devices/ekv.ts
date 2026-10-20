@@ -133,7 +133,7 @@ export class EKV26 implements DeviceModel {
     model: Readonly<Record<string, number>>, instance: Readonly<Record<string, number>> = {},
     readonly polarity = 1, readonly modelName = name,
   ) {
-    const warnings = [`${name}: EKV26 quasi-static intrinsic and overlap charges supported; junction charges, AC/NQS and noise are not implemented. Default diffusion leakage stays at TNOM; explicit junction parameters require unsupported temperature laws off TNOM.`];
+    const warnings = [`${name}: EKV26 quasi-static intrinsic and overlap charges supported in transient and AC; junction charges, NQS and noise are not implemented. Default diffusion leakage stays at TNOM; explicit junction parameters require unsupported temperature laws off TNOM.`];
     // Section 5.2.1: physical PMOS VTO/TCV have the opposite sign.
     const values: Parameters = { ...DEFAULTS, TCV: polarity * DEFAULTS.TCV };
     for (const [key, value] of Object.entries({ ...model, ...instance })) {
@@ -396,6 +396,23 @@ export class EKV26 implements DeviceModel {
 
   private chargesAt(ctx: StampContext): EKVCharges {
     return this.evaluateCharges(this.nodes.map(n => n < 0 ? 0 : ctx.getVoltage(n)) as [number, number, number, number]);
+  }
+
+  /** Signed charge Jacobian. The AC assembler forms G + j*omega*C. */
+  stampDynamic(ctx: StampContext): void {
+    const { jacobian } = this.chargesAt(ctx);
+    for (let row = 0; row < 4; row++) {
+      const node = this.nodes[row];
+      if (node < 0) continue;
+      for (let col = 0; col < 4; col++) {
+        const control = this.nodes[col];
+        if (control >= 0) ctx.stampC(node, control, jacobian[row][col]);
+      }
+    }
+  }
+
+  stampAC(ctx: StampContext, _omega: number): void {
+    this.stampDynamic(ctx);
   }
 
   stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {

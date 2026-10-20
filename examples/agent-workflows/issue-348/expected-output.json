@@ -8,6 +8,7 @@
     "spice_simulation_start/read:second"
   ],
   "tools": [
+    "spice_sparams",
     "spice_impedance",
     "spice_tf",
     "spice_sensitivity",
@@ -47,6 +48,7 @@
       "circuit-json"
     ],
     "tools": [
+      "spice_sparams",
       "spice_impedance",
       "spice_tf",
       "spice_sensitivity",

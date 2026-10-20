@@ -31,7 +31,7 @@ export function batchControlPlots<T extends PlotIdentity>(text: string, candidat
   if (!/^\s*\.control\b/im.test(body)) return { candidate: [...candidate], reference: [...reference] };
   const dotCards = body.replace(/^\s*\.control\b[\s\S]*?^\s*\.endc\b/gim, '');
   const final = new Map<PlotIdentity['type'], T>();
-  for (const type of ['op', 'dc', 'ac', 'tran'] as const) {
+  for (const type of ['op', 'dc', 'ac', 'tran', 'sp'] as const) {
     if (!new RegExp(`^\\s*\\.${type}\\b`, 'im').test(dotCards)) continue;
     const own = candidate.filter(plot => plot.type === type);
     const raw = reference.filter(plot => plot.type === type);
