@@ -6,11 +6,11 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `751079bbe4bef05729fd19dd66714b690a72caad92752baebe5782b53d2e33eb`.
+- Fixtures: 336. Outcome SHA-256: `fae4f142e6ed355a157f7a7dc6d55ba5012165aef1e29ba82aed1065f57231c0`.
 - ngspice (ngspice-47): 306 success, 18 failed, 12 unsupported.
-- spice-ts (0.4.0): 231 success, 13 failed, 92 unsupported.
-- Outcomes: matched 92, mismatch 20, not-compared 115, spice-ts-loss 79, ngspice-failed 4, both-failed 26.
-- Of the 306 decks ngspice runs successfully, spice-ts matches 92, mismatches 20, produces no comparable result for 115 and fails 79. For 145 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
+- spice-ts (0.4.0): 232 success, 13 failed, 91 unsupported.
+- Outcomes: matched 92, mismatch 20, not-compared 116, spice-ts-loss 78, ngspice-failed 4, both-failed 26.
+- Of the 306 decks ngspice runs successfully, spice-ts matches 92, mismatches 20, produces no comparable result for 116 and fails 78. For 145 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
 
@@ -44,7 +44,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | Bucket | Fixtures | ngspice ok | Issue |
 |---|---|---|---|
 | model: CIDER numerical device models (NUMD/NUMOS/NBJT) | 37 | 37 | https://github.com/mfiumara/spice-ts/issues/497 |
-| parse: other unsupported syntax | 20 | 13 | none filed |
+| parse: other unsupported syntax | 19 | 12 | none filed |
 | harness: analysis result not produced or not mapped | 11 | 11 | none filed |
 | control: ngspice control-language scripting (set/let/save/foreach/meas/...) | 6 | 4 | https://github.com/mfiumara/spice-ts/issues/488 |
 | execution: other failure | 6 | 1 | none filed |
@@ -226,7 +226,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/various/v-i-sources-am-ffm.cir](fixtures/examples/various/v-i-sources-am-ffm.cir) | success | success | matched | 0.000665 | tran i(v1) |  |
 | [examples/vbic/DFF_Y_ECL.sp](fixtures/examples/vbic/DFF_Y_ECL.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/vbic/vbic99_dc.sp](fixtures/examples/vbic/vbic99_dc.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
-| [examples/vbic/vbic99_tran.sp](fixtures/examples/vbic/vbic99_tran.sp) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Invalid bounded VBIC DC model parameter: 'HRCF' |
+| [examples/vbic/vbic99_tran.sp](fixtures/examples/vbic/vbic99_tran.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/vdmos/100W_wingspread.sp](fixtures/examples/vdmos/100W_wingspread.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/vdmos/100W.sp](fixtures/examples/vdmos/100W.sp) | success | failed | spice-ts-loss |  |  | ngspice note: Skipped reference plot exports: ac1 (write all rejected an unavailable or zero-length vector) / spice-ts: spice-ts exceeded the 120000 ms aggregate execution bound |
 | [examples/vdmos/crss_coss_ciss.sp](fixtures/examples/vdmos/crss_coss_ciss.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
@@ -403,7 +403,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 
 - Fine-step reference (#592): ngspice-47 runs the same deck with every active .tran card rewritten to TMAX_fine = min(TSTEP, (TSTOP - TSTART)/50, deck TMAX if given) / 10, i.e. the ngspice default step ceiling divided by 10; TSTEP, TSTOP, TSTART, UIC and every other card are unchanged. The rule is the same for every transient fixture. No reference is generated when the deck has no parsable .tran card outside .control, or when TSTOP/TMAX_fine exceeds 1000000 steps; the ngspice run is bounded at 600 s. Each default run (spice-ts, ngspice) is scored by the same procedure: at the reference's output points, with the default run linearly interpolated onto them, over the transient signals of the headline comparison, normalised by the reference peak with the same per-quantity floors. The headline's one-sided breakpoint alignment applies at every default-run time point within ngspice's breakpoint merge distance (CKTminBreak = 0.00005 x TMAX_fine) of a reference time point; the headline matches breakpoints bit for bit, which here would favour ngspice, whose default run lands on its own reference's breakpoint times exactly while spice-ts's land a few ulps away. This charges each engine for its own published waveform, so a coarse output grid counts against whichever engine produced it. Status (matched/mismatch) is defined by the headline column only. One fine reference is not a convergence proof, and neither column is an accuracy ranking of the engines.
 - One fine reference is not a convergence proof: it is one more discretisation of the same circuit by the same engine. These columns are diagnostics of grid sensitivity, not an accuracy ranking and not a claim that either engine is more accurate. Status stays defined by the headline column.
-- Transient rows: 116; fine reference compared for 61, unavailable for 55. Above 0.01 among compared rows: headline (transient signals) 15, spice-ts vs fine 34, ngspice default vs fine 31.
+- Transient rows: 117; fine reference compared for 61, unavailable for 56. Above 0.01 among compared rows: headline (transient signals) 15, spice-ts vs fine 34, ngspice default vs fine 31.
 
 | Fixture | Status (headline) | Headline tran worst (vs ngspice default) | spice-ts vs fine | ngspice default vs fine | Fine TMAX | Note |
 |---|---|---|---|---|---|---|
@@ -460,6 +460,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/various/transformers1.cir](fixtures/examples/various/transformers1.cir) | matched | 7.15e-7 (v(12)) | 0.00142 (v(xtr2.mc1)) | 0.00142 (v(xtr2.mc1)) | 1e-7 |  |
 | [examples/various/v-i-sources-am-ffm.cir](fixtures/examples/various/v-i-sources-am-ffm.cir) | matched | 0.000665 (i(v1)) |  |  | 5e-8 | TSTOP/TMAX_fine = 1280000 steps exceeds the 1000000-step budget |
 | [examples/vbic/DFF_Y_ECL.sp](fixtures/examples/vbic/DFF_Y_ECL.sp) | not-compared |  |  |  |  | no .tran card outside .control |
+| [examples/vbic/vbic99_tran.sp](fixtures/examples/vbic/vbic99_tran.sp) | not-compared |  |  |  |  | no .tran card outside .control |
 | [examples/vdmos/crss_coss_ciss.sp](fixtures/examples/vdmos/crss_coss_ciss.sp) | not-compared |  |  |  |  | no .tran card outside .control |
 | [examples/vdmos/inv_vdmos.sp](fixtures/examples/vdmos/inv_vdmos.sp) | not-compared |  |  |  |  | no .tran card outside .control |
 | [examples/vdmos/IXTP6N100D2-cap.sp](fixtures/examples/vdmos/IXTP6N100D2-cap.sp) | not-compared |  |  |  |  | no .tran card outside .control |

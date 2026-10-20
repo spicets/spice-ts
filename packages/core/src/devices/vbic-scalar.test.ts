@@ -21,6 +21,39 @@ const card = deck.slice(deck.indexOf('.MODEL')).split('\n').filter((line, i) => 
 const dff = Object.fromEntries([...card.matchAll(/(\w+)\s*=\s*([\d.Ee+-]+)/g)].map(m => [m[1], Number(m[2])]));
 
 describe('scalar VBIC full Jacobian oracle', () => {
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])('retains the bounded HRCF domain for %s', HRCF => {
+    expect(() => resolveVBICParams({ HRCF }, 1)).toThrow("Invalid bounded VBIC DC model parameter: 'HRCF'");
+  });
+  it.each([{ VO: 2, HRCF: 0 }, { VO: 0, HRCF: 2 }, { VO: 0, HRCF: 0 }])(
+    'uses ngspice zero inverses in quasi-saturation ($VO, $HRCF)', supplied => {
+      const p = resolveVBICParams({ ...supplied, RCI: 2, GAMM: 0.01 }, 1);
+      const t = resolveVBICTemperature(p, 27);
+      const v = [0.7, 0.7, 0.02, -0.03, 0, 0, 0.4, 0, 0];
+      // ngspice-47 a80f6e3e vbicload.c:2210-2222,3722-3733.
+      const vt = t.vt;
+      const kbci = Math.sqrt(1 + t.GAMM * Math.exp(v[2] / vt));
+      const kbcx = Math.sqrt(1 + t.GAMM * Math.exp(v[3] / vt));
+      const iohm = (v[6] + vt * (kbci - kbcx - Math.log((kbci + 1) / (kbcx + 1)))) / t.RCI;
+      const ivo = supplied.VO > 0 ? 1 / supplied.VO : 0;
+      const ihrcf = supplied.HRCF > 0 ? 1 / supplied.HRCF : 0;
+      const derf = ivo * t.RCI * iohm / (1 + 0.5 * ivo * ihrcf * Math.sqrt(v[6] ** 2 + 0.01));
+      const expected = iohm / Math.sqrt(1 + derf ** 2);
+      const scalar = evaluateScalar(v, p, t, 1, 0, new ScalarWorkspace());
+      const dual = oracle.evaluate(v, p, t, 1, 0, new oracle.DualWorkspace(9));
+      expect(scalar.noise.irci.value).toBeCloseTo(expected, 14);
+      expect(dual.noise.irci.value).toBeCloseTo(expected, 14);
+      for (let col = 0; col < 9; col++) {
+        const plus = [...v], minus = [...v];
+        plus[col] += 1e-6;
+        minus[col] -= 1e-6;
+        const upper = evaluateScalar(plus, p, t, 1, 0, new ScalarWorkspace()).noise.irci.value;
+        const lower = evaluateScalar(minus, p, t, 1, 0, new ScalarWorkspace()).noise.irci.value;
+        expect(scalar.noise.irci.derivative[col]).toBeCloseTo((upper - lower) / 2e-6, 8);
+        expect(dual.noise.irci.derivative[col]).toBeCloseTo(scalar.noise.irci.derivative[col], 14);
+      }
+    },
+  );
+
   it('matches Dual for every residual, charge and noise value and branch partial', () => {
     let seed = 131013;
     const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
@@ -32,7 +65,7 @@ describe('scalar VBIC full Jacobian oracle', () => {
     };
     let points = 0, comparisons = 0, worstAbsoluteError = 0, worstRelativeError = 0;
     for (const polarity of [1, -1]) for (const temperature of [-40, 27, 125]) {
-      for (const supplied of [{}, rich, { ...rich, WSP: 0, FC: 0.99, ME: 0.95, MC: 0.95, MS: 0.95 }, dff]) {
+      for (const supplied of [{}, rich, { ...rich, HRCF: 0 }, { ...rich, VO: 0, HRCF: 0 }, { ...rich, WSP: 0, FC: 0.99, ME: 0.95, MC: 0.95, MS: 0.95 }, dff]) {
         const p = resolveVBICParams(supplied, polarity);
         const t = resolveVBICTemperature(p, temperature);
         const w = new ScalarWorkspace(), ow = new oracle.DualWorkspace(9);

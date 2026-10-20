@@ -44,15 +44,15 @@
       "unsupported": 12
     },
     "spiceTs": {
-      "success": 231,
+      "success": 232,
       "failed": 13,
-      "unsupported": 92
+      "unsupported": 91
     },
     "outcomes": {
       "matched": 92,
       "mismatch": 20,
-      "not-compared": 115,
-      "spice-ts-loss": 79,
+      "not-compared": 116,
+      "spice-ts-loss": 78,
       "ngspice-failed": 4,
       "both-failed": 26
     }
@@ -105,8 +105,8 @@
     },
     {
       "bucket": "parse: other unsupported syntax",
-      "fixtures": 20,
-      "ngspiceSuccess": 13,
+      "fixtures": 19,
+      "ngspiceSuccess": 12,
       "ids": [
         "examples-measure-inv-meas-tran-auto-sp",
         "examples-measure-inv-meas-tran-control-sp",
@@ -118,7 +118,6 @@
         "examples-mos-ro-meas-cir",
         "examples-probe-mos-test-cir",
         "examples-various-gain-stage-cir",
-        "examples-vbic-vbic99-tran-sp",
         "examples-xspice-d-process-checks-cir",
         "examples-xspice-ghdl-mc-cir",
         "examples-xspice-ghdl-pwm-cir",
@@ -5559,16 +5558,26 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Invalid bounded VBIC DC model parameter: 'HRCF'"
+        "status": "success",
+        "analyses": [
+          "op:1",
+          "tran:2091"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 2,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax"
+      "outcome": "not-compared",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "unavailable",
+        "tmax": [],
+        "reason": "no .tran card outside .control",
+        "headline": null,
+        "spiceTsVsFine": null,
+        "ngspiceDefaultVsFine": null
+      }
     },
     {
       "id": "examples-vdmos-100w-wingspread-sp",
@@ -13343,5 +13352,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "751079bbe4bef05729fd19dd66714b690a72caad92752baebe5782b53d2e33eb"
+  "outcomeSha256": "fae4f142e6ed355a157f7a7dc6d55ba5012165aef1e29ba82aed1065f57231c0"
 }

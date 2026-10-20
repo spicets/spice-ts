@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { simulate } from '../simulate.js';
-import { InvalidCircuitError } from '../errors.js';
 import { VBIC } from './vbic.js';
 import type { StampContext } from './device.js';
 
@@ -86,11 +85,9 @@ describe('VBIC transient self heating', () => {
     expect(Math.abs(temperature.at(-1)! / 0.03419172976017186 - 1)).toBeLessThan(1e-3);
   });
 
-  it('reports the next explicit bounded-domain limitation of the unchanged public deck', async () => {
+  it('runs the unchanged public deck with zero HRCF and VO', async () => {
     const source = readFileSync(new URL('../../../../benchmarks/corpus/corpus-f/fixtures/examples/vbic/vbic99_tran.sp', import.meta.url), 'utf8');
-    // Resistor exponents and activation energies are supported; HRCF=0 remains separate.
-    await expect(simulate(source)).rejects.toThrow(InvalidCircuitError);
-    await expect(simulate(source)).rejects.toThrow("Invalid bounded VBIC DC model parameter: 'HRCF'");
+    expect((await simulate(source)).transient!.time.length).toBeGreaterThan(1);
   }, 30_000);
 
   it('keeps four-terminal CTH inert, including the adaptive time grid', async () => {
