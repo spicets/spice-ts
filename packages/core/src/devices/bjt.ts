@@ -56,10 +56,11 @@ export interface BJTParams {
   RBM: number;
   IRB: number;
   RC: number;
-  /** Static Kull epi-region parameters (ngspice-47 bjtload.c). */
+  /** Kull epi-region parameters (ngspice-47 bjtload.c). */
   RCO: number;
   VO: number;
   GAMMA: number;
+  QCO: number;
   RE: number;
   KF: number;
   AF: number;
@@ -133,12 +134,9 @@ const UNSUPPORTED_TEMPERATURE_PARAMETERS = [
 ] as const;
 
 /**
- * ngspice-47 bjt.c model fields with no effect on these static cards: the Kull
- * quasi-saturation charge only acts dynamically (not supported with RCO), and the
- * bjtsoachk.c safe-operating-area limits only print warnings.
+ * ngspice-47 bjtsoachk.c safe-operating-area limits only print warnings.
  */
 const INERT_MODEL_PARAMETERS = [
-  'QCO',
   'VBE_MAX', 'VBC_MAX', 'VCE_MAX', 'PD_MAX', 'IC_MAX', 'IB_MAX', 'TE_MAX', 'RTH0',
 ] as const;
 
@@ -150,7 +148,7 @@ const INERT_MODEL_PARAMETERS = [
 const SUPPORTED_MODEL_PARAMETERS = new Set<string>([
   'LEVEL', 'BF', 'BR', 'IS', 'NF', 'NR', 'VAF', 'IKF', 'ISE', 'NE', 'VAR', 'IKR', 'ISC', 'NC',
   'NKF', 'RB', 'RBM', 'IRB', 'RC', 'RE', 'KF', 'AF', 'ISS', 'NS', 'TNOM', 'EG', 'XTI', 'XTB',
-  'RCO', 'VO', 'GAMMA', 'QUASIMOD', 'VG', 'CN', 'D',
+  'RCO', 'VO', 'GAMMA', 'QCO', 'QUASIMOD', 'VG', 'CN', 'D',
   'TRE1', 'TRE2', 'TRC1', 'TRC2', 'TRB1', 'TRB2', 'TRM1', 'TRM2',
   ...CHARGE_STORAGE_PARAMETERS, ...Object.keys(MODEL_PARAMETER_ALIASES),
   ...UNSUPPORTED_TEMPERATURE_PARAMETERS, ...INERT_MODEL_PARAMETERS,
@@ -391,6 +389,7 @@ export function resolveBJTParams(
     RCO: params.RCO ?? 0,
     VO: params.VO ?? 10,
     GAMMA: params.GAMMA ?? 1e-11,
+    QCO: params.QCO ?? 0,
     RE: params.RE ?? 0,
     KF: params.KF ?? 0,
     AF: params.AF ?? 1,
@@ -705,7 +704,7 @@ export class BJT implements DeviceModel {
     }
     const { CJE, CJC, CJS, TF, TR } = this.params;
     this.integratesTransientCharge = CJE > 0 || CJC > 0 || CJS > 0 || TF > 0 || TR > 0;
-    if (this.integratesTransientCharge) {
+    if (this.integratesTransientCharge || (this.params.RCO > 0 && this.params.QCO !== 0)) {
       this.stampDynamic = ctx => this.stampChargeStorage(ctx);
     }
   }
@@ -1348,7 +1347,7 @@ export class BJT implements DeviceModel {
     }
     if (substrateJunction) this.stampSubstrateJunction(ctx);
     if (this.params.RCO > 0) {
-      stampEpiRegion(ctx, this.nodes, this.params, this.vt, this.multiplier);
+      stampEpiRegion(ctx, this.nodes, this.params, this.vt, this.multiplier, !substrateJunction);
     }
   }
 
@@ -1386,6 +1385,23 @@ export class BJT implements DeviceModel {
     stampCapacitance(ctx, substrateNode, this.substrateNode, capSub);
     // bjtacld.c xcbx between the external base and the collector prime.
     stampCapacitance(ctx, this.externalBaseNode, nC, capBX);
+    if (this.params.RCO > 0 && this.params.QCO !== 0) {
+      // bjtload.c adds Qbci_Vbci to capbc and saves Qbcx_Vbcx for
+      // bjtacld.c. RCO/QCO are not AREA-scaled; M multiplies both branches.
+      // Both epi charges vanish for vrci <= 0. Transient remains unsupported.
+      const cx = this.nodes[5];
+      const voltage = (node: number): number => node >= 0 ? ctx.getVoltage(node) : 0;
+      const { polarity, GAMMA, QCO } = this.params;
+      if (polarity * (voltage(cx) - voltage(nC)) > 0) {
+        for (const collector of [nC, cx]) {
+          const vbc = polarity * (voltage(nB) - voltage(collector));
+          const exponential = GAMMA * Math.exp(vbc / this.vt);
+          const capacitance = this.multiplier * QCO * exponential
+            / (2 * this.vt * Math.sqrt(1 + exponential));
+          stampCapacitance(ctx, nB, collector, capacitance);
+        }
+      }
+    }
     if (crossCapacitance !== 0) {
       // dQbe/dVbc: charge between B and E controlled by the B-C voltage.
       if (nB >= 0) {

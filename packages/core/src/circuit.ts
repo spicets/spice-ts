@@ -2254,7 +2254,8 @@ export class Circuit {
       && (this._models.get(desc.modelName!)?.params.RCO ?? 0) > 0);
     if (quasiBJT) {
       const unsupported = this._poleZeroAnalyses.length > 0 ? 'pz'
-        : this._analyses.find(analysis => analysis.type !== 'op' && analysis.type !== 'dc')?.type;
+        : this._analyses.find(analysis =>
+          analysis.type !== 'op' && analysis.type !== 'dc' && analysis.type !== 'ac')?.type;
       if (unsupported) {
         throw new UnsupportedModelParameterError(quasiBJT.name, 'RCO',
           `BJT quasi-saturation supports only static op/dc; ${unsupported} is unsupported`);

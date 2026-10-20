@@ -40,7 +40,7 @@ describe('static Kull epi-region model (#1499)', () => {
     expect(disabled.dcSweep!.current('VCE')).toEqual(baseline.dcSweep!.current('VCE'));
   });
 
-  it.each(['.ac dec 1 1 10', '.tran 1n 10n', '.noise v(c) VBE dec 1 1 10'])(
+  it.each(['.tran 1n 10n', '.noise v(c) VBE dec 1 1 10'])(
     'rejects unsupported %s with a typed analysis-specific error', async analysis => {
       const deck = oracle[0].deck.replace('.dc VCE 0 5 0.05', analysis);
       await expect(simulate(deck)).rejects.toBeInstanceOf(UnsupportedModelParameterError);
