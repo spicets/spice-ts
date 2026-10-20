@@ -162,7 +162,7 @@ describe('bounded numeric WebAssembly backend', () => {
           inputFormats: ['spice'],
           analyses: ['op', 'dc', 'tran', 'ac'],
           devicesByAnalysis: {
-            op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q'],
+            op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'],
             dc: ['R', 'I', 'V'],
             tran: ['R', 'C', 'L', 'I', 'V'],
             ac: ['R', 'C', 'L', 'I', 'V'],

@@ -139,7 +139,7 @@ function simulateOp(
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
-  if (compiled.devices.some(device => ['D', 'Q'].includes(device.name[0]?.toUpperCase() ?? ''))) {
+  if (compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''))) {
     return opResult(compiled, solveNonlinearOp(compiled, order, request, exports), request);
   }
   const matrix = new Float64Array(order * order);
@@ -283,7 +283,8 @@ function solveNonlinearOp(
     if (iteration >= 2 && converged) return solution;
     previous = solution;
   }
-  const deviceKind = compiled.devices.some(device => device.name[0]?.toUpperCase() === 'Q') ? 'BJT' : 'diode';
+  const deviceKind = compiled.devices.some(device => device.name[0]?.toUpperCase() === 'M') ? 'MOS1'
+    : compiled.devices.some(device => device.name[0]?.toUpperCase() === 'Q') ? 'BJT' : 'diode';
   throw numericError('CONVERGENCE_FAILED', `The bounded WebAssembly ${deviceKind} operating point did not converge`, 'solve', {
     maxIterations,
   });
@@ -595,7 +596,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     || compiled.analyses.length !== 1 || compiled.analyses[0]?.type !== analysis) {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
-  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q']
+  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
@@ -653,20 +654,26 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 }
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
-  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q']
+  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (analysis === 'op' && /^\.model\b/i.test(card)) {
-      const model = /^\.model\s+\S+\s+(D|NPN|PNP)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
-      if (!model) unsupported('nonlinear-model', 'Only bounded diode and BJT models are supported in nonlinear operating points');
-      const bjt = model[1]!.toUpperCase() !== 'D';
+      const model = /^\.model\s+\S+\s+(D|NPN|PNP|NMOS|PMOS)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
+      if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
+      const mos = /MOS$/i.test(model[1]!);
+      const bjt = /^(NPN|PNP)$/i.test(model[1]!);
       const parameters = (model[2] ?? model[3] ?? '').trim();
-      const names = bjt ? 'IS|BF|BR|NF|NR|VAF' : 'IS|N|RS';
+      const names = mos ? 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI' : bjt ? 'IS|BF|BR|NF|NR|VAF' : 'IS|N|RS';
+      // Check every LEVEL occurrence, not just the final duplicate consumed by core.
+      if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
+        unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
+      }
       const parameter = new RegExp(`(?:${names})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|,\\s*|$)`, 'gi');
       if (parameters.replace(parameter, '').trim()) {
+        if (mos) unsupported('mosfet-model-parameter', 'Only MOS1 model parameters LEVEL=1, VTO, KP, LAMBDA, GAMMA, and PHI are supported');
         if (bjt) unsupported('bjt-model-parameter', 'Only BJT model parameters IS, BF, BR, NF, NR, and VAF are supported');
         unsupported('diode-model-parameter', 'Only diode model parameters IS, N, and RS are supported');
       }
@@ -684,6 +691,12 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (tokens.length !== 4) unsupported('diode-form', 'Diodes must use name anode cathode model');
     } else if (type === 'Q') {
       if (tokens.length !== 5) unsupported('bjt-form', 'BJTs must use name collector base emitter model');
+    } else if (type === 'M') {
+      const instance = /^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+(.*)$/.exec(card);
+      const dimensions = new RegExp(`(?:W|L)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
+      if (!instance || instance[1]!.trim().replace(dimensions, '').trim()) {
+        unsupported('mosfet-form', 'MOSFETs must use name drain gate source bulk model with optional numeric W and L only');
+      }
     } else if (type === 'L') {
       if (/\bIC\s*=/i.test(card)) {
         unsupported('inductor-initial-condition', 'Inductor initial conditions (IC=) are not supported');

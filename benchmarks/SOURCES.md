@@ -1,5 +1,17 @@
 # Benchmark sources
 
+## Bounded WASM MOS1 operating points (#1552)
+
+`packages/wasm/src/test-support/mos1-fixtures.ts` contains 12 original
+project-authored MIT netlists; no third-party circuit material is copied.
+`benchmarks/wasm-mos1-op/compare.ts` feeds identical bytes to both spice-ts
+backends and ngspice-47, recording input hashes, node voltages, source branch
+currents, uniform tolerances and cold one-shot runtimes in `report.json`.
+Reproduce with `pnpm build` then
+`spice-heavy pnpm exec tsx benchmarks/wasm-mos1-op/compare.ts`.
+The committed receipt is consumed and hash-checked by the WASM MOS1 tests.
+This is bounded MOS1 OP evidence, not a general parity or speed claim.
+
 
 ## Diode junction temperature laws (#1533)
 
