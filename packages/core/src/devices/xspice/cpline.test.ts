@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { simulate } from '../../simulate.js';
+import { cpline } from './cpline.js';
+import type { CodeModelCall } from './models.js';
 
 // Project-authored oracle. ngspice-47: ngspice -n -b cpline-oracle.cir,
 // using this identical deck with .control: set numdgt=17; op;
@@ -24,7 +26,7 @@ const reference = [
 ];
 const fixture = (name: string) => readFileSync(new URL(`../../../../../benchmarks/corpus/corpus-f/fixtures/examples/xspice/transmission_lines/${name}.cir`, import.meta.url), 'utf8');
 
-describe('XSPICE cpline OP/AC', () => {
+describe('XSPICE cpline OP/AC/TRAN', () => {
   it('matches ngspice-47 DC shorts, including with attenuation', async () => {
     const { dc } = await simulate(`${deck()}.op\n.end`);
     for (const node of ['p1', 'p2']) expect(dc!.voltage(node)).toBeCloseTo(.6, 9);
@@ -45,8 +47,69 @@ describe('XSPICE cpline OP/AC', () => {
     const result = await simulate(fixture('cpline_ac'));
     expect(result.control!.runs.some(run => run.result.sParameters?.frequencies.length === 100)).toBe(true);
   });
-  it.each([`${deck()}.tran 1p 10p\n.end`, fixture('cpline_tran')])('rejects transient explicitly with a typed error', async input => {
-    await expect(simulate(input)).rejects.toMatchObject({ code: 'UNSUPPORTED_XSPICE_CPLINE', message: expect.stringMatching(/cpline.*transient/i) });
+  it.each([
+    ['even', 1, 1, .5, .5],
+    ['odd', 2, -2, .5, -.5],
+    ['combined', 3, -1, 1, 0],
+  ] as const)('propagates a matched %s-mode step with analytical delay and amplitude', async (_mode, drive1, drive4, out2, out3) => {
+    // Z_even=100, Z_odd=50: each end is matched by 100 ohms to
+    // ground and 200 ohms between conductors. The sources feed the same
+    // network, so its modal Norton drives launch .5 V in the selected mode.
+    // cfunc.mod:179 uses l/C0 for BOTH modes, ignoring ere/ero in TRAN.
+    const { transient: tran } = await simulate(`matched coupled modal step
+v1 s1 0 pulse(0 ${drive1} 3n 10p 10p 10n)
+v4 s4 0 pulse(0 ${drive4} 3n 10p 10p 10n)
+rs1 s1 p1 100
+rs4 s4 p4 100
+rs14 p1 p4 200
+rl2 p2 0 100
+rl3 p3 0 100
+rl23 p2 p3 200
+a1 %hd(p1 0) %hd(p2 0) %hd(p3 0) %hd(p4 0) %vd(p1 0) %vd(p2 0) %vd(p3 0) %vd(p4 0) m
+.model m cpline(ze=100 zo=50 l=.299792458 ere=4 ero=9)
+.tran 2p 6n 0 2p
+.end`);
+    for (const [time, expected2, expected3] of [[3.5e-9, 0, 0], [4.1e-9, out2, out3], [5.5e-9, out2, out3]]) {
+      const index = tran!.time.findIndex(t => t >= time);
+      expect(Math.abs(tran!.voltage('p2')[index] - expected2)).toBeLessThan(1e-6);
+      expect(Math.abs(tran!.voltage('p3')[index] - expected3)).toBeLessThan(1e-6);
+    }
+  });
+  it('runs the unchanged corpus-f transient fixture', async () => {
+    const { transient: tran } = await simulate(fixture('cpline_tran'));
+    expect(tran!.time.at(-1)).toBeCloseTo(5e-9, 18);
+    for (const node of ['p1', 'p2', 'p3', 'p4']) expect(tran!.voltage(node).every(Number.isFinite)).toBe(true);
+  });
+  it('keeps coupled ceiling history isolated from Newton retries, rollback and reset', () => {
+    const behavior = cpline(new Map(Object.entries({ ze: 100, zo: 50, l: .299792458, ere: 4, ero: 9, ae: 2, ao: 5 }).map(([key, value]) => [key, [value]])));
+    const call = (time: number, inputs: Float64Array = new Float64Array(8)): CodeModelCall => ({
+      time, delta: .1e-9, analysis: 'tran', init: false, inputs,
+      outputs: new Float64Array(4), partials: new Float64Array(32), notConverged() {},
+    });
+    behavior.accept!(call(0));
+    const first = call(.2e-9, Float64Array.of(.01, .02, .03, .04, 1, 2, 3, 4));
+    behavior.load(first);
+    expect([...first.outputs, ...first.partials].every(value => value === 0)).toBe(true);
+    behavior.load(call(.2e-9, new Float64Array(8).fill(999))); // later Newton guess
+    behavior.accept!(call(.2e-9, new Float64Array(8).fill(999)));
+    behavior.load(call(.5e-9, new Float64Array(8).fill(999))); // rejected future trial
+    const delayed = call(1.1e-9);
+    behavior.load(delayed);
+    behavior.load(delayed);
+    expect([...delayed.outputs]).toEqual([4.25, 2.75, 7.25, 5.75]);
+    for (let row = 0; row < 4; row++) for (let col = 0; col < 8; col++) {
+      expect(delayed.partials[row * 8 + col]).toBe(col === row ? 75 : col === (row ^ 3) ? 25 : 0);
+    }
+    behavior.accept!(call(.2e-9)); // replace the accepted point on rollback
+    behavior.load(delayed);
+    expect([...delayed.outputs]).toEqual([0, 0, 0, 0]);
+    behavior.reset!();
+    const coarse = call(2e-9, first.inputs);
+    behavior.load(coarse); // no accepted ceiling sample: current-trial fallback
+    expect([...coarse.outputs]).toEqual([6, 5, 10, 9]);
+    behavior.reset!();
+    behavior.load(delayed);
+    expect([...delayed.outputs]).toEqual([0, 0, 0, 0]);
   });
   it.each(['ze=0', 'zo=-1', 'l=0', 'ere=0', 'ero=-1', 'ae=-1', 'ao=-1'])('rejects invalid parameter %s', async params => {
     await expect(simulate(`${deck(params)}.op\n.end`)).rejects.toThrow(/cpline requires/);
