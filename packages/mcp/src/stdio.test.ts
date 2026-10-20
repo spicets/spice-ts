@@ -31,6 +31,7 @@ describe('stdio transport', () => {
 
     const listed = await client.listTools();
     expect(listed.tools.map(tool => tool.name)).toEqual([
+      'spice_sparams',
       'spice_impedance',
       'spice_tf',
       'spice_sensitivity',
