@@ -1,0 +1,853 @@
+{
+  "command": "spice-heavy pnpm exec tsx benchmarks/wasm-mos1-op/compare.ts",
+  "ngspiceVersion": "ngspice-47",
+  "ngspiceCommand": "ngspice -b -r <temp>/op.raw <temp>/input.cir",
+  "date": "2026-10-20T09:06:25.813Z",
+  "node": "v22.23.1",
+  "machine": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "tolerances": {
+    "core": {
+      "absolute": 1e-12,
+      "relative": 1e-9
+    },
+    "ngspice": {
+      "absolute": 1e-9,
+      "relative": 0.000001
+    }
+  },
+  "baseline": {
+    "revision": "7df79475",
+    "supportedFixtures": 0,
+    "totalFixtures": 12
+  },
+  "runtimeOrder": [
+    "spice-ts-js",
+    "spice-ts-wasm",
+    "ngspice"
+  ],
+  "limitations": "Single cold one-shot worker run per fixture, includes startup. Correctness evidence only; no speed claim. MOS1 OP only; charge, other levels/parameters and analyses rejected.",
+  "fixtureCount": 12,
+  "sampleCount": 68,
+  "maxCoreNormalizedError": 8.238847062255505e-7,
+  "maxNgspiceNormalizedError": 0.003671498666044233,
+  "maxCoreAbsoluteError": 2.0816681711721685e-17,
+  "maxNgspiceAbsoluteError": 1.7729353540829607e-9,
+  "results": [
+    {
+      "name": "NMOS-saturation",
+      "inputSha256": "bfc0f9435c155743158c8af982b627f613f5cee4b17a9408858108810d09f7b6",
+      "runtimeMs": [
+        104.74691700000002,
+        101.48008399999998,
+        13.559249999999963
+      ],
+      "samples": [
+        {
+          "name": "v(drain)",
+          "wasm": 4.684036535339342,
+          "js": 4.684036535339342,
+          "ngspice": 4.684036535337416,
+          "coreError": 0,
+          "ngspiceError": 1.9255708139098715e-12,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 4.1100443921536937e-7
+        },
+        {
+          "name": "v(gate)",
+          "wasm": 1.5,
+          "js": 1.5,
+          "ngspice": 1.5,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(source)",
+          "wasm": 0.031596345992797197,
+          "js": 0.03159634599279718,
+          "ngspice": 0.03159634599298993,
+          "coreError": 1.3877787807814457e-17,
+          "ngspiceError": 1.9273471707492718e-13,
+          "coreNormalizedError": 4.257467328049908e-7,
+          "ngspiceNormalizedError": 0.00000591277062516075
+        },
+        {
+          "name": "v(supply)",
+          "wasm": 5,
+          "js": 5,
+          "ngspice": 5,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": -0.00031596346466065766,
+          "js": -0.00031596346466065874,
+          "ngspice": -0.000315963464662584,
+          "coreError": 1.0842021724855044e-18,
+          "ngspiceError": 1.92635620996362e-15,
+          "coreNormalizedError": 8.238847062255505e-7,
+          "ngspiceNormalizedError": 0.0000014638371517841052
+        },
+        {
+          "name": "i(vg)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "NMOS-triode",
+      "inputSha256": "f2930edd2ecdc3dff676e48a2dd9d27572a463b9319c29be14d1ec011fdc8f45",
+      "runtimeMs": [
+        107.87654199999997,
+        102.17220800000007,
+        14.359750000000076
+      ],
+      "samples": [
+        {
+          "name": "v(drain)",
+          "wasm": 0.36726905791696934,
+          "js": 0.36726905791696934,
+          "ngspice": 0.3672690567679471,
+          "coreError": 0,
+          "ngspiceError": 1.149022266222488e-9,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.003120061935984232
+        },
+        {
+          "name": "v(gate)",
+          "wasm": 3,
+          "js": 3,
+          "ngspice": 3,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(source)",
+          "wasm": 0.06327309416333546,
+          "js": 0.06327309416333546,
+          "ngspice": 0.0632730942782377,
+          "coreError": 0,
+          "ngspiceError": 1.1490224050003661e-10,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.001787719134893767
+        },
+        {
+          "name": "v(supply)",
+          "wasm": 1,
+          "js": 1,
+          "ngspice": 1,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": -0.0006327309420830307,
+          "js": -0.0006327309420830307,
+          "ngspice": -0.0006327309432320529,
+          "coreError": 0,
+          "ngspiceError": 1.1490221751495056e-12,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.000703742511840299
+        },
+        {
+          "name": "i(vg)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "NMOS-cutoff",
+      "inputSha256": "9b29c524fd6d838deaae9615a68f142d309bed056a6736bd0a696b72b2d5d1b9",
+      "runtimeMs": [
+        106.77995799999997,
+        107.33308399999999,
+        13.82833299999993
+      ],
+      "samples": [
+        {
+          "name": "v(drain)",
+          "wasm": 4.99999999499,
+          "js": 4.99999999499,
+          "ngspice": 4.99999999499,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(gate)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(source)",
+          "wasm": 8.077935667535262e-26,
+          "js": 0,
+          "ngspice": -2.384920220374772e-30,
+          "coreError": 8.077935667535262e-26,
+          "ngspiceError": 8.0781741595573e-26,
+          "coreNormalizedError": 8.077935667535262e-14,
+          "ngspiceNormalizedError": 8.078174159557299e-17
+        },
+        {
+          "name": "v(supply)",
+          "wasm": 5,
+          "js": 5,
+          "ngspice": 5,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": -5.009999975031972e-12,
+          "js": -5.010000227179123e-12,
+          "ngspice": -5.009999526350839e-12,
+          "coreError": 2.5214715098817656e-19,
+          "ngspiceError": 4.486811334744746e-19,
+          "coreNormalizedError": 2.5214714972491925e-7,
+          "ngspiceNormalizedError": 4.486811312265823e-10
+        },
+        {
+          "name": "i(vg)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "NMOS-reverse",
+      "inputSha256": "7a3a7e9c8e790d17ce5a640e65ac46082de73c709c4294863794feea783f74c2",
+      "runtimeMs": [
+        110.41416700000002,
+        105.43341699999996,
+        13.891333999999915
+      ],
+      "samples": [
+        {
+          "name": "v(drain)",
+          "wasm": -0.4818914625488607,
+          "js": -0.4818914625488607,
+          "ngspice": -0.4818914607759254,
+          "coreError": 0,
+          "ngspiceError": 1.7729353540829607e-9,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.003671498666044233
+        },
+        {
+          "name": "v(gate)",
+          "wasm": 1.5,
+          "js": 1.5,
+          "ngspice": 1.5,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(source)",
+          "wasm": -0.051687436022343144,
+          "js": -0.051687436022343124,
+          "ngspice": -0.05168743620814648,
+          "coreError": 2.0816681711721685e-17,
+          "ngspiceError": 1.8580333799311788e-10,
+          "coreNormalizedError": 3.9509764154957107e-7,
+          "ngspiceNormalizedError": 0.0035265207678560214
+        },
+        {
+          "name": "v(supply)",
+          "wasm": -1,
+          "js": -1,
+          "ngspice": -1,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": 0.0005181085374511393,
+          "js": 0.0005181085374511393,
+          "ngspice": 0.0005181085392240747,
+          "coreError": 0,
+          "ngspiceError": 1.7729353141843207e-12,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.0011678580736331878
+        },
+        {
+          "name": "i(vg)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "PMOS-saturation",
+      "inputSha256": "85fb6e376786cb566671684ffee477594d4709e767f5db4e4e7e6c735993bf3e",
+      "runtimeMs": [
+        109.83712500000001,
+        106.69987500000002,
+        14.564959000000044
+      ],
+      "samples": [
+        {
+          "name": "v(drain)",
+          "wasm": -4.684036535339342,
+          "js": -4.684036535339342,
+          "ngspice": -4.684036535337416,
+          "coreError": 0,
+          "ngspiceError": 1.9255708139098715e-12,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 4.1100443921536937e-7
+        },
+        {
+          "name": "v(gate)",
+          "wasm": -1.5,
+          "js": -1.5,
+          "ngspice": -1.5,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(source)",
+          "wasm": -0.031596345992797197,
+          "js": -0.03159634599279718,
+          "ngspice": -0.03159634599298993,
+          "coreError": 1.3877787807814457e-17,
+          "ngspiceError": 1.9273471707492718e-13,
+          "coreNormalizedError": 4.257467328049908e-7,
+          "ngspiceNormalizedError": 0.00000591277062516075
+        },
+        {
+          "name": "v(supply)",
+          "wasm": -5,
+          "js": -5,
+          "ngspice": -5,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": 0.00031596346466065766,
+          "js": 0.00031596346466065874,
+          "ngspice": 0.000315963464662584,
+          "coreError": 1.0842021724855044e-18,
+          "ngspiceError": 1.92635620996362e-15,
+          "coreNormalizedError": 8.238847062255505e-7,
+          "ngspiceNormalizedError": 0.0000014638371517841052
+        },
+        {
+          "name": "i(vg)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "PMOS-triode",
+      "inputSha256": "cdf8b6608b1dc00d7ebe0bc1a740602e800f17cdcdfde5ce7a3e10821dfecc5e",
+      "runtimeMs": [
+        113.472667,
+        103.50308299999983,
+        14.260416999999961
+      ],
+      "samples": [
+        {
+          "name": "v(drain)",
+          "wasm": -0.36726905791696934,
+          "js": -0.36726905791696934,
+          "ngspice": -0.3672690567679471,
+          "coreError": 0,
+          "ngspiceError": 1.149022266222488e-9,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.003120061935984232
+        },
+        {
+          "name": "v(gate)",
+          "wasm": -3,
+          "js": -3,
+          "ngspice": -3,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(source)",
+          "wasm": -0.06327309416333546,
+          "js": -0.06327309416333546,
+          "ngspice": -0.0632730942782377,
+          "coreError": 0,
+          "ngspiceError": 1.1490224050003661e-10,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.001787719134893767
+        },
+        {
+          "name": "v(supply)",
+          "wasm": -1,
+          "js": -1,
+          "ngspice": -1,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": 0.0006327309420830307,
+          "js": 0.0006327309420830307,
+          "ngspice": 0.0006327309432320529,
+          "coreError": 0,
+          "ngspiceError": 1.1490221751495056e-12,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.000703742511840299
+        },
+        {
+          "name": "i(vg)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "PMOS-cutoff",
+      "inputSha256": "7cb579ee0fadade58809d07682d8bee8eac881286b4122eb713670ef150732aa",
+      "runtimeMs": [
+        108.779,
+        109.84616600000004,
+        14.378999999999905
+      ],
+      "samples": [
+        {
+          "name": "v(drain)",
+          "wasm": -4.99999999499,
+          "js": -4.99999999499,
+          "ngspice": -4.99999999499,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(gate)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(source)",
+          "wasm": -8.077935667535262e-26,
+          "js": 0,
+          "ngspice": 2.384920220374772e-30,
+          "coreError": 8.077935667535262e-26,
+          "ngspiceError": 8.0781741595573e-26,
+          "coreNormalizedError": 8.077935667535262e-14,
+          "ngspiceNormalizedError": 8.078174159557299e-17
+        },
+        {
+          "name": "v(supply)",
+          "wasm": -5,
+          "js": -5,
+          "ngspice": -5,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": 5.009999975031972e-12,
+          "js": 5.010000227179123e-12,
+          "ngspice": 5.009999526350839e-12,
+          "coreError": 2.5214715098817656e-19,
+          "ngspiceError": 4.486811334744746e-19,
+          "coreNormalizedError": 2.5214714972491925e-7,
+          "ngspiceNormalizedError": 4.486811312265823e-10
+        },
+        {
+          "name": "i(vg)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "PMOS-reverse",
+      "inputSha256": "5be602393822b0019874f0a4408be40c85fa8456cb3d1e3c1a2ad308603c4e82",
+      "runtimeMs": [
+        114.23849999999993,
+        100.33429200000023,
+        13.161749999999756
+      ],
+      "samples": [
+        {
+          "name": "v(drain)",
+          "wasm": 0.4818914625488607,
+          "js": 0.4818914625488607,
+          "ngspice": 0.4818914607759254,
+          "coreError": 0,
+          "ngspiceError": 1.7729353540829607e-9,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.003671498666044233
+        },
+        {
+          "name": "v(gate)",
+          "wasm": -1.5,
+          "js": -1.5,
+          "ngspice": -1.5,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(source)",
+          "wasm": 0.051687436022343144,
+          "js": 0.051687436022343124,
+          "ngspice": 0.05168743620814648,
+          "coreError": 2.0816681711721685e-17,
+          "ngspiceError": 1.8580333799311788e-10,
+          "coreNormalizedError": 3.9509764154957107e-7,
+          "ngspiceNormalizedError": 0.0035265207678560214
+        },
+        {
+          "name": "v(supply)",
+          "wasm": 1,
+          "js": 1,
+          "ngspice": 1,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": -0.0005181085374511393,
+          "js": -0.0005181085374511393,
+          "ngspice": -0.0005181085392240747,
+          "coreError": 0,
+          "ngspiceError": 1.7729353141843207e-12,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0.0011678580736331878
+        },
+        {
+          "name": "i(vg)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "CMOS-0",
+      "inputSha256": "de90ccf28f501095471a3eee6f9814b49d582f9ffa2617b790a562b915cda980",
+      "runtimeMs": [
+        104.89808300000004,
+        107.42566699999998,
+        14.41183299999966
+      ],
+      "samples": [
+        {
+          "name": "v(gate)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(out)",
+          "wasm": 2.9999999986913046,
+          "js": 2.9999999986913046,
+          "ngspice": 2.999999998691304,
+          "coreError": 0,
+          "ngspiceError": 4.440892098500626e-16,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 1.4798040987794868e-10
+        },
+        {
+          "name": "v(supply)",
+          "wasm": 3,
+          "js": 3,
+          "ngspice": 3,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": -3.0099999765820188e-12,
+          "js": -3.009999367808991e-12,
+          "ngspice": -3.010001249896569e-12,
+          "coreError": 6.087730278398954e-19,
+          "ngspiceError": 1.2733145503637928e-18,
+          "coreNormalizedError": 6.08773026007489e-7,
+          "ngspiceNormalizedError": 1.2733145465311143e-9
+        },
+        {
+          "name": "i(vin)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "CMOS-1.5",
+      "inputSha256": "c279106cd124e7825d0445c73ae20a9cf69c6ea8af8a4e4b18bd7441a6f7d985",
+      "runtimeMs": [
+        114.20024999999987,
+        104.4822909999998,
+        14.056959000000006
+      ],
+      "samples": [
+        {
+          "name": "v(gate)",
+          "wasm": 1.5,
+          "js": 1.5,
+          "ngspice": 1.5,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(out)",
+          "wasm": 1.5000000000000349,
+          "js": 1.5000000000000349,
+          "ngspice": 1.500000000000019,
+          "coreError": 0,
+          "ngspiceError": 1.5765166949677223e-14,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 1.0503109226966703e-8
+        },
+        {
+          "name": "v(supply)",
+          "wasm": 3,
+          "js": 3,
+          "ngspice": 3,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": -0.0003296000015099998,
+          "js": -0.0003296000015099998,
+          "ngspice": -0.0003296000015099996,
+          "coreError": 0,
+          "ngspiceError": 2.168404344971009e-19,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 1.6308696920189502e-10
+        },
+        {
+          "name": "i(vin)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "CMOS-3",
+      "inputSha256": "5818b2b98a06417c62d7be06dbdee0e98d71f4e26d7d377d55e7bb93d8e700cf",
+      "runtimeMs": [
+        111.08304199999975,
+        108.40475000000015,
+        14.249749999999949
+      ],
+      "samples": [
+        {
+          "name": "v(gate)",
+          "wasm": 3,
+          "js": 3,
+          "ngspice": 3,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(out)",
+          "wasm": 1.30869565112012e-9,
+          "js": 1.3086956511201201e-9,
+          "ngspice": 1.308695651153998e-9,
+          "coreError": 2.0679515313825692e-25,
+          "ngspiceError": 3.38780091677218e-20,
+          "coreNormalizedError": 2.0679488250669353e-13,
+          "ngspiceNormalizedError": 3.3877964831776555e-11
+        },
+        {
+          "name": "v(supply)",
+          "wasm": 3,
+          "js": 3,
+          "ngspice": 3,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": -3.009999998652685e-12,
+          "js": -3.0099999986526846e-12,
+          "ngspice": -3.009999998691306e-12,
+          "coreError": 4.0389678347315804e-28,
+          "ngspiceError": 3.8621014332486845e-23,
+          "coreNormalizedError": 4.0389678225742873e-16,
+          "ngspiceNormalizedError": 3.862101421623759e-14
+        },
+        {
+          "name": "i(vin)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    },
+    {
+      "name": "defaults",
+      "inputSha256": "33ed91ec7cd31baa90472dca2e973bb6005b2ad5f060c47aba9edaadc10048ad",
+      "runtimeMs": [
+        113.24416699999983,
+        104.20400000000018,
+        15.107708000000002
+      ],
+      "samples": [
+        {
+          "name": "v(drain)",
+          "wasm": 2.989999997,
+          "js": 2.989999997,
+          "ngspice": 2.989999997,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(gate)",
+          "wasm": 1,
+          "js": 1,
+          "ngspice": 1,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "v(supply)",
+          "wasm": 3,
+          "js": 3,
+          "ngspice": 3,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        },
+        {
+          "name": "i(vdd)",
+          "wasm": -0.000010000002999999985,
+          "js": -0.000010000003000000014,
+          "ngspice": -0.00001000000299999959,
+          "coreError": 2.879912020664621e-20,
+          "ngspiceError": 3.9471735342050396e-19,
+          "coreNormalizedError": 2.851398031792502e-8,
+          "ngspiceNormalizedError": 3.908092596515607e-10
+        },
+        {
+          "name": "i(vg)",
+          "wasm": 0,
+          "js": 0,
+          "ngspice": 0,
+          "coreError": 0,
+          "ngspiceError": 0,
+          "coreNormalizedError": 0,
+          "ngspiceNormalizedError": 0
+        }
+      ]
+    }
+  ]
+}
