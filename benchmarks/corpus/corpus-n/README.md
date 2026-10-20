@@ -6,15 +6,15 @@ Every deck below is byte-identical to its pinned upstream revision (ngspice `a80
 
 ## Totals
 
-- Fixtures: 24. Outcome SHA-256: `b2895b11a9246fb20977d23a8bd79e07cce1ef9ff88c3f8ee9cd4d5f78ede071`.
+- Fixtures: 24. Outcome SHA-256: `7fc69df1e61511570f7929bc1d96e791cabb2b39dc7c5d7d25538b7fd67051f6`.
 - ngspice (ngspice-47): 24 success, 0 failed, 0 unsupported.
-- spice-ts (0.4.0): 19 success, 3 failed, 2 unsupported.
-- Outcomes: matched 9, mismatch 10, not-compared 0, spice-ts-loss 5, ngspice-failed 0, both-failed 0.
-- Of the 24 decks ngspice runs successfully, spice-ts matches 9, mismatches 10, produces no comparable result for 0 and fails 5.
+- spice-ts (0.4.0): 20 success, 3 failed, 1 unsupported.
+- Outcomes: matched 10, mismatch 10, not-compared 0, spice-ts-loss 4, ngspice-failed 0, both-failed 0.
+- Of the 24 decks ngspice runs successfully, spice-ts matches 10, mismatches 10, produces no comparable result for 0 and fails 4.
 
 | Source | Fixtures | Matched | Mismatch | Not compared | spice-ts loss | ngspice failed | Both failed |
 |---|---|---|---|---|---|---|---|
-| `ngspice` | 13 | 7 | 4 | 0 | 2 | 0 | 0 |
+| `ngspice` | 13 | 8 | 4 | 0 | 1 | 0 | 0 |
 | `xyce` | 11 | 2 | 6 | 0 | 3 | 0 | 0 |
 
 ## Method
@@ -39,19 +39,17 @@ Grouped from spice-ts's own first error line (unchanged corpus-l/i/h/f rules). "
 |---|---|---|---|
 | execution: other failure | 3 | 3 | none filed |
 | directive: .pss | 1 | 1 | none filed |
-| parse: other unsupported syntax | 1 | 1 | none filed |
 
-## Losses (15)
+## Losses (14)
 
 Every fixture that is not matched: spice-ts failures, mismatches above the threshold, and results that could not be compared.
 
 | Fixture | ngspice | spice-ts | Outcome | Worst | Worst signal | First error line (ngspice / spice-ts) |
 |---|---|---|---|---|---|---|
 | [ngspice/examples/pss/vdp_osc_pss.cir](fixtures/ngspice/examples/pss/vdp_osc_pss.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: Parse error at line 22: Unsupported dot command: '.pss' .pss 0.5e6 100e-6 1 50 10 50 5e-3 uic |
-| [ngspice/paranoia_parallel/examples/Monte_Carlo/OpWien_s.sp](fixtures/ngspice/paranoia_parallel/examples/Monte_Carlo/OpWien_s.sp) | success | success | mismatch | 1.71 | tran v(6) |  |
-| [ngspice/paranoia_parallel/examples/transient-noise/noise_vnoi_test.cir](fixtures/ngspice/paranoia_parallel/examples/transient-noise/noise_vnoi_test.cir) | success | success | mismatch | 0.000206 | tran v(1) |  |
-| [ngspice/paranoia_parallel/examples/transient-noise/simple-noise.cir](fixtures/ngspice/paranoia_parallel/examples/transient-noise/simple-noise.cir) | success | success | mismatch | 2.63 | tran v(3) |  |
-| [ngspice/paranoia_parallel/examples/vdmos/VDMOS-DIO.cir](fixtures/ngspice/paranoia_parallel/examples/vdmos/VDMOS-DIO.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: Unsupported saved device vector '@d1[cd]' |
+| [ngspice/paranoia_parallel/examples/Monte_Carlo/OpWien_s.sp](fixtures/ngspice/paranoia_parallel/examples/Monte_Carlo/OpWien_s.sp) | success | success | mismatch | 1.74 | tran v(xop.3) |  |
+| [ngspice/paranoia_parallel/examples/transient-noise/noise_vnoi_test.cir](fixtures/ngspice/paranoia_parallel/examples/transient-noise/noise_vnoi_test.cir) | success | success | mismatch | 0.000329 | tran v(1) |  |
+| [ngspice/paranoia_parallel/examples/transient-noise/simple-noise.cir](fixtures/ngspice/paranoia_parallel/examples/transient-noise/simple-noise.cir) | success | success | mismatch | 3.52 | tran v(3) |  |
 | [ngspice/paranoia_parallel/examples/vdmos/vdmosp-out-mtr.cir](fixtures/ngspice/paranoia_parallel/examples/vdmos/vdmosp-out-mtr.cir) | success | success | mismatch | 0.0000316 | dc i(vs2) |  |
 | [xyce/Netlists/ACSENS/bsim3/op-amp_expr_fd.cir](fixtures/xyce/Netlists/ACSENS/bsim3/op-amp_expr_fd.cir) | success | success | mismatch | 0.988 | ac v(out) |  |
 | [xyce/Netlists/ACSENS/bsim3/op-amp_unique_fd.cir](fixtures/xyce/Netlists/ACSENS/bsim3/op-amp_unique_fd.cir) | success | success | mismatch | 0.988 | ac v(out) |  |
@@ -63,7 +61,7 @@ Every fixture that is not matched: spice-ts failures, mismatches above the thres
 | [xyce/Netlists/CircuitSim90/MOS2_LARGE/sqrt.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2_LARGE/sqrt.cir) | success | failed | spice-ts-loss |  |  | spice-ts: owned engine group exceeded uniform 119 s deadline |
 | [xyce/Netlists/CircuitSim90/MOS2_LARGE/sram.cir](fixtures/xyce/Netlists/CircuitSim90/MOS2_LARGE/sram.cir) | success | failed | spice-ts-loss |  |  | spice-ts: owned engine group exceeded uniform 119 s deadline |
 
-## Wins (9)
+## Wins (10)
 
 Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every common signal.
 
@@ -73,6 +71,7 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 | [ngspice/paranoia_parallel/examples/vdmos/inv_vdmos_dc.cir](fixtures/ngspice/paranoia_parallel/examples/vdmos/inv_vdmos_dc.cir) | success | success | matched | 1.52e-8 | dc i(vdd) |  |
 | [ngspice/paranoia_parallel/examples/vdmos/inv_vdmos.cir](fixtures/ngspice/paranoia_parallel/examples/vdmos/inv_vdmos.cir) | success | success | matched | 0.00104 | tran i(vdd) |  |
 | [ngspice/paranoia_parallel/examples/vdmos/VDMOS-DIO-AC.cir](fixtures/ngspice/paranoia_parallel/examples/vdmos/VDMOS-DIO-AC.cir) | success | success | matched | 6.54e-13 | ac i(va) |  |
+| [ngspice/paranoia_parallel/examples/vdmos/VDMOS-DIO.cir](fixtures/ngspice/paranoia_parallel/examples/vdmos/VDMOS-DIO.cir) | success | success | matched | 0.00424 | tran i(vg) |  |
 | [ngspice/paranoia_parallel/examples/vdmos/vdmos-out_ir_mtr.cir](fixtures/ngspice/paranoia_parallel/examples/vdmos/vdmos-out_ir_mtr.cir) | success | success | matched | 0.0000834 | dc i(vs) |  |
 | [ngspice/paranoia_parallel/examples/vdmos/vdmos-out_ir.cir](fixtures/ngspice/paranoia_parallel/examples/vdmos/vdmos-out_ir.cir) | success | success | matched | 0.0000866 | dc i(vd) |  |
 | [ngspice/paranoia_parallel/examples/vdmos/vdmosp-out.cir](fixtures/ngspice/paranoia_parallel/examples/vdmos/vdmosp-out.cir) | success | success | matched | 1.48e-8 | dc i(vs) |  |
@@ -86,7 +85,6 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 |---|---|---|
 | directive: .pss | 1 | n-1 |
 | waveform: tran mismatch above uniform threshold (root cause not diagnosed) | 7 | n-2, n-3, n-4, n-18, n-20, n-21, n-22 |
-| parse: other unsupported syntax | 1 | n-9 |
 | waveform: dc mismatch above uniform threshold (root cause not diagnosed) | 1 | n-12 |
 | waveform: ac mismatch above uniform threshold (root cause not diagnosed) | 2 | n-14, n-15 |
 | execution: other failure | 3 | n-19, n-23, n-24 |
