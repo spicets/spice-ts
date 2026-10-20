@@ -97,10 +97,11 @@ describe('EKV 2.6 static device', () => {
     expect(degraded.evaluate([1, 1, 0, 0]).current).toBeLessThan(unbiased);
   });
 
-  it.each(['27 40 13', '40 27 -13'])('rejects off-nominal DC TEMP sweeps (%s) instead of silently skipping EKV', async grid => {
-    await expect(simulate(deck().replace('.op', `.dc TEMP ${grid}`))).rejects.toMatchObject({
-      code: 'UNSUPPORTED_TEMPERATURE',
-    });
+  it.each(['27 40 13', '40 27 -13'])('supports intrinsic DC TEMP sweeps (%s)', async grid => {
+    const result = await simulate(deck().replace('.op', `.dc TEMP ${grid}`));
+    const currents = result.dcSweep!.current('VD');
+    expect(currents).toHaveLength(2);
+    expect(currents[0]).not.toBe(currents[1]);
   });
 
   it('allows a nominal DC TEMP point with unchanged current', async () => {
@@ -109,12 +110,16 @@ describe('EKV 2.6 static device', () => {
     expect(swept.dcSweep!.current('VD')[0]).toBeCloseTo(nominal.dc!.current('VD'), 14);
   });
 
-  it('reports named deferred parameters and rejects nonnominal temperature', async () => {
+  it('reports named deferred parameters and supports intrinsic nonnominal temperature', async () => {
     const result = await simulate(deck('TCV=0.001 KF=1e-20'));
-    for (const parameter of ['TCV', 'KF']) {
+    for (const parameter of ['KF']) {
       expect(result.warnings.some(w => w.message.includes(`parameter ${parameter}=`))).toBe(true);
     }
-    await expect(simulate(deck().replace('.op', '.options TEMP=40\n.op'))).rejects.toMatchObject({ code: 'UNSUPPORTED_TEMPERATURE' });
+    const hot = await simulate(deck().replace('.op', '.options TEMP=40\n.op'));
+    expect(-hot.dc!.current('VD')).toBeGreaterThan(1e-12);
+    await expect(simulate(deck('TP_XTI=3').replace('.op', '.options TEMP=40\n.op'))).rejects.toMatchObject({
+      code: 'UNSUPPORTED_TEMPERATURE', parameter: 'TP_XTI',
+    });
     await expect(simulate(deck('RSH=1'))).rejects.toMatchObject({ code: 'UNSUPPORTED_MODEL_PARAMETER', parameter: 'RSH' });
     await expect(simulate(deck('TOX=1n'))).rejects.toMatchObject({ code: 'UNSUPPORTED_MODEL_PARAMETER', parameter: 'TOX' });
   });
