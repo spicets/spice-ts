@@ -1,0 +1,10 @@
+* Original project-authored MIT CMOS inverter with MOS1 intrinsic charge
+VDD supply 0 3
+VIN gate 0 PULSE(0 3 10n 2n 2n 30n 60n)
+MN out gate 0 0 nch W=10u L=1u AD=10p AS=10p PD=22u PS=22u
+MP out gate supply supply pch W=20u L=1u AD=20p AS=20p PD=42u PS=42u
+CL out 0 1p
+.model nch NMOS(LEVEL=1 VTO=0.7 KP=100u LAMBDA=0.02 TOX=20n CGSO=100p CGDO=100p CGBO=10p CJ=100u CJSW=100p PB=0.8 MJ=0.5 MJSW=0.33 FC=0.5)
+.model pch PMOS(LEVEL=1 VTO=-0.7 KP=50u LAMBDA=0.02 TOX=20n CGSO=100p CGDO=100p CGBO=10p CJ=100u CJSW=100p PB=0.8 MJ=0.5 MJSW=0.33 FC=0.5)
+.tran 1n 150n
+.end
