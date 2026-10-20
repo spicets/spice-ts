@@ -92,11 +92,20 @@ function simulateDc(
   const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
   const originalWaveform = source.waveform;
+  const nonlinear = compiled.devices.some(device => device.name[0]?.toUpperCase() === 'D');
+  let previous: Float64Array | undefined;
   try {
     for (let point = 0; point < pointCount; point++) {
       const value = sweep.start + point * sweep.step;
       values.push(value);
       source.waveform = { type: 'dc', value };
+      if (nonlinear) {
+        const solution = solveNonlinearOp(compiled, order, request, exports, previous);
+        previous = solution;
+        compiled.nodeNames.forEach((name, index) => voltagesV[name]!.push(solution[index]!));
+        compiled.branchNames.forEach((name, index) => currentsA[name]!.push(solution[compiled.nodeCount + index]!));
+        continue;
+      }
       const matrix = new Float64Array(order * order);
       const rhs = new Float64Array(order);
       const zero = new Float64Array(order);
@@ -240,8 +249,9 @@ function simulateOp(
 
 function solveNonlinearOp(
   compiled: CompiledCircuit, order: number, request: SimulationRequestV1, exports: NumericWasmExports,
+  initial?: Float64Array,
 ): Float64Array {
-  let previous: Float64Array = new Float64Array(order);
+  let previous: Float64Array = initial ?? new Float64Array(order);
   const matrix = new Float64Array(order * order);
   const rhs = new Float64Array(order);
   // Core tolerances, with bounded caller-controlled work and no fallback solver.
@@ -279,8 +289,9 @@ function solveNonlinearOp(
       && compiled.devices.every(device => device.convergenceTest?.(solution, {
         reltol, abstol: request.options?.abstol ?? 1e-12, vntol: request.options?.vntol ?? 1e-6,
       }) ?? true);
-    // Like core, do not accept an initial/fixed-junction iteration.
-    if (iteration >= 2 && converged) return solution;
+    // Only the first point has initial/fixed-junction iterations. Later DC
+    // points retain device state and may converge immediately, like core.
+    if ((initial !== undefined || iteration >= 2) && converged) return solution;
     previous = solution;
   }
   const deviceKind = compiled.devices.some(device => device.name[0]?.toUpperCase() === 'M') ? 'MOS1'
@@ -597,7 +608,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
   const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : analysis === 'dc' ? ['R', 'I', 'V']
+    : analysis === 'dc' ? ['R', 'I', 'V', 'D']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
   if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
@@ -655,14 +666,17 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
   const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : analysis === 'dc' ? ['R', 'I', 'V']
+    : analysis === 'dc' ? ['R', 'I', 'V', 'D']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
-    if (analysis === 'op' && /^\.model\b/i.test(card)) {
+    if ((analysis === 'op' || analysis === 'dc') && /^\.model\b/i.test(card)) {
       const model = /^\.model\s+\S+\s+(D|NPN|PNP|NMOS|PMOS)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
+      if (analysis === 'dc' && model[1]!.toUpperCase() !== 'D') {
+        unsupported('diode-model', 'Only diode models are supported in nonlinear DC sweeps');
+      }
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
       const parameters = (model[2] ?? model[3] ?? '').trim();
