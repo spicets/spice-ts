@@ -25,6 +25,7 @@ import { cpline } from './cpline.js';
 import { REACTIVE_IC_BEHAVIORS } from './reactive-ic-models.js';
 import { zener } from './zener.js';
 import { sidiode } from './sidiode.js';
+import { potentiometer } from './potentiometer.js';
 import { memristor } from './memristor.js';
 import { seegen } from './seegen.js';
 import { resolveSTransfer, STransferDevice } from './s-xfer.js';
@@ -46,6 +47,7 @@ const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, Behavior
   ...XSPICE_BEHAVIORS, ...LIMITER_BEHAVIORS, ...OSCILLATOR_BEHAVIORS, ...SWITCH_BEHAVIORS, ...MAGNETIC_BEHAVIORS, ...OTA_BEHAVIORS,
   ['zener', zener],
   ['sidiode', sidiode],
+  ['potentiometer', potentiometer],
   ['memristor', memristor],
   ['seegen', seegen],
 ]);

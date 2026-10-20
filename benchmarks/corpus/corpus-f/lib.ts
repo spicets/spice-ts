@@ -59,9 +59,9 @@ export function sourceUrl(sourcePath: string, revision = NGSPICE_REVISION): stri
 }
 
 /** Analyses the shared corpus harness can map from both engines onto comparable series. */
-const MAPPED_ANALYSES: readonly ClassicAnalysisType[] = ['op', 'dc', 'ac', 'tran', 'pz', 'noise', 'disto'];
+const MAPPED_ANALYSES: readonly ClassicAnalysisType[] = ['op', 'dc', 'ac', 'tran', 'pz', 'noise', 'disto', 'sp', 'sens'];
 /** Analyses that exist in ngspice but that the corpus harness does not map. */
-const UNMAPPED_ANALYSES = ['sens', 'tf', 'pss', 'sp'] as const;
+const UNMAPPED_ANALYSES = ['tf', 'pss'] as const;
 const ANALYSIS_WORDS = [...MAPPED_ANALYSES, ...UNMAPPED_ANALYSES].join('|');
 const DOT_ANALYSIS = new RegExp(`^\\.(${ANALYSIS_WORDS})\\b`, 'i');
 const CONTROL_ANALYSIS = new RegExp(`^(${ANALYSIS_WORDS})\\b`, 'i');
@@ -69,7 +69,7 @@ const CONTROL_ANALYSIS = new RegExp(`^(${ANALYSIS_WORDS})\\b`, 'i');
 /**
  * ngspice plot types the control-vector supplement scores beyond the shared adapter's types
  * (#694): S-parameter (`SP Analysis`) and sensitivity (`Sensitivity Analysis`) plots. The batch-1
- * manifest keeps them in `unmappedAnalyses`; only control-vectors.ts adds them to a deck's types.
+ * manifest keeps them in `unmappedAnalyses`; the batch harness also scores these legacy entries.
  */
 export const CONTROL_PLOT_TYPES = ['sp', 'sens'] as const;
 export type ControlPlotType = typeof CONTROL_PLOT_TYPES[number];
@@ -98,7 +98,7 @@ export function corpusFPlotType(plotName: string, classic: (plotName: string) =>
 export interface DeclaredAnalyses {
   /** Mapped analyses, in first-seen order; handed to the shared spice-ts adapter. */
   mapped: ClassicAnalysisType[];
-  /** ngspice analyses the harness does not compare (`.sens`, `.tf`, `.pss`, `.sp`). */
+  /** ngspice analyses the batch harness does not compare (`.tf`, `.pss`). */
   unmapped: string[];
 }
 
