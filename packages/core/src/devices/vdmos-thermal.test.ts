@@ -6,6 +6,22 @@ import { resolveVdmosModel } from './vdmos-model.js';
 import { MNAAssembler } from '../mna/assembler.js';
 
 describe('VDMOS self heating (#559)', () => {
+  it('evaluates the channel only once per temperature in a thermal load (#1579)', () => {
+    const { model } = resolveVdmosModel({ name: 'power', type: 'VDMOSN', params: {
+      VTO: 1, KP: 0.1, MU: -1.5, RTHJC: 2,
+    } });
+    const device = new VDMOS('M1', [0, 1, 4, 0, 1, 4, -1, 2, 3], model, {});
+    const assembler = new MNAAssembler(5, 0);
+    assembler.solution.set([2, 3, 27, 27, 0]);
+    const evaluate = vi.spyOn(device, 'evaluateChannel');
+    const ctx = assembler.getStampContext();
+    const readVoltage = vi.spyOn(ctx, 'getVoltage');
+    device.stamp(ctx);
+    // Electrical load, Tj+h, Tj-h. Power and its voltage Jacobian reuse
+    // the electrical load at Tj rather than evaluating it twice more.
+    expect(evaluate).toHaveBeenCalledTimes(3);
+    expect(readVoltage.mock.calls.length).toBeLessThanOrEqual(32);
+  });
   it('reuses the unperturbed temperature state across thermal loads and saved vectors (#1579)', () => {
     const { model } = resolveVdmosModel({ name: 'power', type: 'VDMOSN', params: {
       VTO: 1, KP: 0.1, MU: -1.5, RTHJC: 2, CTHJ: 0.001,

@@ -47,6 +47,7 @@ const GATE_DRAIN = 1;
 const BODY_DIODE = 2;
 /** [positive, negative] node slots of each charge, in charge-index order. */
 const CHARGE_BRANCHES: ReadonlyArray<readonly [number, number]> = [[GP, SP], [GP, DP], [BP, D], [7, 9]];
+const THERMAL_BRANCHES: ReadonlyArray<readonly [number, number]> = [[DP, SP], [D, DP], [S, SP], [BP, D], [S, BP]];
 
 export interface VdmosInstanceParams {
   /** Parallel multiplier (ngspice VDMOSm). */
@@ -123,6 +124,10 @@ export class VDMOS implements DeviceModel {
   private readonly charges = new TransientChargeState(CHARGE_BRANCHES.length);
   private readonly capacitanceScratch = new Float64Array(CHARGE_BRANCHES.length);
   private readonly chargeScratch = new Float64Array(CHARGE_BRANCHES.length);
+  private readonly thermalVoltages = new Float64Array(9);
+  private readonly thermalCurrents = new Float64Array(5);
+  private readonly thermalPlus = new Float64Array(5);
+  private readonly thermalMinus = new Float64Array(5);
 
   constructor(
     readonly name: string,
@@ -382,7 +387,8 @@ export class VDMOS implements DeviceModel {
     // ---- channel (limiting is applied to the Newton step, see limitNewtonStep)
     const [vgs, vds] = this.channelVoltages(voltage);
     const vgd = vgs - vds;
-    const { mode, cdrain, gm, gds } = this.evaluateChannel(vgs, vds);
+    const channel = this.evaluateChannel(vgs, vds);
+    const { mode, cdrain, gm, gds } = channel;
     this.lastVon = t.vth;
     this.lastVgs = vgs;
     this.lastVds = vds;
@@ -450,7 +456,7 @@ export class VDMOS implements DeviceModel {
     g(BP, D, -gd);
     if (this.thermal) {
       if (smallSignal) this.stampThermalSmallSignal(ctx, vgs, vds);
-      else this.stampThermal(ctx);
+      else this.stampThermal(ctx, channel, vgs, vds);
     }
   }
 
@@ -506,36 +512,41 @@ export class VDMOS implements DeviceModel {
    * Temperature derivatives use symmetric differences of the same electrical
    * equations, avoiding a second, divergent temperature model.
    */
-  private stampThermal(ctx: StampContext): void {
+  private stampThermal(
+    ctx: StampContext, channel: ReturnType<VDMOS['evaluateChannel']>, vgs: number, vds: number,
+  ): void {
     const nodes = this.nodes;
     const tj = nodes[7];
     const tc = nodes[8];
-    const readVoltage = (node: number) => ctx.getVoltage(node);
-    const voltage = (slot: number) => nodes[slot] < 0 ? 0 : readVoltage(nodes[slot]);
+    // The solution is fixed throughout this load, including Tj +/- h.
+    const voltages = this.thermalVoltages;
+    for (let slot = 0; slot < voltages.length; slot++) {
+      voltages[slot] = nodes[slot] < 0 ? 0 : ctx.getVoltage(nodes[slot]);
+    }
+    const voltage = (slot: number) => voltages[slot];
     const temperature = Math.max(-200, voltage(7));
-    const branchSlots = [[DP, SP], [D, DP], [S, SP], [BP, D], [S, BP]];
-    const currents = () => {
+    const branchSlots = THERMAL_BRANCHES;
+    const currents = (ch: ReturnType<VDMOS['evaluateChannel']>, out: Float64Array) => {
       const t = this.temp;
-      const [vgs, vds] = this.channelVoltages(n => n < 0 ? 0 : readVoltage(n));
-      const ch = this.evaluateChannel(vgs, vds);
       let rd = t.drainResistance;
       if (this.model.qsGiven && ch.mode === 1) {
         const v = this.model.type * (voltage(D) - voltage(S));
         rd += t.qsResistance * v / (v + Math.abs(this.model.vq));
       }
-      return [this.model.type * ch.mode * ch.cdrain,
-        rd > 0 ? (voltage(D) - voltage(DP)) / rd : 0,
-        t.sourceConductance * (voltage(S) - voltage(SP)),
-        this.model.type * this.bodyDiodeCurrent(this.model.type * (voltage(BP) - voltage(D))).cd,
-        t.bodyConductance * (voltage(S) - voltage(BP))];
+      out[0] = this.model.type * ch.mode * ch.cdrain;
+      out[1] = rd > 0 ? (voltage(D) - voltage(DP)) / rd : 0;
+      out[2] = t.sourceConductance * (voltage(S) - voltage(SP));
+      out[3] = this.model.type * this.bodyDiodeCurrent(this.model.type * (voltage(BP) - voltage(D))).cd;
+      out[4] = t.bodyConductance * (voltage(S) - voltage(BP));
+      return out;
     };
-    const current = currents();
+    const current = currents(channel, this.thermalCurrents);
     const unperturbed = this.temp;
     const h = 1e-3;
     this.applyTemperature(temperature + h);
-    const plus = currents();
+    const plus = currents(this.evaluateChannel(vgs, vds), this.thermalPlus);
     this.applyTemperature(temperature - h);
-    const minus = currents();
+    const minus = currents(this.evaluateChannel(vgs, vds), this.thermalMinus);
     // Restore the exact state instead of recomputing it after the derivative.
     this.temp = unperturbed;
     let power = 0;
@@ -546,10 +557,13 @@ export class VDMOS implements DeviceModel {
       const derivative = (plus[i] - minus[i]) / (2 * h);
       power += current[i] * v;
       dpdt += derivative * v;
-      for (const [slot, sign] of [[p, 1], [n, -1]]) {
-        if (nodes[slot] < 0) continue;
-        if (tj >= 0) ctx.stampG(nodes[slot], tj, sign * derivative);
-        ctx.stampB(nodes[slot], sign * derivative * temperature);
+      if (nodes[p] >= 0) {
+        if (tj >= 0) ctx.stampG(nodes[p], tj, derivative);
+        ctx.stampB(nodes[p], derivative * temperature);
+      }
+      if (nodes[n] >= 0) {
+        if (tj >= 0) ctx.stampG(nodes[n], tj, -derivative);
+        ctx.stampB(nodes[n], -derivative * temperature);
       }
     }
     // Differentiate I * V analytically, using the electrical load's gm/gds
@@ -560,10 +574,8 @@ export class VDMOS implements DeviceModel {
       const node = nodes[slot];
       if (node < 0) return;
       if (tj >= 0) ctx.stampG(tj, node, -derivative);
-      rhs -= derivative * ctx.getVoltage(node);
+      rhs -= derivative * voltage(slot);
     };
-    const [vgs, vds] = this.channelVoltages(n => n < 0 ? 0 : readVoltage(n));
-    const channel = this.evaluateChannel(vgs, vds);
     const channelVoltage = voltage(DP) - voltage(SP);
     powerDerivative(DP, current[0] + channelVoltage * (channel.gds + (channel.mode === -1 ? channel.gm : 0)));
     powerDerivative(GP, channelVoltage * channel.mode * channel.gm);
