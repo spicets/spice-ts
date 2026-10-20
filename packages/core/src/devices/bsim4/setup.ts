@@ -130,7 +130,7 @@ export function setupBsim4Model(
       const baseline = (BASELINE_MODES as Readonly<Record<string, number>>)[key];
       if (key === 'igcmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGCMOD=0/1 is ported');
       if (key === 'igbmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGBMOD=0/1 is ported');
-      if (baseline !== undefined && value !== baseline && !(['rgatemod', 'rbodymod'].includes(key) && value === 1) && !(key === 'rgatemod' && value === 2)) unsupported(raw, 'nonbaseline selector path is not ported; no silent upstream reset');
+      if (baseline !== undefined && value !== baseline && !(['rgatemod', 'rbodymod'].includes(key) && value === 1) && !(key === 'rgatemod' && [2, 3].includes(value))) unsupported(raw, 'nonbaseline selector path is not ported; no silent upstream reset');
       if (['rbpb', 'rbpd', 'rbps', 'rbdb', 'rbsb'].includes(key) && value <= 0) throw new InvalidCircuitError(`BSIM4 ${raw} must be positive`);
       if (key === 'gbmin' && value < 0) throw new InvalidCircuitError('BSIM4 gbmin must be nonnegative');
       const neutral = (LAYOUT_DEFAULTS as Readonly<Record<string, number>>)[key];
@@ -171,8 +171,8 @@ export function setupBsim4Instance(
     const parameter = key as Bsim4InstanceParameter;
     if (given.has(parameter)) unsupported(raw, 'duplicate canonical instance parameter');
     const value = numeric(raw, input);
-    // b4set.c:2380-2415,2517-2583. Gate modes 1/2 share the GP topology.
-    if (key === 'rgatemod' && value !== 0 && value !== 1 && value !== 2) unsupported(raw, 'only RGATEMOD=0/1/2 is ported');
+    // b4set.c:2380-2415,2517-2583. Mode 3 adds GM between GE and GP.
+    if (key === 'rgatemod' && ![0, 1, 2, 3].includes(value)) unsupported(raw, 'only RGATEMOD=0/1/2/3 is ported');
     if (key === 'rbodymod' && value !== 0 && value !== 1) unsupported(raw, 'only RBODYMOD=0/1 is ported');
     if (['rbpb', 'rbpd', 'rbps', 'rbdb', 'rbsb'].includes(key) && value <= 0) throw new InvalidCircuitError(`BSIM4 ${raw} must be positive`);
     if (['geomod', 'rgeomod', 'trnqsmod', 'acnqsmod', 'wnflag'].includes(key) && value !== 0) {

@@ -80,7 +80,7 @@ describe('BSIM4 RGATEMOD=1 static gate resistance', () => {
       console.info(`${item.deck}: ${JSON.stringify(errors)}`);
     });
   }
-  for (const [key, value] of [['RGATEMOD', 3], ['RBODYMOD', 2]] as const) {
+  for (const [key, value] of [['RGATEMOD', 4], ['RBODYMOD', 2]] as const) {
     for (const location of ['model', 'instance']) {
       it(`rejects ${location} ${key}=${value} explicitly`, () => {
         const deck = `Unsupported BSIM4 selector
