@@ -25,6 +25,7 @@
  */
 import { InvalidCircuitError } from '../../errors.js';
 import { real, STATIC, type CodeModelBehavior, type ResolvedXspiceParams } from './models.js';
+import { TlineHistory } from './tline-history.js';
 
 const C0 = 299792458;
 const ZVAC = 120 * Math.PI;
@@ -86,19 +87,15 @@ export function mlin(params: ResolvedXspiceParams): CodeModelBehavior {
   const delay = length * Math.sqrt(epsilon) / C0;
   // ngspice tline_common.c stores port voltage/current samples. Store their
   // travelling-wave sums instead; only accept() may advance this history.
-  const history: { time: number; forward: number; reverse: number }[] = [];
-  // ngspice appends on every load and get_state() returns the FIRST entry
-  // at the ceiling time, i.e. the first Newton guess, not the final solution.
-  // Stage that guess separately so a rejected trial cannot enter history.
-  let trial: { time: number; forward: number; reverse: number } | undefined;
+  const history = new TlineHistory<{ time: number; forward: number; reverse: number }>();
   return {
     stateful: true, ac: STATIC,
     // ngspice-47 tlines/mlin/cfunc.mod:116-128. DC is ideal, not rho*l/(w*t).
     load(call) {
       if (call.analysis === 'tran') {
-        if (tranmodel === 1 && (!trial || trial.time !== call.time)) trial = {
+        if (tranmodel === 1) history.stage({
           time: call.time, forward: call.inputs[2] + z0 * call.inputs[0], reverse: call.inputs[3] + z0 * call.inputs[1],
-        };
+        });
         if (tranmodel !== 0 && tranmodel !== 1) {
           throw new UnsupportedMlinError('XSPICE mlin supports only tranmodel=0 or tranmodel=1');
         }
@@ -106,7 +103,7 @@ export function mlin(params: ResolvedXspiceParams): CodeModelBehavior {
           // get_state() selects the first sample at or after TIME-delay.
           // If that is the current trial, use the instantaneous/DC equations
           // below, including their Jacobian. No trial is stored here.
-          const point = history.find(point => point.time >= call.time - delay);
+          const point = history.find(call.time - delay);
           if (point) {
             call.outputs[0] = point.reverse + z0 * call.inputs[0];
             call.outputs[1] = point.forward + z0 * call.inputs[1];
@@ -122,13 +119,9 @@ export function mlin(params: ResolvedXspiceParams): CodeModelBehavior {
     },
     accept(call) {
       if (tranmodel !== 1) return;
-      // Also support replacing an accepted timepoint on restart/rollback.
-      while (history.length && history[history.length - 1].time >= call.time) history.pop();
-      history.push(trial?.time === call.time ? trial : { time: call.time, forward: call.inputs[2] + z0 * call.inputs[0], reverse: call.inputs[3] + z0 * call.inputs[1] });
-      trial = undefined;
-      while (history.length > 1 && history[0].time < call.time - 1.2 * delay) history.shift();
+      history.accept({ time: call.time, forward: call.inputs[2] + z0 * call.inputs[0], reverse: call.inputs[3] + z0 * call.inputs[1] }, delay);
     },
-    reset() { history.length = 0; trial = undefined; },
+    reset() { history.reset(); },
     // msline_common.c:315-347 and tlines/mlin/cfunc.mod:130-151.
     acGains(omega) {
       const f = omega / (2 * Math.PI);
