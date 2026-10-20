@@ -67,6 +67,7 @@ import { assertControlledSourceCard, withoutNodePairParentheses } from './parser
 import type { ControlScript } from './parser/control/script.js';
 import { DEFAULT_OPTIONS, GROUND_NODE } from './types.js';
 import { evaluateExpression } from './parser/expression.js';
+import { bindParameterRandom, parameterRandom } from './parser/statistical-functions.js';
 import { parseNumber, tokenizeLine, tokenizeNetlist } from './parser/tokenizer.js';
 import { formatNumber } from './netlist-number.js';
 import { evaluateSubcircuitParams } from './subcircuit-params.js';
@@ -882,11 +883,11 @@ export class Circuit {
   /** @internal Re-evaluate TEMPER before applying runtime control alterations. */
   reparseAtTemperature?: (celsius: number) => Circuit;
   /** @internal Re-elaborate retained source after control-language parameter edits. */
-  #reparseWithParameters?: (changes: readonly import('./parser/preprocessor.js').ParameterAlteration[]) => Circuit;
-  get reparseWithParameters(): ((changes: readonly import('./parser/preprocessor.js').ParameterAlteration[]) => Circuit) | undefined {
+  #reparseWithParameters?: (changes: readonly import('./parser/preprocessor.js').ParameterAlteration[], seed?: number) => Circuit;
+  get reparseWithParameters(): ((changes: readonly import('./parser/preprocessor.js').ParameterAlteration[], seed?: number) => Circuit) | undefined {
     return this.#reparseWithParameters;
   }
-  set reparseWithParameters(value: ((changes: readonly import('./parser/preprocessor.js').ParameterAlteration[]) => Circuit) | undefined) {
+  set reparseWithParameters(value: ((changes: readonly import('./parser/preprocessor.js').ParameterAlteration[], seed?: number) => Circuit) | undefined) {
     this.#reparseWithParameters = value;
   }
   private _xspiceTrtol: number | undefined;
@@ -1737,6 +1738,7 @@ export class Circuit {
    * top-level parameters here. Names are case-insensitive; later values win.
    */
   setParameters(values: Readonly<ParameterScope>): void {
+    bindParameterRandom(this, parameterRandom(values));
     for (const [name, value] of Object.entries(values)) this._parameters.set(name.toUpperCase(), value);
     this._parameterScope = undefined;
   }
@@ -2876,6 +2878,7 @@ export class Circuit {
   /** Top-level `.param` values as a prototype-free variable record for subcircuit scopes. */
   private parameterScope(): ParameterScope {
     this._parameterScope ??= Object.assign(Object.create(null) as ParameterScope, this.parameters);
+    bindParameterRandom(this._parameterScope, parameterRandom(this));
     return this._parameterScope;
   }
 
@@ -3677,6 +3680,7 @@ export class Circuit {
     // (#888). Each call gets fresh bindings over its caller, then ancestors and
     // globals. Definition/model lookup remains lexical via definitionScopes.
     const localParams: ParameterScope = Object.create(callerParams) as ParameterScope;
+    bindParameterRandom(localParams, parameterRandom(callerParams));
     const overrides = new Map<string, number | string>(Object.entries(instanceParams).map(([k, v]) => [k.toUpperCase(), v]));
     if (rawCall !== undefined) {
       const actuals = substituteExpressions(substituteStringAssignments(rawCall, callerParams), callerParams);

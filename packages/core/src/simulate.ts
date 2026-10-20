@@ -367,6 +367,7 @@ function simulateControlScript(
   const measureValues = new Map<string, number>();
   const reparse = circuit.reparseWithParameters;
   const parameterChanges: import('./parser/preprocessor.js').ParameterAlteration[] = [];
+  let parameterSeed: number | undefined;
   const runtimeAlterations: ((evaluated: Circuit) => void)[] = [];
   let deckAnalyses = [...circuit.analyses];
   let deckPoleZero = [...circuit.poleZeroAnalyses];
@@ -450,9 +451,11 @@ function simulateControlScript(
       }
       parameterChanges.push({ subcircuit, name, expression });
     },
+    setSeed(seed) { parameterSeed = seed; },
     reset(line, newCircuit = false) {
       if (!reparse) throw unsupported('reset', 'no retained netlist source', line);
-      const reloaded = reparse(parameterChanges);
+      const reloaded = reparse(parameterChanges, parameterSeed);
+      parameterSeed = undefined;
       if (newCircuit && circuitLoaded) {
         previousCircuits.push({ circuit, alterations: [...runtimeAlterations], operatingState });
       }

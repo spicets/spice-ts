@@ -55,6 +55,7 @@ export interface ControlHost {
   alterModel(model: string, parameter: string, value: number, line: ControlSourceLine): void;
   alterParameter(subcircuit: string | undefined, name: string, expression: string, line: ControlSourceLine): void;
   reset(line: ControlSourceLine, newCircuit?: boolean): Readonly<Record<string, number>>;
+  setSeed?(seed: number): void;
   /** Remove the current circuit, selecting the previous one if any remains. */
   removeCircuit(): boolean;
   /** `@device[parameter]` / `@model[parameter]` input-parameter readout, or undefined when unavailable. */
@@ -368,6 +369,14 @@ class ControlInterpreter {
         const match = /^(?:(\S+)\s+)?([A-Za-z_]\w*)\s*=\s*(.+)$/.exec(rest);
         if (!match) throw new ControlScriptError('alterparam needs [subcircuit] name = expression', line.lineNumber, line.text);
         this.host.alterParameter(match[1], match[2], match[3], line);
+        return;
+      }
+      case 'setseed': {
+        if (!/^\d+$/.test(rest) || !Number.isSafeInteger(Number(rest)) || Number(rest) <= 0 || Number(rest) > 0x7fffffff) {
+          throw new ControlScriptError('setseed requires one integer in [1, 2147483647]', line.lineNumber, line.text);
+        }
+        if (!this.host.setSeed) throw new UnsupportedControlCommandError('setseed', 'no retained parameter RNG', line.lineNumber, line.text);
+        this.host.setSeed(Number(rest));
         return;
       }
       case 'reset':
