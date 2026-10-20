@@ -47,6 +47,17 @@ const HAS_NGSPICE = spawnSync('ngspice', ['--version'], { encoding: 'utf8' }).st
 const HAS_CORE_DIST = existsSync('packages/core/dist/index.js');
 
 describe('corpus-f control wrapper (#521)', () => {
+  it('resolves absent xfer companions in the bounded run (#1548)', { skip: !HAS_NGSPICE || !HAS_CORE_DIST }, async () => {
+    const manifest = JSON.parse(await readFile(`${ROOT}/manifest.json`, 'utf8')) as CorpusFManifest;
+    const circuit = manifest.circuits.find(c => c.id === 'examples-rf-sp-file-cir')!;
+    assert.equal(sha256(await readFile(circuit.localPath)), '2cc8b6d32c958f320a1f6b3b47995ef654a46559bb224d16de61a7f198779402');
+    const fixture = await runFixture({ ...circuit, analyses: scoredPlotTypes(circuit) }, runControlReference);
+    assert.equal(fixture.spiceTs.status, 'success', JSON.stringify(fixture));
+    assert.ok(fixture.comparedAnalyses > 0);
+    assert.ok(fixture.comparedSignals > 0);
+    assert.equal(fixture.outcome, 'match');
+  });
+
   it('selects batch final plots without changing explicit, multiple-raw or non-dot identities (#1423)', () => {
     const deck = 'toy\n.dc V1 0 1 .1\n.control\nrepeat 10\nrun\nend\n.endc\n.end';
     const own = [1, 2, 10].map(n => ({ type: 'dc' as const, plotName: 'DC transfer characteristic', plotId: `dc${n}` }));
