@@ -12,6 +12,20 @@ class ParameterRandom {
     this.generator ??= new NgspiceRandom(this.initialSeed);
     return this.generator.drand();
   }
+  gauss(complex: boolean): number {
+    this.generator ??= new NgspiceRandom(this.initialSeed);
+    // cmath2.c: real sgauss uses uncached gauss1, complex uses cached gauss0.
+    if (complex) return this.generator.gauss0();
+    let v1: number;
+    let v2: number;
+    let radius: number;
+    do {
+      v1 = this.drand();
+      v2 = this.drand();
+      radius = v1 * v1 + v2 * v2;
+    } while (radius >= 1 || radius === 0);
+    return v2 * Math.sqrt(-2 * Math.log(radius) / radius);
+  }
 }
 const streams = new WeakMap<object, ParameterRandom>();
 export function parameterRandom(scope: object): ParameterRandom {
@@ -42,16 +56,8 @@ export function statisticalFunction(name: string, args: number[], scope: object)
   const random = parameterRandom(scope);
   if (name === 'agauss' || name === 'gauss') {
     if (variation <= 0 || sigma <= 0) return nominal;
-    let v1: number;
-    let v2: number;
-    let radius: number;
-    do {
-      v1 = random.drand();
-      v2 = random.drand();
-      radius = v1 * v1 + v2 * v2;
-    } while (radius >= 1 || radius === 0);
     const standardDeviation = (name === 'gauss' ? nominal * variation : variation) / sigma;
-    return nominal + standardDeviation * (v2 * Math.sqrt(-2 * Math.log(radius) / radius));
+    return nominal + standardDeviation * random.gauss(false);
   }
   const draw = random.drand();
   if (name === 'limit') return nominal + (draw > 0 ? variation : -variation);

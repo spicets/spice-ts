@@ -145,7 +145,7 @@ export function stripControlComment(line: string): string {
     if (quoted) continue;
     const before = index === 0 || /\s/.test(line[index - 1]);
     if (character === ';') return line.slice(0, index);
-    if (character === '$' && before && (index + 1 === line.length || /\s/.test(line[index + 1]))) {
+    if (character === '$' && (index + 1 === line.length || /\s/.test(line[index + 1]))) {
       return line.slice(0, index);
     }
     if (character === '/' && line[index + 1] === '/' && before) return line.slice(0, index);

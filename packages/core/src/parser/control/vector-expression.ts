@@ -58,6 +58,8 @@ export interface ExpressionEnvironment {
   spectralTransform?(name: 'fft' | 'ifft', arg: ControlVector): ControlVector;
   /** mtimeavgwindow, or ten times the circuit's transient output timestep. */
   movingAverageWindow?(): number;
+  /** Shared per-deck RNG, also used by numparam and reseeded by setseed. */
+  random?(gaussian: boolean, complex: boolean): number;
 }
 
 type Token =
@@ -533,7 +535,7 @@ function evaluateLogarithm(arg: ControlVector, { errorName, real }: Logarithm): 
 /** Functions of ngspice's front end that spice-ts deliberately does not evaluate. */
 const UNSUPPORTED_FUNCTIONS = new Set([
   'interpolate', 'sum',
-  'sunif', 'sgauss', 'rnd', 'poisson', 'exponential',
+  'rnd', 'poisson', 'exponential',
 ]);
 
 /** ngspice-47 cmath1.c:93-136. The unit conversions depend on cx_degrees,
@@ -702,6 +704,16 @@ function evaluateCall(node: Extract<ExpressionNode, { kind: 'call' }>, env: Expr
     throw new ExpressionError(`unknown function '${node.name}' with ${node.args.length} arguments`);
   }
   const arg = evaluateVectorExpression(node.args[0], env);
+  if (node.name === 'sunif' || node.name === 'sgauss') {
+    if (!env.random) throw new ExpressionError(`${node.name}() needs a random context`);
+    const re = new Float64Array(arg.re.length);
+    const im = arg.im ? new Float64Array(arg.re.length) : undefined;
+    for (let i = 0; i < re.length; i++) {
+      re[i] = env.random(node.name === 'sgauss', im !== undefined);
+      if (im) im[i] = env.random(node.name === 'sgauss', true);
+    }
+    return im ? complexVector('result', re, im, arg.scale) : realVector('result', re, arg.scale);
+  }
   if (node.name === 'avg' || node.name === 'stddev') return vectorStatistic(node.name, arg);
   if (node.name === 'cph' || node.name === 'cphase' || node.name === 'unwrap') {
     return continuousPhase(arg, node.name === 'unwrap', env.degrees());

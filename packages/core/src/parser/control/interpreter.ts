@@ -56,6 +56,7 @@ export interface ControlHost {
   alterParameter(subcircuit: string | undefined, name: string, expression: string, line: ControlSourceLine): void;
   reset(line: ControlSourceLine, newCircuit?: boolean): Readonly<Record<string, number>>;
   setSeed?(seed: number): void;
+  random?(gaussian: boolean, complex: boolean): number;
   /** Remove the current circuit, selecting the previous one if any remains. */
   removeCircuit(): boolean;
   /** `@device[parameter]` / `@model[parameter]` input-parameter readout, or undefined when unavailable. */
@@ -1420,6 +1421,7 @@ class ControlInterpreter {
   private environment(): ExpressionEnvironment {
     return {
       lookup: name => this.lookup(name),
+      random: this.host.random?.bind(this.host),
       scale: () => this.current.scale,
       spectralTransform: (name, arg) => this.spectralTransform(name, arg),
       movingAverageWindow: () => {
