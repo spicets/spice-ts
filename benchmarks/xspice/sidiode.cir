@@ -1,0 +1,25 @@
+XSPICE sidiode all-region parity (original MIT fixture, issue 1563)
+vdrive in 0 dc 0 sin(0 8 1000)
+vplain in p 0
+vsoft in s 0
+vlimit in l 0
+aplain (p 0) plain
+asoft (s 0) soft
+alimit (l 0) limited
+.model plain sidiode(ron=2 roff=1000 vfwd=1 vrev=3 rrev=4)
+.model soft sidiode(ron=2 roff=1000 vfwd=1 vrev=3 rrev=4 epsilon=0.2 revepsilon=0.4)
+.model limited sidiode(ron=2 roff=1000 vfwd=1 vrev=3 rrev=4 epsilon=0.2 revepsilon=0.4 ilimit=0.5 revilimit=0.7)
+.options reltol=1e-9 abstol=1e-14 vntol=1e-12
+.dc vdrive -8 8 0.02
+.tran 0.02u 2m 0 0.02u
+.control
+set numdgt=15
+set wr_singlescale
+set wr_vecnames
+run
+setplot dc1
+wrdata dc.txt i(vplain) i(vsoft) i(vlimit)
+setplot tran1
+wrdata tran.txt i(vplain) i(vsoft) i(vlimit)
+.endc
+.end

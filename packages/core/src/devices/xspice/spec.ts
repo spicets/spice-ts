@@ -183,6 +183,19 @@ const D_DT: XspiceCodeModelSpec = {
   ],
 };
 
+/** xfer/ifspec.ifs (not s_xfer: no gain or input offset). */
+const XFER: XspiceCodeModelSpec = {
+  name: 'xfer',
+  connections: [input('in'), output('out')].map(port => ({ ...port, allowedTypes: ['v', 'vd', 'i', 'id'] })),
+  params: [
+    { name: 'table', type: 'real', defaultValue: [0], vector: true, vectorBounds: [3, undefined], nullAllowed: true },
+    { name: 'file', type: 'string', vector: false, nullAllowed: true },
+    boolean('r_i', false), boolean('db', true), boolean('rad', false),
+    { name: 'span', type: 'int', defaultValue: [3], limits: [3, undefined], vector: false, nullAllowed: true },
+    { name: 'offset', type: 'int', defaultValue: [1], limits: [1, undefined], vector: false, nullAllowed: true },
+  ],
+};
+
 /** s_xfer/ifspec.ifs; omitted ICs are expanded to zero at the model boundary. */
 const S_XFER: XspiceCodeModelSpec = {
   name: 's_xfer',
@@ -305,6 +318,23 @@ const SQUARE: XspiceCodeModelSpec = {
     ...TRIANGLE.params.map(param => param.name === 'cntl_array' || param.name === 'freq_array'
       ? { ...param, defaultValue: undefined, nullAllowed: false } : param),
     real('rise_time', 1e-9), real('fall_time', 1e-9),
+  ],
+};
+
+/** ngspice-47 xtradev/sidiode/ifspec.ifs:34-104. */
+const SIDIODE: XspiceCodeModelSpec = {
+  name: 'sidiode',
+  connections: [{ name: 'ds', direction: 'inout', defaultType: 'gd', allowedTypes: ['gd'], vector: false, nullAllowed: false }],
+  params: [
+    real('ron', 1, { limits: [1e-6, undefined] }),
+    real('roff', 1, { limits: [1e-12, undefined] }),
+    real('vfwd', 0, { limits: [0, undefined] }),
+    real('vrev', 1e30, { limits: [0, undefined] }),
+    real('ilimit', 1e30, { limits: [1e-15, undefined] }),
+    real('revilimit', 1e30, { limits: [1e-15, undefined] }),
+    real('epsilon', 0, { limits: [0, undefined] }),
+    real('revepsilon', 0, { limits: [0, undefined] }),
+    real('rrev', 0),
   ],
 };
 
@@ -480,6 +510,14 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
       params: [real('w', 1e-3), real('l', 1), real('s', 1e-3), real('er', 9.8), real('h', 1e-3), real('t', 35e-6),
         real('tand', 2e-4), real('rho', .022e-6), real('d', .15e-6),
         ...['model', 'disp', 'tranmodel'].map(name => ({ name, type: 'int' as const, defaultValue: [0], vector: false, nullAllowed: true }))],
+    }, {
+      name: 'cpline',
+      connections: ['p1', 'p2', 'p3', 'p4', 'p1s', 'p2s', 'p3s', 'p4s'].map((name, i) => ({
+        name, direction: i < 4 ? 'inout' as const : 'in' as const,
+        defaultType: i < 4 ? 'hd' : 'vd', allowedTypes: [i < 4 ? 'hd' : 'vd'], vector: false, nullAllowed: false,
+      })),
+      // ngspice-47 tlines/cpline/ifspec.ifs:111-183.
+      params: [real('l', 1), real('ze', 50), real('zo', 50), real('ae', 0), real('ao', 0), real('ere', 1), real('ero', 1)],
     }, ASTATE, {
       name: 'delay',
       connections: [
@@ -493,7 +531,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
     }, GAIN, SUMMER, MULT, DIVIDE, PWL,
     // analog/pwlts/ifspec.ifs:30-75 shares pwl parameters, but has only an output.
     { name: 'pwlts', connections: [output('out')], params: PWL.params },
-    LIMIT, INT, D_DT, S_XFER, OTA_SPEC, ...REACTIVE_IC_SPECS,
+    LIMIT, INT, D_DT, S_XFER, XFER, OTA_SPEC, ...REACTIVE_IC_SPECS,
 
     {
       name: 'lcouple',
@@ -518,7 +556,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('rinit', 7000, { nullAllowed: false }), real('alpha', 0, { nullAllowed: false }),
         real('beta', 1, { nullAllowed: false }), real('vt', 0, { nullAllowed: false })],
     },
-    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH, SEEGEN_SPEC,
+    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, SIDIODE, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH, SEEGEN_SPEC,
 
     ...REAL_SPECS, ADC_BRIDGE, DAC_BRIDGE,
     {

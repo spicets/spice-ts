@@ -92,11 +92,20 @@ function simulateDc(
   const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
   const originalWaveform = source.waveform;
+  const nonlinear = compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''));
+  let previous: Float64Array | undefined;
   try {
     for (let point = 0; point < pointCount; point++) {
       const value = sweep.start + point * sweep.step;
       values.push(value);
       source.waveform = { type: 'dc', value };
+      if (nonlinear) {
+        const solution = solveNonlinearOp(compiled, order, request, exports, previous);
+        previous = solution;
+        compiled.nodeNames.forEach((name, index) => voltagesV[name]!.push(solution[index]!));
+        compiled.branchNames.forEach((name, index) => currentsA[name]!.push(solution[compiled.nodeCount + index]!));
+        continue;
+      }
       const matrix = new Float64Array(order * order);
       const rhs = new Float64Array(order);
       const zero = new Float64Array(order);
@@ -139,8 +148,8 @@ function simulateOp(
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
-  if (compiled.devices.some(device => device.name[0]?.toUpperCase() === 'D')) {
-    return opResult(compiled, solveDiodeOp(compiled, order, request, exports), request);
+  if (compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''))) {
+    return opResult(compiled, solveNonlinearOp(compiled, order, request, exports), request);
   }
   const matrix = new Float64Array(order * order);
   const rhs = new Float64Array(order);
@@ -238,10 +247,11 @@ function simulateOp(
   return opResult(compiled, solution, request);
 }
 
-function solveDiodeOp(
+function solveNonlinearOp(
   compiled: CompiledCircuit, order: number, request: SimulationRequestV1, exports: NumericWasmExports,
+  initial?: Float64Array,
 ): Float64Array {
-  let previous: Float64Array = new Float64Array(order);
+  let previous: Float64Array = initial ?? new Float64Array(order);
   const matrix = new Float64Array(order * order);
   const rhs = new Float64Array(order);
   // Core tolerances, with bounded caller-controlled work and no fallback solver.
@@ -258,20 +268,35 @@ function solveDiodeOp(
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     matrix.fill(0);
     rhs.fill(0);
-    // Reuse core's ngspice-style pnjlim and optional RS junction solve.
+    // Reuse core's nonlinear companion models; the linear solve stays in WASM.
     for (const device of compiled.devices) device.stamp(context);
     addGmin(matrix, compiled.nodeCount, order, request.options?.gmin ?? 0);
     if (!matrix.every(Number.isFinite) || !rhs.every(Number.isFinite)) break;
     const solution = solveReal(exports, order, matrix, rhs);
+    let stepScale = 1;
+    for (const device of compiled.devices) {
+      stepScale = Math.min(stepScale, device.limitNewtonStep?.(previous, solution) ?? 1);
+    }
+    if (stepScale < 1) {
+      for (let index = 0; index < order; index++) {
+        solution[index] = previous[index]! + stepScale * (solution[index]! - previous[index]!);
+      }
+    }
     const converged = solution.every((value, index) => Math.abs(value - previous[index]!)
       <= (index < compiled.nodeCount ? request.options?.vntol ?? 1e-6 : request.options?.abstol ?? 1e-12)
         + reltol * Math.abs(value))
-      && !compiled.devices.some(device => device.limitedLastStamp?.());
-    // Like core, do not accept an initial/fixed-junction iteration.
-    if (iteration >= 2 && converged) return solution;
+      && stepScale === 1 && !compiled.devices.some(device => device.limitedLastStamp?.())
+      && compiled.devices.every(device => device.convergenceTest?.(solution, {
+        reltol, abstol: request.options?.abstol ?? 1e-12, vntol: request.options?.vntol ?? 1e-6,
+      }) ?? true);
+    // Only the first point has initial/fixed-junction iterations. Later DC
+    // points retain device state and may converge immediately, like core.
+    if ((initial !== undefined || iteration >= 2) && converged) return solution;
     previous = solution;
   }
-  throw numericError('CONVERGENCE_FAILED', 'The bounded WebAssembly diode operating point did not converge', 'solve', {
+  const deviceKind = compiled.devices.some(device => device.name[0]?.toUpperCase() === 'M') ? 'MOS1'
+    : compiled.devices.some(device => device.name[0]?.toUpperCase() === 'Q') ? 'BJT' : 'diode';
+  throw numericError('CONVERGENCE_FAILED', `The bounded WebAssembly ${deviceKind} operating point did not converge`, 'solve', {
     maxIterations,
   });
 }
@@ -368,7 +393,7 @@ function simulateDiodeTransient(
   const pointLimit = Math.min(NUMERIC_WASM_LIMITS.maxResultPoints, request.options?.limits?.maxResultPoints ?? Infinity);
   if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
   for (const device of compiled.devices) device.setTransientTimestep?.(transient.timestep);
-  let solution = solveDiodeOp(compiled, order, request, exports);
+  let solution = solveNonlinearOp(compiled, order, request, exports);
   let accepted = stampTransientSystem(compiled, order, 0, true, solution);
   const gmin = request.options?.gmin ?? 0;
   addGmin(accepted.conductance, compiled.nodeCount, order, gmin);
@@ -654,8 +679,8 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     || compiled.analyses.length !== 1 || compiled.analyses[0]?.type !== analysis) {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
-  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D']
-    : analysis === 'dc' ? ['R', 'I', 'V']
+  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D']
       : ['R', 'C', 'L', 'I', 'V'];
   if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
@@ -712,18 +737,29 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 }
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
-  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D']
-    : analysis === 'dc' ? ['R', 'I', 'V']
+  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D']
       : ['R', 'C', 'L', 'I', 'V'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
-    if ((analysis === 'op' || analysis === 'tran') && /^\.model\b/i.test(card)) {
-      const model = /^\.model\s+\S+\s+D(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
-      if (!model) unsupported('diode-model', 'Only diode models are supported in nonlinear operating points');
-      const parameters = (model[1] ?? model[2] ?? '').trim();
-      const parameter = new RegExp(`(?:IS|N|RS)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|,\\s*|$)`, 'gi');
+    if ((analysis === 'op' || analysis === 'dc' || analysis === 'tran') && /^\.model\b/i.test(card)) {
+      const model = /^\.model\s+\S+\s+(D|NPN|PNP|NMOS|PMOS)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
+      if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
+      const mos = /MOS$/i.test(model[1]!);
+      const bjt = /^(NPN|PNP)$/i.test(model[1]!);
+      if (analysis === 'tran' && (mos || bjt)) unsupported('diode-model', 'Only diode models are supported in bounded transients');
+      const parameters = (model[2] ?? model[3] ?? '').trim();
+      const names = mos ? 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI' : bjt ? 'IS|BF|BR|NF|NR|VAF' : 'IS|N|RS';
+      // Check every LEVEL occurrence, not just the final duplicate consumed by core.
+      if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
+        unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
+      }
+      const parameter = new RegExp(`(?:${names})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|,\\s*|$)`, 'gi');
+
       if (parameters.replace(parameter, '').trim()) {
+        if (mos) unsupported('mosfet-model-parameter', 'Only MOS1 model parameters LEVEL=1, VTO, KP, LAMBDA, GAMMA, and PHI are supported');
+        if (bjt) unsupported('bjt-model-parameter', 'Only BJT model parameters IS, BF, BR, NF, NR, and VAF are supported');
         unsupported('diode-model-parameter', 'Only diode model parameters IS, N, and RS are supported');
       }
       continue;
@@ -738,6 +774,14 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
     }
     if (type === 'D') {
       if (tokens.length !== 4) unsupported('diode-form', 'Diodes must use name anode cathode model');
+    } else if (type === 'Q') {
+      if (tokens.length !== 5) unsupported('bjt-form', 'BJTs must use name collector base emitter model');
+    } else if (type === 'M') {
+      const instance = /^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+(.*)$/.exec(card);
+      const dimensions = new RegExp(`(?:W|L)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
+      if (!instance || instance[1]!.trim().replace(dimensions, '').trim()) {
+        unsupported('mosfet-form', 'MOSFETs must use name drain gate source bulk model with optional numeric W and L only');
+      }
     } else if (type === 'L') {
       if (/\bIC\s*=/i.test(card)) {
         unsupported('inductor-initial-condition', 'Inductor initial conditions (IC=) are not supported');

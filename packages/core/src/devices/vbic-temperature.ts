@@ -3,8 +3,7 @@
  * (src/spicelib/devices/vbic/vbictemp.c) restricted to the bounded VBIC subset.
  *
  * Parameters outside that subset are held at their ngspice vbicsetup.c
- * defaults: EA = EAIE = EAIC = EAIS = EANE = EANC = EANS = EAP = 1.12 eV,
- * XIS = XII = XIN = 3, and every other temperature
+ * defaults: XIS = XII = XIN = 3, and every other temperature
  * exponent (XIKF, XVO, TNF, TAVC, XISR, DEAR) at 0, which
  * leaves IKF, VO, AVC2, NF, NR and ISRR temperature independent.
  */
@@ -14,14 +13,6 @@ const CELSIUS_TO_KELVIN = 2.7315e2;
 const BOLTZMANN = 1.380662e-23;
 const CHARGE = 1.602189e-19;
 
-const EA = 1.12;
-const EAIE = 1.12;
-const EAIC = 1.12;
-const EAIS = 1.12;
-const EANE = 1.12;
-const EANC = 1.12;
-const EANS = 1.12;
-const EAP = 1.12;
 const XIS = 3;
 const XII = 3;
 const XIN = 3;
@@ -35,6 +26,8 @@ export const VBIC_PS = 0.75;
 export const VBIC_MS = 0.33;
 
 export interface VBICTemperatureInput {
+  EA: number; EAIE: number; EAIC: number; EAIS: number;
+  EANE: number; EANC: number; EANS: number; EAP: number;
   RE: number; RBI: number; RCI: number; RS: number;
   RBP: number; RCX: number; RBX: number;
   XRE: number; XRBI: number; XRCI: number; XRS: number;
@@ -121,9 +114,9 @@ export function resolveVBICTemperature(
     return psiin + 2 * vtv * Math.log(0.5 * (1 + Math.sqrt(1 + 4 * Math.exp(-psiin / vtv))));
   };
 
-  const PE = potential(params.PE, EAIE);
-  const PC = potential(params.PC, EAIC);
-  const PS = potential(params.PS, EAIS);
+  const PE = potential(params.PE, params.EAIE);
+  const PC = potential(params.PC, params.EAIC);
+  const PS = potential(params.PS, params.EAIS);
   return {
     RE: params.RE * Math.pow(rT, params.XRE),
     RBI: params.RBI * Math.pow(rT, params.XRBI),
@@ -133,17 +126,17 @@ export function resolveVBICTemperature(
     RCX: params.RCX * Math.pow(rT, params.XRCX),
     RBX: params.RBX * Math.pow(rT, params.XRBX),
     vt: vtv,
-    IS: saturation(params.IS, XIS, EA, params.NF),
-    IBEI: saturation(params.IBEI, XII, EAIE, params.NEI),
-    IBEN: saturation(params.IBEN, XIN, EANE, params.NEN),
-    IBCI: saturation(params.IBCI, XII, EAIC, params.NCI),
-    IBCN: saturation(params.IBCN, XIN, EANC, params.NCN),
-    IBEIP: saturation(params.IBEIP, XII, EAIC, params.NCI),
-    IBENP: saturation(params.IBENP, XIN, EANC, params.NCN),
-    ISP: saturation(params.ISP, XIS, EAP, params.NFP),
-    IBCIP: saturation(params.IBCIP, XII, EAIS, params.NCIP),
-    IBCNP: saturation(params.IBCNP, XIN, EANS, params.NCNP),
-    GAMM: params.GAMM * Math.pow(rT, XIS) * Math.exp(-EA * (1 - rT) / vtv),
+    IS: saturation(params.IS, XIS, params.EA, params.NF),
+    IBEI: saturation(params.IBEI, XII, params.EAIE, params.NEI),
+    IBEN: saturation(params.IBEN, XIN, params.EANE, params.NEN),
+    IBCI: saturation(params.IBCI, XII, params.EAIC, params.NCI),
+    IBCN: saturation(params.IBCN, XIN, params.EANC, params.NCN),
+    IBEIP: saturation(params.IBEIP, XII, params.EAIC, params.NCI),
+    IBENP: saturation(params.IBENP, XIN, params.EANC, params.NCN),
+    ISP: saturation(params.ISP, XIS, params.EAP, params.NFP),
+    IBCIP: saturation(params.IBCIP, XII, params.EAIS, params.NCIP),
+    IBCNP: saturation(params.IBCNP, XIN, params.EANS, params.NCNP),
+    GAMM: params.GAMM * Math.pow(rT, XIS) * Math.exp(-params.EA * (1 - rT) / vtv),
     CJE: params.CJE * Math.pow(params.PE / PE, params.ME),
     CJC: params.CJC * Math.pow(params.PC / PC, params.MC),
     CJEP: params.CJEP * Math.pow(params.PC / PC, params.MC),

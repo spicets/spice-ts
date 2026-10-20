@@ -86,11 +86,11 @@ describe('VBIC transient self heating', () => {
     expect(Math.abs(temperature.at(-1)! / 0.03419172976017186 - 1)).toBeLessThan(1e-3);
   });
 
-  it('retains the explicit activation-energy limitation of the unchanged public deck', async () => {
+  it('reports the next explicit bounded-domain limitation of the unchanged public deck', async () => {
     const source = readFileSync(new URL('../../../../benchmarks/corpus/corpus-f/fixtures/examples/vbic/vbic99_tran.sp', import.meta.url), 'utf8');
-    // Resistor exponents are supported; nondefault activation energies remain separate.
+    // Resistor exponents and activation energies are supported; HRCF=0 remains separate.
     await expect(simulate(source)).rejects.toThrow(InvalidCircuitError);
-    await expect(simulate(source)).rejects.toThrow("Unsupported bounded VBIC DC model parameter: 'EA'");
+    await expect(simulate(source)).rejects.toThrow("Invalid bounded VBIC DC model parameter: 'HRCF'");
   }, 30_000);
 
   it('keeps four-terminal CTH inert, including the adaptive time grid', async () => {

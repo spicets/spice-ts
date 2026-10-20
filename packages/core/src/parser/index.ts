@@ -428,10 +428,12 @@ export async function parseAsync(
 ): Promise<Circuit> {
   const { title, control } = splitTitledDeck(netlist);
   const preprocessed = await preprocessDeck(control.netlist, resolver, undefined, 1);
-  return parseNetlist(
+  const circuit = parseNetlist(
     `${title}\n${preprocessed.text}`, true, undefined, control.blocks, preprocessed.parameters,
     [...control.warnings, ...preprocessed.warnings], preprocessed.controlConstants, preprocessed.atTemperature, preprocessed.withParameters,
   );
+  await circuit.resolveXspiceFiles(resolver);
+  return circuit;
 }
 
 /** Parse and preprocess a title-less SPICE fragment. */
@@ -442,8 +444,10 @@ export async function parseTitlelessAsync(
 ): Promise<Circuit> {
   const control = extractControlBlocks(translateMicroSign(netlist), false);
   const preprocessed = await preprocessDeck(control.netlist, resolver, guard, 0);
-  return parseNetlist(preprocessed.text, false, guard, control.blocks, preprocessed.parameters,
+  const circuit = parseNetlist(preprocessed.text, false, guard, control.blocks, preprocessed.parameters,
     [...control.warnings, ...preprocessed.warnings], preprocessed.controlConstants, preprocessed.atTemperature, preprocessed.withParameters);
+  await circuit.resolveXspiceFiles(resolver);
+  return circuit;
 }
 
 const OUTPUT_ONLY_OPTION_FLAGS = new Set([

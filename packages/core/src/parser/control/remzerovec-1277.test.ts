@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { simulate } from '../../simulate.js';
-import { UnsupportedControlCommandError } from './errors.js';
 
 // ngspice-47 src/frontend/postcoms.c:77-92, com_remzerovec:
 // only current-plot vectors with v_length == 0 lose VF_PERMANENT;
@@ -58,8 +57,9 @@ echo done`));
     expect(result.control!.output).toEqual(['done']);
   });
 
-  it('keeps unknown commands typed as unsupported', async () => {
-    const promise = simulate(deck('remzerovec_typo'));
-    await expect(promise).rejects.toBeInstanceOf(UnsupportedControlCommandError);
+  it('warns for a command absent from ngspice-47 and continues (#1547)', async () => {
+    const result = await simulate(deck('remzerovec_typo\necho continued'));
+    expect(result.control!.output).toEqual(['continued']);
+    expect(result.warnings).toContainEqual({ type: 'control', message: 'remzerovec_typo: no such command available in ngspice' });
   });
 });
