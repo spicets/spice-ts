@@ -77,24 +77,24 @@
       "unsupported": 0
     },
     "spiceTs": {
-      "success": 51,
+      "success": 52,
       "failed": 0,
-      "unsupported": 1
+      "unsupported": 0
     },
     "outcomes": {
-      "matched": 40,
+      "matched": 41,
       "mismatch": 8,
       "not-compared": 3,
-      "spice-ts-loss": 1,
+      "spice-ts-loss": 0,
       "ngspice-failed": 0,
       "both-failed": 0
     },
     "bySource": {
       "kicad": {
-        "matched": 3,
+        "matched": 4,
         "mismatch": 1,
         "not-compared": 0,
-        "spice-ts-loss": 1,
+        "spice-ts-loss": 0,
         "ngspice-failed": 0,
         "both-failed": 0
       },
@@ -132,17 +132,7 @@
       }
     }
   },
-  "gapBuckets": [
-    {
-      "bucket": "model: VDMOS power MOSFET",
-      "fixtures": 1,
-      "ngspiceSuccess": 1,
-      "ids": [
-        "kicad-qa-data-eeschema-issue13431-spice"
-      ],
-      "issue": null
-    }
-  ],
+  "gapBuckets": [],
   "fixtures": [
     {
       "id": "kicad-qa-data-eeschema-issue13162-spice",
@@ -206,16 +196,35 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 22: .model 'ctest' has unsupported type 'CMETER' (supported: D, NPN, PNP, NJF, PJF, NMOS, PMOS, VDMOS, VDMOSN, VDMOSP, NHFET, NMF, R, RES, C, L, LTRA, TXL, CPL, URC, SW, CSW) .model ctest cmeter(gain=1.0)"
+        "status": "success",
+        "analyses": [
+          "tran:2000"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "model: VDMOS power MOSFET"
+      "comparedAnalyses": 1,
+      "comparedSignals": 20,
+      "worstNormalizedError": 0.00224,
+      "worstSignal": "tran i(v1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "0.000001"
+        ],
+        "headline": {
+          "worst": 0.00224,
+          "signal": "i(v1)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.786,
+          "signal": "v(/pwm_to_driver)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.824,
+          "signal": "v(/pwm_to_driver)"
+        }
+      }
     },
     {
       "id": "kicad-qa-data-eeschema-spice-netlists-legacy-pspice-legacy-pspice-spice",
@@ -268,8 +277,8 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 27,
-      "worstNormalizedError": 1.8,
-      "worstSignal": "tran v(/itrnoise)",
+      "worstNormalizedError": 2.54,
+      "worstSignal": "tran i(v9)",
       "outcome": "mismatch",
       "gapBucket": null,
       "fineReference": {
@@ -278,16 +287,16 @@
           "1e-10"
         ],
         "headline": {
-          "worst": 1.8,
-          "signal": "v(/itrnoise)"
+          "worst": 2.54,
+          "signal": "i(v9)"
         },
         "spiceTsVsFine": {
-          "worst": 2.1,
-          "signal": "v(/itrrandom)"
+          "worst": 3.16,
+          "signal": "i(v9)"
         },
         "ngspiceDefaultVsFine": {
-          "worst": 1.84,
-          "signal": "i(v8)"
+          "worst": 2.89,
+          "signal": "v(/vtrrandom)"
         }
       }
     },
@@ -2113,5 +2122,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "8c718b9ddd4dca866f6c656be3dfb2febba2a00b2f26ff05b0e73e7c70a5b473"
+  "outcomeSha256": "d8061077adef398482b29b446e81dc6eaf1e3f08717181a39fd6af1568296c4f"
 }
