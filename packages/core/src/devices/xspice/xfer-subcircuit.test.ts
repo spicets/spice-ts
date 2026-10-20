@@ -34,10 +34,12 @@ describe('subcircuit-local xfer files (#1561)', () => {
 
   it('shares the resolver cache across global and multiple nested instances', async () => {
     const paths: string[] = [];
-    const text = deck('nested').replace('r1 out', 'x3 in other outer\nr3 other 0 1k\nr1 out')
+    const text = deck('nested').replace('r1 out', 'x3 in other outer column=3\nr3 other 0 1k\nr1 out')
+      .replace('.subckt outer in out', '.subckt outer in out params: column=1')
       .replace(analysis, `${model}\n${analysis}`);
     const result = await simulate(text, { resolveInclude: async path => { paths.push(path); return data; } });
     expect(result.ac!.voltage('out')[0].magnitude).toBeCloseTo(2, 12);
+    expect(result.ac!.voltage('other')[0].magnitude).toBeCloseTo(4, 12);
     expect(paths).toEqual(['data.s1p']);
   });
 

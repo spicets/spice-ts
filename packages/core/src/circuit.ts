@@ -869,6 +869,7 @@ export class Circuit {
   private readonly _subcircuitModelNames = new Set<string>();
   /** XSPICE code model cards, keyed by upper-case model name like {@link ModelTable}. */
   private _xspiceModels = new Map<string, XspiceModelCard>();
+  private _xspiceFiles = new Map<string, string | undefined>();
   private _subcircuits = new Map<string, SubcktDefinition>();
   /** Parser-only X cards retained until formal definitions are resolved. */
   private readonly _subcircuitCallCards = new WeakMap<DeviceDescriptor, string>();
@@ -1566,6 +1567,9 @@ export class Circuit {
       if (text === undefined) throw new Error(`Cannot open XSPICE file ${path}`);
       return text;
     });
+    // Local cards are parameterized and registered only when reachable X
+    // instances expand, including definitions nested inside other subcircuits.
+    if (resolver) this.expandAllSubcircuits(this.collectGlobalNodes());
     for (const [name, model] of this._xspiceModels) {
       this._xspiceModels.set(name, await resolveXferFile(model, load));
     }
@@ -1574,6 +1578,7 @@ export class Circuit {
     // Reparse callbacks are synchronous: retain file bytes, not resolved model
     // parameters, so TEMPER/alterparam can still change format and column selection.
     const retain = (circuit: Circuit): Circuit => {
+      circuit._xspiceFiles = files;
       for (const [name, model] of circuit._xspiceModels) {
         const file = model.codeModel === 'xfer' ? model.params.get('file')?.[0] : undefined;
         if (file !== undefined && files.has(String(file))) {
@@ -3640,7 +3645,10 @@ export class Circuit {
       if (xspiceModelType(modelTokens) !== undefined) {
         const card = parseXspiceModelCard(evaluated, lineNumber);
         const scoped = `${instanceName}:${card.name}`;
-        this._xspiceModels.set(scoped.toUpperCase(), { ...card, name: scoped });
+        const file = card.codeModel === 'xfer' ? card.params.get('file')?.[0] : undefined;
+        const resolved = file !== undefined && this._xspiceFiles.has(String(file))
+          ? resolveXferData(card, this._xspiceFiles.get(String(file))) : card;
+        this._xspiceModels.set(scoped.toUpperCase(), { ...resolved, name: scoped });
         this._subcircuitModelNames.add(scoped.toUpperCase());
         local.set(card.name.toUpperCase(), scoped);
         continue;
