@@ -27,6 +27,8 @@
  * after `!`, is ngspice's "Misplaced operator".
  */
 
+import { isStatisticalFunction, statisticalFunction } from './statistical-functions.js';
+
 // SI suffix exponents — case-sensitive for m (milli) vs M (mega)
 const SI_EXPONENTS: Record<string, string> = {
   T: 'e12', t: 'e12', G: 'e9', g: 'e9',
@@ -91,14 +93,14 @@ const FUNCTIONS: Record<string, (...args: number[]) => number> = {
  * ngspice-47's compatibility `.func limit(x, a, b) { ternary_fcn(a > b,
  * max(min(x, a), b), max(min(x, b), a)) }` (inpcompat.c). Native ngspice-47
  * numparam `limit(nominal, variation)` is a random Monte-Carlo draw that also
- * silently drops a third argument (ngspice-bugs #505); spice-ts has no random
- * parameter functions, so any arity but three is reported (#870).
+ * silently drops a third argument (ngspice-bugs #505). spice-ts retains its
+ * three-argument clamp (#870); the native two-argument random form is
+ * dispatched separately by statisticalFunction (#1594).
  */
 function limit(...args: number[]): number {
   if (args.length !== 3) {
     throw new Error(
-      `limit() takes 3 arguments (x, lo, hi), got ${args.length}: the random ngspice `
-      + 'limit(nominal, variation) Monte-Carlo function is not supported',
+      `limit() takes 3 arguments (x, lo, hi), got ${args.length}`,
     );
   }
   const [x, a, b] = args;
@@ -295,8 +297,9 @@ class ExprParser {
       let peek = afterIdent;
       while (peek < this.src.length && this.src[peek] === ' ') peek++;
       if (this.src[peek] === '(') {
-        const fn = FUNCTIONS[name.toLowerCase()];
-        if (!fn) throw new Error(`Unknown function '${name}'`);
+        const lower = name.toLowerCase();
+        const fn = FUNCTIONS[lower];
+        if (!fn && !isStatisticalFunction(lower)) throw new Error(`Unknown function '${name}'`);
         this.pos = peek + 1;
         const args: number[] = [this.parseFormula()];
         this.skipWhitespace();
@@ -309,7 +312,7 @@ class ExprParser {
           throw new Error(`Expected ')' after function arguments in expression`);
         }
         this.pos++;
-        return fn(...args);
+        return statisticalFunction(lower, args, this.vars) ?? fn(...args);
       }
     }
     return this.parsePrimary();

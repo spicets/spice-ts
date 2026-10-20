@@ -293,8 +293,8 @@ function parseNetlist(
   if (circuit.reparseAtTemperature) circuit.recompileAtTemperature = celsius =>
     circuit.reparseAtTemperature!(celsius).compile(guard);
 
-  if (withParameters) circuit.reparseWithParameters = changes => {
-    const deck = withParameters(changes);
+  if (withParameters) circuit.reparseWithParameters = (changes, seed) => {
+    const deck = withParameters(changes, seed);
     const title = firstLineIsTitle ? `${netlist.split('\n', 1)[0]}\n` : '';
     return parseNetlist(`${title}${deck.text}`, firstLineIsTitle, guard, controlBlocks,
       deck.parameters, controlWarnings, deck.controlConstants, deck.atTemperature, deck.withParameters);

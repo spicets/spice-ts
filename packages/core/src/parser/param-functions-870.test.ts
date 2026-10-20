@@ -121,8 +121,8 @@ describe('three-argument limit(x, lo, hi) clamp (#870, ngspice-bugs #505)', () =
     expect(evaluateExpression('limit(-3, 2, 1)', {})).toBe(1);
   });
 
-  it('reports the random two-argument form instead of drawing a value', () => {
-    expect(() => evaluateExpression('limit(1, 0.1)', {})).toThrow(/limit.*3 arguments/);
+  it('supports the native random two-argument form (#1594)', () => {
+    expect([0.9, 1.1]).toContain(evaluateExpression('limit(1, 0.1)', {}));
   });
 
   it('matches the ngspice-47 compatibility clamp in .param cards and subcircuits', async () => {

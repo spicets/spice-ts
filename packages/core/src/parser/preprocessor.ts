@@ -1,4 +1,5 @@
 import { evaluateExpression } from './expression.js';
+import { bindParameterRandom, parameterRandom } from './statistical-functions.js';
 import { stringParameter, substituteStringAssignments, type ParameterScope } from './string-param.js';
 import { endOfLineCommentStart } from './end-of-line-comment.js';
 import {
@@ -69,7 +70,7 @@ export interface PreprocessedDeck {
   /** Re-evaluate retained numparam expressions without resolving includes again. */
   atTemperature?: (celsius: number) => PreprocessedDeck;
   /** Replay numparam from retained source, without rereading include files. */
-  withParameters?: (changes: readonly ParameterAlteration[]) => PreprocessedDeck;
+  withParameters?: (changes: readonly ParameterAlteration[], seed?: number) => PreprocessedDeck;
   /**
    * Top-level `.param` values (upper-case names) for subcircuit expansion,
    * which evaluates subcircuit expressions per instance (ngspice numparam
@@ -119,8 +120,10 @@ function retainParameterSource(
   deck: PreprocessedDeck, netlist: string, includes: string[],
   guard: ProtocolExecutionGuard | undefined, lineOffset: number,
 ): PreprocessedDeck {
-  const withParameters = (changes: readonly ParameterAlteration[]): PreprocessedDeck => {
-    const steps = preprocessSteps(netlist, includes.length > 0, guard, lineOffset, changes);
+  const random = parameterRandom(deck.parameters);
+  const withParameters = (changes: readonly ParameterAlteration[], seed?: number): PreprocessedDeck => {
+    if (seed !== undefined) random.seed(seed);
+    const steps = preprocessSteps(netlist, includes.length > 0, guard, lineOffset, changes, random);
     let step = steps.next();
     let index = 0;
     while (!step.done) {
@@ -139,11 +142,24 @@ function* preprocessSteps(
   guard: ProtocolExecutionGuard | undefined,
   lineOffset: number,
   changes: readonly ParameterAlteration[] = [],
+  random = parameterRandom({}),
 ): Generator<string, PreprocessedDeck, string> {
   const state = newCollectState();
   const { definitions } = state;
   let statements = state.statements;
   yield* collectStatements(netlist, hasResolver, new Set(), [], 0, state, guard, lineOffset);
+  // Like ngspice's source reload, .option seed is reapplied before numparam.
+  for (const statement of statements) {
+    if (!/^\s*\.options?\b/i.test(statement.text)) continue;
+    const match = /\bseed\s*=\s*(\S+)/i.exec(statement.text);
+    if (!match) continue;
+    const seed = Number(match[1]);
+    if (!Number.isSafeInteger(seed) || seed <= 0 || seed > 0x7fffffff) {
+      // Leave invalid options to the options parser, which retains their line number.
+      continue;
+    }
+    random.seed(seed);
+  }
   for (const change of changes) {
     const name = change.name.toUpperCase();
     if (change.subcircuit === undefined) {
@@ -216,7 +232,7 @@ function* preprocessSteps(
   const temperature = circuitTemperature(statements, definitions, state.functionScopes[0].functions, state.warnings);
   const render = (celsius: number): PreprocessedDeck => {
     const scopes = createParamScopes(
-      definitions, celsius, state.functionScopes[0].functions, true, () => { usesTemper = true; },
+      definitions, celsius, state.functionScopes[0].functions, true, () => { usesTemper = true; }, random,
     );
     // Keep numparam diagnostics for the control const plot. Circuit parameters
     // remain a separate namespace, and each temperature needs a fresh cache.
@@ -231,6 +247,7 @@ function* preprocessSteps(
       ? substituteStatement(statement, scopes, measureNames)
       : statement.text).join('\n');
     const parameters: ParameterScope = {};
+    bindParameterRandom(parameters, random);
     for (const name of definitions.keys()) {
       try {
         parameters[name] = scopes.numparam[name];
@@ -551,6 +568,7 @@ function createParamScopes(
   functions: FunctionScope = new Map(),
   allowTemper = true,
   onTemper?: () => void,
+  random = parameterRandom({}),
 ): ParamScopes {
   const values = new Map<string, number | string>();
   const resolving: string[] = [];
@@ -594,6 +612,8 @@ function createParamScopes(
     }
   }
 
+  bindParameterRandom(params, random);
+  bindParameterRandom(numparam, random);
   return { params, numparam };
 }
 

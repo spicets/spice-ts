@@ -1529,6 +1529,23 @@ At ingestion on ngspice-47, 13 circuits produce raw analysis data and 7 fail on 
 |---|---|---|---|---|
 | `switches-manual-p92.cir` (byte-identical, CRLF) and 6 project-authored decks: `hysteresis.cir`, `ac-closed.cir`, `ac-window.cir`, `ac-csw.cir`, `noise-sw.cir`, `noise-csw.cir` | ngspice [`examples/probe/switches-manual-p92.cir`](https://sourceforge.net/p/ngspice/ngspice/ci/3ef069fb1f04177a153f342a32d941fc20ff047e/tree/examples/probe/switches-manual-p92.cir) at `3ef069fb` (corpus-f batch 1, #484). The other decks are project-authored. | ngspice examples are BSD-3-Clause; the project-authored decks are MIT, as is this repository. | `fixtures/switches-manual-p92.cir` is committed unmodified (SHA-256 `93417fb9…44270`, also in `report.json`). Both engines read the deck with its `.control` block removed; ngspice also receives a `.control` block that only runs the deck and writes the vectors. | `pnpm exec tsx benchmarks/switches-507/compare.ts` writes `benchmarks/switches-507/report.json`; the README there records every residual and loss. |
 
+## Seeded numparam statistics, issue #1594
+
+The unchanged corpus-f `examples/Monte_Carlo/rand_numb_test.cir` comes from
+[ngspice 3ef069fb](https://github.com/imr/ngspice/blob/3ef069fb1f04177a153f342a32d941fc20ff047e/examples/Monte_Carlo/rand_numb_test.cir)
+(BSD-3-Clause; SHA-256 `15d5479502d67875e25bdc6608ec22639ee5952575b979dc3a86064e2464c759`).
+`packages/core/src/parser/statistical-functions.ts` ports `src/frontend/numparam/xpressn.c:45-86`
+and `src/maths/misc/randnumb.c:220-230` from that revision (BSD-3-Clause), reusing the
+existing Tausworthe/LCG port and BSD/macOS libc seed initialization documented below.
+Seeded values match ngspice-47 on macOS, not a cross-libc RNG guarantee.
+The regression records `HOME=<scratch home containing .spiceinit with set numdgt=15> ngspice -b
+benchmarks/corpus/corpus-f/fixtures/examples/Monte_Carlo/rand_numb_test.cir`:
+`v(1) = 1.124431320988279e+00`. No deck cards are changed. The corpus runner reports
+success but `not-compared` because ngspice's control block exports no raw vectors;
+the dedicated regression compares the oracle voltage to relative error below 1e-9.
+Native two-argument random `limit` is supported; the existing three-argument clamp
+is intentionally retained, unlike native ngspice's silent third-argument discard.
+
 ## TRNOISE / TRRANDOM sources, issue #501
 
 | Circuit(s) | Canonical source / revision | Licence | Redistribution / adaptation | Local use |
