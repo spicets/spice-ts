@@ -25,7 +25,7 @@ import { declaredSecondaryGrid } from '../../sweep-coordinates.js';
 import type { DotAnalysisRun } from '../../../packages/core/src/results.js';
 
 export const CLASSIC_REPORT_SCHEMA = 'spice-ts-classic-comparison/v1' as const;
-export type ClassicAnalysisType = ComparisonAnalysisType | 'pz' | 'noise' | 'disto' | 'sp';
+export type ClassicAnalysisType = ComparisonAnalysisType | 'pz' | 'noise' | 'disto' | 'sp' | 'sens';
 export type EngineStatus = 'success' | 'failed' | 'unsupported';
 export type ConvergenceStatus = 'converged' | 'failed' | 'not-run';
 
@@ -307,6 +307,7 @@ export function analysisType(plotName: string): ClassicAnalysisType | null {
   if (name.includes('pole-zero') || name.includes('pole zero')) return 'pz';
   if (name.includes('distortion')) return 'disto';
   if (name.includes('sp analysis')) return 'sp';
+  if (name.includes('sensitivity analysis')) return 'sens';
   return null;
 }
 
@@ -648,6 +649,20 @@ export async function runNativeSpiceTsEncoded<S>(
           analyses.push(...noiseAnalyses(result.noise).map(analysis => encodeAnalysis(analysis, encoding)));
         } else if (type === 'disto' && result.distortion) {
           analyses.push(...distortionAnalyses(result.distortion).map(analysis => encodeAnalysis(analysis, encoding)));
+        } else if (type === 'sens' && result.sensitivity) {
+          const sens = result.sensitivity;
+          const suffix: Record<string, string> = { gain: '_gain', acMagnitude: '_acmag', multiplier: '_m', scale: '_scale' };
+          analyses.push({
+            type,
+            plotName: 'Sensitivity Analysis',
+            series: {
+              grid: sens.mode === 'ac' ? sens.frequencies : [0],
+              signals: Object.fromEntries(sens.entries.map((entry: { device: string; parameter: string; dc?: number; ac?: Array<{ real: number; imaginary: number }> }) => [
+                `v(${entry.device.toLowerCase()}${entry.parameter === 'resistance' && sens.mode === 'ac' ? '_ac' : suffix[entry.parameter] ?? ''})`,
+                entry.dc !== undefined ? encoding.real([entry.dc]) : encoding.complex((entry.ac ?? []).map(value => ({ re: value.real, im: value.imaginary }))),
+              ])),
+            },
+          });
         } else if (type === 'sp' && result.sParameters) {
           analyses.push({
             type,
