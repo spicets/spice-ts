@@ -2464,4 +2464,28 @@ or execution. After: `montecarlo.sp` completes five AC runs; `mc_ring.sp` passes
 the comment line but still fails nominal transient convergence (tracked in #1600).
 This is control-language coverage, not a claim of full Monte Carlo parity.
 
+## XSPICE multi_input_pwl min/max (#1620)
+
+| Files | Source | Licence |
+| --- | --- | --- |
+| `xspice-multi-input-pwl/{dc,tran}.cir` | Original spice-ts two-input min/max regression decks, authored for #1620 | MIT (repository licence) |
+| `xspice-multi-input-pwl/{dc,tran}.raw` | ngspice-47 generated output from the identical decks; regenerated and consumed by `compare.ts --refresh` | Generated data from the MIT decks |
+
+Model semantics: [ngspice-47 cfunc.mod](https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/analog/multi_input_pwl/cfunc.mod)
+and [ifspec.ifs](https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/analog/multi_input_pwl/ifspec.ifs).
+Only `and`/`or` are implemented here; `nand`/`nor` fail explicitly. The
+ngspice-47 model emits a diagnostic and truncates unequal x/y arrays; spice-ts
+instead raises `InvalidCircuitError`. ngspice sets neither PARTIAL nor AC_GAIN;
+spice-ts supplies the exact DC/transient Jacobian but preserves zero AC gain.
+Ports follow ngspice's `vd`/`id` interface (ground one terminal for single-ended
+signals). The ordinary `pwl` helper includes smoothing, extrapolation and an
+iteration limiter, so it cannot implement this model's clamped linear table.
+
+Reproduce: `spice-heavy pnpm exec tsx benchmarks/xspice-multi-input-pwl/compare.ts`.
+The observer loads each unchanged deck in ngspice-47 and writes only the output
+vectors. The script checks regenerated reference grid/data against the committed
+raw files, then reports the existing aggregate harness's linear alignment,
+absolute and relative max/RMS errors, deck SHA-256, versions, CPU and runtimes.
+Separate process boundaries mean these runtimes are not a speed claim.
+
 

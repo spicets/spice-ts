@@ -1,0 +1,11 @@
+multi_input_pwl min/max transient regression
+* Original spice-ts fixture, MIT; ngspice-47 multi_input_pwl interface.
+v1 in1 0 pulse(-1.5 2.5 100u 200u 200u 200u 1m)
+v2 in2 0 sin(0.5 1.5 1k)
+amin [in1 0 in2 0] low 0 minimum
+amax [in1 0 in2 0] high 0 maximum
+.model minimum multi_input_pwl(x=[-1 0 1 2] y=[-2 0 3 4] model="and")
+.model maximum multi_input_pwl(x=[-1 0 1 2] y=[-2 0 3 4] model="or")
+.options reltol=1e-6
+.tran 1u 2m 0 1u
+.end
