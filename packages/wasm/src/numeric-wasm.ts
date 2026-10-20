@@ -92,7 +92,7 @@ function simulateDc(
   const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
   const originalWaveform = source.waveform;
-  const nonlinear = compiled.devices.some(device => device.name[0]?.toUpperCase() === 'D');
+  const nonlinear = compiled.devices.some(device => ['D', 'Q'].includes(device.name[0]?.toUpperCase() ?? ''));
   let previous: Float64Array | undefined;
   try {
     for (let point = 0; point < pointCount; point++) {
@@ -608,7 +608,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
   const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : analysis === 'dc' ? ['R', 'I', 'V', 'D']
+    : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
   if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
@@ -666,7 +666,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
   const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : analysis === 'dc' ? ['R', 'I', 'V', 'D']
+    : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V']
       : ['R', 'C', 'L', 'I', 'V'];
   for (const card of cards) {
@@ -674,8 +674,8 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
     if ((analysis === 'op' || analysis === 'dc') && /^\.model\b/i.test(card)) {
       const model = /^\.model\s+\S+\s+(D|NPN|PNP|NMOS|PMOS)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
-      if (analysis === 'dc' && model[1]!.toUpperCase() !== 'D') {
-        unsupported('diode-model', 'Only diode models are supported in nonlinear DC sweeps');
+      if (analysis === 'dc' && /MOS$/i.test(model[1]!)) {
+        unsupported('diode-model', 'Only diode and BJT models are supported in nonlinear DC sweeps');
       }
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
