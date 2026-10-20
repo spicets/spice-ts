@@ -786,22 +786,25 @@ function bracedSingleParamValue(line: string): string {
   return `${head[0]}${assignments[0][1]}={${value}}${line.slice(end)}`;
 }
 
-const BEHAVIORAL_RESISTOR = /^\s*(r\S*)\s+(\S+)\s+(\S+)\s+(?:r\s*=\s*)?(?:\{([^{}]*)\}|'([^']*)')\s*(.*)$/i;
+const BEHAVIORAL_RESISTOR = /^\s*(r\S*)\s+(\S+)\s+(\S+)\s+(?:r\s*=\s*)?(?:\{([^{}]*)\}|'([^']*)'|(\(.*\)))\s*(.*)$/i;
 const NODE_DEPENDENCE = /\b[vi]\s*\(/i;
 const BEHAVIORAL_RESISTOR_PARAMETER = /^(m|tc1|tc2)=(\S+)$/i;
 
 /**
  * ngspice (inpcom.c) turns a resistor whose value expression reads node
- * voltages or branch currents into an ASRC:
+ * voltages, branch currents or time into an ASRC (inp_compat, case 'r').
+ * Source: https://sourceforge.net/p/ngspice/ngspice/ci/3ef069fb1f04177a153f342a32d941fc20ff047e/tree/src/frontend/inpcom.c
+ * b_transformation_wanted selects time/v()/i(); the R branch divides voltage by R.
+ * Parenthesized expressions may contain numparam braces, as in vdmos/dcdc.sp:
  * `Rxxx n1 n2 R={expr} m=4 tc1=a` -> `bRxxx n1 n2 i = 4*v(n1, n2)/(expr) tc1=a reciproctc=1`.
  * Returns the B-card, or undefined when the line is not such a resistor.
  */
 function behavioralResistorAsBSource(line: string): string | undefined {
   const card = BEHAVIORAL_RESISTOR.exec(line.slice(0, commentStart(line)));
   if (!card) return undefined;
-  const [, name, positive, negative, braced, quoted, rest] = card;
-  const expression = (braced ?? quoted).trim();
-  if (!NODE_DEPENDENCE.test(expression) && !/\bhertz\b/i.test(expression)) return undefined;
+  const [, name, positive, negative, braced, quoted, parenthesized, rest] = card;
+  const expression = (braced ?? quoted ?? parenthesized).trim();
+  if (!NODE_DEPENDENCE.test(expression) && !/\b(?:time|hertz)\b/i.test(expression)) return undefined;
   const parameters = rest.replace(/\s*=\s*/g, '=').trim().split(/\s+/).filter(Boolean);
   let multiplier = '';
   const coefficients: string[] = [];
@@ -810,7 +813,7 @@ function behavioralResistorAsBSource(line: string): string | undefined {
     if (!match) {
       throw new Error(
         `Unsupported parameter '${parameter}' on behavioral resistor '${name}': a resistor whose value `
-        + 'depends on v() or i() supports only m=, tc1= and tc2=',
+        + 'depends on v(), i(), time or hertz supports only m=, tc1= and tc2=',
       );
     }
     if (match[1].toLowerCase() === 'm') {
@@ -995,7 +998,7 @@ function* collectStatements(
     }
 
     // Inside a subcircuit — expressions are evaluated per instance later.
-    // A resistor whose value reads v()/i(), or a value= E/G card, becomes a B-source here too.
+    // A resistor whose value reads v()/i()/time, or a value= E/G card, becomes a B-source here too.
     if (inSubckt > 0) {
       let text: string;
       try {

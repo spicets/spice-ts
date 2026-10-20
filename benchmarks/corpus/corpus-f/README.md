@@ -6,10 +6,10 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `fae4f142e6ed355a157f7a7dc6d55ba5012165aef1e29ba82aed1065f57231c0`.
+- Fixtures: 336. Outcome SHA-256: `dc0d11517a5707054bdc604b2587c263f54b9df0d2bcdeb88a775c4753e12bd4`.
 - ngspice (ngspice-47): 306 success, 18 failed, 12 unsupported.
-- spice-ts (0.4.0): 232 success, 13 failed, 91 unsupported.
-- Outcomes: matched 92, mismatch 20, not-compared 116, spice-ts-loss 78, ngspice-failed 4, both-failed 26.
+- spice-ts (0.4.0): 233 success, 13 failed, 90 unsupported.
+- Outcomes: matched 92, mismatch 20, not-compared 116, spice-ts-loss 78, ngspice-failed 5, both-failed 25.
 - Of the 306 decks ngspice runs successfully, spice-ts matches 92, mismatches 20, produces no comparable result for 116 and fails 78. For 145 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
@@ -53,8 +53,8 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | timeout: spice-ts exceeded the 120 s bound | 5 | 5 | none filed |
 | convergence | 2 | 0 | none: ngspice also fails every fixture in this bucket |
 | device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP) | 2 | 2 | https://github.com/mfiumara/spice-ts/issues/490 |
-| expression: quoted/brace expressions in values (TEMPER, functions) | 2 | 1 | https://github.com/mfiumara/spice-ts/issues/493 |
 | expression: B-source V= and expression functions/operators | 1 | 0 | https://github.com/mfiumara/spice-ts/issues/495 |
+| expression: quoted/brace expressions in values (TEMPER, functions) | 1 | 1 | https://github.com/mfiumara/spice-ts/issues/493 |
 | model: string-valued model parameters (MFG= and similar) | 1 | 0 | none: ngspice also fails every fixture in this bucket |
 | source: TRNOISE/EXTERNAL waveforms | 1 | 0 | https://github.com/mfiumara/spice-ts/issues/501 |
 
@@ -230,7 +230,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/vdmos/100W_wingspread.sp](fixtures/examples/vdmos/100W_wingspread.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/vdmos/100W.sp](fixtures/examples/vdmos/100W.sp) | success | failed | spice-ts-loss |  |  | ngspice note: Skipped reference plot exports: ac1 (write all rejected an unavailable or zero-length vector) / spice-ts: spice-ts exceeded the 120000 ms aggregate execution bound |
 | [examples/vdmos/crss_coss_ciss.sp](fixtures/examples/vdmos/crss_coss_ciss.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
-| [examples/vdmos/dcdc.sp](fixtures/examples/vdmos/dcdc.sp) | unsupported | unsupported | both-failed |  |  | ngspice: doAnalyses: TRAN: Timestep too small; time = 0.0100365, timestep = 6.25e-21: trouble with node "out" / spice-ts: Parse error at line 18: Cannot parse number: '' R4 out2 OUT R = (time<12ms ? 1.000000000000000e+2 : time<20ms ? 5.000000000000000e+1 : 2.000000000000000e+2) |
+| [examples/vdmos/dcdc.sp](fixtures/examples/vdmos/dcdc.sp) | unsupported | success | ngspice-failed |  |  | ngspice: doAnalyses: TRAN: Timestep too small; time = 0.0100365, timestep = 6.25e-21: trouble with node "out" |
 | [examples/vdmos/inv_vdmos.sp](fixtures/examples/vdmos/inv_vdmos.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/vdmos/IXTP6N100D2-cap.sp](fixtures/examples/vdmos/IXTP6N100D2-cap.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/vdmos/IXTP6N100D2-n-weak-inv.sp](fixtures/examples/vdmos/IXTP6N100D2-n-weak-inv.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
