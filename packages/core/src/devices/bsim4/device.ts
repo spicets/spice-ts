@@ -71,7 +71,7 @@ export class BSIM4 implements DeviceModel {
   constructor(readonly name: string, readonly nodes: number[],
     modelCard: Readonly<Record<string, number | string | undefined>>,
     instanceCard: Readonly<Record<string, number | undefined>>, polarity: 1 | -1) {
-    if (![4, 5, 7, 8].includes(nodes.length) || nodes.some(n => !Number.isInteger(n) || n < -1)) {
+    if (![4, 5, 6, 7, 8, 9].includes(nodes.length) || nodes.some(n => !Number.isInteger(n) || n < -1)) {
       throw new InvalidCircuitError('BSIM4 requires four terminals plus enabled internal gate/body indices');
     }
     const card = lowercaseCard(modelCard);
@@ -82,11 +82,12 @@ export class BSIM4 implements DeviceModel {
     this.instance = setupBsim4Instance(this.model, instance,
       { d: nodes[0] + 1, g: nodes[1] + 1, s: nodes[2] + 1, b: nodes[3] + 1 });
     const gate = this.instance.values.rgatemod !== 0;
+    const gateNodes = Number(gate) + Number(this.instance.values.rgatemod === 3);
     const body = this.instance.values.rbodymod === 1;
-    if (nodes.length !== 4 + Number(gate) + 3 * Number(body)) {
+    if (nodes.length !== 4 + gateNodes + 3 * Number(body)) {
       throw new InvalidCircuitError('BSIM4 requires internal nodes for enabled RGATEMOD/RBODYMOD');
     }
-    this.bodyNodes = body ? nodes.slice(4 + Number(gate)) : [];
+    this.bodyNodes = body ? nodes.slice(4 + gateNodes) : [];
     this.chargeState = new TransientChargeState(body ? 5 : 3);
     this.intrinsicNodes = [nodes[0], gate ? nodes[4] : nodes[1], nodes[2], this.bodyNodes[1] ?? nodes[3]];
     this.processed = preprocessBsim4(this.model, this.instance);
@@ -97,6 +98,9 @@ export class BSIM4 implements DeviceModel {
   }
   assertAnalyses(analyses: readonly string[]): void {
     for (const analysis of analyses) {
+      if (this.instance.values.rgatemod === 3 && (analysis === 'ac' || analysis === 'tran')) {
+        this.unsupported(`RGATEMOD=3 ${analysis} split overlap charge`);
+      }
       if (analysis === 'tran') this.terminalCharges(() => 0);
       else if (analysis !== 'op' && analysis !== 'dc' && analysis !== 'ac') this.unsupported(analysis);
     }
@@ -106,6 +110,7 @@ export class BSIM4 implements DeviceModel {
   noise(): never { return this.unsupported('noise'); }
   stampSmallSignal(ctx: StampContext): void { this.stamp(ctx, true); }
   stampDynamic(ctx: StampContext): void {
+    if (this.instance.values.rgatemod === 3) this.unsupported('RGATEMOD=3 AC split overlap charge');
     const p = this.model.values.type;
     const read = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);
     const [d, g, s, b] = this.intrinsicNodes;
@@ -136,6 +141,7 @@ export class BSIM4 implements DeviceModel {
   }
   resetTransient(): void { this.chargeState.reset(); }
   private terminalCharges(read: (node: number) => number) {
+    if (this.instance.values.rgatemod === 3) this.unsupported('RGATEMOD=3 transient split overlap charge');
     const p = this.model.values.type;
     // RGATEMOD=1/2 store intrinsic and overlap charge at GP (b4ld.c),
     // behind the static/nonlinear gate resistor. Only RGATEMOD=3 splits
@@ -309,17 +315,19 @@ export class BSIM4 implements DeviceModel {
       // using junction width per finger and Lnew (not Leff).
       const resistance = model.rshg * (instance.xgw + size.weffCJ / (3 * instance.ngcon))
         / (instance.ngcon * instance.nf * (instance.l + model.xl - model.xgl));
-      const conductance = mult * (instance.rgatemod === 2 ? op.gcrg : resistance > 0 ? 1 / resistance : 1e3);
+      const electrode = mult * (resistance > 0 ? 1 / resistance : 1e3);
+      const conductance = instance.rgatemod > 1 ? mult * op.gcrg : electrode;
       // b4ld.c:5074-5085 (and serial stamp): intrinsic gate tunneling is
       // on GP; the external gate sees only this conservative resistor.
-      const external = this.nodes[1];
+      const external = instance.rgatemod === 3 ? this.nodes[5] : this.nodes[1];
+      if (instance.rgatemod === 3) this.stampConductance(ctx, this.nodes[1], external, electrode);
       if (external >= 0) ctx.stampG(external, external, conductance);
       if (g >= 0) ctx.stampG(g, g, conductance);
       if (external >= 0 && g >= 0) {
         ctx.stampG(external, g, -conductance);
         ctx.stampG(g, external, -conductance);
       }
-      if (instance.rgatemod === 2) {
+      if (instance.rgatemod > 1) {
         // b4ld/b4acld: d[G(V)*(Vge-Vgp)]/dV. Derivatives follow
         // channel orientation; the gate-resistor current does not.
         const drop = (external < 0 ? 0 : ctx.getVoltage(external)) - voltage[1];

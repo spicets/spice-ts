@@ -77,7 +77,7 @@ poly depletion and nonnominal temperature. Run:
 The parity tests read the native oracle and print maximum normalized gate and
 drain branch-current errors. Before this extension the same IGCMOD=1 cards
 throw UnsupportedModelParameterError. IGCMOD=2, nonbaseline RBODYMOD
-and RGATEMOD=3 remain unsupported; see below for the gate and transient extensions.
+and RGATEMOD=3 dynamic analyses remain unsupported; see below for the gate extensions.
 
 ### RGATEMOD=2 extension (#1427)
 
@@ -97,7 +97,22 @@ static Newton stamp; charge companions, accepted currents and LTE use GP.
 timepoints with the standard 1%-of-peak bound and no solver/tolerance overrides.
 It also checks GP Jacobians and accepted currents for both polarities and channel
 orientations. RGATEMOD=0/1 retain their existing transient preprocessing and
-known residuals. RGATEMOD=3 and RBODYMOD=2 remain structured unsupported errors.
+known residuals. RGATEMOD=3 AC/transient and RBODYMOD=2 remain structured unsupported errors.
+
+### RGATEMOD=3 static extension (#1598)
+
+The compiler allocates GP (`M1.gate`) and GM (`M1.midgate`). The constant
+electrode resistor connects GE-GM; native intrinsic `gcrg` connects GM-GP.
+Its analytic derivatives use GP bias and reverse channel orientation, as for
+mode 2, without mode 2's series-electrode reduction. Tunneling remains at GP.
+Model and instance selectors, multiplicity, geometry, zero-RSHG fallback,
+reverse operation and the RBODYMOD=1 combination are covered by five identical
+authored MIT decks in `__fixtures__/rgatemod3/`. Their ngspice-47 oracle covers
+five OP cases and 20 DC sweep points, including both internal gate voltages
+and all four terminal currents. Regenerate with `spice-heavy python3
+packages/core/src/devices/bsim4/__fixtures__/rgatemod3/generate.py`.
+AC and transient reject with `UNSUPPORTED_MODEL_PARAMETER`: splitting overlap
+charge onto GM is outside this static slice.
 
 ### RGATEMOD=1 extension (#1370)
 
@@ -226,7 +241,7 @@ remaining waveform/current parity work is not solved by charge integration alone
 
 Other unsupported selectors and model paths:
 
-- TRNQSMOD/ACNQSMOD != 0; RDSMOD/RBODYMOD != 0, RGATEMOD=3,
+- TRNQSMOD/ACNQSMOD != 0; RDSMOD/RBODYMOD != 0, RGATEMOD=3 dynamic analyses,
   and positive RSH with given positive NRD/NRS.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,
   MTRLCOMPATMOD, CVCHARGEMOD, GIDLMOD, WPEMOD, FNOIMOD or TNOIMOD selectors.

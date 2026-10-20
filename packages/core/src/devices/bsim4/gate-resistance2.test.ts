@@ -45,8 +45,8 @@ describe('BSIM4 RGATEMOD=2', () => {
       for (const value of result.transient!.voltage(name)) expect(value).toBeCloseTo(result.dc!.voltage(name), 8);
     }
   });
-  it('rejects RGATEMOD=3 with a structured error', async () => {
-    const deck = readFileSync(new URL('nmos.cir', base), 'utf8').replaceAll('RGATEMOD=2', 'RGATEMOD=3');
+  it('rejects RGATEMOD=4 with a structured error', async () => {
+    const deck = readFileSync(new URL('nmos.cir', base), 'utf8').replaceAll('RGATEMOD=2', 'RGATEMOD=4');
     await expect(simulate(deck)).rejects.toMatchObject({ code: 'UNSUPPORTED_MODEL_PARAMETER' });
   });
 });
