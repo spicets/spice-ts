@@ -42,6 +42,9 @@ import type { OperatingPointReport } from '@spice-ts/core';
 import type { SensitivityResult } from '@spice-ts/core';
 import type { TransferFunctionResult } from '@spice-ts/core';
 import { tfArgs, tfReport, tfInputSchema, tfOutputSchema } from './tf.js';
+import { sparamsArgs, sparamsReport, sparamsInputSchema, sparamsOutputSchema } from './sparams.js';
+import type { SparamsArgs } from './sparams.js';
+import type { SParameterResult } from '@spice-ts/core';
 import { impedanceArgs, impedanceInvalid, impedancePlan, impedanceReport, impedanceProperties, impedanceOutputSchema, impedanceFailureSchema, impedanceErrorCodes } from './impedance.js';
 import type { ImpedanceSelectors, ImpedanceSpectrum } from './impedance.js';
 import { sensitivityArgs, sensitivityReport, sensitivityInputSchema, sensitivityOutputSchema } from './sensitivity.js';
@@ -107,7 +110,8 @@ interface WorkerReply {
 }
 
 interface WorkerRequest {
-  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto' | 'impedance';
+  operation: 'validate' | 'simulate' | 'stream' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto' | 'impedance' | 'sparams';
+  sparamsSelector?: SparamsArgs;
   impedanceSelector?: ImpedanceSelectors;
   request: SimulationRequestV1;
   coreModulePath: string;
@@ -259,6 +263,12 @@ const streamToolOutputSchema = {
 };
 
 export const MCP_TOOLS = Object.freeze([
+  {
+    name: 'spice_sparams',
+    description: 'Run one unstepped .sp sweep. Return S-parameter magnitudes, dB, phase degrees, reflection return loss/VSWR and transmission insertion loss. Optional one-based portPair [output,input] and explicit frequenciesHz. Infinite/undefined metrics are null. Reject conflicting analyses and control blocks.',
+    inputSchema: sparamsInputSchema,
+    outputSchema: { type: 'object', oneOf: [sparamsOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
+  },
   {
     name: 'spice_impedance',
     description: 'Measure differential port impedance versus frequency with a 1 A AC current injected from negative to positive. Suppress AC excitation of all other independent sources, preserve DC bias and dependent sources. Accept a protocol request (SPICE or circuit-json), port, optional sweep override and SPICE params. Return ohms, degrees, sampled extrema and interpolated phase-zero resonance estimates.',
@@ -538,6 +548,21 @@ async function executeToolWithStore(
   const limits = options.limits ?? DEFAULT_MCP_LIMITS;
   try {
     if (name === 'spice_capabilities') return success(streamStore.capabilities());
+    if (name === 'spice_sparams') {
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const selectors = sparamsArgs(args);
+      enforceMaximum('maxAnalyses', limits.maxAnalyses, 1, 'validation');
+      const release = streamStore.acquireOneShotSlot();
+      try {
+        const request: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } };
+        const raw = await runInWorker<SParameterResult[]>('sparams', boundedRequest(request, limits), limits.maxWallTimeMs,
+          options, undefined, undefined, undefined, selectors);
+        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.reduce((n, r) => n + r.frequencies.length * r.ports.length ** 2, 0), 'transport');
+        const result = sparamsReport(raw, selectors);
+        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        return success(result);
+      } finally { release(); }
+    }
     if (name === 'spice_impedance') {
       enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
       const selectors = impedanceArgs(args);
@@ -1631,7 +1656,7 @@ async function streamProtocol(core, request) {
   }
 }
 
-parentPort.once('message', async ({ operation, request, coreModulePath, sensitivityOutput, tfSelector, impedanceSelector }) => {
+parentPort.once('message', async ({ operation, request, coreModulePath, sensitivityOutput, tfSelector, impedanceSelector, sparamsSelector }) => {
   const core = require(coreModulePath);
   try {
     if (operation === 'impedance') {
@@ -1711,6 +1736,35 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
       const currentArrays = new Map(result.products.map(product => [product,
         new Map(compiled.branchNames.map(branch => [branch, result.current(branch, product)]))]));
       parentPort.postMessage({ type: 'result', result: { frequencies: result.frequencies, f2OverF1: result.f2OverF1, voltageArrays, currentArrays } });
+      return;
+    }
+    if (operation === 'sparams') {
+      const invalid = message => { throw { code: 'INVALID_REQUEST', message, phase: 'validation', retryable: false, details: {} }; };
+      const circuit = core.parseTitleless(request.input.source);
+      const compiled = circuit.compile();
+      if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript
+        || /(^|\n)\s*\.control\b/i.test(request.input.source)
+        || circuit.analyses.length !== 1 || circuit.analyses[0].type !== 'sp') {
+        invalid('S-parameters require exactly one .sp analysis without steps, control blocks or conflicting analyses');
+      }
+      const analysis = circuit.analyses[0];
+      const ports = compiled.devices.filter(d => d.port !== undefined);
+      if (sparamsSelector.portPair && sparamsSelector.portPair.some(p => p > ports.length)) invalid('Port index exceeds the number of RF ports');
+      const frequencies = sparamsSelector.frequenciesHz;
+      const count = frequencies ? frequencies.length
+        // SP and noise share log grids; noise LIN conservatively counts SP's LIN=2 quirk.
+        : core.estimateProtocolResultPointsV1([{ ...analysis, type: 'noise' }], undefined, circuit.simulationOptions.reltol);
+      const maximum = request.options.limits.maxResultPoints;
+      if (!Number.isFinite(count) || count * ports.length ** 2 > maximum) {
+        throw { code: 'RESOURCE_LIMIT', message: 'S-parameter point limit exceeded', phase: 'validation', retryable: false, details: { limit: 'maxResultPoints', maximum } };
+      }
+      const results = [];
+      for (const frequency of frequencies || [undefined]) {
+        circuit.analyses.splice(0, 1, frequency === undefined ? { ...analysis, noise: false }
+          : { ...analysis, variation: 'lin', points: 1, startFreq: frequency, stopFreq: frequency, noise: false });
+        results.push((await core.simulate(circuit, request.options)).sParameters);
+      }
+      parentPort.postMessage({ type: 'result', result: results });
       return;
     }
     if (operation === 'tf') {
@@ -1832,13 +1886,14 @@ async function runStreamingWorker(
 }
 
 async function runInWorker<T>(
-  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto' | 'impedance',
+  operation: 'validate' | 'simulate' | 'noise' | 'pz' | 'op-report' | 'sensitivity' | 'tf' | 'disto' | 'impedance' | 'sparams',
   request: SimulationRequestV1,
   wallTimeMs: number,
   options: ToolExecutionOptions,
   sensitivityOutput?: string,
   tfSelector?: { output: string; inputSource: string },
   impedanceSelector?: ImpedanceSelectors,
+  sparamsSelector?: SparamsArgs,
 ): Promise<T> {
   throwIfCancelled(options.signal);
   const worker = (options.workerFactory ?? createExecutionWorker)();
@@ -1875,7 +1930,7 @@ async function runInWorker<T>(
       { limit: 'maxWallTimeMs', maximum: wallTimeMs },
     ))), wallTimeMs);
     try {
-      const message: WorkerRequest = { operation, request, coreModulePath, sensitivityOutput, tfSelector, impedanceSelector };
+      const message: WorkerRequest = { operation, request, coreModulePath, sensitivityOutput, tfSelector, impedanceSelector, sparamsSelector };
       worker.postMessage(message);
     } catch {
       finish(() => reject(workerFailure()));
