@@ -162,6 +162,8 @@ The resolver is platform-agnostic — use `fetch()` in the browser, `readFile()`
 | `parseAsync` | `(netlist: string, resolver?: IncludeResolver) => Promise<Circuit>` |
 | `Circuit` | Programmatic circuit builder |
 
+`TransientSim.peekInitialStep(): TransientStep` snapshots the current accepted state without advancing or solving again. Call it before `advance()` (or after `reset()`) to include t=0; after advancing it returns the current point. Each call returns detached voltage/current Maps.
+
 ### `SimulationOptions`
 
 | Option | Default | Description |

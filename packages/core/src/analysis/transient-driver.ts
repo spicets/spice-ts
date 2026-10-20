@@ -125,6 +125,13 @@ export interface TransientSim {
   /** Immutable snapshot of convergence counters accumulated so far. */
   readonly convergence: ConvergenceTelemetry;
 
+  /**
+   * Snapshot the current state without advancing or solving again.
+   * Call before the first advance (or after reset) for the t=0 point.
+   * After advancing, returns the current accepted point, not the initial point.
+   * Each call returns fresh voltage/current Maps detached from solver state.
+   */
+  peekInitialStep(): TransientStep;
   /** Advance one converged timestep. Throws {@link ConvergenceError} on failure. */
   advance(): TransientStep;
   /** Convenience: loop {@link advance} until `simTime >= targetTime`. */
@@ -1060,7 +1067,6 @@ export function createDriverFromCompiled(
     experimentalGearOrder?: 3;
   },
 ): TransientSim & {
-  peekInitialStep(): TransientStep;
   currentSolution(): Float64Array;
   advanceSolution(): Float64Array;
 } {
