@@ -93,6 +93,62 @@ export class LossyTransmissionLine implements DeviceModel {
     return this.model.warnings;
   }
 
+  readonly frequencyDependent = true;
+
+  /** The full complex wave stamp is loaded per frequency, not from DC. */
+  stampSmallSignal(): void {}
+
+  /** ngspice-47 ltraacld.c: Y0 V1 - I1 = exp(-lambda LEN)(Y0 V2 + I2). */
+  stampFrequencyConductance(ctx: StampContext, omega: number): void {
+    const { resistancePerLength: r, inductancePerLength: l, capacitancePerLength: c, length, specialCase } = this.model;
+    let yr: number;
+    let yi: number;
+    let lr: number;
+    let li: number;
+    if (specialCase === 'LC') {
+      yr = this.model.admittance;
+      yi = lr = 0;
+      li = Math.sqrt(l * c) * omega;
+    } else if (specialCase === 'RC') {
+      yr = yi = Math.sqrt(0.5 * omega * c / r);
+      lr = li = Math.sqrt(0.5 * omega * r * c);
+    } else {
+      const theta = 0.5 * Math.atan(r / (omega * l));
+      const z = Math.hypot(r, omega * l);
+      const magnitude = Math.sqrt(omega * c / z);
+      yr = magnitude * Math.cos(theta);
+      yi = magnitude * Math.sin(theta);
+      lr = magnitude * z * Math.cos(Math.PI / 2 - theta);
+      li = magnitude * z * Math.sin(Math.PI / 2 - theta);
+    }
+    const attenuation = Math.exp(-lr * length);
+    const er = attenuation * Math.cos(-li * length);
+    const ei = attenuation * Math.sin(-li * length);
+    const yer = yr * er - yi * ei;
+    const yei = yr * ei + yi * er;
+    const [p1, n1, p2, n2] = this.nodes;
+    const b1 = ctx.numNodes + this.branch1;
+    const b2 = ctx.numNodes + this.branch2;
+    // C is multiplied by j*omega by the AC assembler.
+    const complex = (row: number, col: number, real: number, imaginary: number): void => {
+      if (col < 0) return;
+      ctx.stampG(row, col, real);
+      ctx.stampC(row, col, imaginary / omega);
+    };
+    for (const [row, own, other, positive, negative, remotePositive, remoteNegative] of [
+      [b1, b1, b2, p1, n1, p2, n2],
+      [b2, b2, b1, p2, n2, p1, n1],
+    ]) {
+      this.stampNodePair(ctx, positive, negative, own, 1);
+      complex(row, positive, yr, yi);
+      complex(row, negative, -yr, -yi);
+      complex(row, own, -1, 0);
+      complex(row, remotePositive, -yer, -yei);
+      complex(row, remoteNegative, yer, yei);
+      complex(row, other, -er, -ei);
+    }
+  }
+
   stamp(ctx: StampContext): void {
     const [p1, n1, p2, n2] = this.nodes;
     const b1 = ctx.numNodes + this.branch1;

@@ -1,0 +1,8 @@
+LTRA RLC AC parity, issue 1604
+V1 1 0 DC 0 AC 1
+R1 1 2 50
+O1 2 0 3 0 lm
+R2 3 0 50
+.model lm ltra r=0.1 l=250n c=100p len=1
+.ac dec 10 1k 1g
+.end
