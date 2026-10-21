@@ -2,9 +2,11 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { arch, platform, release } from 'node:os';
 import { performance } from 'node:perf_hooks';
-import { createSpiceEngine } from '../dist/index.js';
 import { bjtAcFixtures } from '../src/test-support/bjt-ac.js';
 
+// Use the built facade's worker pin at runtime, without requiring dist/ for type checking.
+const engineUrl = new URL('../dist/index.js', import.meta.url).href;
+const { createSpiceEngine } = await import(engineUrl) as typeof import('../src/index.js');
 const harnessUrl = new URL('../../../benchmarks/comparison-harness.ts', import.meta.url).href;
 const { runNgspice, alignAndMeasure } = await import(harnessUrl);
 const ngspiceVersion = execFileSync('ngspice', ['--version'], { encoding: 'utf8' }).trim();
