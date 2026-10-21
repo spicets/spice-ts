@@ -4,6 +4,9 @@ import type { ConvergenceTelemetry } from './types.js';
  * Base class for all spice-ts errors.
  */
 export class SpiceError extends Error {
+  /** Stable machine-readable discriminator; subclasses may supply a more specific code. */
+  readonly code: string = 'SPICE_ERROR';
+
   constructor(message: string) {
     super(message);
     this.name = 'SpiceError';
@@ -16,6 +19,9 @@ export class SpiceError extends Error {
  * Contains the line number and raw text of the offending line.
  */
 export class ParseError extends SpiceError {
+  /** Stable code for netlist syntax errors. */
+  readonly code: string = 'PARSE_ERROR';
+
   constructor(
     message: string,
     /** 1-based line number where the error occurred */
@@ -32,6 +38,9 @@ export class ParseError extends SpiceError {
  * Thrown when the circuit structure is invalid (e.g., no analysis command).
  */
 export class InvalidCircuitError extends SpiceError {
+  /** Stable code for invalid circuit structure. */
+  readonly code: string = 'INVALID_CIRCUIT';
+
   constructor(message: string) {
     super(message);
     this.name = 'InvalidCircuitError';
@@ -52,6 +61,9 @@ export interface MatrixVariableIdentity {
 }
 
 export class SingularMatrixError extends SpiceError {
+  /** Stable code for an unsolvable singular MNA system. */
+  readonly code = 'SINGULAR_MATRIX';
+
   constructor(
     message: string,
     /** Node names involved in the singularity */
@@ -97,6 +109,9 @@ export type ConvergenceFailureKind = 'nr-divergence' | 'lte-cascade' | 'dt-floor
  * and a `kind` discriminator identifying the failure mode.
  */
 export class ConvergenceError extends SpiceError {
+  /** Stable code for convergence failure; timestep-floor failures specialize it. */
+  readonly code: string = 'CONVERGENCE_FAILED';
+
   public readonly kind: ConvergenceFailureKind;
   /** Bounded counters accumulated before this terminal failure. */
   public convergence?: ConvergenceTelemetry;
@@ -134,6 +149,9 @@ export class ConvergenceError extends SpiceError {
  * Subclass of {@link ConvergenceError} with `kind === 'dt-floor'`.
  */
 export class TimestepTooSmallError extends ConvergenceError {
+  /** Stable code for the adaptive timestep reaching its minimum. */
+  readonly code = 'TIMESTEP_TOO_SMALL';
+
   constructor(
     /** Simulation time at which the error occurred */
     time: number,
@@ -159,6 +177,9 @@ export class TimestepTooSmallError extends ConvergenceError {
  * directives or subcircuit instantiation.
  */
 export class CycleError extends SpiceError {
+  /** Stable code for circular include or subcircuit dependencies. */
+  readonly code = 'CYCLE';
+
   constructor(
     /** The dependency chain that forms the cycle */
     public readonly chain: string[],
