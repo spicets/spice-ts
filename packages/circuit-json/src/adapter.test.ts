@@ -196,7 +196,7 @@ describe('circuit-json adapter', () => {
   it('refuses lossy export by default and allowLossy retains identical diagnostics', () => {
     const circuit: CircuitIR = {
       components: [
-        { type: 'I', id: 'I1', name: 'I1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { waveform: 'dc', dc: 1 } },
+        { type: 'I', id: 'I1', name: 'I1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { waveform: 'sine', dc: 1 } },
         { type: 'R', id: 'R1', name: 'R1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { resistance: 1000, temperatureCoefficient: 0.001 } },
       ],
       nets: ['in'],
@@ -206,7 +206,7 @@ describe('circuit-json adapter', () => {
 
     expect(refused.value).toBeUndefined();
     expect(refused.lossy).toBe(true);
-    expect(refused.diagnostics.map(d => d.path)).toEqual(['/components/0', '/components/1/params/temperatureCoefficient']);
+    expect(refused.diagnostics.map(d => d.path)).toEqual(['/components/0/params/waveform', '/components/1/params/temperatureCoefficient']);
     expect(refused.diagnostics.every(d => d.code === 'LOSSY_EXPORT')).toBe(true);
     expect(allowed.lossy).toBe(true);
     expect(allowed.value).toBeDefined();
