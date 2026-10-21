@@ -34,7 +34,9 @@ export const CONTROL_ANALYSIS_COMMANDS = new Set(['op', 'dc', 'ac', 'tran', 'noi
  * without executing them (`echo` output is captured).
  */
 export const OUTPUT_ONLY_CONTROL_COMMANDS = new Set([
-  'asciiplot', 'display', 'echo', 'exit', 'gnuplot', 'hardcopy', 'listing', 'plot', 'print', 'quit',
+  // ngspice-47 commands.c:216 / com_pyplot.c:91 dispatch pyplot to display only.
+  // Like plot/gnuplot, spice-ts omits rendering rather than invoking Python.
+  'asciiplot', 'display', 'echo', 'exit', 'gnuplot', 'hardcopy', 'listing', 'plot', 'print', 'pyplot', 'quit',
   'rusage', 'save', 'settype', 'show', 'showmod', 'status', 'version', 'wrdata', 'write', 'wrs2p',
 ]);
 

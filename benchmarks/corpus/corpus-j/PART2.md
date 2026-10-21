@@ -6,20 +6,20 @@ Every deck below is byte-identical to its pinned upstream revision (ngspice-curr
 
 ## Totals
 
-- Fixtures: 9. Outcome SHA-256: `75323751d46db9485f414b33c7491b8c14eb04f65072436a8d89d69375b0fe21`.
-- ngspice (ngspice-47): 5 success, 1 failed, 3 unsupported.
-- spice-ts (0.3.0): 3 success, 2 failed, 4 unsupported.
-- Outcomes: matched 3, mismatch 0, not-compared 0, spice-ts-loss 2, ngspice-failed 0, both-failed 4.
-- Of the 5 decks ngspice runs successfully, spice-ts matches 3, mismatches 0, produces no comparable result for 0 and fails 2.
+- Fixtures: 9. Outcome SHA-256: `63cb0f3f9c610c27474b71114a727374e65f85e7c00e1d994641d5093e7cef38`.
+- ngspice (ngspice-47): 6 success, 0 failed, 3 unsupported.
+- spice-ts (0.4.0): 5 success, 1 failed, 3 unsupported.
+- Outcomes: matched 5, mismatch 0, not-compared 0, spice-ts-loss 1, ngspice-failed 0, both-failed 3.
+- Of the 6 decks ngspice runs successfully, spice-ts matches 5, mismatches 0, produces no comparable result for 0 and fails 1.
 
 | Source | Fixtures | Matched | Mismatch | Not compared | spice-ts loss | ngspice failed | Both failed |
 |---|---|---|---|---|---|---|---|
-| `ngspice-current` | 4 | 3 | 0 | 0 | 1 | 0 | 0 |
-| `spicelib` | 5 | 0 | 0 | 0 | 1 | 0 | 4 |
+| `ngspice-current` | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
+| `spicelib` | 5 | 1 | 0 | 0 | 1 | 0 | 3 |
 
 ## Method
 
-- ngspice: `unchanged runControlReference for control decks, runNgspicePacked otherwise`. Status success means exit 0 and at least one op/dc/ac/tran/pz/noise/disto plot in the raw file; failed/unsupported is classified from ngspice's own output.
+- ngspice: `unchanged runControlReference for control decks, runNgspicePacked otherwise`. Status success means exit 0 and at least one op/dc/ac/tran/pz/noise/disto/sp/sens plot in the raw file; failed/unsupported is classified from ngspice's own output.
 - spice-ts: `unchanged runBoundedSimulatePacked on identical original bytes`. The runner and metric are corpus-f's (`benchmarks/corpus/corpus-f/{outcomes,lib}.ts`), imported unchanged. Gap buckets use the unchanged corpus-i/h/f rules; precise cross-dialect observations are in SOURCES.md.
 - matched = both engines succeed, every spice-ts analysis has an ngspice counterpart, and for every common signal max|spice-ts - ngspice| <= 0.01 x max(peak |ngspice signal|, floor). The floor is uniform per quantity (#593): 0.0001 V for node voltages v(...) and 1e-10 A for branch currents i(...), so a signal whose ngspice peak is zero or tiny matches when the absolute difference is at most the ngspice-47 default VNTOL (0.000001 V) or ABSTOL (1e-12 A); every other quantity (pole/zero roots, noise spectra) keeps 1e-12. Deck .options tolerances are not consulted. Errors are taken at spice-ts points with ngspice interpolated (transient breakpoint alignment as in the aggregate report).
 - "worst" is that normalised error for the worst signal.
@@ -30,8 +30,7 @@ Every deck below is byte-identical to its pinned upstream revision (ngspice-curr
 
 ## Follow-up issues
 
-- https://github.com/mfiumara/spice-ts/issues/956: nested DC TEMP (j-14).
-- https://github.com/mfiumara/spice-ts/issues/957: .title metadata (j-16).
+- https://github.com/spicets/spice-ts/issues/1633: AC sensitivity without explicit AC excitation (j-19).
 
 ## spice-ts gap buckets
 
@@ -40,23 +39,20 @@ Grouped from spice-ts's own first error line (unchanged corpus-i/h/f rules). "ng
 | Bucket | Fixtures | ngspice ok | Issue |
 |---|---|---|---|
 | directive: .backanno | 3 | 0 | none: ngspice also fails every fixture in this bucket |
-| execution: other failure | 2 | 1 | https://github.com/mfiumara/spice-ts/issues/956 (j-14 only; j-19 has no reference) |
-| directive: .title | 1 | 1 | https://github.com/mfiumara/spice-ts/issues/957 |
+| execution: other failure | 1 | 1 | https://github.com/spicets/spice-ts/issues/1633 (j-19) |
 
-## Losses (6)
+## Losses (4)
 
 Every fixture that is not matched: spice-ts failures, mismatches above the threshold, and results that could not be compared.
 
 | Fixture | ngspice | spice-ts | Outcome | Worst | Worst signal | First error line (ngspice / spice-ts) |
 |---|---|---|---|---|---|---|
-| [ngspice-current/examples/mos/nmos_pmos_BSIM330.sp](fixtures/ngspice-current/examples/mos/nmos_pmos_BSIM330.sp) | success | failed | spice-ts-loss |  |  | spice-ts: DC sweep source 'temp' not found |
-| [spicelib/examples/testfiles/test_kicad_nets.cir](fixtures/spicelib/examples/testfiles/test_kicad_nets.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: Parse error at line 2: Unsupported dot command: '.title' .title KiCad schematic |
 | [spicelib/examples/testfiles/ac_rawtest.net](fixtures/spicelib/examples/testfiles/ac_rawtest.net) | unsupported | unsupported | both-failed |  |  | ngspice: Error on line 6 or its substitute: / spice-ts: Parse error at line 6: Unsupported dot command: '.backanno' .backanno |
 | [spicelib/examples/testfiles/ngsteps.net](fixtures/spicelib/examples/testfiles/ngsteps.net) | unsupported | unsupported | both-failed |  |  | ngspice: Error on line 44 or its substitute: / spice-ts: Parse error at line 44: Unsupported dot command: '.backanno' .backanno |
-| [spicelib/examples/testfiles/sens_ngspice_rawtest.net](fixtures/spicelib/examples/testfiles/sens_ngspice_rawtest.net) | failed | failed | both-failed |  |  | ngspice: Fatal error: pmos: Nsub < Ni / spice-ts: .sens does not support 'V1': AC sensitivity requires an AC voltage-source waveform |
+| [spicelib/examples/testfiles/sens_ngspice_rawtest.net](fixtures/spicelib/examples/testfiles/sens_ngspice_rawtest.net) | success | failed | spice-ts-loss |  |  | spice-ts: .sens does not support 'V1': AC sensitivity requires an AC voltage-source waveform |
 | [spicelib/examples/testfiles/tran_rawtest.net](fixtures/spicelib/examples/testfiles/tran_rawtest.net) | unsupported | unsupported | both-failed |  |  | ngspice: Error on line 11 or its substitute: / spice-ts: Parse error at line 11: Unsupported dot command: '.backanno' .backanno |
 
-## Wins (3)
+## Wins (5)
 
 Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every common signal.
 
@@ -64,27 +60,29 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 |---|---|---|---|---|---|---|
 | [ngspice-current/examples/measure/rc-meas-ac-control.sp](fixtures/ngspice-current/examples/measure/rc-meas-ac-control.sp) | success | success | matched | 4.86e-16 | ac v(out) |  |
 | [ngspice-current/examples/p-to-n-examples/aswitch-pswitch.cir](fixtures/ngspice-current/examples/p-to-n-examples/aswitch-pswitch.cir) | success | success | matched | 2.52e-14 | dc i(vmeasure) |  |
-| [ngspice-current/examples/xspice/original-examples/xspice.deck](fixtures/ngspice-current/examples/xspice/original-examples/xspice.deck) | success | success | matched | 0.000493 | tran v(1) |  |
+| [ngspice-current/examples/mos/nmos_pmos_BSIM330.sp](fixtures/ngspice-current/examples/mos/nmos_pmos_BSIM330.sp) | success | success | matched | 7.61e-9 | dc i(vssp) |  |
+| [ngspice-current/examples/xspice/original-examples/xspice.deck](fixtures/ngspice-current/examples/xspice/original-examples/xspice.deck) | success | success | matched | 2.36e-11 | tran i(vin) |  |
+| [spicelib/examples/testfiles/test_kicad_nets.cir](fixtures/spicelib/examples/testfiles/test_kicad_nets.cir) | success | success | matched | 0 | op i(v1) |  |
 
 
 ## Delivery and export limits
 
-Nine new original input hashes bring the manifest to 20. Historical j-1..j-11 outcomes.json and wall.jsonl remain byte-identical to #947; their 11 both-failed outcomes are not upgraded by this delivery. Part 2 adds five ngspice raw successes, three matched rows, two spice-ts-only losses and four both-failed rows. The combined 20-row catalogue therefore has 3 matched, 2 spice-ts-only losses and 15 both-failed. Input-hash novelty is not a claim of nine novel topology families.
+Nine original part2 input hashes bring the manifest to 20. Historical j-1..j-11 outcomes.json and wall.jsonl remain byte-identical to #947; their 11 both-failed outcomes are not upgraded by this refresh. Part 2 has 6 ngspice raw successes, 5 matched rows, 1 spice-ts-only loss and 3 both-failed rows. The combined 20-row catalogue therefore has 5 matched, 1 spice-ts-only losses and 14 both-failed. Input-hash novelty is not a claim of nine novel topology families.
 
-Control decks use unchanged corpus-f runControlReference instead of batch-only raw capture: a source/write wrapper receives original bytes, defers quit/exit and exports first plot per declared type. No circuit, analysis or tolerance is rewritten. Subsequent control plots are not compared; j-14 fails spice-ts during a later nested TEMP sweep even though ngspice's exported dc1 belongs to the first voltage/body sweep. Success here requires actual raw vectors. Batch plots cannot open a GUI and DISPLAY is removed by the control wrapper.
+Control decks use unchanged corpus-f runControlReference instead of batch-only raw capture: a source/write wrapper receives original bytes, defers quit/exit and exports all retained plots by ID for each declared type. No circuit, analysis or tolerance is rewritten. All six j-14 DC plots, including nested TEMP sweeps, are compared. Success here requires actual raw vectors. DISPLAY is removed by the control wrapper.
 
-The matched criterion and breakpoint-aware/linear metrics are unchanged. Null/empty metrics mean unavailable, never measured zero. Fine-step adapted references are not run. Cold engine groups are serial, 19 s execution deadline/20 s boundary; the persisted cumulative budget includes historical attempts. Measured combined child wall: 18978.32133900001 ms. No speed superiority claim. No simulator change: this is an expansion from 0 ngspice-successful rows in the historical 11 to 5 across the 20, not a before/after solver performance comparison. Nightly #855 owns aggregate incorporation.
+The matched criterion and breakpoint-aware/linear metrics are unchanged. Null/empty metrics mean unavailable, never measured zero. Fine-step adapted references are not run. Cold engine groups are serial, 19 s execution deadline/20 s boundary; the persisted cumulative budget includes historical attempts, including an initial refresh before building the core package. Measured combined child wall: 60494.00092100001 ms. No speed superiority claim. No simulator change: this refresh uses the recorded coreTree on current main (#1632), not a before/after solver performance comparison. Nightly #855 owns aggregate incorporation.
 
 ## Issue deduplication
 
-Searched open and closed GitHub issues for .title, title in:title, dot command, dc temp, temperature sweep and DC sweep source before filing:
+Resolved historical gaps and the remaining loss:
 
-- j-14: [#956](https://github.com/mfiumara/spice-ts/issues/956), nested DC TEMP source lookup. #318 implements .step TEMP LIST, not control DC TEMP.
-- j-16: [#957](https://github.com/mfiumara/spice-ts/issues/957), .title after a comment title line. #790 covers other harmless directives, not .title.
+- j-14: [#956](https://github.com/spicets/spice-ts/issues/956), nested DC TEMP source lookup, is closed; all six DC plots now match.
+- j-16: [#957](https://github.com/spicets/spice-ts/issues/957), .title metadata, is closed; all seven OP signals now match.
 - j-17/j-18/j-20: both engines reject original .backanno; no spice-ts-only issue.
-- j-19: ngspice fails with PMOS Nsub < Ni, spice-ts rejects missing AC source in .sens; no reference, no spice-ts-only issue.
+- j-19: ngspice-47 now succeeds with a 31-point sensitivity plot (historical receipt: PMOS Nsub < Ni). spice-ts still rejects the missing AC source in .sens, so this is now a spice-ts-only loss, tracked by [#1633](https://github.com/spicets/spice-ts/issues/1633). The historical reference difference is not attributed to a specific change. Related closed #1389 covers explicit DC/AC values with transient waveforms, not absent AC excitation.
 
-Both new issues have label bug and milestone M1 Correctness parity. No simulator fixes in this PR.
+The remaining loss has label bug and milestone M1 Correctness parity. No simulator fixes or fixture changes in this refresh.
 
 ## Matched-point metrics
 
@@ -104,11 +102,114 @@ All compared signals below; relative metrics exclude zero reference samples unde
 | j-13 | dc v(n002) | 301 | 0 | 0 | 0 | 0 |
 | j-13 | dc v(n004) | 301 | 0 | 0 | 0 | 0 |
 | j-13 | dc v(vdd2) | 301 | 0 | 0 | 0 | 0 |
-| j-15 | tran i(vin) | 277 | 2.5483847279327292e-8 | 1.2758772532188581e-8 | 0.0048856220370030665 | 0.0004621417668621925 |
-| j-15 | tran v(1) | 277 | 0.0004931998888061395 | 0.0002468818595235811 | 0.0007364692168311759 | 0.00035800705130286737 |
-| j-15 | tran v(coll) | 277 | 0.001923138567804905 | 0.0009628407710008756 | 0.0006184059921679688 | 0.00020524653468388782 |
-| j-15 | tran v(in) | 277 | 0.0004931124532833175 | 0.0002468822489745991 | 0.00488832405451598 | 0.0004622452286279421 |
-| j-15 | tran v(out) | 277 | 0.001923138567804905 | 0.0009628407710008789 | 0.0006184059921679688 | 0.00020524653468388863 |
+| j-14 | dc i(vbsn) | 186 | 2.0194839173657902e-28 | 8.498244915157748e-29 | 5.041306141096238e-16 | 2.1902601979024628e-16 |
+| j-14 | dc i(vbsp) | 186 | 2.524354896707238e-29 | 2.524354896707238e-29 | 2.5181912122425126e-16 | 2.518191212242507e-16 |
+| j-14 | dc i(vdsn) | 186 | 3.7741757690503354e-13 | 2.7767548848572805e-14 | 0.3936089537908877 | 0.028930503048218162 |
+| j-14 | dc i(vdsp) | 186 | 1.3552527156068805e-19 | 1.3552527156068805e-19 | 1.0682896151882073e-15 | 1.0682896151882071e-15 |
+| j-14 | dc i(vgsn) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vgsp) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vssn) | 186 | 3.774175769050337e-13 | 2.77675488485725e-14 | 2.6684747693646003 | 0.1956759036554868 |
+| j-14 | dc i(vssp) | 186 | 5.421010862427522e-20 | 5.421010862427522e-20 | 4.273158464129425e-16 | 4.2731584641294264e-16 |
+| j-14 | dc v(1) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(11) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(2) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(22) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(3) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(33) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(4) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(44) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vbsn) | 246 | 1.0097419586828951e-27 | 2.1581304978800326e-28 | 6.963017333950938e-16 | 1.8444640375110643e-16 |
+| j-14 | dc i(vbsp) | 246 | 2.524354896707238e-29 | 2.524354896707238e-29 | 2.5181912122425126e-16 | 2.5181912122425107e-16 |
+| j-14 | dc i(vdsn) | 246 | 2.168404344971009e-19 | 4.532617292900432e-20 | 2.1801429532959506e-15 | 4.197201195286519e-16 |
+| j-14 | dc i(vdsp) | 246 | 1.3552527156068805e-19 | 1.3552527156068805e-19 | 1.0682896151882073e-15 | 1.0682896151882095e-15 |
+| j-14 | dc i(vgsn) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vgsp) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vssn) | 246 | 1.6263032587282567e-19 | 3.841030290226598e-20 | 1.6802337523290665e-15 | 3.684830505884429e-16 |
+| j-14 | dc i(vssp) | 246 | 5.421010862427522e-20 | 5.421010862427522e-20 | 4.273158464129425e-16 | 4.2731584641294313e-16 |
+| j-14 | dc v(1) | 246 | 2.220446049250313e-16 | 9.064933036736789e-17 | 1.8503717077085943e-16 | 8.275113844157573e-17 |
+| j-14 | dc v(11) | 246 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(2) | 246 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(22) | 246 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(3) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(33) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(4) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(44) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vbsn) | 186 | 2.0679515313825692e-25 | 5.921324579949501e-26 | 3.7865323402103127e-16 | 2.6184059479146893e-16 |
+| j-14 | dc i(vbsp) | 186 | 8.271806125530277e-25 | 3.3770537964233504e-25 | 7.105308687671718e-16 | 3.7531273601713056e-16 |
+| j-14 | dc i(vdsn) | 186 | 5.84894348297301e-13 | 4.2886534385053894e-14 | 1.336169668272112 | 0.09797271351557195 |
+| j-14 | dc i(vdsp) | 186 | 1.6263032587282567e-19 | 1.1969267897681392e-19 | 1.2991457922350512e-15 | 9.186562760196397e-16 |
+| j-14 | dc i(vgsn) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vgsp) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vssn) | 186 | 5.84894348297301e-13 | 4.288653438505388e-14 | 1.7317909554632862 | 0.12698107371938192 |
+| j-14 | dc i(vssp) | 186 | 1.6263032587282567e-19 | 1.0785405036442637e-19 | 1.299145793292466e-15 | 8.28884268844704e-16 |
+| j-14 | dc v(1) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(11) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(2) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(22) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(3) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(33) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(4) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(44) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vbsn) | 186 | 5.048709793414476e-29 | 5.048709793414476e-29 | 5.041306141096238e-16 | 5.041306141096251e-16 |
+| j-14 | dc i(vbsp) | 186 | 4.0389678347315804e-28 | 2.33417530105881e-28 | 3.670120703984867e-16 | 1.9794133930637297e-16 |
+| j-14 | dc i(vdsn) | 186 | 5.421010862427522e-20 | 5.421010862427522e-20 | 4.0830445240071676e-16 | 4.083044524007172e-16 |
+| j-14 | dc i(vdsp) | 186 | 4.0897812904604357e-13 | 3.006630889325849e-14 | 0.41279757090335095 | 0.030328277690475122 |
+| j-14 | dc i(vgsn) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vgsp) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vssn) | 186 | 1.0842021724855044e-19 | 1.0842021724855044e-19 | 8.166089054173978e-16 | 8.166089054173964e-16 |
+| j-14 | dc i(vssp) | 186 | 4.0897812904604337e-13 | 3.0066308893258184e-14 | 3.7263646584903505 | 0.27323929579791034 |
+| j-14 | dc v(1) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(11) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(2) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(22) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(3) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(33) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(4) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(44) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc i(vbsn) | 246 | 5.048709793414476e-29 | 5.048709793414476e-29 | 5.041306141096238e-16 | 5.041306141096244e-16 |
+| j-14 | dc i(vbsp) | 246 | 1.0097419586828951e-27 | 2.1839029828868094e-28 | 6.962537208639168e-16 | 1.7755754959223535e-16 |
+| j-14 | dc i(vdsn) | 246 | 5.421010862427522e-20 | 5.421010862427522e-20 | 4.0830445240071676e-16 | 4.0830445240071735e-16 |
+| j-14 | dc i(vdsp) | 246 | 4.336808689942018e-19 | 6.045020058807643e-20 | 4.839643466161647e-15 | 1.4732962659652918e-15 |
+| j-14 | dc i(vgsn) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vgsp) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vssn) | 246 | 1.0842021724855044e-19 | 1.0842021724855044e-19 | 8.166089054173978e-16 | 8.166089054173963e-16 |
+| j-14 | dc i(vssp) | 246 | 3.2526065174565133e-19 | 5.725484867210557e-20 | 4.4357876822235045e-15 | 1.3833326847179383e-15 |
+| j-14 | dc v(1) | 246 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(11) | 246 | 2.220446049250313e-16 | 9.064933036736789e-17 | 1.8503717077085943e-16 | 8.275113844157573e-17 |
+| j-14 | dc v(2) | 246 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(22) | 246 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(3) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(33) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(4) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(44) | 246 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vbsn) | 186 | 1.0339757656912846e-25 | 4.221189582356701e-26 | 3.7865323402103127e-16 | 2.550033270822226e-16 |
+| j-14 | dc i(vbsp) | 186 | 8.271806125530277e-25 | 2.1229778420742586e-25 | 7.105308687671718e-16 | 2.9295766142606193e-16 |
+| j-14 | dc i(vdsn) | 186 | 4.0657581468206416e-19 | 2.840647624940862e-19 | 2.9358931736841898e-15 | 2.0733014115070755e-15 |
+| j-14 | dc i(vdsp) | 186 | 8.36588334233654e-13 | 6.1341632837948e-14 | 1.4273786867425677 | 0.10466048322688276 |
+| j-14 | dc i(vgsn) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vgsp) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc i(vssn) | 186 | 4.0657581468206416e-19 | 2.864257493682068e-19 | 3.1394379459055314e-15 | 2.1137694837191133e-15 |
+| j-14 | dc i(vssp) | 186 | 8.365883342336538e-13 | 6.134163283794809e-14 | 1.7210168727411956 | 0.12619107964528392 |
+| j-14 | dc v(1) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(11) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(2) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(22) | 186 | 0 | 0 | 0 | 0 |
+| j-14 | dc v(3) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(33) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(4) | 186 | 0 | 0 | unavailable | unavailable |
+| j-14 | dc v(44) | 186 | 0 | 0 | unavailable | unavailable |
+| j-15 | tran i(vin) | 214 | 1.2218958483911635e-15 | 5.312807713459118e-16 | 7.645397155422812e-7 | 5.2410949797491855e-8 |
+| j-15 | tran v(1) | 214 | 3.164135620181696e-15 | 8.667661039827512e-16 | 2.278920654446738e-12 | 1.769960424857525e-13 |
+| j-15 | tran v(coll) | 214 | 1.865174681370263e-14 | 5.475099487534308e-15 | 3.0106525099196715e-15 | 8.0240619240893e-16 |
+| j-15 | tran v(in) | 214 | 4.718447854656915e-15 | 1.3711812944424555e-15 | 3.515381369614564e-10 | 2.4088081011127083e-11 |
+| j-15 | tran v(out) | 214 | 1.7763568394002505e-14 | 5.457481745684864e-15 | 3.0106525099196715e-15 | 8.005486434000162e-16 |
+| j-16 | op i(v1) | 1 | 0 | 0 | unavailable | unavailable |
+| j-16 | op i(v2) | 1 | 0 | 0 | unavailable | unavailable |
+| j-16 | op v(/sub/vin_p) | 1 | 0 | 0 | unavailable | unavailable |
+| j-16 | op v(/vin_n) | 1 | 0 | 0 | unavailable | unavailable |
+| j-16 | op v(/vout) | 1 | 0 | 0 | unavailable | unavailable |
+| j-16 | op v(vcc) | 1 | 0 | 0 | 0 | 0 |
+| j-16 | op v(vee) | 1 | 0 | 0 | 0 | 0 |
 
 ## Commands
 

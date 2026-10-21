@@ -44,15 +44,15 @@
       "unsupported": 12
     },
     "spiceTs": {
-      "success": 244,
+      "success": 245,
       "failed": 13,
-      "unsupported": 79
+      "unsupported": 78
     },
     "outcomes": {
       "matched": 104,
-      "mismatch": 20,
+      "mismatch": 21,
       "not-compared": 115,
-      "spice-ts-loss": 67,
+      "spice-ts-loss": 66,
       "ngspice-failed": 5,
       "both-failed": 25
     }
@@ -131,20 +131,6 @@
       "issue": null
     },
     {
-      "bucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)",
-      "fixtures": 6,
-      "ngspiceSuccess": 4,
-      "ids": [
-        "examples-control-structs-new-check-4-sp",
-        "examples-monte-carlo-mc-ring-sp",
-        "examples-monte-carlo-montecarlo-sp",
-        "examples-plot-inv-chain-pyplot-cir",
-        "examples-rf-hbosc-examples-hb-osc-cir",
-        "tests-regression-misc-resume-1-cir"
-      ],
-      "issue": "https://github.com/mfiumara/spice-ts/issues/488"
-    },
-    {
       "bucket": "execution: other failure",
       "fixtures": 6,
       "ngspiceSuccess": 1,
@@ -184,6 +170,19 @@
         "examples-rf-pss-vdp-osc-pss-ctrl-cir"
       ],
       "issue": "https://github.com/mfiumara/spice-ts/issues/489"
+    },
+    {
+      "bucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)",
+      "fixtures": 5,
+      "ngspiceSuccess": 3,
+      "ids": [
+        "examples-control-structs-new-check-4-sp",
+        "examples-monte-carlo-mc-ring-sp",
+        "examples-monte-carlo-montecarlo-sp",
+        "examples-rf-hbosc-examples-hb-osc-cir",
+        "tests-regression-misc-resume-1-cir"
+      ],
+      "issue": "https://github.com/mfiumara/spice-ts/issues/488"
     },
     {
       "bucket": "timeout: spice-ts exceeded the 120 s bound",
@@ -3107,20 +3106,23 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "tran:227"
+        ],
+        "note": "#1631 targeted re-score via unchanged-fixture control export wrapper (quit/exit deferred); reproduce with MPLBACKEND=Agg spice-heavy pnpm exec tsx benchmarks/control-pyplot/compare.ts"
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 24: Unsupported .control command 'pyplot': it is not an ngspice control-language command spice-ts executes; spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod/alterparam,"
+        "status": "success",
+        "analyses": [
+          "tran:227"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)"
+      "comparedAnalyses": 1,
+      "comparedSignals": 7,
+      "worstNormalizedError": 0.152,
+      "worstSignal": "tran i(vin1)",
+      "outcome": "mismatch",
+      "gapBucket": null
     },
     {
       "id": "examples-probe-cntrl-sources-cir",
@@ -13357,5 +13359,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "23d203d977326b597361faf83163c417ea4364d76da9839fc8b66b2ccbfafe4e"
+  "outcomeSha256": "f73a39d4126b3248191918af2b27fe6fa4017f9c8828abac723d4714314e41fc"
 }

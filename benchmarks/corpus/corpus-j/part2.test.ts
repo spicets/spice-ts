@@ -8,6 +8,18 @@ import { outcomeDigest } from '../corpus-f/outcomes.js';
 import { ROOT, CHILD_BOUND_MS, WALL_BUDGET_MS, consumedWall, summarize } from './parity.js';
 const hash = (bytes: Buffer | string) => createHash('sha256').update(bytes).digest('hex');
 
+test('part2 no longer publishes resolved TEMP and title failures', async () => {
+  const report = JSON.parse(await readFile(`${ROOT}/part2-outcomes.json`, 'utf8'));
+  for (const id of ['j-14', 'j-16']) {
+    const row = report.fixtures.find((row: any) => row.id === id);
+    assert(row, `missing ${id}`);
+    assert.doesNotMatch(row.spiceTs.firstErrorLine ?? '', /DC sweep source 'temp' not found|Unsupported dot command: '\.title'/);
+    assert.equal(row.outcome, 'matched');
+    assert(row.comparedSignals > 0);
+    assert(Number.isFinite(row.worstNormalizedError));
+  }
+});
+
 test('append delivers exactly nine novel original hashes and preserves historical manifest', async () => {
   const manifest = JSON.parse(await readFile(`${ROOT}/manifest.json`, 'utf8'));
   assert.equal(manifest.deliveredFixtures, 20);
@@ -60,15 +72,21 @@ test('part2 receipt includes every outcome, real reference vectors, fixed metric
   assert.equal(report.outcomeSha256, outcomeDigest(report));
   assert.deepEqual(report.fixtures.map((r: any) => r.sha256), manifest.circuits.slice(11).map((c: any) => c.sha256));
   assert.deepEqual(report.totals, summarize(report.fixtures).totals);
-  assert.equal(report.totals.ngspice.success, 5);
-  assert.equal(report.totals.outcomes.matched, 3);
-  assert.equal(report.totals.outcomes['spice-ts-loss'], 2);
-  assert.equal(report.totals.outcomes['both-failed'], 4);
+  assert.equal(report.totals.ngspice.success, 6);
+  assert.equal(report.totals.outcomes.matched, 5);
+  assert.equal(report.totals.outcomes['spice-ts-loss'], 1);
+  assert.equal(report.totals.outcomes['both-failed'], 3);
   assert.equal(report.policy.fixtureAdaptation, 'none'); assert.equal(report.policy.perCircuitToleranceTuning, false);
   assert.equal(report.policy.matchThreshold, 0.01); assert.equal(report.tools.ngspice, 'ngspice-47');
   const docs = await readFile(`${ROOT}/PART2.md`, 'utf8');
-  assert(docs.includes('https://github.com/mfiumara/spice-ts/issues/956'));
-  assert(docs.includes('https://github.com/mfiumara/spice-ts/issues/957'));
+  assert(docs.includes('https://github.com/spicets/spice-ts/issues/956'));
+  assert(docs.includes('https://github.com/spicets/spice-ts/issues/957'));
+  assert(docs.includes('https://github.com/spicets/spice-ts/issues/1633'));
+  assert(docs.includes('5 matched, 1 spice-ts-only losses and 14 both-failed'));
+  assert(!docs.includes('j-14 fails spice-ts'));
+  const tempSweep = report.fixtures.find((row: any) => row.id === 'j-14');
+  assert.equal(tempSweep.comparisons.length, 6, 'retain all six control DC plots');
+  assert.equal(report.fixtures.find((row: any) => row.id === 'j-19').outcome, 'spice-ts-loss');
   for (const row of report.fixtures) assert(docs.includes(row.sourcePath));
   const entries = (await Promise.all(['wall.jsonl', 'part2-wall.jsonl'].map(async file => (await readFile(`${ROOT}/${file}`, 'utf8')).trim().split('\n').map(line => JSON.parse(line))))).flat();
   assert.equal(entries.filter(e => e.event === 'start').length, entries.filter(e => e.event === 'end').length);
