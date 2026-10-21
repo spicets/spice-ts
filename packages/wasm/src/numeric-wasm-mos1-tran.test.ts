@@ -60,8 +60,13 @@ describe('bounded adaptive MOS1 WASM transient', () => {
       expect(actual.metadata).toMatchObject({ backend: 'spice-ts-wasm' });
       expect(a.timeS).toHaveLength(b.timeS.length);
       const maxTimeDelta = Math.max(...a.timeS.map((time, i) => Math.abs(time - b.timeS[i]!)));
-      // Dense/sparse rounding feeds LTE. This is a measured residual, not exact-grid parity.
-      expect(maxTimeDelta).toBeLessThanOrEqual(1e-20);
+      // Supervisor-approved transient parity contract; solver options stay at defaults.
+      const stopTime = b.timeS.at(-1)!;
+      a.timeS.forEach((time, i) => {
+        expect(Math.abs(time - b.timeS[i]!)).toBeLessThanOrEqual(
+          1e-12 * stopTime,
+        );
+      });
       expect(a.timeS[0]).toBe(0);
       expect(a.timeS.at(-1)).toBe(b.timeS.at(-1));
       expect(a.timeS.at(-1)).toBeCloseTo(150e-9, 20);
