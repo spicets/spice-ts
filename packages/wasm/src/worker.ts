@@ -16,7 +16,7 @@ async function execute(message: WorkerRequest): Promise<void> {
     const data = message.backend === 'spice-ts-wasm'
       ? message.operation === 'validate'
         ? validateLinearOpWasmV1(message.request)
-        : await simulateLinearOpWasmV1(message.request, requiredWasmBytes(message))
+        : await simulateLinearOpWasmV1(message.request, requiredWasmBytes(message), message.maxPoints)
       : message.operation === 'validate'
         ? await validateProtocolV1(message.request)
         : await simulateProtocolV1(message.request);

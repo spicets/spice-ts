@@ -1,4 +1,4 @@
-import { CCCS, CCVS, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type CompiledCircuit, type StampContext } from '@spice-ts/core';
+import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
 import type {
   JsonObject,
   SimulationRequestV1,
@@ -71,6 +71,7 @@ export function validateLinearOpWasmV1(request: SimulationRequestV1): NumericVal
 export async function simulateLinearOpWasmV1(
   request: SimulationRequestV1,
   wasmBytes: Uint8Array,
+  maxPoints: number = NUMERIC_WASM_LIMITS.maxResultPoints,
 ): Promise<SimulationResultV1> {
   const prepared = prepare(request);
   const instantiated = await WebAssembly.instantiate(wasmBytes.slice().buffer as ArrayBuffer);
@@ -79,7 +80,12 @@ export async function simulateLinearOpWasmV1(
 
   if (prepared.analysis === 'op') return simulateOp(prepared, request, exports);
   if (prepared.analysis === 'dc') return simulateDc(prepared, request, exports);
-  if (prepared.analysis === 'tran') return simulateTransient(prepared, request, exports);
+  if (prepared.analysis === 'tran') {
+    if (prepared.compiled.devices.some(device => ['D', 'Q'].includes(device.name[0]?.toUpperCase() ?? ''))) {
+      return simulateNonlinearTransient(prepared, request, exports, maxPoints);
+    }
+    return simulateTransient(prepared, request, exports);
+  }
   return simulateAc(prepared, request, exports);
 }
 
@@ -323,9 +329,6 @@ function simulateTransient(
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
-  if (compiled.devices.some(device => device.isNonlinear)) {
-    return simulateDiodeTransient({ analysis: 'tran', compiled, order, transient }, request, exports);
-  }
   const pointCount = transientPointCount(transient.stopTime, transient.timestep);
   const pointLimit = Math.min(
     NUMERIC_WASM_LIMITS.maxResultPoints,
@@ -380,70 +383,55 @@ function simulateTransient(
   return result;
 }
 
-/** Fixed-grid companions, sharing the passive WASM time grid (not core's
- * adaptive driver). Nonlinear history uses accepted static currents, never
- * G(iterate)*x(n). Algebraic rows must not receive dynamic history.
- */
-function simulateDiodeTransient(
-  { compiled, order, transient }: PreparedPassiveTran,
+/** Shared adaptive driver and device models; every DC/Newton solve stays in WASM. */
+async function simulateNonlinearTransient(
+  { compiled }: PreparedPassiveTran,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
-): SimulationResultV1 {
-  const pointCount = transientPointCount(transient.stopTime, transient.timestep);
-  const pointLimit = Math.min(NUMERIC_WASM_LIMITS.maxResultPoints, request.options?.limits?.maxResultPoints ?? Infinity);
-  if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
-  for (const device of compiled.devices) device.setTransientTimestep?.(transient.timestep);
-  let solution = solveNonlinearOp(compiled, order, request, exports);
-  let accepted = stampTransientSystem(compiled, order, 0, true, solution);
-  const gmin = request.options?.gmin ?? 0;
-  addGmin(accepted.conductance, compiled.nodeCount, order, gmin);
-  const timeS = [0];
-  const voltagesV = Object.fromEntries(compiled.nodeNames.map((name, index) => [name, [solution[index]!]]));
-  const currentsA = Object.fromEntries(compiled.branchNames.map((name, index) => [name, [solution[compiled.nodeCount + index]!]]));
-  const maxIterations = Math.min(request.options?.maxTransientIterations ?? 80, 1000);
-  for (let point = 1; point < pointCount; point++) {
-    const time = Math.min(point * transient.timestep, transient.stopTime);
-    const scale = 2 / (time - timeS[point - 1]!);
-    const history = new Float64Array(order);
-    for (let row = 0; row < order; row++) {
-      history[row] = accepted.rhs[row]!;
-      for (let column = 0; column < order; column++) {
-        const index = row * order + column;
-        history[row] += (scale * accepted.dynamic[index]! - accepted.conductance[index]!) * solution[column]!;
-      }
-    }
-    let converged = false;
-    for (let iteration = 0; iteration < maxIterations; iteration++) {
-      const stamped = stampTransientSystem(compiled, order, time, false, solution);
-      addGmin(stamped.conductance, compiled.nodeCount, order, gmin);
-      const matrix = stamped.conductance.slice();
-      const rhs = stamped.rhs.slice();
-      for (let row = 0; row < order; row++) {
-        let dynamic = false;
-        for (let column = 0; column < order; column++) {
-          const index = row * order + column;
-          matrix[index] += scale * stamped.dynamic[index]!;
-          dynamic ||= stamped.dynamic[index] !== 0;
-        }
-        if (dynamic) rhs[row] += history[row]!;
-      }
-      const next = solveReal(exports, order, matrix, rhs);
-      converged = next.every((value, index) => Math.abs(value - solution[index]!)
-        <= (index < compiled.nodeCount ? request.options?.vntol ?? 1e-6 : request.options?.abstol ?? 1e-12)
-          + (request.options?.reltol ?? DEFAULT_RELTOL) * Math.max(Math.abs(value), Math.abs(solution[index]!)))
-        && !compiled.devices.some(device => device.limitedLastStamp?.());
-      solution = next;
-      if (converged) break;
-    }
-    if (!converged) throw numericError('CONVERGENCE_FAILED', 'The bounded WebAssembly diode transient did not converge', 'solve', {
-      time, maxIterations,
-    });
-    accepted = stampTransientSystem(compiled, order, time, false, solution);
-    addGmin(accepted.conductance, compiled.nodeCount, order, gmin);
-    timeS.push(time);
-    compiled.nodeNames.forEach((name, index) => voltagesV[name]!.push(solution[index]!));
-    compiled.branchNames.forEach((name, index) => currentsA[name]!.push(solution[compiled.nodeCount + index]!));
-  }
+  maxPoints: number,
+): Promise<SimulationResultV1> {
+  const options = request.options;
+  if (request.input.format !== 'spice') unsupported('input-format', 'SPICE text is required');
+  const sim = await createTransientSim(parseTitleless(request.input.source), {
+    abstol: options?.abstol, vntol: options?.vntol, reltol: options?.reltol,
+    maxIterations: options?.maxIterations, maxTransientIterations: options?.maxTransientIterations,
+    gmin: options?.gmin, trtol: options?.trtol,
+    solverFactory: (): SparseSolver => {
+      let analyzed = false;
+      let matrix = new Float64Array(0);
+      let order = 0;
+      return {
+        analyzePattern() { analyzed = true; },
+        isPatternAnalyzed() { return analyzed; },
+        factorize(csc) {
+          order = csc.size;
+          matrix = new Float64Array(order * order);
+          for (let column = 0; column < order; column++) {
+            for (let i = csc.colPtr[column]!; i < csc.colPtr[column + 1]!; i++) {
+              matrix[csc.rowIdx[i]! * order + column] = csc.values[i]!;
+            }
+          }
+        },
+        solve(rhs) { rhs.set(solveReal(exports, order, matrix, rhs)); return rhs; },
+      };
+    },
+  });
+  const timeS: number[] = [];
+  const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
+  const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
+  const resultLimit = options?.limits?.maxResultPoints ?? Infinity;
+  const append = (step: TransientStep): void => {
+    const observed = timeS.length + 1;
+    if (observed > resultLimit) throw resourceLimit('maxResultPoints', resultLimit, observed);
+    if (observed > maxPoints) throw resourceLimit('maxPoints', maxPoints, observed);
+    timeS.push(step.time);
+    for (const [name, value] of step.voltages) voltagesV[name]!.push(value);
+    for (const [name, value] of step.currents) currentsA[name]!.push(value);
+  };
+  try {
+    append(sim.peekInitialStep());
+    while (!sim.isDone) append(sim.advance());
+  } finally { sim.dispose(); }
   const result: SimulationResultV1 = { status: 'complete', analyses: [{ type: 'tran', analysisIndex: 0, timeS, voltagesV, currentsA }] };
   enforceSerializedResultLimit(result, request);
   return result;
@@ -681,7 +669,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   }
   const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D']
+    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q']
       : ['R', 'C', 'L', 'I', 'V'];
   if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
@@ -739,7 +727,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
   const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D']
+    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q']
       : ['R', 'C', 'L', 'I', 'V'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
@@ -748,7 +736,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
-      if (analysis === 'tran' && (mos || bjt)) unsupported('diode-model', 'Only diode models are supported in bounded transients');
+      if (analysis === 'tran' && mos) unsupported('diode-model', 'Only diode and BJT models are supported in bounded transients');
       const parameters = (model[2] ?? model[3] ?? '').trim();
       const names = mos ? 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI' : bjt ? 'IS|BF|BR|NF|NR|VAF' : 'IS|N|RS';
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.

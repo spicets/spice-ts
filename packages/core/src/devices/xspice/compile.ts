@@ -20,15 +20,18 @@ import { registerGainNoise } from './gain-noise.js';
 import { SWITCH_BEHAVIORS } from './switch-models.js';
 import { MAGNETIC_BEHAVIORS } from './magnetic-models.js';
 import { mlin } from './mlin.js';
+import { msopen } from './msopen.js';
 import { cpmlin } from './cpmlin.js';
 import { cpline } from './cpline.js';
 import { REACTIVE_IC_BEHAVIORS } from './reactive-ic-models.js';
 import { zener } from './zener.js';
 import { sidiode } from './sidiode.js';
+import { potentiometer } from './potentiometer.js';
 import { memristor } from './memristor.js';
 import { seegen } from './seegen.js';
 import { resolveSTransfer, STransferDevice } from './s-xfer.js';
 import { xfer } from './xfer.js';
+import { multiInputPwl } from './multi-input-pwl.js';
 import { XSPICE_CODE_MODEL_SPECS, type XspiceParamValue } from './spec.js';
 import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xspice-device.js';
 
@@ -36,7 +39,9 @@ import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xsp
 const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, BehaviorFactory>([
   ['astate', astate],
   ['xfer', xfer],
+  ['multi_input_pwl', multiInputPwl],
   ['mlin', mlin],
+  ['msopen', msopen],
   ['cpmlin', cpmlin],
   ['cpline', cpline],
   ['delay', delay],
@@ -44,6 +49,7 @@ const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, Behavior
   ...XSPICE_BEHAVIORS, ...LIMITER_BEHAVIORS, ...OSCILLATOR_BEHAVIORS, ...SWITCH_BEHAVIORS, ...MAGNETIC_BEHAVIORS, ...OTA_BEHAVIORS,
   ['zener', zener],
   ['sidiode', sidiode],
+  ['potentiometer', potentiometer],
   ['memristor', memristor],
   ['seegen', seegen],
 ]);
@@ -134,6 +140,7 @@ export function prepareXspiceInstance(
   const params = resolveXspiceParams(card.name, model, spec, connections);
   if (model.codeModel === 's_xfer') resolveSTransfer(params);
   if (model.codeModel === 'xfer') xfer(params);
+  if (model.codeModel === 'multi_input_pwl') multiInputPwl(params);
   const nodes: string[] = [];
   const digitalNodes: string[] = [];
   for (const connection of connections) {

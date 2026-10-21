@@ -333,6 +333,15 @@ export class CurrentSwitch extends SwitchBase {
   protected readonly floatHoldsAcceptedState = true;
   protected readonly predictWindowEntry = { fromOn: HYST_OFF, fromOff: HYST_ON } as const;
 
+  /**
+   * CSWtrunc is a complete no-op in ngspice-47. Expose that port so the
+   * driver does not mistake hysteresis history for untruncated charge and
+   * apply node-voltage LTE to an instantaneous conductance change (#1628).
+   */
+  truncateTransientStep(_ctx: StampContext, _truncation: ChargeTruncation): number {
+    return Infinity;
+  }
+
   constructor(
     name: string,
     nodes: number[],

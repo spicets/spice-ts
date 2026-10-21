@@ -38,7 +38,7 @@ import { batchControlPlots, controlPlotAnalyses, runCorpusFSpiceTs, sensitivityS
 import { asPacked, compareInBatches, lazyExecution, PACKED_SAMPLES, packEncoded, samples } from './packed.js';
 import { PACKED_COLUMNS, parseRawLines, parseRawLinesInto } from './raw-stream.js';
 import { parseNgspiceRaw } from '../../comparison-harness.js';
-import { analysisType, OBJECT_SAMPLES, type ClassicCircuit, type EngineExecution } from '../classic/report.js';
+import { analysisType, OBJECT_SAMPLES, runNativeSpiceTs, type ClassicCircuit, type EngineExecution } from '../classic/report.js';
 import { compareExecutions } from '../../aggregate-report.js';
 import { CONTROL_SECTION, controlExportDiagnostics, controlWrapperDeck, hasControlBlock, noReferenceNote, renderControlSection, runControlReference, trackingIssue } from './control-vectors.js';
 
@@ -225,7 +225,7 @@ describe('corpus-f spice-ts child transport', () => {
 describe('corpus-f deck classification', () => {
   it('reads dot-card and control-block analyses but never the title line', () => {
     const deck = '.tran in the title\nV1 1 0 1\n.op\n.AC dec 10 1 1k\n.control\ntran 1n 1u\nsens v(1)\n.endc\n.end\n';
-    assert.deepEqual(declaredAnalyses(deck), { mapped: ['op', 'ac', 'tran'], unmapped: ['sens'] });
+    assert.deepEqual(declaredAnalyses(deck), { mapped: ['op', 'ac', 'tran', 'sens'], unmapped: [] });
     assert.deepEqual(declaredAnalyses('title\n* .tran 1 2\nR1 1 0 1\n.end\n'), { mapped: [], unmapped: [] });
   });
 
@@ -452,6 +452,31 @@ describe('corpus-f committed artifacts', () => {
 });
 
 describe('corpus-f sp/sens plots and streamed references (#694)', () => {
+  for (const mode of ['dc', 'ac'] as const) it(`scores a ${mode} sens control deck through the default batch harness (#1612)`, { skip: !HAS_NGSPICE || !HAS_CORE_DIST }, async () => {
+    const directory = await mkdtemp(resolve(tmpdir(), 'corpus-f-1612-'));
+    try {
+      const bytes = Buffer.from(`sens e2e\ni1 0 1 dc 42m ac 1\nr1 1 0 1k\n.control\nsens v(1) ${mode === 'dc' ? 'dc' : 'ac lin 2 10 20'}\nquit\n.endc\n.end\n`);
+      const localPath = resolve(directory, 'sens-e2e.cir');
+      await writeFile(localPath, bytes);
+      const circuit = { id: 'sens-e2e', sourcePath: 'toy/sens-e2e.cir', localPath, sha256: sha256(bytes), analyses: [], unmappedAnalyses: ['sens'], sameNameAs: [] } as unknown as CorpusFManifest['circuits'][number];
+      const fixture = await runFixture(circuit);
+      assert.equal(fixture.outcome, 'matched', JSON.stringify(fixture));
+      assert.deepEqual(fixture.analyses, ['sens']);
+      assert.deepEqual(fixture.unmappedAnalyses, []);
+      assert.equal(fixture.comparedAnalyses, 1);
+      assert.ok(fixture.comparedSignals >= 5);
+      assert.ok(fixture.worstNormalizedError !== null);
+      assert.deepEqual(declaredAnalyses(bytes.toString()), { mapped: ['sens'], unmapped: [] });
+      assert.equal(analysisType('Sensitivity Analysis'), 'sens');
+      const native = await runNativeSpiceTs(bytes, { ...circuit, analyses: ['sens'] } as unknown as ClassicCircuit);
+      assert.equal(native.status, 'success', native.error);
+      const adapted = await runCorpusFSpiceTs(bytes, { ...circuit, analyses: ['sens'] } as unknown as ClassicCircuit);
+      assert.deepEqual(native.analyses, adapted.analyses);
+      assert.equal(sha256(await readFile(localPath)), sha256(bytes));
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   const RAW = [
     'Title: toy', 'Date: today', 'Plotname: Transient Analysis', 'Flags: real', 'No. Variables: 3', 'No. Points: 3',
     'Variables:', '\t0\ttime\ttime', '\t1\tV(1)\tvoltage', '\t2\ti(v1)\tcurrent', 'Values:',
@@ -592,16 +617,31 @@ describe('corpus-f sp/sens plots and streamed references (#694)', () => {
     }
   });
 
-  it('scores a dot-card .sp deck run from .control against ngspice (identical bytes)', { skip: !HAS_NGSPICE || !HAS_CORE_DIST }, async () => {
+  for (const mode of ['run', 'quit', 'command', 'dot'] as const) it(`scores a ${mode} .sp deck through the default batch harness (identical bytes)`, { skip: !HAS_NGSPICE || !HAS_CORE_DIST }, async () => {
     const directory = await mkdtemp(resolve(tmpdir(), 'corpus-f-694-'));
     try {
-      const bytes = Buffer.from('sp e2e\nV1 in 0 dc 0 ac 1 portnum 1 z0 50\nC1 in 0 1n\nR1 in out 20\nV2 out 0 dc 0 ac 0 portnum 2 z0 50\n.sp lin 5 1e6 1e8\n.control\nrun\n.endc\n.end\n');
+      const analysis = mode === 'command' ? '.control\nsp lin 5 1e6 1e8\n.endc'
+        : `.sp lin 5 1e6 1e8\n${mode === 'dot' ? '' : `.control\nrun\n${mode === 'quit' ? 'quit\n' : ''}.endc`}`;
+      const bytes = Buffer.from(`sp e2e\nV1 in 0 dc 0 ac 1 portnum 1 z0 50\nC1 in 0 1n\nR1 in out 20\nV2 out 0 dc 0 ac 0 portnum 2 z0 50\n${analysis}\n.end\n`);
       const localPath = resolve(directory, 'sp-e2e.cir');
       await writeFile(localPath, bytes);
       const circuit = { id: 'sp-e2e', sourcePath: 'toy/sp-e2e.cir', localPath, sha256: sha256(bytes), analyses: [], unmappedAnalyses: ['sp'], sameNameAs: [] } as unknown as CorpusFManifest['circuits'][number];
-      const fixture = await runFixture({ ...circuit, analyses: scoredPlotTypes(circuit) }, runControlReference);
+      const fixture = await runFixture(circuit);
       assert.equal(fixture.outcome, 'matched', JSON.stringify(fixture));
+      assert.deepEqual(fixture.analyses, ['sp']);
+      assert.deepEqual(fixture.unmappedAnalyses, []);
+      assert.equal(fixture.comparedAnalyses, 1);
+      assert.ok(fixture.worstNormalizedError !== null);
       assert.ok(fixture.comparedSignals >= 12, `S/Y/Z vectors compared, got ${fixture.comparedSignals}`);
+      assert.deepEqual(declaredAnalyses(bytes.toString()), { mapped: ['sp'], unmapped: [] });
+      const native = await runNativeSpiceTs(bytes, { ...circuit, analyses: ['sp'] } as unknown as ClassicCircuit);
+      assert.equal(native.status, 'success', native.error);
+      assert.equal(native.analyses[0].type, 'sp');
+      assert.equal(analysisType(native.analyses[0].plotName), 'sp');
+      if (mode !== 'dot') {
+        const wrapped = await runFixture(circuit, runControlReference);
+        assert.equal(wrapped.outcome, 'matched', JSON.stringify(wrapped));
+      }
       assert.equal(sha256(await readFile(localPath)), sha256(bytes));
     } finally {
       await rm(directory, { recursive: true, force: true });
