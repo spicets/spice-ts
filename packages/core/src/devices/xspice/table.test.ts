@@ -56,8 +56,13 @@ describe('ngspice-47 file-driven lookup tables (#1683)', () => {
     await expect(simulate(tableDeck(2), { resolveInclude: async () => tableData(2).replace('0 1 2 3', '0 1 1 3') }))
       .rejects.toMatchObject({ name: 'InvalidCircuitError', message: expect.stringMatching(/increasing/) });
   });
-  it.skipIf(process.env.NGSPICE_TABLE_REFERENCE !== '1').each([[2, 'affine'], [3, 'affine'], [2, 'quadratic'], [3, 'quadratic']] as const)(
-    'table%dd ngspice-47 DC oracle (%s), including known nonlinear loss', async (dim, shape) => {
+  for (const shape of ['affine', 'quadratic'] as const) {
+    // #1690 tracks the accepted-Newton-iterate discrepancy. Keep the original
+    // quadratic decks, tolerances and all 17 points; an unexpected pass must fail.
+    const reference = it.skipIf(process.env.NGSPICE_TABLE_REFERENCE !== '1');
+    const oracle = shape === 'quadratic' ? reference.fails : reference;
+    oracle.each([2, 3])(
+    `table%dd ngspice-47 DC oracle (${shape})`, async dim => {
     const directory = mkdtempSync(join(tmpdir(), 'spice-table-'));
     try {
       expect(spawnSync('ngspice', ['--version'], { encoding: 'utf8' }).stdout).toMatch(/ngspice-47\b/);
@@ -75,15 +80,7 @@ describe('ngspice-47 file-driven lookup tables (#1683)', () => {
       const errors = points.map((point, i) => Math.abs(sweep.voltage('out')[i] - point[1]) / Math.abs(point[1]));
       const maximum = Math.max(...errors);
       console.log(`table${dim}d ${shape}: points=${points.length} maxRelativeError=${maximum}; ngspice ${ng.stdout.split('\n').filter(line => /iterations/i.test(line)).join('; ')}; spice-ts ${JSON.stringify(result.convergence)}`);
-      if (shape === 'affine') expect(maximum).toBeLessThanOrEqual(1e-9);
-      else {
-        // Keep the failing nonlinear oracle visible: ngspice accepts an
-        // output 2.5mV below the exact interpolant at x=0.5 with defaults.
-        // Do not tune either solver or exclude that point from the metric.
-        expect(maximum).toBeGreaterThan(1e-9);
-        const middle = points.findIndex(point => point[0] === 0.5);
-        expect(sweep.voltage('out')[middle] - points[middle][1]).toBeCloseTo(0.0025, 12);
-      }
+
       // On unit-spaced axes order=3 gives the quadratic x derivative, not
       // the piecewise-linear output slope. Check all Newton input columns.
       const behavior = tableModel(dim, new Map([['__file_data', [tableData(dim)]], ['gain', [0.5]]]));
@@ -92,6 +89,8 @@ describe('ngspice-47 file-driven lookup tables (#1683)', () => {
         outputs: new Float64Array(1), partials: new Float64Array(dim), notConverged() {} };
       behavior.load(call);
       expect([...call.partials]).toEqual(dim === 2 ? [1.125, 1.25] : [1.125, 1.625, 2.125]);
+      expect(maximum).toBeLessThanOrEqual(1e-9);
     } finally { rmSync(directory, { recursive: true, force: true }); }
-  });
+    });
+  }
 });
