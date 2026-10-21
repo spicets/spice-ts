@@ -139,6 +139,37 @@ test('secondary coordinates pair reordered groups rather than their ordinals', (
   assert.deepEqual(compareInBatches(packExecution(execution(own)), packExecution(execution(reference)), 1), compareExecutions(execution(own), execution(reference)));
 });
 
+test('secondary coordinate roundoff retains all mesa11-shaped groups (#1658)', () => {
+  const coordinates = [-1.2000000000000002, -0.8000000000000002, -0.40000000000000013, -1.1102230246251565e-16];
+  const referenceCoordinates = [-1.2, -0.7999999999999999, -0.3999999999999999, 1.1102230246251565e-16];
+  const grid = coordinates.flatMap(() => [0, 1]);
+  const own = plot('dc1', grid, grid);
+  own.series.secondaryGrid = coordinates.flatMap(value => [value, value]);
+  const reference = plot('dc1', grid, grid);
+  reference.series.secondaryGrid = referenceCoordinates.flatMap(value => [value, value]);
+  const comparisons = compareExecutions(execution(own), execution(reference));
+  assert.equal(comparisons[0].metrics.grid.alignedPoints, 8);
+  assert.equal(normalizedSignalErrors(comparisons, pairedReferenceSeries(execution(own), execution(reference))).missing, 0);
+  assert.deepEqual(compareInBatches(packExecution(execution(own)), packExecution(execution(reference)), 1), comparisons);
+});
+
+test('secondary coordinate pairing rejects real offsets and ambiguous roundoff neighbors', () => {
+  for (const [left, right] of [
+    [[1], [1 + 1e-10]],
+    [[0], [Number.EPSILON, -Number.EPSILON]],
+    [[Number.EPSILON, -Number.EPSILON], [0]],
+    [[0, Number.EPSILON], [0, Number.EPSILON]],
+  ]) {
+    const own = plot('dc1', left.flatMap(() => [0, 1]), left.flatMap(() => [0, 1]));
+    own.series.secondaryGrid = left.flatMap(value => [value, value]);
+    const reference = plot('dc1', right.flatMap(() => [0, 1]), right.flatMap(() => [0, 1]));
+    reference.series.secondaryGrid = right.flatMap(value => [value, value]);
+    const metrics = compareExecutions(execution(own), execution(reference))[0].metrics;
+    assert.equal(metrics.grid.alignedPoints, 0);
+    assert.equal(metrics.sweepGroups?.filter(group => group.unmatched).length, left.length + right.length);
+  }
+});
+
 test('unmatched secondary groups cannot masquerade as a match', () => {
   const own = plot('dc1', [0, 1], [0, 1]);
   own.series.secondaryGrid = [0, 0];

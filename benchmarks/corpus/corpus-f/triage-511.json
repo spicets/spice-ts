@@ -17,9 +17,9 @@
   "rootCauses": [
     {
       "id": "mos1-saved-vector-regression",
-      "kind": "simulator",
+      "kind": "fixed",
       "issue": "https://github.com/mfiumara/spice-ts/issues/1578",
-      "summary": "#1572 refresh: mos-test.cir regressed from matched to unsupported saved device vector @mn1[id]; ngspice-47 still succeeds."
+      "summary": "#1578 restored saved device vectors. The #1651 byte-identical rescore matches mos-test.cir at 0.0000423 tran v(out); historical grid diagnostics remain below."
     },
     {
       "id": "mos1-junction-capacitance",
@@ -157,7 +157,7 @@
     {
       "id": "examples-probe-mos-test-cir",
       "issueTable": null,
-      "current": { "outcome": "spice-ts-loss", "worst": null, "signal": null },
+      "current": { "outcome": "matched", "worst": 0.0000423, "signal": "tran v(out)" },
       "rootCauses": ["mos1-saved-vector-regression", "reference-grid-artefact"],
       "evidence": "Capacitance-free inverter (default MOS1, no TOX/CJ, lambda 0, equal KP): v(out) jumps vertically at vin = 2.5 V (t = 5 ns); interpolating ngspice's 135-point grid across it gives 0.176 (spice-ts 3.64 V is the analytic value at vin = 2.33 V). At ngspice points: 0.0023; spice-ts default vs fine-step ngspice (TMAX 0.1 ns): 0.0030 at reference points. On main 3b9c836f (merge of #593 with main after #689 ngspice CKTtrunc step control, #686, #691, #696, #479; not bisected): matched, 0.00811 tran v(out)."
     },
@@ -194,6 +194,7 @@
     "issue": "https://github.com/mfiumara/spice-ts/issues/597",
     "reason": "On the #1439 report refresh (7b445255, measured on 0f2e519c), txl2_3_line (0.0056 tran v(6)) and supply_ramping (3.32e-12 tran v(2)) are matched and leave this list; no root cause is inferred. Ten previously untracked report mismatches are added: monte-carlo/opwien, noise/baker-252-gain, switch_oscillators, transient-noise/noi-sc-tr, various/tmp_noise, vdmos/100W, analog-models2-transient, analog-models4-transient, vswitch-test-lin and mesa11. All remain published losses under #597, including stochastic comparisons (#655) and lost comparison coverage: a below-threshold worst common-signal error alone does not imply a match (mesa11 has worst 0 but only 6 compared signals versus 12 previously, as documented in #1439; the mismatch classification is retained without inferring a root cause). No fixture, tolerance or report classification is changed. Historical additions follow. Newly runnable after prior feature merges, not rows of #511 or mismatches in the imported report. Published losses, root causes not established; follow-up investigation required. adder_bip (completes inside the 120 s bound on 03706cc7, 0.0242) and measure/func-cap (runnable since #647 .measure, 0.5) were added on the 03706cc7 refresh on the same basis. original-examples/analog-models3-transient (runnable since #670 XSPICE hyst, 0.0181 tran v(10)) was added on the b1a1ff58 refresh on the same basis. On the 3b9c836f refresh, res-array (0.000452) and cpl-ibm2 (0.00669) became matches and left this list (not root-caused here), and tests/transmission/cpl3_4_line (no longer fails with timestep too small after a merge after b1a1ff58, not bisected; 0.116 tran v(9)) was added on the same basis. On the 449ce900 refresh (#592), txl1_1_line (0.0036) and cpl3_4_line (2.44e-11) became matches and left this list (not root-caused here), and four decks that had been spice-ts losses became runnable after merges after 3b9c836f (not bisected) and were added on the same basis: transient-noise/shot_ng (1.48 tran v(x1.11), a TRNOISE deck whose realisations are not reproducible, #655), original-examples digital_models (1 tran i(v1)), mixed_io_size (0.208 tran v(4)) and mixed_ref (0.0123 tran v(10)).",
     "fixtures": [
+      "examples-plot-inv-chain-pyplot-cir",
       "examples-ddt-ddt-test1-cir",
       "examples-ddt-ddt-test3-cir",
 
@@ -211,9 +212,7 @@
       "examples-various-tmp-noise-cir",
 
       "examples-xspice-original-examples-analog-models2-transient-deck",
-      "examples-xspice-original-examples-analog-models4-transient-deck",
-
-      "tests-mesa-mesa11-cir"
+      "examples-xspice-original-examples-analog-models4-transient-deck"
     ]
   }
 }

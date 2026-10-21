@@ -66,7 +66,7 @@ describe('bounded MOS1 WASM operating point', () => {
   it.each([
     ['W=10u L=1u M=2', '.op', 'mosfet-form'],
     ['W=10u L=1u IC=1', '.op', 'mosfet-form'],
-    ['W=10u L=1u', '.ac dec 1 1 10', 'device-or-directive'],
+    ['W=10u L=1u M=2', '.ac dec 1 1 10', 'mosfet-form'],
   ])('rejects unsupported instance/analysis %s %s', async (instance, analysis, feature) => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {

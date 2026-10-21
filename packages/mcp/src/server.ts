@@ -1,4 +1,4 @@
-import { Circuit, parseTitleless, mapProtocolErrorV1, simulateProtocolV1, validateProtocolV1 } from '@spice-ts/core';
+import { Circuit, SpiceError, parseTitleless, mapProtocolErrorV1, simulateProtocolV1, validateProtocolV1 } from '@spice-ts/core';
 import { fromCircuitJSON, toCircuitJSON } from '@spice-ts/circuit-json';
 import type { CircuitJSON, ConversionDiagnosticV1 } from '@spice-ts/circuit-json';
 import { commonSchemaV1, sha256CanonicalJson } from '@spice-ts/core/protocol';
@@ -9,11 +9,10 @@ import type {
   PartialAnalysisV1,
   RunMetadataV1,
   SimulationEventV1,
-  SimulationReadDataV1,
+  SimulationReadDataV1 as ProtocolReadDataV1,
   SimulationRequestV1,
   SimulationResultV1,
-  SpiceApiErrorV1,
-  StreamTerminalV1,
+  SpiceApiErrorV1 as ProtocolApiErrorV1,
   SuccessEnvelopeV1,
 } from '@spice-ts/core/protocol';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -1178,13 +1177,20 @@ class StreamStore {
   }
 }
 
+type McpFailedReadV1 = Omit<Extract<ProtocolReadDataV1, { status: 'failed' | 'cancelled' }>, 'terminal'> & {
+  terminal: Omit<Extract<ProtocolReadDataV1, { status: 'failed' | 'cancelled' }>['terminal'], 'error'> & {
+    error: SpiceApiErrorV1;
+  };
+};
+type SimulationReadDataV1 = Exclude<ProtocolReadDataV1, { status: 'failed' | 'cancelled' }> | McpFailedReadV1;
+
 function failureRead(
   jobId: string,
   emitted: SimulationEventV1[],
   error: SpiceApiErrorV1,
   events: SimulationEventV1[] = [],
-): SimulationReadDataV1 {
-  const terminal: StreamTerminalV1 = {
+): McpFailedReadV1 {
+  const terminal: McpFailedReadV1['terminal'] = {
     apiVersion: '1', ok: false, requestId: jobId,
     error,
     diagnostics: [],
@@ -1808,7 +1814,8 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
       : await core.simulateProtocolV1(request);
     parentPort.postMessage({ type: 'result', result });
   } catch (error) {
-    parentPort.postMessage({ type: 'error', error: error && error.code === 'INVALID_REQUEST' && error.details ? error : core.mapProtocolErrorV1(error) });
+    const mapped = error && error.code === 'INVALID_REQUEST' && error.details ? error : core.mapProtocolErrorV1(error);
+    parentPort.postMessage({ type: 'error', error: error instanceof core.SpiceError ? { ...mapped, code: error.code } : mapped });
   }
 });
 `;
@@ -1950,9 +1957,12 @@ function cancelledError(): SpiceApiErrorV1 {
   return apiError('CANCELLED', 'The request was cancelled', 'transport', {});
 }
 
+/** MCP preserves core discriminators in addition to protocol-v1 error categories. */
+type SpiceApiErrorV1 = Omit<ProtocolApiErrorV1, 'code'> & { code: string };
+
 function publicError(error: unknown): SpiceApiErrorV1 {
   const mapped = isApiError(error) ? error : mapProtocolErrorV1(error);
-  return sanitizeError(mapped);
+  return sanitizeError(error instanceof SpiceError ? { ...mapped, code: error.code } : mapped);
 }
 
 function sanitizeError(error: SpiceApiErrorV1): SpiceApiErrorV1 {
