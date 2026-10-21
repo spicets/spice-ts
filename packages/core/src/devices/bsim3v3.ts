@@ -16,7 +16,7 @@ import {
   TERMINAL, chargeParams, createTerminalCharges, evaluateTerminalCharges,
 } from './bsim3v3-charge.js';
 
-/** Reused b3ld.c DC result; consumed immediately by each stamp. */
+/** Scratch for uncached small-signal evaluation (must not overwrite lastDC). */
 const dcScratch = createDCResult();
 /** Reused [gbs, cbs, gbd, cbd] junction buffer. */
 const junctionScratch = new Float64Array(4);
@@ -47,7 +47,7 @@ export class BSIM3v3 implements DeviceModel {
    * physical bias they belong to, so the charge stamp of the same Newton
    * iteration does not repeat the DC evaluation (b3ld.c does both in one load).
    */
-  private readonly lastDC = { valid: false, vgs: 0, vds: 0, vbs: 0, inputs: createChargeInputs() };
+  private readonly lastDC = { valid: false, vgs: 0, vds: 0, vbs: 0, inputs: createChargeInputs(), result: createDCResult() };
   /** Bias of the charges currently held in {@link terminalCharges}. */
   private readonly chargeKey = { valid: false, vgs: 0, vds: 0, vbs: 0 };
 
@@ -266,7 +266,12 @@ export class BSIM3v3 implements DeviceModel {
     }
 
     const lastDC = this.lastDC;
-    const dc = evaluateDC(this.model, this.size, Vgs, Vds, Vbs, dcScratch, lastDC.inputs);
+    // Exact equality only: no tolerance-based bypass or change to the Newton
+    // trajectory. Keep junction limiting and gmin stamping live on every load.
+    // The physical, limited bias also identifies the effective orientation.
+    const reuse = lastDC.valid && lastDC.vgs === vgs && lastDC.vds === vds && lastDC.vbs === vbs;
+    const dc = reuse ? lastDC.result
+      : evaluateDC(this.model, this.size, Vgs, Vds, Vbs, lastDC.result, lastDC.inputs);
     lastDC.valid = true;
     lastDC.vgs = vgs;
     lastDC.vds = vds;
