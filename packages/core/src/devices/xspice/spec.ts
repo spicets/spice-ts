@@ -528,6 +528,13 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('tand', 2e-4), real('rho', .022e-6), real('d', .15e-6),
         ...['model', 'disp', 'tranmodel'].map(name => ({ name, type: 'int' as const, defaultValue: [0], vector: false, nullAllowed: true }))],
     }, {
+      name: 'msopen',
+      connections: [{ name: 'p1', direction: 'inout' as const, defaultType: 'gd', allowedTypes: ['gd'], vector: false, nullAllowed: false }],
+      // ngspice-47 tlines/msopen/ifspec.ifs. Loss parameters are accepted but unused upstream.
+      params: [real('w', 1e-3), real('er', 9.8), real('h', 1e-3), real('t', 35e-6),
+        real('tand', 2e-4), real('rho', .022e-6), real('d', .15e-6),
+        ...['model', 'disp', 'msopen_model'].map(name => ({ name, type: 'int' as const, defaultValue: [0], vector: false, nullAllowed: true }))],
+    }, {
       name: 'cpmlin',
       connections: ['p1', 'p2', 'p3', 'p4', 'p1s', 'p2s', 'p3s', 'p4s'].map((name, i) => ({
         name, direction: i < 4 ? 'inout' as const : 'in' as const,
