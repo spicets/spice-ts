@@ -77,7 +77,7 @@ poly depletion and nonnominal temperature. Run:
 The parity tests read the native oracle and print maximum normalized gate and
 drain branch-current errors. Before this extension the same IGCMOD=1 cards
 throw UnsupportedModelParameterError. IGCMOD=2, nonbaseline RBODYMOD
-and RGATEMOD=3 dynamic analyses remain unsupported; see below for the gate extensions.
+and RGATEMOD=3 transient remain unsupported; see below for the gate extensions.
 
 ### RGATEMOD=2 extension (#1427)
 
@@ -97,9 +97,9 @@ static Newton stamp; charge companions, accepted currents and LTE use GP.
 timepoints with the standard 1%-of-peak bound and no solver/tolerance overrides.
 It also checks GP Jacobians and accepted currents for both polarities and channel
 orientations. RGATEMOD=0/1 retain their existing transient preprocessing and
-known residuals. RGATEMOD=3 AC/transient and RBODYMOD=2 remain structured unsupported errors.
+known residuals. RGATEMOD=3 transient and RBODYMOD=2 remain structured unsupported errors.
 
-### RGATEMOD=3 static extension (#1598)
+### RGATEMOD=3 static and AC extensions (#1598, #1636)
 
 The compiler allocates GP (`M1.gate`) and GM (`M1.midgate`). The constant
 electrode resistor connects GE-GM; native intrinsic `gcrg` connects GM-GP.
@@ -108,11 +108,16 @@ mode 2, without mode 2's series-electrode reduction. Tunneling remains at GP.
 Model and instance selectors, multiplicity, geometry, zero-RSHG fallback,
 reverse operation and the RBODYMOD=1 combination are covered by five identical
 authored MIT decks in `__fixtures__/rgatemod3/`. Their ngspice-47 oracle covers
-five OP cases and 20 DC sweep points, including both internal gate voltages
-and all four terminal currents. Regenerate with `spice-heavy python3
+five OP cases, 20 DC sweep points and 95 AC frequency points (1 kHz to 1 GHz),
+including both internal gate voltages and all four terminal currents. The NMOS
+deck includes nonzero CGBO and nonlinear CGSL/CGDL overlap terms. Regenerate with `spice-heavy python3
 packages/core/src/devices/bsim4/__fixtures__/rgatemod3/generate.py`.
-AC and transient reject with `UNSUPPORTED_MODEL_PARAMETER`: splitting overlap
-charge onto GM is outside this static slice.
+AC follows the `b4acld.c` mode-3 topology: intrinsic capacitances and tunneling
+remain on GP; overlap capacitances use GM bias and connect GM to physical D/S/BP.
+Junction capacitances retain their physical bulk or DB/SB endpoints. The same
+OP/AC component bound applies (relative 1e-6 or absolute 1e-12), with no solver
+or tolerance tuning. Transient still rejects with `UNSUPPORTED_MODEL_PARAMETER`;
+GM charge integration is outside this slice.
 
 ### RGATEMOD=1 extension (#1370)
 
@@ -241,7 +246,7 @@ remaining waveform/current parity work is not solved by charge integration alone
 
 Other unsupported selectors and model paths:
 
-- TRNQSMOD/ACNQSMOD != 0; RDSMOD/RBODYMOD != 0, RGATEMOD=3 dynamic analyses,
+- TRNQSMOD/ACNQSMOD != 0; RDSMOD != 0, RBODYMOD outside 0/1, RGATEMOD=3 transient,
   and positive RSH with given positive NRD/NRS.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,
   MTRLCOMPATMOD, CVCHARGEMOD, GIDLMOD, WPEMOD, FNOIMOD or TNOIMOD selectors.
