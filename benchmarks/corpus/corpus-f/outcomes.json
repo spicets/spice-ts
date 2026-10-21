@@ -44,15 +44,15 @@
       "unsupported": 12
     },
     "spiceTs": {
-      "success": 244,
+      "success": 246,
       "failed": 13,
-      "unsupported": 79
+      "unsupported": 77
     },
     "outcomes": {
-      "matched": 101,
+      "matched": 104,
       "mismatch": 21,
-      "not-compared": 117,
-      "spice-ts-loss": 67,
+      "not-compared": 116,
+      "spice-ts-loss": 65,
       "ngspice-failed": 5,
       "both-failed": 25
     }
@@ -215,16 +215,6 @@
         "examples-cider-diode-pindiode-cir"
       ],
       "issue": "https://github.com/mfiumara/spice-ts/issues/490"
-    },
-    {
-      "bucket": "harness: analysis result not produced or not mapped",
-      "fixtures": 2,
-      "ngspiceSuccess": 2,
-      "ids": [
-        "examples-xspice-transmission-lines-cpline-ac-cir",
-        "examples-xspice-transmission-lines-cpmline-ac-cir"
-      ],
-      "issue": null
     },
     {
       "bucket": "expression: B-source V= and expression functions/operators",
@@ -3459,28 +3449,30 @@
       "sourcePath": "examples/rf/sp/file.cir",
       "sha256": "2cc8b6d32c958f320a1f6b3b47995ef654a46559bb224d16de61a7f198779402",
       "analyses": [
-        "ac"
-      ],
-      "unmappedAnalyses": [
+        "ac",
         "sp"
       ],
+      "unmappedAnalyses": [],
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "ac:71",
+          "sp:71"
+        ]
       },
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "ac:71"
+          "ac:71",
+          "sp:71"
         ]
       },
-      "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedAnalyses": 2,
+      "comparedSignals": 30,
+      "worstNormalizedError": 2.73e-11,
+      "worstSignal": "sp y_1_1",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -10451,27 +10443,29 @@
       "id": "examples-xspice-transmission-lines-cpline-ac-cir",
       "sourcePath": "examples/xspice/transmission_lines/cpline_ac.cir",
       "sha256": "534d96329d92e6257cf63f3f03831aeb1442f5a8df80f7058a9eee7ad928b7e6",
-      "analyses": [],
-      "unmappedAnalyses": [
+      "analyses": [
         "sp"
       ],
+      "unmappedAnalyses": [],
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "sp:100"
+        ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "fixture declares no runnable analysis"
+        "status": "success",
+        "analyses": [
+          "sp:100"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "harness: analysis result not produced or not mapped"
+      "comparedAnalyses": 1,
+      "comparedSignals": 48,
+      "worstNormalizedError": 6.84e-12,
+      "worstSignal": "sp y_1_2",
+      "outcome": "matched",
+      "gapBucket": null
     },
     {
       "id": "examples-xspice-transmission-lines-cpline-tran-cir",
@@ -10503,27 +10497,29 @@
       "id": "examples-xspice-transmission-lines-cpmline-ac-cir",
       "sourcePath": "examples/xspice/transmission_lines/cpmline_ac.cir",
       "sha256": "684c6d1a2bb24b27e1a7dc81f8b3b453aa9b84f57b45225834ed4eeddca1795b",
-      "analyses": [],
-      "unmappedAnalyses": [
+      "analyses": [
         "sp"
       ],
+      "unmappedAnalyses": [],
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "sp:100"
+        ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "fixture declares no runnable analysis"
+        "status": "success",
+        "analyses": [
+          "sp:100"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "harness: analysis result not produced or not mapped"
+      "comparedAnalyses": 1,
+      "comparedSignals": 48,
+      "worstNormalizedError": 6.2e-12,
+      "worstSignal": "sp y_4_3",
+      "outcome": "matched",
+      "gapBucket": null
     },
     {
       "id": "examples-xspice-transmission-lines-mlin-tran-cir",
@@ -13371,5 +13367,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "54216270101f1397d4c3d6d14f7b1934c52d2e77eb071c09153e3ec101fa4bb3"
+  "outcomeSha256": "8ab2ecbd8863a02b073905aa82654d18f1d48e9409176cae54838db7781d97bb"
 }

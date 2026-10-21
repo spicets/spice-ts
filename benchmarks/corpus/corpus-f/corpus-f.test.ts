@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import './metric-performance.test.js';
 import './noise-reference.test.js';
+import './control-sp.test.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';

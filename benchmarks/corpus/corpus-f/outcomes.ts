@@ -61,6 +61,7 @@ import {
   PEAK_FLOOR,
   scrub,
   sig3,
+  scoredPlotTypes,
   VOLTAGE_PEAK_FLOOR,
 } from './lib.js';
 
@@ -235,6 +236,13 @@ export async function runNgspice(input: Buffer, circuit: CorpusFCircuit): Promis
  * changes no outcome.
  */
 export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, select?: ReferenceSelection): Promise<ReferenceRun<PackedExecution>> {
+  // SP plots are retained control plots, not batch -r AC output. Export them by
+  // their real IDs using the same unchanged-deck wrapper as the supplement.
+  if (circuit.analyses.includes('sp') && /^\s*\.control\b/im.test(input.toString('utf8'))) {
+    const { runControlReference } = await import('./control-vectors.js');
+    const run = await runControlReference(input, circuit, select);
+    return { ...run, execution: asPacked(run.execution) };
+  }
   const directory = await mkdtemp(resolve(tmpdir(), 'spice-ts-corpus-f-'));
   const netlistPath = resolve(directory, basename(circuit.localPath));
   const rawPath = resolve(directory, 'output.raw');
@@ -396,6 +404,15 @@ export async function runFixture(
   reference: (input: Buffer, circuit: CorpusFCircuit, select: ReferenceSelection) => Promise<ReferenceRun<EngineExecution | PackedExecution>> = runNgspicePacked,
   options: { fineReference?: boolean } = {},
 ): Promise<FixtureOutcome> {
+  // The ingestion manifest preserves the historical batch-only classification.
+  // Promote SP at execution time now that both adapters compare complex vectors.
+  if (scoredPlotTypes(circuit).includes('sp')) {
+    circuit = {
+      ...circuit,
+      analyses: [...new Set([...circuit.analyses, 'sp'])],
+      unmappedAnalyses: circuit.unmappedAnalyses.filter(type => type !== 'sp'),
+    };
+  }
   const input = await readFile(resolve(circuit.localPath));
   if (sha256(input) !== circuit.sha256) throw new Error(`${circuit.id}: fixture SHA-256 mismatch`);
   // Older manifests predate batch S-parameter/sensitivity support. Promote declarations without
@@ -621,6 +638,7 @@ export function renderMarkdown(report: CorpusFReport): string {
     `- ngspice: \`${report.commands.ngspice}\`. Status success means exit 0 and at least one op/dc/ac/tran/pz/noise/disto plot in the raw file; failed/unsupported is classified from ngspice's own output.`,
     `- spice-ts: \`${report.commands.spiceTs}\`, through the same adapter as the aggregate parity report. A deck whose analyses spice-ts does not return is unsupported.`,
     `- ${report.policy.matchRule}`,
+    '- SP declarations are promoted from the historical manifest at execution time (#1627). ngspice sources the byte-identical fixture through the control export wrapper and writes every retained plot by ID. Complex S/Y/Z vectors are compared directly (real and imaginary parts), with the same 1% metric and generic peak floor. Non-SP analysis detection is unchanged.',
     '- "worst" is that normalised error for the worst signal. ngspice-failed rows are not spice-ts losses but cannot be compared.',
     `- Bounds: ngspice ${NGSPICE_TIMEOUT_MS / 1000} s, spice-ts ${SPICE_TS_TIMEOUT_MS / 1000} s per fixture. The outcome hash excludes ${report.policy.deterministicHashExcludes.join(', ')}: ngspice's TRNOISE and Monte-Carlo decks change their time-point count from run to run even at the default seed.`,
     `- Regenerate: \`${report.commands.generate}\`; verify without writing: \`${report.commands.verify}\`.`,
