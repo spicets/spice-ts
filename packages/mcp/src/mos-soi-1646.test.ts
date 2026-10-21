@@ -18,7 +18,7 @@ describe('B3SOI MCP JSON diagnostics (#1646)', () => {
     expect(result).toMatchObject({
       isError: true,
       structuredContent: { error: {
-        code: 'INVALID_CIRCUIT', phase: 'compile',
+        code: 'UNSUPPORTED_MODEL_LEVEL', phase: 'compile',
         message: expect.stringContaining("MOSFET 'XINV1.M1' (model 'XINV1:CMOSN') uses unsupported model LEVEL=10"),
       } },
     });

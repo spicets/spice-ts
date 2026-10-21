@@ -6,7 +6,15 @@ Bidirectional conversion between tscircuit `circuit-json` documents and the spic
 import { fromCircuitJSON, toCircuitJSON } from '@spice-ts/circuit-json';
 ```
 
-`fromCircuitJSON` supports simple resistors, capacitors, enhancement-mode MOSFETs, BJTs, source ports, source nets, and source traces. PCB, schematic, and CAD elements produce nonfatal `LAYOUT_ONLY` diagnostics. Unsupported simulation elements or parameters produce error diagnostics and no circuit value.
+`fromCircuitJSON` supports simple resistors, capacitors, inductors, diodes/LEDs, DC voltage sources, enhancement-mode MOSFETs, BJTs, source ports, source nets, and source traces. PCB, schematic, and CAD elements produce nonfatal `LAYOUT_ONLY` diagnostics. Unsupported simulation elements or parameters produce error diagnostics and no circuit value.
+
+The `circuit-json` 0.0.525 schema maps `simple_inductor.inductance` (henries) to `L.params.inductance` and `simple_voltage_source.voltage` (volts) to `V.params = { waveform: 'dc', dc: voltage }`. Inductor display/rating metadata does not alter simulation. Numeric simulation values must be finite. Voltage-source waveform fields (including frequency, phase and pulse timing) are unsupported, even when a DC voltage is also present.
+
+`simple_diode` and `simple_led` map to `D.params = { modelName: '' }`, meaning core's default generic diode (`.model DEFAULT D`, IS=1e-14 A, N=1). This is not an LED-specific forward-drop or optical model. LED color/wavelength and custom diode parameters produce `UNSUPPORTED_PARAMETER`, not a silently approximated model. When constructing a core `Circuit`, use the named anode/cathode ports with `addDiode(name, anode, cathode)` (no model name); port names and connectivity are preserved by the adapter. Export uses canonical `simple_diode` for this generic model, including imported LEDs.
+
+The pinned schema's `simple_battery` has capacity but no voltage. It remains `UNSUPPORTED_ELEMENT`; use `simple_voltage_source` with an explicit voltage instead. No battery voltage is inferred from capacity or display text. `simulation_voltage_source` records remain unsupported.
+
+Export supports L, generic D and DC V as well as R/C/M/Q. Custom diode models, AC/time-varying sources and extra simulation parameters produce `LOSSY_EXPORT`; no model or waveform is silently discarded by default.
 
 `toCircuitJSON` refuses any lossy conversion by default. Pass `{ allowLossy: true }` to receive the representable subset; the result remains marked `lossy` and retains the same ordered `LOSSY_EXPORT` diagnostics.
 

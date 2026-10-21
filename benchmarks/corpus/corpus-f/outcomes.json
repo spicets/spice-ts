@@ -44,15 +44,15 @@
       "unsupported": 12
     },
     "spiceTs": {
-      "success": 246,
+      "success": 250,
       "failed": 13,
-      "unsupported": 77
+      "unsupported": 73
     },
     "outcomes": {
-      "matched": 104,
-      "mismatch": 21,
-      "not-compared": 116,
-      "spice-ts-loss": 65,
+      "matched": 106,
+      "mismatch": 20,
+      "not-compared": 119,
+      "spice-ts-loss": 61,
       "ngspice-failed": 5,
       "both-failed": 25
     }
@@ -105,8 +105,8 @@
     },
     {
       "bucket": "parse: other unsupported syntax",
-      "fixtures": 19,
-      "ngspiceSuccess": 12,
+      "fixtures": 18,
+      "ngspiceSuccess": 11,
       "ids": [
         "examples-measure-inv-meas-tran-auto-sp",
         "examples-measure-inv-meas-tran-control-sp",
@@ -116,7 +116,6 @@
         "examples-measure-mos-meas-dc-sp",
         "examples-mos-ro-17-4-cir",
         "examples-mos-ro-meas-cir",
-        "examples-probe-mos-test-cir",
         "examples-various-gain-stage-cir",
         "examples-xspice-d-process-checks-cir",
         "examples-xspice-ghdl-mc-cir",
@@ -127,20 +126,6 @@
         "examples-xspice-original-examples-bad-param-type-deck",
         "examples-xspice-verilator-delay-cir",
         "examples-xspice-verilator-pwm-cir"
-      ],
-      "issue": null
-    },
-    {
-      "bucket": "execution: other failure",
-      "fixtures": 6,
-      "ngspiceSuccess": 1,
-      "ids": [
-        "examples-control-structs-if-test-1-cir",
-        "examples-tclspice-tcl-diffpair-cir",
-        "examples-xspice-original-examples-bad-io-deck",
-        "examples-xspice-transmission-lines-cpline-tran-cir",
-        "tests-general-diffpair-cir",
-        "tests-sensitivity-diffpair-cir"
       ],
       "issue": null
     },
@@ -172,6 +157,19 @@
       "issue": "https://github.com/mfiumara/spice-ts/issues/489"
     },
     {
+      "bucket": "execution: other failure",
+      "fixtures": 5,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "examples-control-structs-if-test-1-cir",
+        "examples-tclspice-tcl-diffpair-cir",
+        "examples-xspice-original-examples-bad-io-deck",
+        "tests-general-diffpair-cir",
+        "tests-sensitivity-diffpair-cir"
+      ],
+      "issue": null
+    },
+    {
       "bucket": "timeout: spice-ts exceeded the 120 s bound",
       "fixtures": 5,
       "ngspiceSuccess": 5,
@@ -185,26 +183,25 @@
       "issue": null
     },
     {
-      "bucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)",
-      "fixtures": 4,
-      "ngspiceSuccess": 2,
-      "ids": [
-        "examples-control-structs-new-check-4-sp",
-        "examples-monte-carlo-mc-ring-sp",
-        "examples-monte-carlo-montecarlo-sp",
-        "tests-regression-misc-resume-1-cir"
-      ],
-      "issue": "https://github.com/mfiumara/spice-ts/issues/488"
-    },
-    {
       "bucket": "convergence",
-      "fixtures": 2,
-      "ngspiceSuccess": 0,
+      "fixtures": 3,
+      "ngspiceSuccess": 1,
       "ids": [
+        "examples-monte-carlo-mc-ring-sp",
         "tests-mesa-mesa-12-cir",
         "tests-mesa-mesa12-cir"
       ],
       "issue": null
+    },
+    {
+      "bucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)",
+      "fixtures": 2,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "examples-control-structs-new-check-4-sp",
+        "tests-regression-misc-resume-1-cir"
+      ],
+      "issue": "https://github.com/mfiumara/spice-ts/issues/488"
     },
     {
       "bucket": "device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP)",
@@ -224,15 +221,6 @@
         "examples-p-to-n-examples-logic-cir"
       ],
       "issue": "https://github.com/mfiumara/spice-ts/issues/495"
-    },
-    {
-      "bucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
-      "fixtures": 1,
-      "ngspiceSuccess": 1,
-      "ids": [
-        "examples-monte-carlo-rand-numb-test-cir"
-      ],
-      "issue": "https://github.com/mfiumara/spice-ts/issues/493"
     },
     {
       "bucket": "model: string-valued model parameters (MFG= and similar)",
@@ -2389,16 +2377,16 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
+        "status": "failed",
         "analyses": [],
-        "firstErrorLine": "Control script error at line 51: unexpected character '$' in 'unitvec(mc_runsp)$ vector for storing measure results at -40dB rising' let halfffts = unitvec(mc_runsp)$ vector for storing measure results at -40dB rising"
+        "firstErrorLine": "Convergence failed: Did not converge in 100 iterations (oscillating nodes: out15, xinv3.4, xinv4.1, xinv4.2)"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
       "outcome": "spice-ts-loss",
-      "gapBucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)"
+      "gapBucket": "convergence"
     },
     {
       "id": "examples-monte-carlo-montecarlo-sp",
@@ -2415,16 +2403,21 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 42: Unsupported .control command 'alter': vector function 'sunif()' is not evaluated by spice-ts alter c1 = unif(1e-09, 0.1)"
+        "status": "success",
+        "analyses": [
+          "ac:533",
+          "ac:533",
+          "ac:533",
+          "ac:533",
+          "ac:533"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 5,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)"
+      "outcome": "not-compared",
+      "gapBucket": null
     },
     {
       "id": "examples-monte-carlo-opwien-sp",
@@ -2481,16 +2474,17 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 19: Unknown function 'agauss' .param myval = agauss(0, 1, 1)"
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 1,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)"
+      "outcome": "not-compared",
+      "gapBucket": null
     },
     {
       "id": "examples-mos-adder-mos-cir",
@@ -3185,16 +3179,35 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Unsupported saved device vector '@mn1[id]'"
+        "status": "success",
+        "analyses": [
+          "tran:135"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax"
+      "comparedAnalyses": 1,
+      "comparedSignals": 2,
+      "worstNormalizedError": 0.0000423,
+      "worstSignal": "tran v(out)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "5e-10"
+        ],
+        "headline": {
+          "worst": 0.0000423,
+          "signal": "v(out)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.165,
+          "signal": "v(out)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.165,
+          "signal": "v(out)"
+        }
+      }
     },
     {
       "id": "examples-probe-probe-i-dev-cir",
@@ -10482,16 +10495,25 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": "XSPICE cpline transient analysis is not supported; supports OP and AC only"
+        "status": "success",
+        "analyses": [
+          "tran:520"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 1,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "execution: other failure"
+      "outcome": "not-compared",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "unavailable",
+        "tmax": [],
+        "reason": "no .tran card outside .control",
+        "headline": null,
+        "spiceTsVsFine": null,
+        "ngspiceDefaultVsFine": null
+      }
     },
     {
       "id": "examples-xspice-transmission-lines-cpmline-ac-cir",
@@ -11526,10 +11548,10 @@
         ]
       },
       "comparedAnalyses": 2,
-      "comparedSignals": 6,
-      "worstNormalizedError": 0,
-      "worstSignal": "op i(vds)",
-      "outcome": "mismatch",
+      "comparedSignals": 12,
+      "worstNormalizedError": 1.3e-15,
+      "worstSignal": "dc i(vgs)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -13367,5 +13389,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "8ab2ecbd8863a02b073905aa82654d18f1d48e9409176cae54838db7781d97bb"
+  "outcomeSha256": "1e2e7cb5f6a87ed6a6e275026c5733ec222891a18b0f53142521cc802563ade7"
 }

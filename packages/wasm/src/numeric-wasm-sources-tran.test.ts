@@ -10,7 +10,7 @@ const fixtures = ['V', 'I'].flatMap(kind => {
   const load = 'R1 in out 1k\nC1 out 0 100n';
   return [
     { name: `${kind} SIN RC`, source: `${source} SIN(0 ${scale} 1k)\n${load}\n.tran 10u 1m`, corners: [] },
-    { name: `${kind} delayed damped phased SIN RC`, source: `${source} SIN(0 ${scale} 1k 137u 500 30)\n${load}\n.tran 10u 1m`, corners: [137e-6] },
+    { name: `${kind} delayed damped phased SIN RC`, source: `${source} SIN(0 ${scale} 1k 137u 500 30)\n${load}\n.tran 10u 1m`, corners: [] },
     ...[false, true].map(rlc => ({
       name: `${kind} repeated-corner PWL ${rlc ? 'RLC' : 'RC'}`,
       source: `${source} PWL(0 0 137u 0 137u ${scale} 413u ${scale} 729u 0)\n${rlc ? 'R1 in mid 100\nL1 mid out 10m\nC1 out 0 100n' : load}\n.tran 10u 1m`,

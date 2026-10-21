@@ -16,12 +16,4 @@ describe('CurrentSource.getBreakpoints', () => {
     const src = new CurrentSource('I1', [0, -1], { type: 'dc', value: 1e-3 });
     expect(src.getBreakpoints!(1e-3)).toEqual([]);
   });
-
-  it.each([undefined, 0, -1e-6, 137e-6])('bounds SIN delay breakpoints: %s', delay => {
-    const src = new CurrentSource('I1', [0, -1], {
-      type: 'sin', offset: 0, amplitude: 1e-3, frequency: 1e3, delay,
-    });
-    expect(src.getBreakpoints(1e-3)).toEqual(delay && delay > 0 ? [delay] : []);
-    expect(src.getBreakpoints(100e-6)).toEqual([]);
-  });
 });

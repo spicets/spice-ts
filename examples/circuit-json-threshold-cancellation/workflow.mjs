@@ -27,9 +27,9 @@ assert.deepEqual(unsupported, {
     {
       severity: 'error',
       code: 'UNSUPPORTED_ELEMENT',
-      message: 'Unsupported simulation-relevant circuit-json element source_component/simple_inductor',
+      message: 'Unsupported simulation-relevant circuit-json element source_component/simple_chip',
       path: '/1',
-      elementId: 'L1',
+      elementId: 'X1',
       simulationRelevant: true,
     },
   ],
