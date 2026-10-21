@@ -1,5 +1,20 @@
 # Benchmark sources
 
+## XSPICE open-collector/emitter buffers (#1682)
+
+The inline `openDeck` netlists in
+`packages/core/src/devices/xspice/d-open.test.ts` are self-authored under the
+project MIT licence, not copied from a third-party circuit. Their opt-in live
+ngspice-47 oracle uses identical input bytes, checks exact digital event times
+and strengths, and compares DAC voltages at every ngspice timepoint.
+Model semantics come from the Public Domain ngspice-47 sources
+[`d_open_c/cfunc.mod`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/xspice/icm/digital/d_open_c/cfunc.mod)
+(lines 95-110, 163-222),
+[`d_open_e/cfunc.mod`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/xspice/icm/digital/d_open_e/cfunc.mod)
+(lines 95-110, 165-223), and their `ifspec.ifs` parameter tables.
+Run with `NGSPICE_OPEN_REFERENCE=1 spice-heavy pnpm -C packages/core exec vitest run src/devices/xspice/d-open.test.ts`.
+These decks use ADC stimuli; file-driven `d_source` is not implemented by this slice.
+
 ## WASM MOS1 transient (#1622)
 
 | Fixture | Source | Licence | Oracle |
