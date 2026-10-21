@@ -118,13 +118,13 @@ describe('circuit-json adapter', () => {
 
   it('rejects unsupported simulation elements and parameters with exact paths', () => {
     const unsupportedElement = fromCircuitJSON([
-      component('L1', 'simple_inductor', { inductance: 1e-3 }),
+      component('X1', 'simple_chip', {}),
     ] as CircuitJson);
     expect(unsupportedElement).toEqual({
       diagnostics: [{
         severity: 'error', code: 'UNSUPPORTED_ELEMENT',
-        message: 'Unsupported simulation-relevant circuit-json element source_component/simple_inductor',
-        path: '/0', elementId: 'L1', simulationRelevant: true,
+        message: 'Unsupported simulation-relevant circuit-json element source_component/simple_chip',
+        path: '/0', elementId: 'X1', simulationRelevant: true,
       }],
       lossy: true,
     });
@@ -196,7 +196,7 @@ describe('circuit-json adapter', () => {
   it('refuses lossy export by default and allowLossy retains identical diagnostics', () => {
     const circuit: CircuitIR = {
       components: [
-        { type: 'L', id: 'L1', name: 'L1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { inductance: 1e-3 } },
+        { type: 'I', id: 'I1', name: 'I1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { waveform: 'dc', dc: 1 } },
         { type: 'R', id: 'R1', name: 'R1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { resistance: 1000, temperatureCoefficient: 0.001 } },
       ],
       nets: ['in'],
