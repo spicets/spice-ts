@@ -35,11 +35,26 @@ describe('spice_convert', () => {
     for (const node of Object.keys(before)) expect(Math.abs(before[node] - after[node])).toBeLessThan(1e-12);
   });
 
-  it.each([
-    { netlist: 'V1 in 0 5\nR1 in 0 1k' },
-    { circuitJson: [{ type: 'source_component', source_component_id: 'V1', ftype: 'simple_voltage_source' }] },
-  ])('returns unsupported-element diagnostics for %j', async args => {
-    expect(await executeTool('spice_convert', args)).toMatchObject({ isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ELEMENT', details: { diagnostics: [expect.objectContaining({ code: 'UNSUPPORTED_ELEMENT', severity: 'error' })] } } } });
+  it('exports a DC voltage source', async () => {
+    const exported = await executeTool('spice_convert', { netlist: 'V1 in 0 5\nR1 in 0 1k' });
+    expect(exported.isError).not.toBe(true);
+    const { circuitJson, diagnostics, lossy } = exported.structuredContent as { circuitJson: unknown[]; diagnostics: unknown[]; lossy: boolean };
+    expect(circuitJson).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'V1', ftype: 'simple_voltage_source', voltage: 5 })]));
+    expect(diagnostics).toEqual([]);
+    expect(lossy).toBe(false);
+  });
+
+  it('returns structured diagnostics for a voltage source missing name and voltage', async () => {
+    expect(await executeTool('spice_convert', { circuitJson: [{ type: 'source_component', source_component_id: 'V1', ftype: 'simple_voltage_source' }] })).toMatchObject({
+      isError: true, structuredContent: { error: { code: 'INVALID_CIRCUIT', details: { diagnostics: [
+        expect.objectContaining({ code: 'UNSUPPORTED_PARAMETER', severity: 'error', path: '/0/name', elementId: 'V1' }),
+        expect.objectContaining({ code: 'UNSUPPORTED_PARAMETER', severity: 'error', path: '/0/voltage', elementId: 'V1' }),
+      ] } } },
+    });
+  });
+
+  it('returns unsupported-element diagnostics for an unsupported chip', async () => {
+    expect(await executeTool('spice_convert', { circuitJson: [{ type: 'source_component', source_component_id: 'X1', name: 'X1', ftype: 'simple_chip' }] })).toMatchObject({ isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ELEMENT', details: { diagnostics: [expect.objectContaining({ code: 'UNSUPPORTED_ELEMENT', severity: 'error', path: '/0', elementId: 'X1' })] } } } });
   });
 
   it.each([{ netlist: '* ' + 'é'.repeat(128) }, { circuitJson: [{ type: 'pcb_component', extra: 'x'.repeat(256) }] }])('bounds input bytes for %j', async args => {
