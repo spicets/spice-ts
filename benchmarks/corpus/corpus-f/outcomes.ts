@@ -6,6 +6,7 @@
  * Usage (from the repository root, after `pnpm build`):
  *   pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts            # regenerate outcomes.json + README.md
  *   pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts --check    # rerun and compare, write nothing
+ *   spice-heavy pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts [--check] --fixture <id> [--fixture <id> ...] # rescore/check only selected rows
  *   pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts --jobs 4   # parallel fixtures (default 6)
  *   pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts --relabel  # recompute buckets/issue links only
  *   pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts --fine-reference [--accept-drift]  # add the #592 column to committed transient rows
@@ -795,6 +796,37 @@ async function main(): Promise<void> {
   }
   process.stderr.write(`corpus-f report${check ? ' --check' : ''}: pid ${process.pid}; stop with: kill ${process.pid}\n`);
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, 'utf8')) as CorpusFManifest;
+  // Repeat --fixture <id> to rescore a bounded slice without rerunning unrelated decks.
+  const selectedIds = argv.flatMap((arg, index) => arg === '--fixture' ? [argv[index + 1]] : []);
+  if (selectedIds.length > 0) {
+    const selected = new Set(selectedIds);
+    for (const id of selected) {
+      if (!manifest.circuits.some(circuit => circuit.id === id)) throw new Error(`unknown fixture ${id}`);
+    }
+    const committed = JSON.parse(await readFile(JSON_PATH, 'utf8')) as CorpusFReport;
+    const fixtures = [...committed.fixtures];
+    for (const id of selected) {
+      const result = await runChild(id, FIXTURE_CHILD_TIMEOUT_MS);
+      if ('error' in result) throw new Error(result.error);
+      const index = fixtures.findIndex(fixture => fixture.id === id);
+      if (index < 0) throw new Error(`fixture absent from committed report: ${id}`);
+      fixtures[index] = result;
+    }
+    const { outcomeSha256: _previous, ...rest } = committed;
+    const base = { ...rest, fixtures, ...summarize(fixtures) };
+    const report = { ...base, outcomeSha256: outcomeDigest(base) };
+    if (check) {
+      if (report.outcomeSha256 !== committed.outcomeSha256) throw new Error('selected corpus-f outcomes differ');
+      if ((await readFile(MARKDOWN_PATH, 'utf8')).split(CONTROL_SECTION)[0].trimEnd() !== renderMarkdown(committed).trimEnd()) {
+        throw new Error('corpus-f README.md differs from the committed report.json');
+      }
+    } else {
+      await writeFile(JSON_PATH, stableReport(report));
+      await writeReadme(report);
+    }
+    process.stderr.write(`corpus-f${check ? ' --check' : ''}: ${selected.size} selected fixtures; outcome ${report.outcomeSha256}\n`);
+    return;
+  }
   const report = await buildReport(manifest, jobs);
   if (check) {
     const committed = JSON.parse(await readFile(JSON_PATH, 'utf8')) as CorpusFReport;
