@@ -165,7 +165,7 @@ describe('bounded numeric WebAssembly backend', () => {
             op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'],
             dc: ['R', 'I', 'V', 'D'],
             tran: ['R', 'C', 'L', 'I', 'V'],
-            ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q'],
+            ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M'],
           },
           fallback: 'reject',
           limits: { maxSystemOrder: 64, maxAcPoints: 1025, maxResultPoints: 4096, memoryPages: 3 },
@@ -1241,7 +1241,7 @@ describe('bounded numeric WebAssembly backend', () => {
     }
   });
 
-  it('bounds AC result points and rejects MOS AC without fallback', async () => {
+  it('bounds AC result points and rejects non-LEVEL=1 MOS AC without fallback', async () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       const limited = await wasm.simulate(request(linCircuits[1].source, {
@@ -1256,7 +1256,7 @@ describe('bounded numeric WebAssembly backend', () => {
       });
 
       const nonlinear = await wasm.simulate(request(
-        'V1 in 0 AC 1\nR1 in out 1k\nM1 out in 0 0 mos\n.model mos NMOS\n.ac dec 3 10 10k',
+        'V1 in 0 AC 1\nR1 in out 1k\nM1 out in 0 0 mos\n.model mos NMOS(LEVEL=2)\n.ac dec 3 10 10k',
       ), { requestId: 'ac-nonlinear' });
       expect(nonlinear).toMatchObject({
         ok: false,

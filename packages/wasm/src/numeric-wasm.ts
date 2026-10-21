@@ -511,7 +511,7 @@ function simulateAc(
   const dynamic = new Float64Array(order * order);
   const rhsReal = new Float64Array(order);
   const rhsImaginary = new Float64Array(order);
-  const operatingPoint = compiled.devices.some(device => ['D', 'Q'].includes(device.name[0]?.toUpperCase() ?? ''))
+  const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''))
     ? solveNonlinearOp(compiled, order, request, exports)
     : new Float64Array(order);
   const context: StampContext = {
@@ -675,7 +675,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M']
-      : ['R', 'C', 'L', 'I', 'V', 'D', 'Q'];
+      : ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M'];
   if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
   }
@@ -733,7 +733,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
   const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
     : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M']
-      : ['R', 'C', 'L', 'I', 'V', 'D', 'Q'];
+      : ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
@@ -741,10 +741,9 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
-      if (analysis === 'ac' && mos) unsupported('nonlinear-model', 'Only bounded diode and BJT models are supported in AC analyses');
       const parameters = (model[2] ?? model[3] ?? '').trim();
       const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI'
-        + (analysis === 'tran' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
+        + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
       const diodeNames = 'IS|N|RS' + (analysis === 'ac' ? '|CJO|CJ0|VJ|M|FC|TT' : '');
       const names = mos ? mosNames : bjt ? 'IS|BF|BR|NF|NR|VAF' : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
@@ -776,7 +775,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (tokens.length !== 5) unsupported('bjt-form', 'BJTs must use name collector base emitter model');
     } else if (type === 'M') {
       const instance = /^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+(.*)$/.exec(card);
-      const instanceNames = analysis === 'tran' ? 'W|L|AD|AS|PD|PS' : 'W|L';
+      const instanceNames = analysis === 'tran' || analysis === 'ac' ? 'W|L|AD|AS|PD|PS' : 'W|L';
       const dimensions = new RegExp(`(?:${instanceNames})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
       if (!instance || instance[1]!.trim().replace(dimensions, '').trim()) {
         unsupported('mosfet-form', `MOSFETs must use name drain gate source bulk model with optional numeric ${instanceNames.replaceAll('|', ', ')} only`);
