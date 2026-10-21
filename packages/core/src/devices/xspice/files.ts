@@ -5,6 +5,7 @@ import { resolveXferData, resolveXferFile } from './xfer.js';
 
 /** Host-owned data loading: reusable by other file-driven code models. */
 export function xspiceFilePath(model: XspiceModelCard): string | undefined {
+  if (model.codeModel === 'd_source') return String(model.params.get('input_file')?.[0] ?? 'source.txt');
   if (model.codeModel === 'table2d' || model.codeModel === 'table3d') {
     return String(model.params.get('file')?.[0] ?? `${model.codeModel === 'table2d' ? '2D' : '3D'}-table-model.txt`);
   }

@@ -1,5 +1,29 @@
 # Benchmark sources
 
+## XSPICE file-driven digital source (#1685)
+
+| Fixture | Source | Licence | Oracle |
+| --- | --- | --- | --- |
+| Inline `deck`/`data` in `packages/core/src/devices/xspice/d-source.test.ts` | Original project-authored source -> open-collector/emitter -> DAC decks and vector files, https://github.com/spicets/spice-ts/issues/1685 | Repository MIT | Live ngspice-47; identical deck and vector bytes, default solver tolerances |
+
+Semantics are independently expressed from the Public Domain ngspice-47
+[`d_source/cfunc.mod`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/xspice/icm/digital/d_source/cfunc.mod):
+token separators 178-210, timing suffixes 379-465, vector tokens and strict
+monotonicity 728-823, initial/terminal behavior and 100ps advance/delay
+scheduling 1084-1191. The
+[`ifspec.ifs`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/xspice/icm/digital/d_source/ifspec.ifs)
+lines 30-63 declare the vector output, `source.txt` default and `input_load`;
+the latter is not used by upstream `cfunc.mod`.
+
+Reproduce: `spice-heavy env NGSPICE_SOURCE_REFERENCE=1 pnpm -C packages/core exec vitest run src/devices/xspice/d-source.test.ts`.
+Four oracle cases cover a time-zero vector and a delayed first vector with
+pull-up/open-collector and pull-down/open-emitter loads. They assert exact
+source and buffer event histories (including strengths), compare DAC voltage
+at every ngspice timestamp by linear interpolation, and report max/RMS absolute
+error and point counts. The unchanged acceptance bound is 1e-6 V; no fixture-
+specific solver settings. Before #1685 these decks reject `d_source` as
+unsupported; this is new bounded correctness coverage, not a speed claim.
+
 ## XSPICE open-collector/emitter buffers (#1682)
 
 The inline `openDeck` netlists in
