@@ -437,7 +437,11 @@ export class ComplexSparseSolver {
 
       const pivRe = wsRe[chosenOrigRow];
       const pivIm = wsIm[chosenOrigRow];
-      const pivMag2 = pivRe * pivRe + pivIm * pivIm;
+      // Smith division avoids squaring the pivot (overflow/underflow and
+      // unnecessary rounding for nearly real small-signal admittances).
+      const realDominant = Math.abs(pivRe) >= Math.abs(pivIm);
+      const ratio = realDominant ? pivIm / pivRe : pivRe / pivIm;
+      const denominator = realDominant ? pivRe + pivIm * ratio : pivIm + pivRe * ratio;
 
       // Record pivot assignment
       pivotOrigRow[j] = chosenOrigRow;
@@ -469,8 +473,7 @@ export class ComplexSparseSolver {
       up++;
 
       // === Step 4: STORE L column j ===
-      // L[i,j] = workspace[origRow] / pivot (complex division)
-      // (a+bi) / (c+di) = ((ac+bd) + (bc-ad)i) / (c^2+d^2)
+      // L[i,j] = workspace[origRow] / pivot using Smith's ratio form.
       // Touched rows whose final value is exactly zero (unpivoted rows that
       // stay out of L, pivoted rows whose column was never applied) are
       // recorded for the pivot-reuse check in refactorWithPivots(), and so is
@@ -499,8 +502,8 @@ export class ComplexSparseSolver {
             lTempOrigRows = this.lTempOrigRows;
           }
           lTempOrigRows[lp] = origRow;
-          lRe[lp] = (aRe * pivRe + aIm * pivIm) / pivMag2;
-          lIm[lp] = (aIm * pivRe - aRe * pivIm) / pivMag2;
+          lRe[lp] = (realDominant ? aRe + aIm * ratio : aRe * ratio + aIm) / denominator;
+          lIm[lp] = (realDominant ? aIm - aRe * ratio : aIm * ratio - aRe) / denominator;
           lp++;
         }
       }
@@ -639,7 +642,11 @@ export class ComplexSparseSolver {
       const pivIm = xIm[j];
       xRe[j] = 0;
       xIm[j] = 0;
-      const pivMag2 = pivRe * pivRe + pivIm * pivIm;
+      // Smith division avoids squaring the pivot (overflow/underflow and
+      // unnecessary rounding for nearly real small-signal admittances).
+      const realDominant = Math.abs(pivRe) >= Math.abs(pivIm);
+      const ratio = realDominant ? pivIm / pivRe : pivRe / pivIm;
+      const denominator = realDominant ? pivRe + pivIm * ratio : pivIm + pivRe * ratio;
       const nat = natPos[j];
       const lStart = lColPtr[j];
       const rankEnd = lStart + pivotRank[j];
@@ -653,8 +660,8 @@ export class ComplexSparseSolver {
         if (aRe === 0 && aIm === 0) return false;
         xRe[row] = 0;
         xIm[row] = 0;
-        lRe[p] = (aRe * pivRe + aIm * pivIm) / pivMag2;
-        lIm[p] = (aIm * pivRe - aRe * pivIm) / pivMag2;
+        lRe[p] = (realDominant ? aRe + aIm * ratio : aRe * ratio + aIm) / denominator;
+        lIm[p] = (realDominant ? aIm - aRe * ratio : aIm * ratio - aRe) / denominator;
         const mag = Math.abs(aRe) + Math.abs(aIm);
         if (mag > maxL) maxL = mag;
         if (p < rankEnd && mag > maxBefore) maxBefore = mag;
@@ -743,9 +750,11 @@ export class ComplexSparseSolver {
       // Complex divide: y[j] / U[j,j]
       const dRe = uRe[uDiagIdx[j]];
       const dIm = uIm[uDiagIdx[j]];
-      const dMag2 = dRe * dRe + dIm * dIm;
-      const zRe = (yRe[j] * dRe + yIm[j] * dIm) / dMag2;
-      const zIm = (yIm[j] * dRe - yRe[j] * dIm) / dMag2;
+      const realDominant = Math.abs(dRe) >= Math.abs(dIm);
+      const ratio = realDominant ? dIm / dRe : dRe / dIm;
+      const denominator = realDominant ? dRe + dIm * ratio : dIm + dRe * ratio;
+      const zRe = (realDominant ? yRe[j] + yIm[j] * ratio : yRe[j] * ratio + yIm[j]) / denominator;
+      const zIm = (realDominant ? yIm[j] - yRe[j] * ratio : yIm[j] * ratio - yRe[j]) / denominator;
       xRe[colPerm[j]] = zRe;
       xIm[colPerm[j]] = zIm;
 

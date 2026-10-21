@@ -7,6 +7,7 @@ const request = (source: string) => ({ apiVersion: '1' as const, input: { format
 describe('bounded diode WASM AC', () => {
   it.each([
     ['junction capacitance and RS', diodeAcSource],
+    ['reverse-biased junction capacitance and RS', diodeAcSource.replace('DC 2', 'DC -2')],
     ['conductance only', diodeAcSource.replace(' RS=10 CJO=20p VJ=0.7 M=0.4 FC=0.5 TT=2n', '')],
     ['no series resistance', diodeAcSource.replace('RS=10 ', '')],
   ])('matches JS magnitude and phase at default options: %s', async (_name, source) => {
