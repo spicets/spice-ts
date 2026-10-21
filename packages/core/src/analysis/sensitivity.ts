@@ -34,6 +34,8 @@ interface ParameterTarget {
 /**
  * Solve the bounded `.sens` slice (primary device values plus the instance
  * multiplier and scale of R, C, L and current sources) by symmetric perturbation.
+ * With zero AC excitation, nonlinear devices may participate in the source
+ * transfer calculation; their model/instance parameter vectors are not exposed.
  */
 export function solveSensitivity(
   compiled: CompiledCircuit,
@@ -109,9 +111,14 @@ function assertSingleACExcitation(compiled: CompiledCircuit): void {
 
 function collectTargets(compiled: CompiledCircuit, mode: 'dc' | 'ac'): ParameterTarget[] {
   const targets: ParameterTarget[] = [];
+  const zeroACResponse = mode === 'ac' && compiled.devices.every(device => {
+    if (!(device instanceof VoltageSource || device instanceof CurrentSource)) return true;
+    const excitation = device.waveform.type === 'ac' ? device.waveform : device.waveform.ac;
+    return (excitation?.magnitude ?? 0) === 0;
+  });
   for (const device of compiled.devices) {
-    const target = parameterTarget(device, mode);
-    if (target && target.value !== 0) targets.push(target);
+    const target = parameterTarget(device, mode, zeroACResponse);
+    if (target && (target.value !== 0 || target.parameter === 'acMagnitude')) targets.push(target);
     targets.push(...scalingTargets(device));
   }
   // Stable sort: within a device the primary value precedes `m` and `scale`.
@@ -167,7 +174,7 @@ function rescaled(base: number, numerator: number, denominator: number): number 
   return numerator === denominator ? base : base * numerator / denominator;
 }
 
-function parameterTarget(device: DeviceModel, mode: 'dc' | 'ac'): ParameterTarget | null {
+function parameterTarget(device: DeviceModel, mode: 'dc' | 'ac', zeroACResponse: boolean): ParameterTarget | null {
   if (device instanceof Resistor) {
     if (mode === 'ac' && device.hasAcResistance) {
       throw unsupported(device, 'AC sensitivity of a resistor with an ac= resistance is not supported');
@@ -187,8 +194,12 @@ function parameterTarget(device: DeviceModel, mode: 'dc' | 'ac'): ParameterTarge
     if (mode === 'ac') {
       const excitation = waveform.type === 'ac' ? waveform : waveform.ac;
       if (!excitation) {
-        const kind = device instanceof VoltageSource ? 'voltage' : 'current';
-        throw unsupported(device, `AC sensitivity requires an AC ${kind}-source waveform`);
+        // Absent AC means zero, not an unavailable source parameter. Perturb only
+        // small-signal magnitude; preserve the original DC/transient waveform.
+        return mutable(device, 'acMagnitude', 0, value => {
+          if (value === 0) delete waveform.ac;
+          else waveform.ac = { magnitude: value, phase: 0 };
+        });
       }
       return mutable(
         device, 'acMagnitude', excitation.magnitude,
@@ -225,6 +236,11 @@ function parameterTarget(device: DeviceModel, mode: 'dc' | 'ac'): ParameterTarge
       controlled[key] = next;
     });
   }
+  // With a zero RHS, device/model parameter derivatives are identically zero:
+  // d(A^-1 b)/dp = -A^-1 (dA/dp) A^-1 b = 0. The bounded result still
+  // exposes only its documented parameter slice, but nonlinear devices may
+  // participate in the linearized source-magnitude transfer calculation.
+  if (zeroACResponse) return null;
   throw unsupported(device, `device type ${device.constructor.name} is outside the bounded slice`);
 }
 

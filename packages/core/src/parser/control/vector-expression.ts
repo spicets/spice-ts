@@ -787,6 +787,20 @@ function evaluateCall(node: Extract<ExpressionNode, { kind: 'call' }>, env: Expr
       if (!arg.im) return scalar(re);
       return complexVector('result', [re], [arg.im.reduce((sum, value) => sum + value, 0) / length]);
     }
+    case 'maximum':
+    case 'minimum': {
+      if (arg.re.length === 0) throw new ExpressionError(`${node.name}() needs at least one element`);
+      // ngspice-47 cmath2.c cx_max/cx_min reduce complex components
+      // independently, unlike vecmax/vecmin which reduce magnitudes.
+      const reduce = (values: Float64Array): number => {
+        let result = values[0];
+        for (let i = 1; i < values.length; i++) {
+          if (node.name === 'maximum' ? values[i] > result : values[i] < result) result = values[i];
+        }
+        return result;
+      };
+      return arg.im ? complexVector('result', [reduce(arg.re)], [reduce(arg.im)]) : scalar(reduce(arg.re));
+    }
     case 'vecmax':
     case 'vecmin': {
       const values = arg.im ? magnitudes(arg) : arg.re;

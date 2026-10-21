@@ -10,6 +10,7 @@ import type { Bsim4LoadInstance, Bsim4LoadSize } from './load-kernel.js';
 /** Polarity-normalized physical D,G,S,B charges and row-major Jacobian. */
 export function evaluateBsim4Charges(p: Bsim4Preprocessed, given: ReadonlySet<Bsim4ModelParameter>, bias: Bsim4Bias,
   junction?: { vbs: number; vbd: number; stamp: (other: number, charge: number, capacitance: number) => void },
+  midgate?: { bias: Bsim4Bias; stamp: (other: number, charge: number, capacitance: number) => void },
 ): { q: number[]; jacobian: Float64Array } {
   if (p.model.capmod !== 2) throw new UnsupportedModelParameterError('', 'capmod', 'BSIM4 transient requires capMod=2');
   if (p.size.ckappas < 0.02 || p.size.ckappad < 0.02) {
@@ -35,6 +36,7 @@ export function evaluateBsim4Charges(p: Bsim4Preprocessed, given: ReadonlySet<Bs
     }
   }
   const pair = (other: number, charge: number, capacitance: number) => {
+    if (midgate) { midgate.stamp(other, charge, capacitance); return; }
     q[1] += charge;
     q[other] -= charge;
     jacobian[5] += capacitance;
@@ -51,9 +53,12 @@ export function evaluateBsim4Charges(p: Bsim4Preprocessed, given: ReadonlySet<Bs
     pair(other, h.nf * ((cgo + t3) * voltage - t3 * (t2 + 0.5 * kappa * (t4 - 1))),
       h.nf * (cgo + t3 - t3 * (1 - 1 / t4) * (0.5 - 0.5 * t0 / t1)));
   };
-  overlap(0, bias.vgs - bias.vds, p.size.cgdo, p.size.cgdl, p.size.ckappad);
-  overlap(2, bias.vgs, p.size.cgso, p.size.cgsl, p.size.ckappas);
-  pair(3, p.size.cgbo * (bias.vgs - bias.vbs), p.size.cgbo);
+  // b4ld.c / b4acld.c: RGATEMOD=3 overlap uses GM bias and GM rows/columns,
+  // independently of intrinsic GP charge and physical junction charge.
+  const overlapBias = midgate?.bias ?? bias;
+  overlap(0, overlapBias.vgs - overlapBias.vds, p.size.cgdo, p.size.cgdl, p.size.ckappad);
+  overlap(2, overlapBias.vgs, p.size.cgso, p.size.cgsl, p.size.ckappas);
+  pair(3, p.size.cgbo * (overlapBias.vgs - overlapBias.vbs), p.size.cgbo);
   // b4ld.c:3947-4128. Junction identities do not swap in reverse mode.
   const dt = p.temperatureK - p.model.tnom;
   for (const [other, v, area, perimeter, caps, phi, grading] of [

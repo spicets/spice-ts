@@ -51,7 +51,7 @@ All guards reuse `UnsupportedModelParameterError`, exported here as
   BINUNIT accepts 1/2; PARAMCHK accepts 0/1. Baselines do not imply noise or
   capacitive support. IGCMOD=1 and IGBMOD=1 additionally support static tunneling.
   RGATEMOD=1 supports the gate-electrode network; RGATEMOD=2 adds intrinsic
-  input resistance. RGATEMOD=3 adds a mid-gate for static OP/DC only (see LOAD.md).
+  input resistance. RGATEMOD=3 adds a mid-gate for OP/DC/AC (see LOAD.md).
   Alternate CAPMOD/PERMOD values conservatively reject.
 - Every explicitly nondefault model stress/WPE parameter in `LAYOUT_DEFAULTS`
   rejects, including L/W/P coefficients. This is conservative even where another
