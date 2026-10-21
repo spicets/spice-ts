@@ -125,16 +125,17 @@ s1 o 0 c 0 sw1 ON
     // the edges between its samples (5.9856e-4, 6.0056e-4] and (1.599e-3, 1.601e-3].
     const [o1Close, o1Open] = crossings(time, o1, 0.5);
     expect(o1Close).toBeGreaterThan(5.9856e-4);
-    expect(o1Close).toBeLessThanOrEqual(6.0056e-4);
+    // Allow floating-point rounding of the ngspice-aligned sample (#1628).
+    expect(o1Close).toBeLessThanOrEqual(6.0056e-4 * (1 + 1e-12));
     expect(o1Open).toBeGreaterThan(1.599e-3);
-    expect(o1Open).toBeLessThanOrEqual(1.601e-3);
+    expect(o1Open).toBeLessThanOrEqual(1.601e-3 * (1 + 1e-12));
 
     // s2 (VH=-0.2) toggles whenever the control enters the window: it closes
     // at 0.8 V rising, (3.9856e-4, 4.0056e-4], and opens at 1.2 V falling,
     // (1.399e-3, 1.401e-3], as in ngspice-47.
     const [o2Close, o2Open] = crossings(time, o2, 1);
     expect(o2Close).toBeGreaterThan(3.9856e-4);
-    expect(o2Close).toBeLessThanOrEqual(4.0056e-4);
+    expect(o2Close).toBeLessThanOrEqual(4.0056e-4 * (1 + 1e-12));
     expect(o2Open).toBeGreaterThan(1.399e-3);
     // Since #621 (CKTtrunc step control) spice-ts samples 1.401e-3 as ngspice
     // does and the interpolated crossing lands on it to within rounding.
@@ -144,7 +145,7 @@ s1 o 0 c 0 sw1 ON
     // with the control falling back to 0 A at 2 ms, stays closed above 0.8 mA.
     const [o3Close] = crossings(time, o3, 0.6);
     expect(o3Close).toBeGreaterThan(5.9856e-4);
-    expect(o3Close).toBeLessThanOrEqual(6.0256e-4);
+    expect(o3Close).toBeLessThanOrEqual(6.0256e-4 * (1 + 1e-12));
 
     // Settled levels at 1 ms.
     expect(at(time, o1, 1e-3)).toBeCloseTo(2 / 10001, 9);
