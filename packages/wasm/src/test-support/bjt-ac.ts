@@ -15,5 +15,5 @@ export const bjtAcFixtures = ['NPN', 'PNP'].flatMap(polarity => {
       name: `${polarity} forward-biased collector-base junction`,
       source: `VCC supply 0 ${sign * 0.1}\nVB bias 0 DC ${sign * 0.8} AC 1\nRC supply collector 1k\nRB bias base 1k\nRE emitter 0 100\nCL collector 0 1n\nQ1 collector base emitter transistor\n${model}\n.ac dec 8 10 100k`,
     },
-  ];
+  ].map(fixture => ({ ...fixture, source: `* ${fixture.name}\n${fixture.source}` }));
 });
