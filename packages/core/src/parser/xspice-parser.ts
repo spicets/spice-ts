@@ -29,6 +29,8 @@ export interface XspiceInstanceCard {
 
 /** A `.model` card of an implemented XSPICE code model with its values typed by the parameter table. */
 export interface XspiceModelCard {
+  /** Host-resolved bytes of a file-driven code model; never a filesystem handle. */
+  readonly fileData?: string;
   readonly name: string;
   /** Lower-case code model name (ngspice Spice_Model_Name). */
   readonly codeModel: string;

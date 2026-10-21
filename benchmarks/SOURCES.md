@@ -2602,6 +2602,29 @@ platform, sample counts, metrics, and cold timings (oracle includes process
 startup/semaphore queueing; TS timing covers simulation). This is bounded
 resistive-network parity evidence, not a general speed claim.
 
+## XSPICE table2d/table3d (#1683)
+
+- Fixtures: original project-authored generators `tableDeck` / `tableData` in
+  `packages/core/src/devices/xspice/table.test.ts`, MIT under repository LICENSE.
+  Each oracle writes identical deck and table bytes for spice-ts and ngspice-47.
+- Reproduce: `NGSPICE_TABLE_REFERENCE=1 pnpm -C packages/core exec vitest run src/devices/xspice/table.test.ts`.
+- Semantic references (GPL-2.0 upstream, consulted, not embedded):
+  https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/table/table2D/cfunc.mod
+  (file layout 533-595, 648-711; clamping/ENO partials/bilinear output 286-377),
+  https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/table/table3D/cfunc.mod
+  (file layout 569-660, 715-784; trilinear output/partials 355-410), and
+  `table/mada/{eno,eno2,eno3}.c` for the ENO numerical contract.
+- Before: both models rejected as unsupported. After: OP/DC/transient run.
+  Affine fixtures: 17 matched DC points each, maximum relative output error 0;
+  ngspice/spice-ts Newton iterations 56/55 for both dimensions.
+- Explicit loss, retained without tolerance changes or discarded points:
+  quadratic fixtures produce maximum relative error 5.800464037123877e-4 (2D)
+  and 4.2345966546693053e-4 (3D), 17 matched points each; iterations 65/64.
+  At x=0.5 ngspice's default-tolerance output is 2.5mV below the exact
+  bilinear/trilinear interpolant. This is not general nonlinear parity at 1e-9.
+  The test reports the full metric and keeps a regression for the discrepancy;
+  it does not count these fixtures as passing the 1e-9 parity threshold.
+
 ## Bounded WASM diode AC (#1637)
 
 See also the bounded BJT AC fixtures (#1653): original project-authored NPN/PNP common-emitter, common-base and forward-biased collector-base junction decks in `packages/wasm/src/test-support/bjt-ac.ts`, MIT under the repository `LICENSE`. Source URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/bjt-ac.ts. After `pnpm build`, reproduce with `spice-heavy pnpm -C packages/wasm exec tsx scripts/bjt-ac-accuracy.ts`. The runner uses identical netlist bytes for JS, WASM and ngspice and records hashes, version, host, point counts, end-to-end request time (not a speed benchmark), matched complex max/RMS relative errors, and rejected/missing signals without hiding losses. No per-circuit tolerance changes.

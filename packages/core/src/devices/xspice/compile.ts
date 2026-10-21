@@ -32,6 +32,7 @@ import { seegen } from './seegen.js';
 import { resolveSTransfer, STransferDevice } from './s-xfer.js';
 import { xfer } from './xfer.js';
 import { multiInputPwl } from './multi-input-pwl.js';
+import { tableModel } from './table.js';
 import { XSPICE_CODE_MODEL_SPECS, type XspiceParamValue } from './spec.js';
 import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xspice-device.js';
 
@@ -39,6 +40,8 @@ import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xsp
 const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, BehaviorFactory>([
   ['astate', astate],
   ['xfer', xfer],
+  ['table2d', params => tableModel(2, params)],
+  ['table3d', params => tableModel(3, params)],
   ['multi_input_pwl', multiInputPwl],
   ['mlin', mlin],
   ['msopen', msopen],
@@ -138,6 +141,7 @@ export function prepareXspiceInstance(
   const spec = XSPICE_CODE_MODEL_SPECS.get(model.codeModel)!;
   const connections = resolveXspiceConnections(card, spec, ground);
   const params = resolveXspiceParams(card.name, model, spec, connections);
+  if (model.fileData !== undefined) params.set('__file_data', [model.fileData]);
   if (model.codeModel === 's_xfer') resolveSTransfer(params);
   if (model.codeModel === 'xfer') xfer(params);
   if (model.codeModel === 'multi_input_pwl') multiInputPwl(params);
