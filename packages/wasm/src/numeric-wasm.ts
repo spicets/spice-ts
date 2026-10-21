@@ -81,8 +81,12 @@ export async function simulateLinearOpWasmV1(
   if (prepared.analysis === 'op') return simulateOp(prepared, request, exports);
   if (prepared.analysis === 'dc') return simulateDc(prepared, request, exports);
   if (prepared.analysis === 'tran') {
-    if (prepared.compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''))) {
-      return simulateNonlinearTransient(prepared, request, exports, maxPoints);
+    if (prepared.compiled.devices.some(device => {
+      const waveform = (device as unknown as Partial<SweepableSource>).waveform;
+      return ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? '')
+        || waveform?.type === 'sin' || waveform?.type === 'pwl';
+    })) {
+      return simulateAdaptiveTransient(prepared, request, exports, maxPoints);
     }
     return simulateTransient(prepared, request, exports);
   }
@@ -384,7 +388,7 @@ function simulateTransient(
 }
 
 /** Shared adaptive driver and device models; every DC/Newton solve stays in WASM. */
-async function simulateNonlinearTransient(
+async function simulateAdaptiveTransient(
   { compiled }: PreparedPassiveTran,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
@@ -815,8 +819,9 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const dc = tokens.length === 5 && tokens[3]?.toUpperCase() === 'DC';
       const pulse = /^\S+\s+\S+\s+\S+\s+PULSE\s*\([^)]*\)\s*$/i.test(card);
       const sin = /^\S+\s+\S+\s+\S+\s+SIN\s*\([^)]*\)\s*$/i.test(card);
-      if (tokens.length !== 4 && !dc && !pulse && !sin) {
-        unsupported('source-waveform', 'Transient sources must use a constant, DC, PULSE, or SIN value');
+      const pwl = /^\S+\s+\S+\s+\S+\s+PWL\s*\([^)]*\)\s*$/i.test(card);
+      if (tokens.length !== 4 && !dc && !pulse && !sin && !pwl) {
+        unsupported('source-waveform', 'Transient sources must use a constant, DC, PULSE, SIN, or PWL value');
       }
     } else if (!validAcSourceTokens(tokens)) {
       unsupported('source-waveform', 'AC sources must use constant, DC, AC, or DC plus AC values');
