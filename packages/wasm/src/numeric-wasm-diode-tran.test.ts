@@ -75,11 +75,11 @@ describe('bounded adaptive-diode WASM transient', () => {
     } finally { await engine.close(); }
   });
 
-  it.each(['CJO=1p', 'TT=1n', 'BV=10', 'IKF=1m'])('rejects unsupported parameter %s', async parameter => {
+  it.each(['CJSW=1p', 'IKF=1m'])('rejects unsupported parameter %s', async parameter => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
       expect(await engine.simulate(request(clamp.replace('N=1)', `N=1 ${parameter})`)), { requestId: 'unsupported' }))
-        .toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', phase: 'validation', details: { feature: 'diode-model-parameter' } } });
+        .toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', phase: 'validation', details: { feature: `diode-model-parameter:${parameter.split('=')[0]}` } } });
     } finally { await engine.close(); }
   });
 
