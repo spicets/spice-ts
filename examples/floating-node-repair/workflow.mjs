@@ -35,6 +35,7 @@ try {
     'spice_sweep',
     'spice_corners',
     'spice_ac_metrics',
+    'spice_power_metrics',
     'spice_tran_metrics',
     'spice_fourier',
     'spice_disto_metrics',
