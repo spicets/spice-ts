@@ -5,6 +5,39 @@ import { ComplexSparseSolver } from './complex-sparse-solver.js';
 import { SingularMatrixError } from '../errors.js';
 
 describe('ComplexSparseSolver', () => {
+  it.each([[2, 1], [1, 2]])('divides large finite pivots without squaring: %s + j%s', (real, imaginary) => {
+    const g = new SparseMatrix(2);
+    const c = new SparseMatrix(2);
+    const coefficients = [[2, 1], [1, 3]];
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 2; col++) {
+        g.add(row, col, coefficients[row][col] * real * 1e200);
+        c.add(row, col, coefficients[row][col] * imaginary * 1e200);
+      }
+    }
+    const gc = toCsc(g).csc, cc = toCsc(c).csc;
+    const solver = new ComplexSparseSolver();
+    solver.analyzePattern(gc, cc);
+    // Second factorization exercises the pivot-reuse division as well.
+    for (const omega of [1, 2]) {
+      solver.factorize(gc, cc, omega);
+      const expectedRe = [1, 2], expectedIm = [1, -1];
+      const br = new Float64Array(2), bi = new Float64Array(2);
+      for (let row = 0; row < 2; row++) {
+        for (let col = 0; col < 2; col++) {
+          const a = coefficients[row][col] * 1e200;
+          br[row] += a * (real * expectedRe[col] - omega * imaginary * expectedIm[col]);
+          bi[row] += a * (real * expectedIm[col] + omega * imaginary * expectedRe[col]);
+        }
+      }
+      const [xr, xi] = solver.solve(br, bi);
+      for (let i = 0; i < 2; i++) {
+        expect(xr[i]).toBeCloseTo(expectedRe[i], 13);
+        expect(xi[i]).toBeCloseTo(expectedIm[i], 13);
+      }
+    }
+  });
+
   it('throws a typed error with structural branch identity on a singular pivot', () => {
     const G = new SparseMatrix(2);
     G.add(0, 0, 1);

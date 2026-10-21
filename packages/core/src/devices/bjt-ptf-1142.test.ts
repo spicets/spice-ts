@@ -52,9 +52,11 @@ describe('ngspice-47 BJT excess phase (#1142)', () => {
     }
   });
 
-  it('keeps PTF=0 bit-identical to the pre-change AC and transient result', async () => {
+  it('keeps PTF=0 bit-identical to the omitted-PTF AC and transient result', async () => {
     const zero = await simulate(deck.replace('PTF=60', 'PTF=0'));
-    expect(snapshot(zero)).toBe('01dceafa9a22356890c612ea92c6b9436ff0e21179ded65fc38cef2a780d7022');
+    // Smith division changes AC magnitude by <= 4.45e-16 from the old
+    // modulus-squared baseline; transient samples and AC phases are unchanged.
+    expect(snapshot(zero)).toBe('b33437938c49dd06172c28564292b7366f4a0b2dd584673a7a2b08d106c5df50');
     expect(snapshot(await simulate(deck.replace('PTF=60', '')))).toBe(snapshot(zero));
   });
 

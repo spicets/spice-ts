@@ -2592,5 +2592,7 @@ resistive-network parity evidence, not a general speed claim.
 - Source: original project-authored diode+RC deck in `packages/wasm/src/test-support/diode-ac.ts`; no third-party material or adaptations.
 - URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/diode-ac.ts
 - Licence: repository MIT (`LICENSE`).
-- Reproduce: `pnpm -C packages/wasm build && pnpm -C packages/wasm exec tsx scripts/diode-ac-accuracy.ts`.
-- The runner supplies identical netlist bytes to WASM, JS and ngspice, recording SHA-256, ngspice version, machine and matched-frequency max/RMS complex relative errors. Default tolerances; no per-engine rewrites, no speed claim. This is one bounded diode AC fixture, not general device parity.
+- Reproduce after `pnpm build`: `spice-heavy pnpm -C packages/wasm exec tsx scripts/diode-ac-accuracy.ts`.
+- The runner supplies identical netlist bytes to WASM, JS and ngspice, recording SHA-256, ngspice version, machine and matched-frequency max/RMS complex relative errors. Default tolerances; no per-engine rewrites, no speed claim. These are two bounded diode AC fixtures, not general device parity.
+- Reverse-bias regression (#1643): the second fixture changes only `DC 2` to `DC -2`. Ratio-based JS complex division reduces maximum JS/WASM magnitude/phase relative difference from `1.0673872101548122e-9` to `7.186977714583678e-12`; forward bias changes from `9.196912374487967e-15` to `2.770800274343219e-16`. Both retain the uniform `1e-9` test bound.
+- Losses: at 29 matched frequencies per fixture against ngspice-47, forward-bias maximum complex relative error remains `2.8587191588933306e-5` (output voltage). Reverse-bias source-current maximum error is unchanged for WASM (`1.1135200312921988e-9`) and worsens for JS from `1.9322872245381283e-10` to `1.1059995372775657e-9`. Closer backend agreement is not improved oracle accuracy; no tolerances are relaxed.
