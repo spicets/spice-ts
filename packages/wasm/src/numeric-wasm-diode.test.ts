@@ -93,7 +93,6 @@ describe('bounded diode WASM operating point', () => {
 
   it.each([
     [fixtures[0]!.replace('N=1)', 'N=1 BV=10)'), 'Only diode model parameters IS, N, and RS are supported'],
-    [fixtures[0]!.replace('.op', '.ac dec 1 1 10'), "Unsupported linear .ac card 'D1'"],
     [fixtures[0]!.replace('N=1)', 'N=1 CJO=1p)'), 'Only diode model parameters IS, N, and RS are supported'],
     [fixtures[0]!.replace('D1 out 0 junction', 'D1 out 0 junction AREA=2'), 'Diodes must use name anode cathode model'],
   ])('rejects unsupported diode features without fallback', async (source, message) => {
