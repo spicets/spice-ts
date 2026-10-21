@@ -25,7 +25,7 @@ function section(heading: string): string {
 
 function emittedCodes(): Set<ConversionDiagnosticV1['code']> {
   const lossyIR: CircuitIR = {
-    components: [{ type: 'I', id: 'I1', name: 'I1', ports: [{ name: 'p', net: 'a' }, { name: 'n', net: '0' }], params: { waveform: 'dc', dc: 1 } }],
+    components: [{ type: 'I', id: 'I1', name: 'I1', ports: [{ name: 'p', net: 'a' }, { name: 'n', net: '0' }], params: { waveform: 'sine', dc: 1 } }],
     nets: ['a'],
   };
   const results = [
@@ -45,6 +45,7 @@ describe('ai-native-api doc matches the circuit-json adapter contract (#514)', (
       ['simple_diode', {}],
       ['simple_led', {}],
       ['simple_voltage_source', { voltage: 5 }],
+      ['simple_current_source', { current: 0.001, wave_shape: 'dc' }],
     ] as const) {
       expect(readme).toContain(ftype);
       expect(fromCircuitJSON([component('device', ftype, fields)] as CircuitJson).diagnostics).toEqual([]);

@@ -88,6 +88,11 @@ const COMPONENT_MAPPING: Record<string, {
     fields: ['voltage'],
     params: element => ({ waveform: 'dc', dc: element.voltage as number }),
   },
+  simple_current_source: {
+    type: 'I',
+    fields: ['current', 'wave_shape'],
+    params: element => ({ waveform: 'dc', dc: element.current as number }),
+  },
   simple_mosfet: {
     type: 'M',
     fields: ['channel_type', 'mosfet_mode'],
@@ -107,6 +112,7 @@ const REQUIRED_FIELDS: Record<string, readonly string[]> = {
   simple_diode: [],
   simple_led: [],
   simple_voltage_source: ['voltage'],
+  simple_current_source: ['current'],
   simple_mosfet: ['channel_type', 'mosfet_mode'],
   simple_transistor: ['transistor_type'],
 };
@@ -295,6 +301,19 @@ export function fromCircuitJSON(circuitJSON: CircuitJson): ConversionResultV1<Ci
     if (element.type === 'source_component') {
       const ftype = typeof element.ftype === 'string' ? element.ftype : '';
       const mapping = COMPONENT_MAPPING[ftype];
+      if (ftype === 'simple_current_source' && (
+        !isFiniteNumber(element.current)
+        || (element.wave_shape !== undefined && element.wave_shape !== 'dc')
+        || Object.keys(element).some(key => !COMPONENT_FIELDS.has(key) && !mapping.fields.includes(key))
+      )) {
+        diagnostics.push(importDiagnostic(
+          'UNSUPPORTED_ELEMENT',
+          'simple_current_source requires a finite current in amperes and only supports DC without waveform parameters',
+          path,
+          element,
+        ));
+        return;
+      }
       if (!mapping) {
         diagnostics.push(importDiagnostic(
           'UNSUPPORTED_ELEMENT',
@@ -563,12 +582,13 @@ function mapExportComponent(
       }
       break;
     case 'V':
-      ftype = 'simple_voltage_source';
-      fields = { voltage: component.params.dc };
+    case 'I':
+      ftype = component.type === 'V' ? 'simple_voltage_source' : 'simple_current_source';
+      fields = component.type === 'V' ? { voltage: component.params.dc } : { current: component.params.dc, wave_shape: 'dc' };
       allowedParams = ['waveform', 'dc'];
       if (component.params.waveform !== 'dc' || !isFiniteNumber(component.params.dc)) {
         diagnostics.push(exportDiagnostic(
-          `Only a finite DC voltage source on ${component.id} can be represented in circuit-json`,
+          `Only a finite DC ${component.type === 'V' ? 'voltage' : 'current'} source on ${component.id} can be represented in circuit-json`,
           `/components/${index}/params/${component.params.waveform !== 'dc' ? 'waveform' : 'dc'}`, component,
         ));
         return undefined;
