@@ -511,7 +511,7 @@ function simulateAc(
   const dynamic = new Float64Array(order * order);
   const rhsReal = new Float64Array(order);
   const rhsImaginary = new Float64Array(order);
-  const operatingPoint = compiled.devices.some(device => device.name[0]?.toUpperCase() === 'D')
+  const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''))
     ? solveNonlinearOp(compiled, order, request, exports)
     : new Float64Array(order);
   const context: StampContext = {
@@ -665,22 +665,21 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   if (analysis === 'dc') validateDcControls(analyses[0]!);
   if (analysis === 'tran') validateTransientControls(analyses[0]!, request);
   validateCards(cards, analysis);
-  const normalizedCards = analysis === 'op' ? normalizeAndValidateCurrentControlledSources(cards) : cards;
+  const normalizedCards = normalizeAndValidateCurrentControlledSources(cards);
   const circuit = parseTitleless(normalizedCards.join('\n'));
   const compiled = circuit.compile();
   if (compiled.steps.length > 0 || compiled.poleZeroAnalyses.length > 0
     || compiled.analyses.length !== 1 || compiled.analyses[0]?.type !== analysis) {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
-  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M']
-      : ['R', 'C', 'L', 'I', 'V', 'D'];
+  const devices = analysis === 'op' || analysis === 'dc'
+    ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    : ['R', 'C', 'L', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
   if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
   }
-  if (analysis === 'op') validateControlledSourceValues(compiled);
-  else validatePassiveValues(compiled);
+  validateControlledSourceValues(compiled);
+  if (analysis !== 'op') validatePassiveValues(compiled);
   const order = compiled.nodeCount + compiled.branchCount;
   if (order < 1) throw numericError('INVALID_CIRCUIT', 'The circuit has no numeric unknowns', 'compile');
   if (order > NUMERIC_WASM_LIMITS.maxSystemOrder) {
@@ -730,10 +729,9 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 }
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
-  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M']
-      : ['R', 'C', 'L', 'I', 'V', 'D'];
+  const allowedDevices = analysis === 'op' || analysis === 'dc'
+    ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    : ['R', 'C', 'L', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
@@ -741,12 +739,11 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
-      if (analysis === 'ac' && (mos || bjt)) unsupported('nonlinear-model', 'Only bounded diode models are supported in AC analyses');
       const parameters = (model[2] ?? model[3] ?? '').trim();
       const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI'
-        + (analysis === 'tran' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
+        + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
       const diodeNames = 'IS|N|RS' + (analysis === 'ac' ? '|CJO|CJ0|VJ|M|FC|TT' : '');
-      const names = mos ? mosNames : bjt ? 'IS|BF|BR|NF|NR|VAF' : diodeNames;
+      const names = mos ? mosNames : bjt ? 'IS|BF|BR|NF|NR|VAF|RC|RE' : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
       if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
         unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
@@ -755,7 +752,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
 
       if (parameters.replace(parameter, '').trim()) {
         if (mos) unsupported('mosfet-model-parameter', `Only MOS1 model parameters ${mosNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
-        if (bjt) unsupported('bjt-model-parameter', 'Only BJT model parameters IS, BF, BR, NF, NR, and VAF are supported');
+        if (bjt) unsupported('bjt-model-parameter', 'Only BJT model parameters IS, BF, BR, NF, NR, VAF, RC, and RE are supported');
         unsupported('diode-model-parameter', analysis === 'ac'
           ? `Only diode model parameters ${diodeNames.replaceAll('|', ', ')} are supported`
           : 'Only diode model parameters IS, N, and RS are supported');
@@ -776,7 +773,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (tokens.length !== 5) unsupported('bjt-form', 'BJTs must use name collector base emitter model');
     } else if (type === 'M') {
       const instance = /^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+(.*)$/.exec(card);
-      const instanceNames = analysis === 'tran' ? 'W|L|AD|AS|PD|PS' : 'W|L';
+      const instanceNames = analysis === 'tran' || analysis === 'ac' ? 'W|L|AD|AS|PD|PS' : 'W|L';
       const dimensions = new RegExp(`(?:${instanceNames})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
       if (!instance || instance[1]!.trim().replace(dimensions, '').trim()) {
         unsupported('mosfet-form', `MOSFETs must use name drain gate source bulk model with optional numeric ${instanceNames.replaceAll('|', ', ')} only`);
@@ -793,20 +790,20 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
         unsupported('passive-form', 'Passive devices must use name positive negative value');
       }
     } else if (type === 'G') {
-      if (tokens.length !== 6) {
+      if (tokens.length !== 6 || !SPICE_NUMBER.test(tokens[5]!)) {
         unsupported('vccs-form', 'VCCS devices must use name out+ out- control+ control- transconductance');
       }
     } else if (type === 'F') {
-      if (tokens.length !== 5) {
+      if (tokens.length !== 5 || !SPICE_NUMBER.test(tokens[4]!)) {
         unsupported('cccs-form', 'CCCS devices must use name out+ out- controlling-voltage-source current-gain');
       }
     } else if (type === 'E') {
       const behavioral = /^\S+\s+\S+\s+\S+\s+VALUE\s*=/i.test(card);
-      if (tokens.length !== 6 || behavioral) {
+      if (tokens.length !== 6 || behavioral || !SPICE_NUMBER.test(tokens[5]!)) {
         unsupported('vcvs-form', 'VCVS devices must use name out+ out- control+ control- voltage-gain');
       }
     } else if (type === 'H') {
-      if (tokens.length !== 5) {
+      if (tokens.length !== 5 || !SPICE_NUMBER.test(tokens[4]!)) {
         unsupported('ccvs-form', 'CCVS devices must use name out+ out- controlling-voltage-source transresistance');
       }
     } else if (analysis === 'op' || analysis === 'dc') {

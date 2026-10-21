@@ -6,11 +6,11 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `26d5148ef8cf15ff6d8d2c2356d02cd995ca1401860c99c2e88ae274d350e2ca`.
+- Fixtures: 336. Outcome SHA-256: `d76e0240028bffc0da342b50c32b2f7e311cb80d859bd250e4f84311dd695868`.
 - ngspice (ngspice-47): 310 success, 15 failed, 11 unsupported.
 - spice-ts (0.4.0): 248 success, 15 failed, 73 unsupported.
-- Outcomes: matched 127, mismatch 18, not-compared 99, spice-ts-loss 66, ngspice-failed 4, both-failed 22.
-- Of the 310 decks ngspice runs successfully, spice-ts matches 127, mismatches 18, produces no comparable result for 99 and fails 66. For 112 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
+- Outcomes: matched 128, mismatch 17, not-compared 99, spice-ts-loss 66, ngspice-failed 4, both-failed 22.
+- Of the 310 decks ngspice runs successfully, spice-ts matches 128, mismatches 17, produces no comparable result for 99 and fails 66. For 112 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
 
@@ -337,7 +337,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [tests/mes/subth.cir](fixtures/tests/mes/subth.cir) | success | success | matched | 3.59e-8 | dc i(vds) |  |
 | [tests/mesa/mesa-12.cir](fixtures/tests/mesa/mesa-12.cir) | failed | failed | both-failed |  |  | ngspice: ngspice exceeded the 600000 ms bound / spice-ts: Convergence failed: Did not converge in 100 iterations (oscillating nodes: 3, z1.rd, z1.rs) |
 | [tests/mesa/mesa.cir](fixtures/tests/mesa/mesa.cir) | success | success | matched | 0.000125 | dc i(vin) |  |
-| [tests/mesa/mesa11.cir](fixtures/tests/mesa/mesa11.cir) | success | success | mismatch | 0 | op i(vds) |  |
+| [tests/mesa/mesa11.cir](fixtures/tests/mesa/mesa11.cir) | success | success | matched | 1.3e-15 | dc i(vgs) |  |
 | [tests/mesa/mesa12.cir](fixtures/tests/mesa/mesa12.cir) | failed | failed | both-failed |  |  | ngspice: ngspice exceeded the 600000 ms bound / spice-ts: Convergence failed: Did not converge in 100 iterations (oscillating nodes: 3, z1.rd, z1.rs) |
 | [tests/mesa/mesa13.cir](fixtures/tests/mesa/mesa13.cir) | success | success | matched | 0.000362 | dc i(vgs) |  |
 | [tests/mesa/mesa14.cir](fixtures/tests/mesa/mesa14.cir) | success | success | matched | 0.0000564 | dc i(vdd) |  |

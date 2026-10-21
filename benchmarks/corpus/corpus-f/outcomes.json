@@ -49,8 +49,8 @@
       "unsupported": 73
     },
     "outcomes": {
-      "matched": 127,
-      "mismatch": 18,
+      "matched": 128,
+      "mismatch": 17,
       "not-compared": 99,
       "spice-ts-loss": 66,
       "ngspice-failed": 4,
@@ -11547,10 +11547,10 @@
         ]
       },
       "comparedAnalyses": 2,
-      "comparedSignals": 6,
-      "worstNormalizedError": 0,
-      "worstSignal": "op i(vds)",
-      "outcome": "mismatch",
+      "comparedSignals": 12,
+      "worstNormalizedError": 1.3e-15,
+      "worstSignal": "dc i(vgs)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -13409,5 +13409,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "26d5148ef8cf15ff6d8d2c2356d02cd995ca1401860c99c2e88ae274d350e2ca"
+  "outcomeSha256": "d76e0240028bffc0da342b50c32b2f7e311cb80d859bd250e4f84311dd695868"
 }
