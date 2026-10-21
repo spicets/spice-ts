@@ -6,17 +6,18 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `dc0d11517a5707054bdc604b2587c263f54b9df0d2bcdeb88a775c4753e12bd4`.
+- Fixtures: 336. Outcome SHA-256: `6d7cb88693c099818b0fa8d057405a4982fa51a840f04a0f7cd065fbb1afe527`.
 - ngspice (ngspice-47): 306 success, 18 failed, 12 unsupported.
-- spice-ts (0.4.0): 233 success, 13 failed, 90 unsupported.
-- Outcomes: matched 92, mismatch 20, not-compared 116, spice-ts-loss 78, ngspice-failed 5, both-failed 25.
-- Of the 306 decks ngspice runs successfully, spice-ts matches 92, mismatches 20, produces no comparable result for 116 and fails 78. For 145 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
+- spice-ts (0.4.0): 240 success, 13 failed, 83 unsupported.
+- Outcomes: matched 100, mismatch 20, not-compared 115, spice-ts-loss 71, ngspice-failed 5, both-failed 25.
+- Of the 306 decks ngspice runs successfully, spice-ts matches 100, mismatches 20, produces no comparable result for 115 and fails 71. For 137 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
 
 - ngspice: `ngspice -b -r <raw> <identical-fixture> (HOME=<tmp> with .spiceinit "set filetype=ascii")`. Status success means exit 0 and at least one op/dc/ac/tran/pz/noise/disto plot in the raw file; failed/unsupported is classified from ngspice's own output.
 - spice-ts: `@spice-ts/core simulate(<identical-fixture>) in a bounded child process (no parse() pre-check)`, through the same adapter as the aggregate parity report. A deck whose analyses spice-ts does not return is unsupported.
 - matched = both engines succeed, every spice-ts analysis has an ngspice counterpart, and for every common signal max|spice-ts - ngspice| <= 0.01 x max(peak |ngspice signal|, floor). The floor is uniform per quantity (#593): 0.0001 V for node voltages v(...) and 1e-10 A for branch currents i(...), so a signal whose ngspice peak is zero or tiny matches when the absolute difference is at most the ngspice-47 default VNTOL (0.000001 V) or ABSTOL (1e-12 A); every other quantity (pole/zero roots, noise spectra) keeps 1e-12. Deck .options tolerances are not consulted. Errors are taken at spice-ts points with ngspice interpolated (transient breakpoint alignment as in the aggregate report).
+- SP declarations are promoted from the historical manifest at execution time (#1627). ngspice sources the byte-identical fixture through the control export wrapper and writes every retained plot by ID. Complex S/Y/Z vectors are compared directly (real and imaginary parts), with the same 1% metric and generic peak floor. Non-SP analysis detection is unchanged.
 - "worst" is that normalised error for the worst signal. ngspice-failed rows are not spice-ts losses but cannot be compared.
 - Bounds: ngspice 600 s, spice-ts 120 s per fixture. The outcome hash excludes environment, tools.node, ngspice.analyses, spiceTs.analyses: ngspice's TRNOISE and Monte-Carlo decks change their time-point count from run to run even at the default seed.
 - Regenerate: `pnpm build && pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts`; verify without writing: `pnpm exec tsx benchmarks/corpus/corpus-f/outcomes.ts --check`.
@@ -45,12 +46,12 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 |---|---|---|---|
 | model: CIDER numerical device models (NUMD/NUMOS/NBJT) | 37 | 37 | https://github.com/mfiumara/spice-ts/issues/497 |
 | parse: other unsupported syntax | 19 | 12 | none filed |
-| harness: analysis result not produced or not mapped | 11 | 11 | none filed |
 | control: ngspice control-language scripting (set/let/save/foreach/meas/...) | 6 | 4 | https://github.com/mfiumara/spice-ts/issues/488 |
 | execution: other failure | 6 | 1 | none filed |
 | model: VDMOS power MOSFET | 6 | 0 | https://github.com/mfiumara/spice-ts/issues/506 |
 | control: analysis commands inside .control (tran/dc/op/ac/...) | 5 | 5 | https://github.com/mfiumara/spice-ts/issues/489 |
 | timeout: spice-ts exceeded the 120 s bound | 5 | 5 | none filed |
+| harness: analysis result not produced or not mapped | 4 | 4 | none filed |
 | convergence | 2 | 0 | none: ngspice also fails every fixture in this bucket |
 | device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP) | 2 | 2 | https://github.com/mfiumara/spice-ts/issues/490 |
 | expression: B-source V= and expression functions/operators | 1 | 0 | https://github.com/mfiumara/spice-ts/issues/495 |
@@ -165,12 +166,12 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/rf/pss/ring_osc_pss_ctrl.cir](fixtures/examples/rf/pss/ring_osc_pss_ctrl.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Parse error at line 36: Unsupported .control command 'pss': periodic steady-state analysis is not implemented; spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod/alterparam, reset/mc_source, |
 | [examples/rf/pss/vackar_osc_pss_ctrl.cir](fixtures/examples/rf/pss/vackar_osc_pss_ctrl.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Parse error at line 29: Unsupported .control command 'pss': periodic steady-state analysis is not implemented; spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod/alterparam, reset/mc_source, |
 | [examples/rf/pss/vdp_osc_pss_ctrl.cir](fixtures/examples/rf/pss/vdp_osc_pss_ctrl.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Parse error at line 29: Unsupported .control command 'pss': periodic steady-state analysis is not implemented; spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod/alterparam, reset/mc_source, |
-| [examples/rf/sp/file.cir](fixtures/examples/rf/sp/file.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
-| [examples/rf/sp/sp1.cir](fixtures/examples/rf/sp/sp1.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
-| [examples/rf/sp/sp2.cir](fixtures/examples/rf/sp/sp2.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
-| [examples/rf/sp/sp3.cir](fixtures/examples/rf/sp/sp3.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
-| [examples/rf/sp/sp4.cir](fixtures/examples/rf/sp/sp4.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
-| [examples/rf/sp/Tschebyschef-LP.cir](fixtures/examples/rf/sp/Tschebyschef-LP.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
+| [examples/rf/sp/file.cir](fixtures/examples/rf/sp/file.cir) | success | success | matched | 2.73e-11 | sp y_1_1 |  |
+| [examples/rf/sp/sp1.cir](fixtures/examples/rf/sp/sp1.cir) | success | success | matched | 5.44e-14 | sp sopt |  |
+| [examples/rf/sp/sp2.cir](fixtures/examples/rf/sp/sp2.cir) | success | success | matched | 4.08e-11 | sp z_1_1 |  |
+| [examples/rf/sp/sp3.cir](fixtures/examples/rf/sp/sp3.cir) | success | success | matched | 4.08e-11 | sp z_1_1 |  |
+| [examples/rf/sp/sp4.cir](fixtures/examples/rf/sp/sp4.cir) | success | success | matched | 0.0000426 | sp y_1_2 |  |
+| [examples/rf/sp/Tschebyschef-LP.cir](fixtures/examples/rf/sp/Tschebyschef-LP.cir) | success | success | matched | 1.22e-13 | sp z_1_1 |  |
 | [examples/shared/t.cir](fixtures/examples/shared/t.cir) | unsupported | unsupported | both-failed |  |  | ngspice: Error on line 14 or its substitute: / spice-ts: Parse error at line 14: Unsupported source waveform 'EXTERNAL': ngspice-47 accepts EXTERNAL only in its shared-library build, where the host supplies the value through a callback; the ngspice executable rejects it as an unknown parameter ve |
 | [examples/snapshot/adder_mos_circ.cir](fixtures/examples/snapshot/adder_mos_circ.cir) | success | success | mismatch | 0.0451 | tran i(vcc) |  |
 | [examples/soa/bjt-soa.cir](fixtures/examples/soa/bjt-soa.cir) | unsupported | unsupported | both-failed |  |  | ngspice: Error in netlist line no. 9, new internal line no. 11: / spice-ts: Parse error at line 11: Cannot parse number: 'SIEMENS' .MODEL MPSA92 PNP(IS=9.53E-14 ISE=8.37E-13 ISC=9.99E-11 XTI=3.00 BF=9.80E1 BR=4.78 IKF=3.49E-2 IKR=1.00 XTB=1.5 VAF=2.60E2 VAR=1.40E2 VJE=3.00E-1 VJC=3.00E-1 RE=1.00E-2 RC=1.00E-2 RB=2. |
@@ -307,9 +308,9 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/see/seegen_cm1.cir](fixtures/examples/xspice/see/seegen_cm1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/xspice/see/set1.cir](fixtures/examples/xspice/see/set1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/xspice/table/table-generator-q-2d.sp](fixtures/examples/xspice/table/table-generator-q-2d.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
-| [examples/xspice/transmission_lines/cpline_ac.cir](fixtures/examples/xspice/transmission_lines/cpline_ac.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
+| [examples/xspice/transmission_lines/cpline_ac.cir](fixtures/examples/xspice/transmission_lines/cpline_ac.cir) | success | success | matched | 6.84e-12 | sp y_1_2 |  |
 | [examples/xspice/transmission_lines/cpline_tran.cir](fixtures/examples/xspice/transmission_lines/cpline_tran.cir) | success | failed | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: XSPICE cpline transient analysis is not supported; supports OP and AC only |
-| [examples/xspice/transmission_lines/cpmline_ac.cir](fixtures/examples/xspice/transmission_lines/cpmline_ac.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
+| [examples/xspice/transmission_lines/cpmline_ac.cir](fixtures/examples/xspice/transmission_lines/cpmline_ac.cir) | success | success | matched | 6.2e-12 | sp y_4_3 |  |
 | [examples/xspice/transmission_lines/mlin_tran.cir](fixtures/examples/xspice/transmission_lines/mlin_tran.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/xspice/transmission_lines/mlin.cir](fixtures/examples/xspice/transmission_lines/mlin.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/xspice/various/analog_models1_transient.sp](fixtures/examples/xspice/various/analog_models1_transient.sp) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
