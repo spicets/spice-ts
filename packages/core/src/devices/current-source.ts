@@ -127,6 +127,10 @@ export class CurrentSource implements DeviceModel {
   }
 
   getBreakpoints(stopTime: number): number[] {
+    if (this.waveform.type === 'sin') {
+      const delay = this.waveform.delay ?? 0;
+      return delay > 0 && delay <= stopTime ? [delay] : [];
+    }
     if (this.waveform.type === 'pulse') {
       return initialPulseBreakpoints(effectivePulse(this.waveform, this.transientTimestep), stopTime, this.transientTimestep);
     }

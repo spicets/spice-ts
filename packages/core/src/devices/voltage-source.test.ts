@@ -150,10 +150,19 @@ describe('VoltageSource.getBreakpoints', () => {
     expect(src.getBreakpoints!(1e-3)).toEqual([]);
   });
 
-  it('returns empty for SIN sources', () => {
+  it('returns empty for undelayed SIN sources', () => {
     const src = new VoltageSource('V1', [0, -1], 0, {
       type: 'sin', offset: 0, amplitude: 1, frequency: 1e3,
     });
     expect(src.getBreakpoints!(1e-3)).toEqual([]);
+  });
+
+  it('includes a positive SIN delay only within the simulation interval', () => {
+    const src = new VoltageSource('V1', [0, -1], 0, {
+      type: 'sin', offset: 0, amplitude: 1, frequency: 1e3, delay: 137e-6,
+    });
+    expect(src.getBreakpoints(1e-3)).toEqual([137e-6]);
+    expect(src.getBreakpoints(137e-6)).toEqual([137e-6]);
+    expect(src.getBreakpoints(100e-6)).toEqual([]);
   });
 });
