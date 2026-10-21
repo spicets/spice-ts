@@ -97,7 +97,7 @@ export interface SpiceEngineCapabilitiesV1 {
       op: readonly ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
       dc: readonly ['R', 'I', 'V', 'D'];
       tran: readonly ['R', 'C', 'L', 'I', 'V'];
-      ac: readonly ['R', 'C', 'L', 'I', 'V'];
+      ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q'];
     };
     fallback: 'reject';
     limits: typeof NUMERIC_WASM_LIMITS;
@@ -211,7 +211,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
           op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'] as const,
           dc: ['R', 'I', 'V', 'D'] as const,
           tran: ['R', 'C', 'L', 'I', 'V'] as const,
-          ac: ['R', 'C', 'L', 'I', 'V'] as const,
+          ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q'] as const,
         },
         fallback: 'reject' as const,
         limits: NUMERIC_WASM_LIMITS,

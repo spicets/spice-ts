@@ -2589,6 +2589,8 @@ resistive-network parity evidence, not a general speed claim.
 
 ## Bounded WASM diode AC (#1637)
 
+See also the bounded BJT AC fixtures (#1653): original project-authored NPN/PNP common-emitter, common-base and forward-biased collector-base junction decks in `packages/wasm/src/test-support/bjt-ac.ts`, MIT under the repository `LICENSE`. Source URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/bjt-ac.ts. After `pnpm build`, reproduce with `spice-heavy pnpm -C packages/wasm exec tsx scripts/bjt-ac-accuracy.ts`. The runner uses identical netlist bytes for JS, WASM and ngspice and records hashes, version, host, point counts, end-to-end request time (not a speed benchmark), matched complex max/RMS relative errors, and rejected/missing signals without hiding losses. No per-circuit tolerance changes.
+
 - Source: original project-authored diode+RC deck in `packages/wasm/src/test-support/diode-ac.ts`; no third-party material or adaptations.
 - URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/diode-ac.ts
 - Licence: repository MIT (`LICENSE`).
