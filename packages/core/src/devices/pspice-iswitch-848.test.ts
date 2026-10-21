@@ -84,8 +84,10 @@ W3 out3 0 Vs IMOD3
 
   it('translates ISWITCH models and W instances inside a subcircuit in transient', async () => {
     // ngspice-47 rewrites W1 to `aw1 %vnam(vs) %gd(a b) aimodx` and resolves vs to v.x1.vs.
-    // Max step 2 ns on both sides: with a 10 ns max step ngspice-47's own v(out) at
-    // 6 us is 5.498615e-02, 0.3 % off its converged 5.514434e-02 (1 ns max step).
+    // Keep the 2 ns ngspice references below; a 4 ns max step still meets every
+    // 0.05 % assertion while halving transient work under CI coverage. A 10 ns
+    // max step is too coarse: ngspice-47's v(out) at 6 us is 5.498615e-02,
+    // 0.3 % off its converged 5.514434e-02 (1 ns max step).
     const result = await simulate(`iswitch tran in subckt
 .subckt isw a b cp cn
 Vs cp cn DC 0
@@ -99,7 +101,7 @@ Rc c cp 1k
 R1 in out 100
 C1 out 0 100n
 X1 out 0 cp 0 isw
-.tran 0.5u 200u 0 2n
+.tran 0.5u 200u 0 4n
 .end
 `);
     const time = result.transient!.time;
