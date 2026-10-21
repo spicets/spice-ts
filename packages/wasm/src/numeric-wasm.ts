@@ -665,22 +665,21 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   if (analysis === 'dc') validateDcControls(analyses[0]!);
   if (analysis === 'tran') validateTransientControls(analyses[0]!, request);
   validateCards(cards, analysis);
-  const normalizedCards = analysis === 'op' ? normalizeAndValidateCurrentControlledSources(cards) : cards;
+  const normalizedCards = normalizeAndValidateCurrentControlledSources(cards);
   const circuit = parseTitleless(normalizedCards.join('\n'));
   const compiled = circuit.compile();
   if (compiled.steps.length > 0 || compiled.poleZeroAnalyses.length > 0
     || compiled.analyses.length !== 1 || compiled.analyses[0]?.type !== analysis) {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
-  const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M']
-      : ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M'];
+  const devices = analysis === 'op' || analysis === 'dc'
+    ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    : ['R', 'C', 'L', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
   if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
   }
-  if (analysis === 'op') validateControlledSourceValues(compiled);
-  else validatePassiveValues(compiled);
+  validateControlledSourceValues(compiled);
+  if (analysis !== 'op') validatePassiveValues(compiled);
   const order = compiled.nodeCount + compiled.branchCount;
   if (order < 1) throw numericError('INVALID_CIRCUIT', 'The circuit has no numeric unknowns', 'compile');
   if (order > NUMERIC_WASM_LIMITS.maxSystemOrder) {
@@ -730,10 +729,9 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 }
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
-  const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M']
-      : ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M'];
+  const allowedDevices = analysis === 'op' || analysis === 'dc'
+    ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    : ['R', 'C', 'L', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
@@ -792,20 +790,20 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
         unsupported('passive-form', 'Passive devices must use name positive negative value');
       }
     } else if (type === 'G') {
-      if (tokens.length !== 6) {
+      if (tokens.length !== 6 || !SPICE_NUMBER.test(tokens[5]!)) {
         unsupported('vccs-form', 'VCCS devices must use name out+ out- control+ control- transconductance');
       }
     } else if (type === 'F') {
-      if (tokens.length !== 5) {
+      if (tokens.length !== 5 || !SPICE_NUMBER.test(tokens[4]!)) {
         unsupported('cccs-form', 'CCCS devices must use name out+ out- controlling-voltage-source current-gain');
       }
     } else if (type === 'E') {
       const behavioral = /^\S+\s+\S+\s+\S+\s+VALUE\s*=/i.test(card);
-      if (tokens.length !== 6 || behavioral) {
+      if (tokens.length !== 6 || behavioral || !SPICE_NUMBER.test(tokens[5]!)) {
         unsupported('vcvs-form', 'VCVS devices must use name out+ out- control+ control- voltage-gain');
       }
     } else if (type === 'H') {
-      if (tokens.length !== 5) {
+      if (tokens.length !== 5 || !SPICE_NUMBER.test(tokens[4]!)) {
         unsupported('ccvs-form', 'CCVS devices must use name out+ out- controlling-voltage-source transresistance');
       }
     } else if (analysis === 'op' || analysis === 'dc') {

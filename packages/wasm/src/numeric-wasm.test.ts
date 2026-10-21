@@ -322,7 +322,6 @@ describe('bounded numeric WebAssembly backend', () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       for (const [name, source, feature] of [
-        ['transient', 'V1 control 0 1\nG1 out 0 control 0 1m\nR1 out 0 1k\n.tran 1u 1m', 'device-or-directive'],
         ['polynomial', 'V1 control 0 1\nG1 out 0 POLY(1) control 0 1m\nR1 out 0 1k\n.op', 'vccs-form'],
       ] as const) {
         const result = await wasm.simulate(request(source), { requestId: `wasm-vccs-reject-${name}` });
@@ -428,8 +427,6 @@ describe('bounded numeric WebAssembly backend', () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       for (const [name, source, feature] of [
-        ['transient', 'V1 control 0 1\nE1 out 0 control 0 2\nR1 out 0 1k\n.tran 1u 1m', 'device-or-directive'],
-        ['ac', 'V1 control 0 AC 1\nE1 out 0 control 0 2\nR1 out 0 1k\n.ac lin 1 1k 1k', 'device-or-directive'],
         ['polynomial', 'V1 control 0 1\nE1 out 0 POLY(1) control 0 2\nR1 out 0 1k\n.op', 'vcvs-form'],
       ] as const) {
         const result = await wasm.simulate(request(source), { requestId: `wasm-vcvs-reject-${name}` });
@@ -589,9 +586,6 @@ describe('bounded numeric WebAssembly backend', () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       for (const [name, source, feature] of [
-        ['transient', 'V1 control 0 1\nH1 out 0 V1 2k\nR1 out 0 1k\n.tran 1u 1m', 'device-or-directive'],
-        ['ac', 'V1 control 0 AC 1\nH1 out 0 V1 2k\nR1 out 0 1k\n.ac lin 1 1k 1k', 'device-or-directive'],
-        ['dc', 'V1 control 0 1\nH1 out 0 V1 2k\nR1 out 0 1k\n.dc V1 0 1 1', 'device-or-directive'],
         ['polynomial', 'V1 control 0 1\nH1 out 0 POLY(1) V1 2k\nR1 out 0 1k\n.op', 'ccvs-form'],
       ] as const) {
         const result = await wasm.simulate(request(source), { requestId: `wasm-ccvs-reject-${name}` });
@@ -776,7 +770,6 @@ describe('bounded numeric WebAssembly backend', () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       for (const [name, source, feature] of [
-        ['transient', 'V1 control 0 1\nF1 out 0 V1 2\nR1 out 0 1k\n.tran 1u 1m', 'device-or-directive'],
         ['polynomial', 'V1 control 0 1\nF1 out 0 POLY(1) V1 2\nR1 out 0 1k\n.op', 'cccs-form'],
       ] as const) {
         const result = await wasm.simulate(request(source), { requestId: `wasm-cccs-reject-${name}` });
