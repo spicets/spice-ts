@@ -25,11 +25,11 @@ function section(heading: string): string {
 
 function emittedCodes(): Set<ConversionDiagnosticV1['code']> {
   const lossyIR: CircuitIR = {
-    components: [{ type: 'L', id: 'L1', name: 'L1', ports: [{ name: 'p', net: 'a' }, { name: 'n', net: '0' }], params: { inductance: 1e-3 } }],
+    components: [{ type: 'I', id: 'I1', name: 'I1', ports: [{ name: 'p', net: 'a' }, { name: 'n', net: '0' }], params: { waveform: 'sine', dc: 1 } }],
     nets: ['a'],
   };
   const results = [
-    fromCircuitJSON([component('L1', 'simple_inductor', { inductance: 1e-3 })] as CircuitJson),
+    fromCircuitJSON([component('X1', 'simple_chip', {})] as CircuitJson),
     fromCircuitJSON([component('R1', 'simple_resistor', { resistance: 1, temperature_coefficient: 1e-3 })] as CircuitJson),
     fromCircuitJSON([{ type: 'pcb_text', pcb_text_id: 't', text: 'T', anchor_position: { x: 0, y: 0 }, anchor_alignment: 'center', font_size: 1, layer: 'top', rotation: 0 }] as unknown as CircuitJson),
     toCircuitJSON(lossyIR),
@@ -38,8 +38,25 @@ function emittedCodes(): Set<ConversionDiagnosticV1['code']> {
 }
 
 describe('ai-native-api doc matches the circuit-json adapter contract (#514)', () => {
+  it('documents the new mappings and their model/schema limits (#1664)', () => {
+    const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+    for (const [ftype, fields] of [
+      ['simple_inductor', { inductance: 1e-3 }],
+      ['simple_diode', {}],
+      ['simple_led', {}],
+      ['simple_voltage_source', { voltage: 5 }],
+      ['simple_current_source', { current: 0.001, wave_shape: 'dc' }],
+    ] as const) {
+      expect(readme).toContain(ftype);
+      expect(fromCircuitJSON([component('device', ftype, fields)] as CircuitJson).diagnostics).toEqual([]);
+    }
+    expect(readme).toContain('IS=1e-14 A, N=1');
+    expect(readme).toContain('no voltage');
+    expect(readme).toContain('LED color/wavelength');
+  });
+
   it('adapter rejects unsupported simulation elements with UNSUPPORTED_ELEMENT and no value', () => {
-    const result = fromCircuitJSON([component('L1', 'simple_inductor', { inductance: 1e-3 })] as CircuitJson);
+    const result = fromCircuitJSON([component('X1', 'simple_chip', {})] as CircuitJson);
     expect(result.value).toBeUndefined();
     expect(result.diagnostics.map((d) => [d.severity, d.code, d.simulationRelevant])).toEqual([['error', 'UNSUPPORTED_ELEMENT', true]]);
     expect(emittedCodes()).toEqual(new Set(['UNSUPPORTED_ELEMENT', 'UNSUPPORTED_PARAMETER', 'LAYOUT_ONLY', 'LOSSY_EXPORT']));

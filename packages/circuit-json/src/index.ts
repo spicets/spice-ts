@@ -68,6 +68,31 @@ const COMPONENT_MAPPING: Record<string, {
     fields: ['capacitance', 'display_capacitance', 'max_voltage_rating', 'max_decoupling_trace_length'],
     params: element => ({ capacitance: element.capacitance as number }),
   },
+  simple_inductor: {
+    type: 'L',
+    fields: ['inductance', 'display_inductance', 'max_current_rating'],
+    params: element => ({ inductance: element.inductance as number }),
+  },
+  simple_diode: {
+    type: 'D',
+    fields: [],
+    params: () => ({ modelName: '' }),
+  },
+  simple_led: {
+    type: 'D',
+    fields: [],
+    params: () => ({ modelName: '' }),
+  },
+  simple_voltage_source: {
+    type: 'V',
+    fields: ['voltage'],
+    params: element => ({ waveform: 'dc', dc: element.voltage as number }),
+  },
+  simple_current_source: {
+    type: 'I',
+    fields: ['current', 'wave_shape'],
+    params: element => ({ waveform: 'dc', dc: element.current as number }),
+  },
   simple_mosfet: {
     type: 'M',
     fields: ['channel_type', 'mosfet_mode'],
@@ -83,6 +108,11 @@ const COMPONENT_MAPPING: Record<string, {
 const REQUIRED_FIELDS: Record<string, readonly string[]> = {
   simple_resistor: ['resistance'],
   simple_capacitor: ['capacitance'],
+  simple_inductor: ['inductance'],
+  simple_diode: [],
+  simple_led: [],
+  simple_voltage_source: ['voltage'],
+  simple_current_source: ['current'],
   simple_mosfet: ['channel_type', 'mosfet_mode'],
   simple_transistor: ['transistor_type'],
 };
@@ -189,7 +219,9 @@ function validateComponentFields(
   }
   const numericField = ftype === 'simple_resistor' ? 'resistance'
     : ftype === 'simple_capacitor' ? 'capacitance'
-      : undefined;
+      : ftype === 'simple_inductor' ? 'inductance'
+        : ftype === 'simple_voltage_source' ? 'voltage'
+          : undefined;
   if (numericField && element[numericField] !== undefined && !isFiniteNumber(element[numericField])) {
     diagnostics.push(importDiagnostic(
       'UNSUPPORTED_PARAMETER',
@@ -269,6 +301,19 @@ export function fromCircuitJSON(circuitJSON: CircuitJson): ConversionResultV1<Ci
     if (element.type === 'source_component') {
       const ftype = typeof element.ftype === 'string' ? element.ftype : '';
       const mapping = COMPONENT_MAPPING[ftype];
+      if (ftype === 'simple_current_source' && (
+        !isFiniteNumber(element.current)
+        || (element.wave_shape !== undefined && element.wave_shape !== 'dc')
+        || Object.keys(element).some(key => !COMPONENT_FIELDS.has(key) && !mapping.fields.includes(key))
+      )) {
+        diagnostics.push(importDiagnostic(
+          'UNSUPPORTED_ELEMENT',
+          'simple_current_source requires a finite current in amperes and only supports DC without waveform parameters',
+          path,
+          element,
+        ));
+        return;
+      }
       if (!mapping) {
         diagnostics.push(importDiagnostic(
           'UNSUPPORTED_ELEMENT',
@@ -508,6 +553,43 @@ function mapExportComponent(
           `Parameter capacitance on ${component.id} must be a finite number`,
           `/components/${index}/params/capacitance`,
           component,
+        ));
+        return undefined;
+      }
+      break;
+    case 'L':
+      ftype = 'simple_inductor';
+      fields = { inductance: component.params.inductance };
+      allowedParams = ['inductance'];
+      if (!isFiniteNumber(component.params.inductance)) {
+        diagnostics.push(exportDiagnostic(
+          `Parameter inductance on ${component.id} must be a finite number`,
+          `/components/${index}/params/inductance`, component,
+        ));
+        return undefined;
+      }
+      break;
+    case 'D':
+      ftype = 'simple_diode';
+      fields = {};
+      allowedParams = ['modelName'];
+      if (component.params.modelName !== undefined && component.params.modelName !== '') {
+        diagnostics.push(exportDiagnostic(
+          `Custom diode model on ${component.id} cannot be represented in circuit-json`,
+          `/components/${index}/params/modelName`, component,
+        ));
+        return undefined;
+      }
+      break;
+    case 'V':
+    case 'I':
+      ftype = component.type === 'V' ? 'simple_voltage_source' : 'simple_current_source';
+      fields = component.type === 'V' ? { voltage: component.params.dc } : { current: component.params.dc, wave_shape: 'dc' };
+      allowedParams = ['waveform', 'dc'];
+      if (component.params.waveform !== 'dc' || !isFiniteNumber(component.params.dc)) {
+        diagnostics.push(exportDiagnostic(
+          `Only a finite DC ${component.type === 'V' ? 'voltage' : 'current'} source on ${component.id} can be represented in circuit-json`,
+          `/components/${index}/params/${component.params.waveform !== 'dc' ? 'waveform' : 'dc'}`, component,
         ));
         return undefined;
       }

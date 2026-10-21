@@ -1,4 +1,4 @@
-import { Circuit, parseTitleless, mapProtocolErrorV1, simulateProtocolV1, validateProtocolV1 } from '@spice-ts/core';
+import { Circuit, SpiceError, parseTitleless, mapProtocolErrorV1, simulateProtocolV1, validateProtocolV1 } from '@spice-ts/core';
 import { fromCircuitJSON, toCircuitJSON } from '@spice-ts/circuit-json';
 import type { CircuitJSON, ConversionDiagnosticV1 } from '@spice-ts/circuit-json';
 import { commonSchemaV1, sha256CanonicalJson } from '@spice-ts/core/protocol';
@@ -9,11 +9,10 @@ import type {
   PartialAnalysisV1,
   RunMetadataV1,
   SimulationEventV1,
-  SimulationReadDataV1,
+  SimulationReadDataV1 as ProtocolReadDataV1,
   SimulationRequestV1,
   SimulationResultV1,
-  SpiceApiErrorV1,
-  StreamTerminalV1,
+  SpiceApiErrorV1 as ProtocolApiErrorV1,
   SuccessEnvelopeV1,
 } from '@spice-ts/core/protocol';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -32,6 +31,7 @@ import { runCorners, cornersProperties } from './corners.js';
 import { runMonteCarlo, monteCarloProperties } from './monte-carlo.js';
 import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } from './ac-metrics.js';
 import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProperties } from './tran-metrics.js';
+import { powerMetrics, powerMetricsArgs, powerMetricsProperties, powerMetricsOutputSchema, powerMetricsErrorSchema, powerPlan } from './power-metrics.js';
 import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } from './fourier.js';
 import { noiseMetrics, noiseMetricsArgs, noiseMetricsOutputSchema, noiseMetricsProperties } from './noise-metrics.js';
 import type { NoiseResult, PoleZeroResult } from '@spice-ts/core';
@@ -372,6 +372,12 @@ export const MCP_TOOLS = Object.freeze([
     },
   },
   {
+    name: 'spice_power_metrics',
+    description: 'Summarize one transient: signed average absorbed power (W), RMS current (A), maximum signed instantaneous power and time (s) per two-terminal element. Optional window in seconds and input/output lists; efficiency is output absorption / input delivery, or null without positive input delivery. Uses zero-volt current probes; flat unstepped SPICE decks only.',
+    inputSchema: { type: 'object', required: ['netlist'], additionalProperties: false, properties: powerMetricsProperties },
+    outputSchema: { type: 'object', oneOf: [powerMetricsOutputSchema, powerMetricsErrorSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
+  },
+  {
     name: 'spice_tran_metrics',
     description: 'Simulate one transient step response. Returns interpolated 10-90% rise/fall time, overshoot/undershoot, directional peak and settling time in seconds. Endpoint levels default to first/last samples; supply known initialValue/finalValue for truncated traces. Settling requires the final 10% of sampled duration in band (default 2% of step amplitude).',
     inputSchema: {
@@ -620,6 +626,19 @@ async function executeToolWithStore(
         enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
         return success(result);
       } finally { release(); }
+    }
+    if (name === 'spice_power_metrics') {
+      const selectors = powerMetricsArgs(args);
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const plan = powerPlan(selectors);
+      if ('error' in plan) return { ...success(plan), isError: true };
+      const response = await executeToolWithStore('spice_simulate', {
+        request: { apiVersion: '1', input: { format: 'spice', source: plan.netlist } },
+      }, options, streamStore);
+      if (response.isError) return response;
+      const report = powerMetrics(response.structuredContent as unknown as SimulationResultV1, plan);
+      enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(report)), 'transport');
+      return success(report);
     }
     if (name === 'spice_op_report') {
       if (!isRecord(args) || Object.keys(args).some(key => !['netlist', 'topN'].includes(key))
@@ -1178,13 +1197,20 @@ class StreamStore {
   }
 }
 
+type McpFailedReadV1 = Omit<Extract<ProtocolReadDataV1, { status: 'failed' | 'cancelled' }>, 'terminal'> & {
+  terminal: Omit<Extract<ProtocolReadDataV1, { status: 'failed' | 'cancelled' }>['terminal'], 'error'> & {
+    error: SpiceApiErrorV1;
+  };
+};
+type SimulationReadDataV1 = Exclude<ProtocolReadDataV1, { status: 'failed' | 'cancelled' }> | McpFailedReadV1;
+
 function failureRead(
   jobId: string,
   emitted: SimulationEventV1[],
   error: SpiceApiErrorV1,
   events: SimulationEventV1[] = [],
-): SimulationReadDataV1 {
-  const terminal: StreamTerminalV1 = {
+): McpFailedReadV1 {
+  const terminal: McpFailedReadV1['terminal'] = {
     apiVersion: '1', ok: false, requestId: jobId,
     error,
     diagnostics: [],
@@ -1410,7 +1436,7 @@ function convertTool(args: unknown, limits: McpLimits, signal?: AbortSignal): Ca
     const circuit = new Circuit();
     for (const component of converted.value!.components) {
       // Circuit JSON has no SPICE model cards. Never invent transistor models.
-      if (component.type !== 'R' && component.type !== 'C') {
+      if (component.type !== 'R' && component.type !== 'C' && component.type !== 'V') {
         throw apiError('UNSUPPORTED_ELEMENT', 'SPICE export requires a model unavailable in circuit-json', 'validation', {
           diagnostics: [{ severity: 'error', code: 'UNSUPPORTED_ELEMENT', message: 'SPICE export requires an explicit model', path: '/', elementId: component.id, simulationRelevant: true }],
         });
@@ -1423,7 +1449,8 @@ function convertTool(args: unknown, limits: McpLimits, signal?: AbortSignal): Ca
       }
       const port = (name: string) => component.ports.find(port => port.name === name)!.net;
       if (component.type === 'R') circuit.addResistor(component.name, port('p'), port('n'), component.params.resistance as number);
-      else circuit.addCapacitor(component.name, port('p'), port('n'), component.params.capacitance as number);
+      else if (component.type === 'C') circuit.addCapacitor(component.name, port('p'), port('n'), component.params.capacitance as number);
+      else circuit.addVoltageSource(component.name, port('p'), port('n'), { dc: component.params.dc as number });
     }
     output = { netlist: circuit.toNetlist(), diagnostics: converted.diagnostics, lossy: false };
   }
@@ -1808,7 +1835,8 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
       : await core.simulateProtocolV1(request);
     parentPort.postMessage({ type: 'result', result });
   } catch (error) {
-    parentPort.postMessage({ type: 'error', error: error && error.code === 'INVALID_REQUEST' && error.details ? error : core.mapProtocolErrorV1(error) });
+    const mapped = error && error.code === 'INVALID_REQUEST' && error.details ? error : core.mapProtocolErrorV1(error);
+    parentPort.postMessage({ type: 'error', error: error instanceof core.SpiceError ? { ...mapped, code: error.code } : mapped });
   }
 });
 `;
@@ -1950,9 +1978,12 @@ function cancelledError(): SpiceApiErrorV1 {
   return apiError('CANCELLED', 'The request was cancelled', 'transport', {});
 }
 
+/** MCP preserves core discriminators in addition to protocol-v1 error categories. */
+type SpiceApiErrorV1 = Omit<ProtocolApiErrorV1, 'code'> & { code: string };
+
 function publicError(error: unknown): SpiceApiErrorV1 {
   const mapped = isApiError(error) ? error : mapProtocolErrorV1(error);
-  return sanitizeError(mapped);
+  return sanitizeError(error instanceof SpiceError ? { ...mapped, code: error.code } : mapped);
 }
 
 function sanitizeError(error: SpiceApiErrorV1): SpiceApiErrorV1 {

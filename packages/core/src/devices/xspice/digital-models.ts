@@ -9,7 +9,7 @@
  * instance's event state through an {@link EventInstanceView}.
  */
 import {
-  ONE, RESISTIVE, STRONG, UNKNOWN, ZERO,
+  HI_IMPEDANCE, ONE, RESISTIVE, STRONG, UNDETERMINED, UNKNOWN, ZERO,
   type EventBehavior, type EventCall, type EventInstanceView,
 } from './event-network.js';
 import { flag, real, STATIC, type CodeModelBehavior, type CodeModelCall, type ResolvedXspiceParams } from './models.js';
@@ -108,10 +108,16 @@ interface GateState {
  * overrides (cm_is_inertial: only when the parameter is given as true, as
  * the `digital_delay_type` variable is unset).
  */
-function gate(compute: GateFunction): DigitalModelFactory {
+function gate(compute: GateFunction, open?: 'collector' | 'emitter'): DigitalModelFactory {
   return (params, context) => {
-    const riseDelay = real(params, 'rise_delay');
-    const fallDelay = real(params, 'fall_delay');
+    // ngspice-47 digital/d_open_c/cfunc.mod:95-110,163-222 and
+    // digital/d_open_e/cfunc.mod:95-110,165-223 share the gate state machine.
+    // Opening replaces the rising (collector) or falling (emitter) delay;
+    // UNKNOWN retains its logic state but has undetermined drive strength.
+    const riseDelay = real(params, open === 'collector' ? 'open_delay' : 'rise_delay');
+    const fallDelay = real(params, open === 'emitter' ? 'open_delay' : 'fall_delay');
+    const strength = (value: number): number => !open ? STRONG : value === UNKNOWN ? UNDETERMINED
+      : value === (open === 'collector' ? ZERO : ONE) ? STRONG : HI_IMPEDANCE;
     const inertial = context.given.has('inertial_delay') && flag(params, 'inertial_delay');
     const inputCount = portCount(context, 'in');
     const inputs = new Array<number>(inputCount);
@@ -136,7 +142,7 @@ function gate(compute: GateFunction): DigitalModelFactory {
             state.when = call.time + out.delay;
           } else if (value !== state.prev) {
             // Third value: cancel the earlier change and output as usual.
-            call.scheduleOutput(0, (state.when - call.time) / 2.0, { state: state.prev, strength: STRONG });
+            call.scheduleOutput(0, (state.when - call.time) / 2.0, { state: state.prev, strength: strength(state.prev) });
             if (value === UNKNOWN) out.delay = state.prev === ZERO ? riseDelay : fallDelay;
             state.when = call.time + out.delay;
           } else {
@@ -147,7 +153,7 @@ function gate(compute: GateFunction): DigitalModelFactory {
         }
         state.out = value;
         out.state = value;
-        out.strength = STRONG;
+        out.strength = strength(value);
       },
     };
     return { event } as DigitalModel<unknown>;
@@ -482,6 +488,8 @@ export const DIGITAL_MODELS: ReadonlyMap<string, DigitalModelFactory> = new Map<
   ['d_pulldown', pull(ZERO)],
   ['d_pullup', pull(ONE)],
   ['d_buffer', gate(buffer)],
+  ['d_open_c', gate(buffer, 'collector')],
+  ['d_open_e', gate(buffer, 'emitter')],
   ['d_inverter', gate(inverter)],
   ['d_and', gate(dominantGate(ZERO, ZERO, ONE))],
   ['d_nand', gate(dominantGate(ZERO, ONE, ZERO))],

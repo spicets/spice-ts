@@ -1,5 +1,20 @@
 # Benchmark sources
 
+## XSPICE open-collector/emitter buffers (#1682)
+
+The inline `openDeck` netlists in
+`packages/core/src/devices/xspice/d-open.test.ts` are self-authored under the
+project MIT licence, not copied from a third-party circuit. Their opt-in live
+ngspice-47 oracle uses identical input bytes, checks exact digital event times
+and strengths, and compares DAC voltages at every ngspice timepoint.
+Model semantics come from the Public Domain ngspice-47 sources
+[`d_open_c/cfunc.mod`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/xspice/icm/digital/d_open_c/cfunc.mod)
+(lines 95-110, 163-222),
+[`d_open_e/cfunc.mod`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/xspice/icm/digital/d_open_e/cfunc.mod)
+(lines 95-110, 165-223), and their `ifspec.ifs` parameter tables.
+Run with `NGSPICE_OPEN_REFERENCE=1 spice-heavy pnpm -C packages/core exec vitest run src/devices/xspice/d-open.test.ts`.
+These decks use ADC stimuli; file-driven `d_source` is not implemented by this slice.
+
 ## WASM MOS1 transient (#1622)
 
 | Fixture | Source | Licence | Oracle |
@@ -2588,6 +2603,10 @@ startup/semaphore queueing; TS timing covers simulation). This is bounded
 resistive-network parity evidence, not a general speed claim.
 
 ## Bounded WASM diode AC (#1637)
+
+See also the bounded BJT AC fixtures (#1653): original project-authored NPN/PNP common-emitter, common-base and forward-biased collector-base junction decks in `packages/wasm/src/test-support/bjt-ac.ts`, MIT under the repository `LICENSE`. Source URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/bjt-ac.ts. After `pnpm build`, reproduce with `spice-heavy pnpm -C packages/wasm exec tsx scripts/bjt-ac-accuracy.ts`. The runner uses identical netlist bytes for JS, WASM and ngspice and records hashes, version, host, point counts, end-to-end request time (not a speed benchmark), matched complex max/RMS relative errors, and rejected/missing signals without hiding losses. No per-circuit tolerance changes.
+
+See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-source, body-driven, triode and inverse-mode decks in `packages/wasm/src/test-support/mos1-ac.ts`, MIT under the repository `LICENSE`. Source URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/mos1-ac.ts. After `pnpm build`, reproduce with `spice-heavy pnpm -C packages/wasm exec tsx scripts/mos1-ac-accuracy.ts`. Identical netlist bytes go to JS, WASM and ngspice; the runner records hashes, version, host, timings, all rejected/missing signals and matched complex max/RMS errors for output, supply/gate current and gate voltage. Before this change all eight WASM decks return `UNSUPPORTED_FEATURE`; afterward all return 91 frequency points. Against ngspice-47, maximum output complex relative error is `1.978888909145794e-9`; WASM/JS output complex error is at most `2.3883838727636192e-15`. Losses remain in small signals: maximum gate-current WASM/JS complex relative error is `6.898475368721798e-8`, and body-driven gate-voltage error is `2.9959320801965073e-7` (`2.9960128511547326e-7` versus ngspice). The unit contract is output magnitude/phase at the unchanged BJT `1e-9` relative tolerance, not all-signal relative parity or a speed claim.
 
 - Source: original project-authored diode+RC deck in `packages/wasm/src/test-support/diode-ac.ts`; no third-party material or adaptations.
 - URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/diode-ac.ts

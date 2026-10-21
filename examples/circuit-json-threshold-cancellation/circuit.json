@@ -90,10 +90,9 @@
     },
     {
       "type": "source_component",
-      "source_component_id": "L1",
-      "name": "L1",
-      "ftype": "simple_inductor",
-      "inductance": 0.001
+      "source_component_id": "X1",
+      "name": "X1",
+      "ftype": "simple_chip"
     }
   ]
 }

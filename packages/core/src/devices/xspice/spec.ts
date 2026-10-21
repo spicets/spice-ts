@@ -634,6 +634,12 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
       ],
     },
     unaryGate('d_buffer'), unaryGate('d_inverter'),
+    // ngspice-47 digital/{d_open_c,d_open_e}/ifspec.ifs:30-74.
+    ...(['d_open_c', 'd_open_e'] as const).map(name => ({
+      ...unaryGate(name),
+      params: GATE_PARAMS.map(param => param.name === (name === 'd_open_c' ? 'rise_delay' : 'fall_delay')
+        ? { ...param, name: 'open_delay' } : param),
+    })),
     {
       // ngspice-47 digital/d_tristate/ifspec.ifs:29-62 (default transport-delay mode).
       name: 'd_tristate',

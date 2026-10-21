@@ -39,22 +39,22 @@
   "totals": {
     "fixtures": 336,
     "ngspice": {
-      "success": 306,
-      "failed": 18,
-      "unsupported": 12
+      "success": 310,
+      "failed": 15,
+      "unsupported": 11
     },
     "spiceTs": {
-      "success": 246,
-      "failed": 13,
-      "unsupported": 77
+      "success": 248,
+      "failed": 15,
+      "unsupported": 73
     },
     "outcomes": {
-      "matched": 104,
-      "mismatch": 21,
-      "not-compared": 116,
-      "spice-ts-loss": 65,
-      "ngspice-failed": 5,
-      "both-failed": 25
+      "matched": 128,
+      "mismatch": 17,
+      "not-compared": 99,
+      "spice-ts-loss": 66,
+      "ngspice-failed": 4,
+      "both-failed": 22
     }
   },
   "gapBuckets": [
@@ -105,8 +105,8 @@
     },
     {
       "bucket": "parse: other unsupported syntax",
-      "fixtures": 19,
-      "ngspiceSuccess": 12,
+      "fixtures": 18,
+      "ngspiceSuccess": 11,
       "ids": [
         "examples-measure-inv-meas-tran-auto-sp",
         "examples-measure-inv-meas-tran-control-sp",
@@ -116,7 +116,6 @@
         "examples-measure-mos-meas-dc-sp",
         "examples-mos-ro-17-4-cir",
         "examples-mos-ro-meas-cir",
-        "examples-probe-mos-test-cir",
         "examples-various-gain-stage-cir",
         "examples-xspice-d-process-checks-cir",
         "examples-xspice-ghdl-mc-cir",
@@ -131,16 +130,17 @@
       "issue": null
     },
     {
-      "bucket": "execution: other failure",
-      "fixtures": 6,
-      "ngspiceSuccess": 1,
+      "bucket": "timeout: spice-ts exceeded the 120 s bound",
+      "fixtures": 7,
+      "ngspiceSuccess": 6,
       "ids": [
-        "examples-control-structs-if-test-1-cir",
-        "examples-tclspice-tcl-diffpair-cir",
-        "examples-xspice-original-examples-bad-io-deck",
-        "examples-xspice-transmission-lines-cpline-tran-cir",
-        "tests-general-diffpair-cir",
-        "tests-sensitivity-diffpair-cir"
+        "examples-digital-compare-adder-bip-cir",
+        "examples-digital-compare-adder-mos-cir",
+        "examples-mos-adder-mos-cir",
+        "examples-tclspice-tcl-testbench2-example-cir",
+        "examples-tclspice-tcl-testbench4-example-cir",
+        "examples-vdmos-100w-sp",
+        "examples-vdmos-dcdc-sp"
       ],
       "issue": null
     },
@@ -172,39 +172,38 @@
       "issue": "https://github.com/mfiumara/spice-ts/issues/489"
     },
     {
-      "bucket": "timeout: spice-ts exceeded the 120 s bound",
+      "bucket": "execution: other failure",
       "fixtures": 5,
-      "ngspiceSuccess": 5,
+      "ngspiceSuccess": 4,
       "ids": [
-        "examples-digital-compare-adder-mos-cir",
-        "examples-mos-adder-mos-cir",
-        "examples-tclspice-tcl-testbench2-example-cir",
-        "examples-tclspice-tcl-testbench4-example-cir",
-        "examples-vdmos-100w-sp"
+        "examples-control-structs-if-test-1-cir",
+        "examples-tclspice-tcl-diffpair-cir",
+        "examples-xspice-original-examples-bad-io-deck",
+        "tests-general-diffpair-cir",
+        "tests-sensitivity-diffpair-cir"
+      ],
+      "issue": null
+    },
+    {
+      "bucket": "convergence",
+      "fixtures": 3,
+      "ngspiceSuccess": 1,
+      "ids": [
+        "examples-monte-carlo-mc-ring-sp",
+        "tests-mesa-mesa-12-cir",
+        "tests-mesa-mesa12-cir"
       ],
       "issue": null
     },
     {
       "bucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)",
-      "fixtures": 4,
-      "ngspiceSuccess": 2,
-      "ids": [
-        "examples-control-structs-new-check-4-sp",
-        "examples-monte-carlo-mc-ring-sp",
-        "examples-monte-carlo-montecarlo-sp",
-        "tests-regression-misc-resume-1-cir"
-      ],
-      "issue": "https://github.com/mfiumara/spice-ts/issues/488"
-    },
-    {
-      "bucket": "convergence",
       "fixtures": 2,
       "ngspiceSuccess": 0,
       "ids": [
-        "tests-mesa-mesa-12-cir",
-        "tests-mesa-mesa12-cir"
+        "examples-control-structs-new-check-4-sp",
+        "tests-regression-misc-resume-1-cir"
       ],
-      "issue": null
+      "issue": "https://github.com/mfiumara/spice-ts/issues/488"
     },
     {
       "bucket": "device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP)",
@@ -224,15 +223,6 @@
         "examples-p-to-n-examples-logic-cir"
       ],
       "issue": "https://github.com/mfiumara/spice-ts/issues/495"
-    },
-    {
-      "bucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
-      "fixtures": 1,
-      "ngspiceSuccess": 1,
-      "ids": [
-        "examples-monte-carlo-rand-numb-test-cir"
-      ],
-      "issue": "https://github.com/mfiumara/spice-ts/issues/493"
     },
     {
       "bucket": "model: string-valued model parameters (MFG= and similar)",
@@ -1403,9 +1393,10 @@
       "unmappedAnalyses": [],
       "sameNameAs": [],
       "ngspice": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "expect Error: missing if condition"
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "failed",
@@ -1416,7 +1407,7 @@
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "both-failed",
+      "outcome": "spice-ts-loss",
       "gapBucket": "execution: other failure"
     },
     {
@@ -1708,35 +1699,16 @@
         ]
       },
       "spiceTs": {
-        "status": "success",
-        "analyses": [
-          "tran:13659"
-        ]
+        "status": "failed",
+        "analyses": [],
+        "firstErrorLine": "spice-ts exceeded the 120000 ms aggregate execution bound"
       },
-      "comparedAnalyses": 1,
-      "comparedSignals": 13,
-      "worstNormalizedError": 0.0177,
-      "worstSignal": "tran v(9)",
-      "outcome": "mismatch",
-      "gapBucket": null,
-      "fineReference": {
-        "status": "compared",
-        "tmax": [
-          "1e-10"
-        ],
-        "headline": {
-          "worst": 0.0177,
-          "signal": "v(9)"
-        },
-        "spiceTsVsFine": {
-          "worst": 0.0231,
-          "signal": "v(10)"
-        },
-        "ngspiceDefaultVsFine": {
-          "worst": 0.0245,
-          "signal": "v(10)"
-        }
-      }
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "spice-ts-loss",
+      "gapBucket": "timeout: spice-ts exceeded the 120 s bound"
     },
     {
       "id": "examples-digital-compare-adder-mos-cir",
@@ -1803,7 +1775,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "note": "source/write wrapper exported no reference vectors: no plot of a declared analysis type was left to write"
       },
       "spiceTs": {
         "status": "success",
@@ -1848,7 +1820,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "note": "source/write wrapper exported no reference vectors: no plot of a declared analysis type was left to write"
       },
       "spiceTs": {
         "status": "success",
@@ -1893,7 +1865,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "note": "source/write wrapper exported no reference vectors: no plot of a declared analysis type was left to write"
       },
       "spiceTs": {
         "status": "success",
@@ -1938,7 +1910,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "note": "source/write wrapper exported no reference vectors: no plot of a declared analysis type was left to write"
       },
       "spiceTs": {
         "status": "success",
@@ -2291,7 +2263,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 4,
-      "worstNormalizedError": 4.86e-16,
+      "worstNormalizedError": 4.76e-16,
       "worstSignal": "ac v(out)",
       "outcome": "matched",
       "gapBucket": null
@@ -2389,16 +2361,16 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
+        "status": "failed",
         "analyses": [],
-        "firstErrorLine": "Control script error at line 51: unexpected character '$' in 'unitvec(mc_runsp)$ vector for storing measure results at -40dB rising' let halfffts = unitvec(mc_runsp)$ vector for storing measure results at -40dB rising"
+        "firstErrorLine": "Convergence failed: Did not converge in 100 iterations (oscillating nodes: out15, xinv3.4, xinv4.1, xinv4.2)"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
       "outcome": "spice-ts-loss",
-      "gapBucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)"
+      "gapBucket": "convergence"
     },
     {
       "id": "examples-monte-carlo-montecarlo-sp",
@@ -2415,16 +2387,21 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 42: Unsupported .control command 'alter': vector function 'sunif()' is not evaluated by spice-ts alter c1 = unif(1e-09, 0.1)"
+        "status": "success",
+        "analyses": [
+          "ac:533",
+          "ac:533",
+          "ac:533",
+          "ac:533",
+          "ac:533"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 5,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)"
+      "outcome": "not-compared",
+      "gapBucket": null
     },
     {
       "id": "examples-monte-carlo-opwien-sp",
@@ -2438,7 +2415,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [
-          "tran:243977"
+          "tran:243018"
         ]
       },
       "spiceTs": {
@@ -2450,7 +2427,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 1,
-      "worstNormalizedError": 1.53,
+      "worstNormalizedError": 1.26,
       "worstSignal": "tran v(4)",
       "outcome": "mismatch",
       "gapBucket": null,
@@ -2459,7 +2436,7 @@
         "tmax": [],
         "reason": "unparsed .tran card: .TRAN 0.05MS 'ttime'",
         "headline": {
-          "worst": 1.53,
+          "worst": 1.26,
           "signal": "v(4)"
         },
         "spiceTsVsFine": null,
@@ -2477,20 +2454,22 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 19: Unknown function 'agauss' .param myval = agauss(0, 1, 1)"
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)"
+      "comparedAnalyses": 1,
+      "comparedSignals": 2,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
+      "gapBucket": null
     },
     {
       "id": "examples-mos-adder-mos-cir",
@@ -3105,10 +3084,8 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [
-          "tran:227"
-        ],
-        "note": "#1631 targeted re-score via unchanged-fixture control export wrapper (quit/exit deferred); reproduce with MPLBACKEND=Agg spice-heavy pnpm exec tsx benchmarks/control-pyplot/compare.ts"
+        "analyses": [],
+        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
         "status": "success",
@@ -3117,11 +3094,21 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 7,
-      "worstNormalizedError": 0.152,
-      "worstSignal": "tran i(vin1)",
-      "outcome": "mismatch",
-      "gapBucket": null
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "not-compared",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "unavailable",
+        "tmax": [
+          "1e-9"
+        ],
+        "reason": "fine ngspice run failed: fine ngspice run produced no raw file",
+        "headline": null,
+        "spiceTsVsFine": null,
+        "ngspiceDefaultVsFine": null
+      }
     },
     {
       "id": "examples-probe-cntrl-sources-cir",
@@ -3185,16 +3172,35 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Unsupported saved device vector '@mn1[id]'"
+        "status": "success",
+        "analyses": [
+          "tran:135"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax"
+      "comparedAnalyses": 1,
+      "comparedSignals": 2,
+      "worstNormalizedError": 0.0000423,
+      "worstSignal": "tran v(out)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "5e-10"
+        ],
+        "headline": {
+          "worst": 0.0000423,
+          "signal": "v(out)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.165,
+          "signal": "v(out)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.165,
+          "signal": "v(out)"
+        }
+      }
     },
     {
       "id": "examples-probe-probe-i-dev-cir",
@@ -3241,14 +3247,14 @@
       "spiceTs": {
         "status": "success",
         "analyses": [
-          "tran:2607"
+          "tran:2514"
         ]
       },
       "comparedAnalyses": 1,
       "comparedSignals": 13,
-      "worstNormalizedError": 0.72,
+      "worstNormalizedError": 2.17e-13,
       "worstSignal": "tran v(10)",
-      "outcome": "mismatch",
+      "outcome": "matched",
       "gapBucket": null,
       "fineReference": {
         "status": "compared",
@@ -3256,12 +3262,12 @@
           "2e-7"
         ],
         "headline": {
-          "worst": 0.72,
+          "worst": 2.17e-13,
           "signal": "v(10)"
         },
         "spiceTsVsFine": {
-          "worst": 0.95,
-          "signal": "v(20)"
+          "worst": 0.68,
+          "signal": "v(10)"
         },
         "ngspiceDefaultVsFine": {
           "worst": 0.68,
@@ -3470,8 +3476,8 @@
       },
       "comparedAnalyses": 2,
       "comparedSignals": 30,
-      "worstNormalizedError": 2.73e-11,
-      "worstSignal": "sp y_1_1",
+      "worstNormalizedError": 2.67e-11,
+      "worstSignal": "sp y_2_2",
       "outcome": "matched",
       "gapBucket": null
     },
@@ -3498,7 +3504,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 20,
-      "worstNormalizedError": 5.44e-14,
+      "worstNormalizedError": 6.52e-14,
       "worstSignal": "sp sopt",
       "outcome": "matched",
       "gapBucket": null
@@ -3526,8 +3532,8 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 12,
-      "worstNormalizedError": 4.08e-11,
-      "worstSignal": "sp z_1_1",
+      "worstNormalizedError": 4.07e-11,
+      "worstSignal": "sp z_2_2",
       "outcome": "matched",
       "gapBucket": null
     },
@@ -3554,8 +3560,8 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 12,
-      "worstNormalizedError": 4.08e-11,
-      "worstSignal": "sp z_1_1",
+      "worstNormalizedError": 4.07e-11,
+      "worstSignal": "sp z_2_2",
       "outcome": "matched",
       "gapBucket": null
     },
@@ -3610,8 +3616,8 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 12,
-      "worstNormalizedError": 1.22e-13,
-      "worstSignal": "sp z_1_1",
+      "worstNormalizedError": 2.85e-14,
+      "worstSignal": "sp z_2_1",
       "outcome": "matched",
       "gapBucket": null
     },
@@ -3825,18 +3831,20 @@
       "id": "examples-tclspice-tcl-diffpair-cir",
       "sourcePath": "examples/tclspice/tcl/diffpair.cir",
       "sha256": "6d206c7d733c42168dd2c394ce6c34a9f48ceec3e80c00aa9465353c87cd45e5",
-      "analyses": [],
-      "unmappedAnalyses": [
-        "tf",
+      "analyses": [
         "sens"
+      ],
+      "unmappedAnalyses": [
+        "tf"
       ],
       "sameNameAs": [
         "benchmarks/corpus/classic/fixtures/spice3f5/diffpair.cir"
       ],
       "ngspice": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": "no raw analysis data produced"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
       "spiceTs": {
         "status": "failed",
@@ -3847,7 +3855,7 @@
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "both-failed",
+      "outcome": "spice-ts-loss",
       "gapBucket": "execution: other failure"
     },
     {
@@ -3875,7 +3883,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 10,
-      "worstNormalizedError": 1.82,
+      "worstNormalizedError": 1.69,
       "worstSignal": "tran v(2)",
       "outcome": "mismatch",
       "gapBucket": null,
@@ -3886,7 +3894,7 @@
         ],
         "reason": "TSTOP/TMAX_fine = 2500000 steps exceeds the 1000000-step budget",
         "headline": {
-          "worst": 1.82,
+          "worst": 1.69,
           "signal": "v(2)"
         },
         "spiceTsVsFine": null,
@@ -3917,7 +3925,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 12,
-      "worstNormalizedError": 0.00128,
+      "worstNormalizedError": 0.00124,
       "worstSignal": "tran v(1)",
       "outcome": "matched",
       "gapBucket": null,
@@ -3928,7 +3936,7 @@
         ],
         "reason": "TSTOP/TMAX_fine = 2500000 steps exceeds the 1000000-step budget",
         "headline": {
-          "worst": 0.00128,
+          "worst": 0.00124,
           "signal": "v(1)"
         },
         "spiceTsVsFine": null,
@@ -3947,7 +3955,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [
-          "tran:3055"
+          "tran:3009"
         ]
       },
       "spiceTs": {
@@ -3958,7 +3966,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 10,
-      "worstNormalizedError": 1.29,
+      "worstNormalizedError": 1.38,
       "worstSignal": "tran v(9)",
       "outcome": "mismatch",
       "gapBucket": null,
@@ -3968,16 +3976,16 @@
           "1e-7"
         ],
         "headline": {
-          "worst": 1.29,
+          "worst": 1.38,
           "signal": "v(9)"
         },
         "spiceTsVsFine": {
-          "worst": 1.42,
-          "signal": "v(21)"
+          "worst": 1.46,
+          "signal": "v(9)"
         },
         "ngspiceDefaultVsFine": {
-          "worst": 1.59,
-          "signal": "v(21)"
+          "worst": 1.6,
+          "signal": "v(9)"
         }
       }
     },
@@ -4004,7 +4012,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 4,
-      "worstNormalizedError": 1.39,
+      "worstNormalizedError": 1.43,
       "worstSignal": "tran v(x1.11)",
       "outcome": "mismatch",
       "gapBucket": null,
@@ -4014,15 +4022,15 @@
           "1e-10"
         ],
         "headline": {
-          "worst": 1.39,
+          "worst": 1.43,
           "signal": "v(x1.11)"
         },
         "spiceTsVsFine": {
-          "worst": 1.31,
+          "worst": 1.6,
           "signal": "v(x1.11)"
         },
         "ngspiceDefaultVsFine": {
-          "worst": 1.41,
+          "worst": 1.39,
           "signal": "v(x1.11)"
         }
       }
@@ -4051,7 +4059,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 5,
-      "worstNormalizedError": 3.14,
+      "worstNormalizedError": 2.08,
       "worstSignal": "tran v(3)",
       "outcome": "mismatch",
       "gapBucket": null,
@@ -4061,15 +4069,15 @@
           "8e-13"
         ],
         "headline": {
-          "worst": 3.14,
+          "worst": 2.08,
           "signal": "v(3)"
         },
         "spiceTsVsFine": {
-          "worst": 3.28,
+          "worst": 2.57,
           "signal": "v(3)"
         },
         "ngspiceDefaultVsFine": {
-          "worst": 1.74,
+          "worst": 1.48,
           "signal": "v(1)"
         }
       }
@@ -4890,8 +4898,11 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1",
+          "op:1",
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -4902,10 +4913,10 @@
         ]
       },
       "comparedAnalyses": 3,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 12,
+      "worstNormalizedError": 1.67e-16,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -5720,17 +5731,16 @@
         "firstErrorLine": "doAnalyses: TRAN: Timestep too small; time = 0.0100365, timestep = 6.25e-21: trouble with node \"out\""
       },
       "spiceTs": {
-        "status": "success",
-        "analyses": [
-          "tran:6075367"
-        ]
+        "status": "failed",
+        "analyses": [],
+        "firstErrorLine": "spice-ts exceeded the 120000 ms aggregate execution bound"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "ngspice-failed",
-      "gapBucket": null
+      "outcome": "both-failed",
+      "gapBucket": "timeout: spice-ts exceeded the 120 s bound"
     },
     {
       "id": "examples-vdmos-inv-vdmos-sp",
@@ -6223,7 +6233,7 @@
       "spiceTs": {
         "status": "unsupported",
         "analyses": [],
-        "firstErrorLine": "Parse error at line 17: XSPICE code model 'd_process' (.model 'proc0') is not supported (supported: mlin, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, capacitoric, inductoric, l"
+        "firstErrorLine": "Parse error at line 17: XSPICE code model 'd_process' (.model 'proc0') is not supported (supported: mlin, msopen, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, multi_input_pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, c"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
@@ -6284,7 +6294,7 @@
       "spiceTs": {
         "status": "unsupported",
         "analyses": [],
-        "firstErrorLine": "Parse error at line 27: XSPICE code model 'd_cosim' (.model 'controller') is not supported (supported: mlin, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, capacitoric, inductoric"
+        "firstErrorLine": "Parse error at line 27: XSPICE code model 'd_cosim' (.model 'controller') is not supported (supported: mlin, msopen, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, multi_input_pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
@@ -6310,7 +6320,7 @@
       "spiceTs": {
         "status": "unsupported",
         "analyses": [],
-        "firstErrorLine": "Parse error at line 4: XSPICE code model 'd_cosim' (.model 'pwm_sin') is not supported (supported: mlin, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, capacitoric, inductoric, lc"
+        "firstErrorLine": "Parse error at line 4: XSPICE code model 'd_cosim' (.model 'pwm_sin') is not supported (supported: mlin, msopen, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, multi_input_pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, ca"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
@@ -6336,7 +6346,7 @@
       "spiceTs": {
         "status": "unsupported",
         "analyses": [],
-        "firstErrorLine": "Parse error at line 4: XSPICE code model 'd_cosim' (.model 'ring') is not supported (supported: mlin, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, capacitoric, inductoric, lcoup"
+        "firstErrorLine": "Parse error at line 4: XSPICE code model 'd_cosim' (.model 'ring') is not supported (supported: mlin, msopen, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, multi_input_pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, capac"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
@@ -6362,7 +6372,7 @@
       "spiceTs": {
         "status": "unsupported",
         "analyses": [],
-        "firstErrorLine": "Parse error at line 4: XSPICE code model 'd_cosim' (.model 'pwm_sin') is not supported (supported: mlin, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, capacitoric, inductoric, lc"
+        "firstErrorLine": "Parse error at line 4: XSPICE code model 'd_cosim' (.model 'pwm_sin') is not supported (supported: mlin, msopen, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, multi_input_pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, ca"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
@@ -6588,8 +6598,8 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 10,
-      "worstNormalizedError": 0.000194,
-      "worstSignal": "ac v(46)",
+      "worstNormalizedError": 0.000219,
+      "worstSignal": "ac v(40)",
       "outcome": "matched",
       "gapBucket": null
     },
@@ -6718,8 +6728,8 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 15,
-      "worstNormalizedError": 1.11e-12,
-      "worstSignal": "ac i(v2)",
+      "worstNormalizedError": 1.22e-16,
+      "worstSignal": "ac i(v1)",
       "outcome": "matched",
       "gapBucket": null
     },
@@ -10462,7 +10472,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 48,
-      "worstNormalizedError": 6.84e-12,
+      "worstNormalizedError": 5.98e-12,
       "worstSignal": "sp y_1_2",
       "outcome": "matched",
       "gapBucket": null
@@ -10482,16 +10492,25 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": "XSPICE cpline transient analysis is not supported; supports OP and AC only"
+        "status": "success",
+        "analyses": [
+          "tran:520"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 1,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "execution: other failure"
+      "outcome": "not-compared",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "unavailable",
+        "tmax": [],
+        "reason": "no .tran card outside .control",
+        "headline": null,
+        "spiceTsVsFine": null,
+        "ngspiceDefaultVsFine": null
+      }
     },
     {
       "id": "examples-xspice-transmission-lines-cpmline-ac-cir",
@@ -10516,7 +10535,7 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 48,
-      "worstNormalizedError": 6.2e-12,
+      "worstNormalizedError": 5.96e-12,
       "worstSignal": "sp y_4_3",
       "outcome": "matched",
       "gapBucket": null
@@ -11071,7 +11090,7 @@
       "spiceTs": {
         "status": "unsupported",
         "analyses": [],
-        "firstErrorLine": "Parse error at line 5: XSPICE code model 'd_cosim' (.model 'ring') is not supported (supported: mlin, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, capacitoric, inductoric, lcoup"
+        "firstErrorLine": "Parse error at line 5: XSPICE code model 'd_cosim' (.model 'ring') is not supported (supported: mlin, msopen, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, multi_input_pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, capac"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
@@ -11097,7 +11116,7 @@
       "spiceTs": {
         "status": "unsupported",
         "analyses": [],
-        "firstErrorLine": "Parse error at line 4: XSPICE code model 'd_cosim' (.model 'pwm_sin') is not supported (supported: mlin, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, capacitoric, inductoric, lc"
+        "firstErrorLine": "Parse error at line 4: XSPICE code model 'd_cosim' (.model 'pwm_sin') is not supported (supported: mlin, msopen, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, multi_input_pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, ca"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
@@ -11166,18 +11185,20 @@
       "id": "tests-general-diffpair-cir",
       "sourcePath": "tests/general/diffpair.cir",
       "sha256": "fcaf01e8b0b2ee6fa73a6982ded97146fc75ebf959c8d720af5fc2f99e063fe4",
-      "analyses": [],
-      "unmappedAnalyses": [
-        "tf",
+      "analyses": [
         "sens"
+      ],
+      "unmappedAnalyses": [
+        "tf"
       ],
       "sameNameAs": [
         "benchmarks/corpus/classic/fixtures/spice3f5/diffpair.cir"
       ],
       "ngspice": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": "no raw analysis data produced"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
       "spiceTs": {
         "status": "failed",
@@ -11188,7 +11209,7 @@
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "both-failed",
+      "outcome": "spice-ts-loss",
       "gapBucket": "execution: other failure"
     },
     {
@@ -11526,10 +11547,10 @@
         ]
       },
       "comparedAnalyses": 2,
-      "comparedSignals": 6,
-      "worstNormalizedError": 0,
-      "worstSignal": "op i(vds)",
-      "outcome": "mismatch",
+      "comparedSignals": 12,
+      "worstNormalizedError": 1.3e-15,
+      "worstSignal": "dc i(vgs)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -11915,8 +11936,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:15"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -11925,10 +11947,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 68,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(b1004_t)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -11942,8 +11964,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:2"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -11952,10 +11975,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 6,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1001_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -11969,8 +11992,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -11979,10 +12003,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 9,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1001_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -11996,8 +12020,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12006,10 +12031,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 9,
+      "worstNormalizedError": 1.49e-16,
+      "worstSignal": "op v(n1002_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12023,8 +12048,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:7"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12033,10 +12059,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 2,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12108,8 +12134,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:8"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12118,10 +12145,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 34,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(b1001_t)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12236,8 +12263,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12246,10 +12274,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 2,
+      "worstNormalizedError": 1.3e-16,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12263,8 +12291,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12273,10 +12302,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 14,
+      "worstNormalizedError": 1.29e-16,
+      "worstSignal": "op v(b3)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12330,7 +12359,7 @@
       },
       "comparedAnalyses": 2,
       "comparedSignals": 4,
-      "worstNormalizedError": 1.96e-9,
+      "worstNormalizedError": 1.25e-8,
       "worstSignal": "noise v(inoise_total)",
       "outcome": "matched",
       "gapBucket": null
@@ -12380,8 +12409,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12390,10 +12420,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 4,
+      "worstNormalizedError": 2.56e-7,
+      "worstSignal": "op v(3)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12407,8 +12437,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12417,10 +12448,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 2,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12434,8 +12465,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12444,10 +12476,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 9,
+      "worstNormalizedError": 4.45e-8,
+      "worstSignal": "op v(1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12461,8 +12493,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:155"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12471,10 +12504,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 622,
+      "worstNormalizedError": 4.25e-16,
+      "worstSignal": "op v(n1061_t)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12488,8 +12521,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12498,10 +12532,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 4,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(b2)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12515,8 +12549,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:118"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12525,10 +12560,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 472,
+      "worstNormalizedError": 1.82e-16,
+      "worstSignal": "op v(n1056_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12542,8 +12577,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12552,10 +12588,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 68,
+      "worstNormalizedError": 7.07e-16,
+      "worstSignal": "op v(n12)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12569,8 +12605,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:29"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12579,10 +12616,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 145,
+      "worstNormalizedError": 1.85e-16,
+      "worstSignal": "op v(x1086_t.1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12668,7 +12705,7 @@
       "comparedAnalyses": 1,
       "comparedSignals": 16,
       "worstNormalizedError": 0.000001,
-      "worstSignal": "sens v(r5_scale)",
+      "worstSignal": "sens v(l3_m)",
       "outcome": "matched",
       "gapBucket": null
     },
@@ -12739,8 +12776,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12749,10 +12787,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 10,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12766,8 +12804,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:7"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12776,10 +12815,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 21,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12793,8 +12832,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12803,10 +12843,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 1,
+      "worstNormalizedError": 2.68e-14,
+      "worstSignal": "op v(1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -13023,18 +13063,20 @@
       "id": "tests-sensitivity-diffpair-cir",
       "sourcePath": "tests/sensitivity/diffpair.cir",
       "sha256": "b48d61b42eb60d674c7eb5d8c42ab8987828a54badcefd58002a28cfa83286da",
-      "analyses": [],
-      "unmappedAnalyses": [
-        "tf",
+      "analyses": [
         "sens"
+      ],
+      "unmappedAnalyses": [
+        "tf"
       ],
       "sameNameAs": [
         "benchmarks/corpus/classic/fixtures/spice3f5/diffpair.cir"
       ],
       "ngspice": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": "no raw analysis data produced"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
       "spiceTs": {
         "status": "failed",
@@ -13045,7 +13087,7 @@
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "both-failed",
+      "outcome": "spice-ts-loss",
       "gapBucket": "execution: other failure"
     },
     {
@@ -13367,5 +13409,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "8ab2ecbd8863a02b073905aa82654d18f1d48e9409176cae54838db7781d97bb"
+  "outcomeSha256": "d76e0240028bffc0da342b50c32b2f7e311cb80d859bd250e4f84311dd695868"
 }

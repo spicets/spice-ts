@@ -307,16 +307,30 @@ export function alignAndMeasure(
   preparedReference = prepareAlignmentReference(ngspice),
 ): ComparisonMetrics {
   // A two-source nested DC sweep restarts the primary grid for every secondary
-  // value, so each engine's grid is a sequence of monotonic segments. Points are
-  // only ever aligned within the segment with the same ordinal in both engines;
-  // interpolating across the repeated grid would compare unrelated sweep points.
+  // value, so each engine's grid is a sequence of monotonic segments. Align points
+  // by secondary coordinate when both engines expose it, otherwise by ordinal.
+  // Interpolating across the repeated grid would compare unrelated sweep points.
   const spiceSegments = sweepSegments(spiceTs);
   const referenceSegments = preparedReference.segments;
   const explicit = spiceTs.secondaryGrid !== undefined && ngspice.secondaryGrid !== undefined;
-  const referenceCoordinates = new Map(referenceSegments.map((group, index) => [group.secondaryValue, index]));
+  // Decimal parsing and repeated += step can differ by a few rounding bits,
+  // including opposite signs around zero. This is coordinate identity only:
+  // neither samples nor the signal-error gate are rounded or relaxed. Refuse
+  // ambiguous neighbors on either side rather than silently merging groups.
+  const sameCoordinate = (left: number, right: number) =>
+    Math.abs(left - right) <= 4 * Number.EPSILON * Math.max(1, Math.abs(left), Math.abs(right));
+  const coordinateCandidates = explicit ? spiceSegments.map(group => referenceSegments.flatMap((reference, index) =>
+    sameCoordinate(group.secondaryValue!, reference.secondaryValue!) ? [index] : [])) : [];
+  const referenceUses = new Map<number, number>();
+  for (const candidates of coordinateCandidates) {
+    for (const index of candidates) referenceUses.set(index, (referenceUses.get(index) ?? 0) + 1);
+  }
   const ordinalFallback = !explicit && (spiceTs.secondaryGrid !== undefined || ngspice.secondaryGrid !== undefined || spiceSegments.length > 1 || referenceSegments.length > 1);
   const pairing = spiceSegments.map((group, ordinal) => {
-    if (explicit) return referenceCoordinates.get(group.secondaryValue) ?? -1;
+    if (explicit) {
+      const candidates = coordinateCandidates[ordinal];
+      return candidates.length === 1 && referenceUses.get(candidates[0]) === 1 ? candidates[0] : -1;
+    }
     if (spiceSegments.length !== referenceSegments.length) return -1;
     if (ordinalFallback) {
       const reference = referenceSegments[ordinal];

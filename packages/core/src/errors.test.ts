@@ -8,7 +8,38 @@ import {
   ConvergenceError,
   TimestepTooSmallError,
   CycleError,
+  UnsupportedModelLevelError,
+  UnsupportedModelVersionError,
+  UnsupportedCircuitModelTypeError,
+  ModelTypeMismatchError,
+  UnsupportedModelParameterError,
+  UnsupportedTemperatureError,
+  UnsupportedMultiplicityError,
 } from './errors.js';
+
+describe('stable machine-readable error codes', () => {
+  it.each([
+    [new SpiceError('failure'), 'SPICE_ERROR'],
+    [new ParseError('syntax', 2, 'bad'), 'PARSE_ERROR'],
+    [new InvalidCircuitError('invalid'), 'INVALID_CIRCUIT'],
+    [new SingularMatrixError('zero pivot', ['out']), 'SINGULAR_MATRIX'],
+    [new ConvergenceError('iterations', undefined, [], new Float64Array(0), new Float64Array(0)), 'CONVERGENCE_FAILED'],
+    [new TimestepTooSmallError(1, 1e-18), 'TIMESTEP_TOO_SMALL'],
+    [new CycleError(['a', 'a']), 'CYCLE'],
+    [new UnsupportedModelLevelError('M1', 'n', 7, [1]), 'UNSUPPORTED_MODEL_LEVEL'],
+    [new UnsupportedModelVersionError('M1', 'n', 8, '3.0', ['3.3']), 'UNSUPPORTED_MODEL_VERSION'],
+    [new UnsupportedCircuitModelTypeError('n', 'unknown', ['NMOS']), 'UNSUPPORTED_MODEL_TYPE'],
+    [new ModelTypeMismatchError('M1', 'M', 'n', 'NPN', ['NMOS']), 'MODEL_TYPE_MISMATCH'],
+    [new UnsupportedModelParameterError('D1', 'RSW', 'not implemented'), 'UNSUPPORTED_MODEL_PARAMETER'],
+    [new UnsupportedTemperatureError('D1', 50), 'UNSUPPORTED_TEMPERATURE'],
+    [new UnsupportedMultiplicityError('x1.g1', 'G', 'x1', 2), 'UNSUPPORTED_MULTIPLICITY'],
+  ] as const)('%s exposes %s through SpiceError', (error, code) => {
+    expect(error).toBeInstanceOf(SpiceError);
+    expect(error).toBeInstanceOf(Error);
+    const base: SpiceError = error;
+    expect(base.code).toBe(code);
+  });
+});
 
 describe('SpiceError hierarchy', () => {
   it('ParseError includes line and context', () => {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import './metric-performance.test.js';
 import './noise-reference.test.js';
 import './control-sp.test.js';
+import './control-op.test.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -46,6 +47,20 @@ import { CONTROL_SECTION, controlExportDiagnostics, controlWrapperDeck, hasContr
 const ROOT = 'benchmarks/corpus/corpus-f';
 const HAS_NGSPICE = spawnSync('ngspice', ['--version'], { encoding: 'utf8' }).status === 0;
 const HAS_CORE_DIST = existsSync('packages/core/dist/index.js');
+
+it('scores all mesa11 DC signals instead of only the zero-error OP (#1658)', { skip: !HAS_NGSPICE || !HAS_CORE_DIST }, async () => {
+  const manifest = JSON.parse(await readFile(`${ROOT}/manifest.json`, 'utf8')) as CorpusFManifest;
+  const circuit = manifest.circuits.find(c => c.sourcePath === 'tests/mesa/mesa11.cir')!;
+  const result = await runFixture(circuit);
+  assert.equal(result.ngspice.status, 'success');
+  assert.equal(result.spiceTs.status, 'success');
+  assert.equal(result.comparedAnalyses, 2);
+  assert.equal(result.comparedSignals, 12, JSON.stringify(result));
+  assert.equal(result.outcome, 'matched', JSON.stringify(result));
+  assert.ok(Number.isFinite(result.worstNormalizedError));
+  assert.ok(result.worstNormalizedError! <= MATCH_THRESHOLD);
+  assert.ok(result.worstSignal?.startsWith('dc '));
+});
 
 describe('corpus-f control wrapper (#521)', () => {
   it('passes the resolver through classic, extra and mixed simulate paths (#1548)', { skip: !HAS_CORE_DIST }, async () => {
