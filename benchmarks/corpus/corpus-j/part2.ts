@@ -82,7 +82,7 @@ if (process.argv[2] === '--engine') {
     policy: { input: 'byte-identical', fixtureAdaptation: 'none', perCircuitToleranceTuning: false, matchThreshold: 0.01, matchRule: MATCH_RULE,
       childGroupBoundMs: CHILD_BOUND_MS, executionDeadlineMs: CHILD_BOUND_MS - 1000, cumulativeChildWallBudgetMs: WALL_BUDGET_MS,
       runtimeBoundary: 'serial cold owned engine group; includes Node/tsx, adapter, parse/solve, output export and serialization; no speed claim',
-      controlExport: 'unchanged corpus-f source/write wrapper exports first plot of each declared type, defers quit/exit; no netlist edits; repeated control runs beyond plot1 are not compared',
+      controlExport: 'unchanged corpus-f source/write wrapper exports all retained plots by ID for each declared type, defers quit/exit; no netlist edits',
       fineReference: 'none; no adapted deck' },
     actualCumulativeChildWallMs: consumedWall([...await ledger(`${ROOT}/wall.jsonl`), ...await ledger(`${ROOT}/part2-wall.jsonl`)]),
     ...summarize(fixtures), fixtures };
