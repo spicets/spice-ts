@@ -6,11 +6,11 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `dc0d11517a5707054bdc604b2587c263f54b9df0d2bcdeb88a775c4753e12bd4`.
+- Fixtures: 336. Outcome SHA-256: `80f73c33cf76fb033adcacfeed8e756322d030a1ae4f2f0df33ed1bbd94ed7a7`.
 - ngspice (ngspice-47): 306 success, 18 failed, 12 unsupported.
-- spice-ts (0.4.0): 233 success, 13 failed, 90 unsupported.
-- Outcomes: matched 92, mismatch 20, not-compared 116, spice-ts-loss 78, ngspice-failed 5, both-failed 25.
-- Of the 306 decks ngspice runs successfully, spice-ts matches 92, mismatches 20, produces no comparable result for 116 and fails 78. For 145 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
+- spice-ts (0.4.0): 234 success, 13 failed, 89 unsupported.
+- Outcomes: matched 92, mismatch 21, not-compared 116, spice-ts-loss 77, ngspice-failed 5, both-failed 25.
+- Of the 306 decks ngspice runs successfully, spice-ts matches 92, mismatches 21, produces no comparable result for 116 and fails 77. For 145 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
 
@@ -46,10 +46,10 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | model: CIDER numerical device models (NUMD/NUMOS/NBJT) | 37 | 37 | https://github.com/mfiumara/spice-ts/issues/497 |
 | parse: other unsupported syntax | 19 | 12 | none filed |
 | harness: analysis result not produced or not mapped | 11 | 11 | none filed |
-| control: ngspice control-language scripting (set/let/save/foreach/meas/...) | 6 | 4 | https://github.com/mfiumara/spice-ts/issues/488 |
 | execution: other failure | 6 | 1 | none filed |
 | model: VDMOS power MOSFET | 6 | 0 | https://github.com/mfiumara/spice-ts/issues/506 |
 | control: analysis commands inside .control (tran/dc/op/ac/...) | 5 | 5 | https://github.com/mfiumara/spice-ts/issues/489 |
+| control: ngspice control-language scripting (set/let/save/foreach/meas/...) | 5 | 3 | https://github.com/mfiumara/spice-ts/issues/488 |
 | timeout: spice-ts exceeded the 120 s bound | 5 | 5 | none filed |
 | convergence | 2 | 0 | none: ngspice also fails every fixture in this bucket |
 | device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP) | 2 | 2 | https://github.com/mfiumara/spice-ts/issues/490 |
@@ -154,7 +154,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/p-to-n-examples/logic.cir](fixtures/examples/p-to-n-examples/logic.cir) | failed | unsupported | both-failed |  |  | ngspice: YYparse error, syntax error, in expression: parsing stopped at line 7 / spice-ts: Parse error at line 7: Unsupported behavioral expression operator '~' B1 1 0 V=~(~v(9)&v(8)) + 0.5 |
 | [examples/p-to-n-examples/MOS1_out.cir](fixtures/examples/p-to-n-examples/MOS1_out.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/p-to-n-examples/switch-oscillators.cir](fixtures/examples/p-to-n-examples/switch-oscillators.cir) | success | success | mismatch | 1 | tran v(n014) |  |
-| [examples/plot/inv-chain-pyplot.cir](fixtures/examples/plot/inv-chain-pyplot.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Parse error at line 24: Unsupported .control command 'pyplot': it is not an ngspice control-language command spice-ts executes; spice-ts executes the analyses op/dc/ac/tran/noise/run, set/unset, let/unlet, define, alter/altermod/alterparam, |
+| [examples/plot/inv-chain-pyplot.cir](fixtures/examples/plot/inv-chain-pyplot.cir) | success | success | mismatch | 0.152 | tran i(vin1) | ngspice note: #1631 targeted re-score via unchanged-fixture control export wrapper (quit/exit deferred); reproduce with MPLBACKEND=Agg spice-heavy pnpm exec tsx benchmarks/control-pyplot/compare.ts |
 | [examples/probe/cntrl-sources.cir](fixtures/examples/probe/cntrl-sources.cir) | success | success | matched | 1.08e-15 | tran i(vf) |  |
 | [examples/probe/mos-test.cir](fixtures/examples/probe/mos-test.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: Unsupported saved device vector '@mn1[id]' |
 | [examples/probe/probe-i-dev.cir](fixtures/examples/probe/probe-i-dev.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |

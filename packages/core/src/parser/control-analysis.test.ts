@@ -100,6 +100,37 @@ quit 0
     expect(result.ac!.frequencies).toHaveLength(3);
   });
 
+  it('keeps pyplot and pyplot_subplots output-only after run (#1631)', async () => {
+    const deck = `Batch pyplot\n${rc}\n.tran 1u 20u`;
+    const result = await simulate(`${deck}
+.control
+run
+pyplot py1 v(1) v(2)+6 title 'named plot'
+set pyplot_subplots=1
+pyplot py2 v(1) v(2) title 'subplots'
+unset pyplot_subplots
+PYPLOT v(1) v(2)+6 title 'unnamed plot'
+set pyplot_subplots=2
+pyplot v(1) v(2) title 'shared scale'
+.endc
+.end`);
+    const baseline = await simulate(`${deck}\n.end`);
+    expect(result.transient!.time.length).toBeGreaterThan(1);
+    expect(result.transient!.time).toEqual(baseline.transient!.time);
+    expect(result.transient!.voltage('2')).toEqual(baseline.transient!.voltage('2'));
+  });
+
+  it('still rejects known unimplemented commands following pyplot with a structured error (#1631)', async () => {
+    await expect(simulate(`Unsupported after pyplot\n${rc}\n.tran 1u 20u\n.control\nrun\npyplot v(2)\nsource other.cir\n.endc\n.end`))
+      .rejects.toMatchObject({
+        name: 'UnsupportedControlCommandError',
+        code: 'UNSUPPORTED_CONTROL_COMMAND',
+        command: 'source',
+        line: 9,
+        context: 'source other.cir',
+      });
+  });
+
   it('accepts settype between analyses as output-only (examples/vbic/vbic99_tran.sp)', () => {
     const circuit = parse(`Control settype
 ${rc}
