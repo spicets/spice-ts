@@ -51,7 +51,7 @@ describe('bounded diode WASM AC', () => {
     } finally { await wasm.close(); }
   });
 
-  it.each(['NPN', 'NMOS'])('does not enable %s AC models', async model => {
+  it.each(['NMOS', 'PMOS'])('does not enable %s AC models', async model => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
       expect(await wasm.simulate(request(diodeAcSource.replace(/\.model.*\n/, `.model junction ${model}\n`)), { requestId: 'unsupported-ac-model' }))
