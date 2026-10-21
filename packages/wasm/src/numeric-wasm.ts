@@ -81,7 +81,7 @@ export async function simulateLinearOpWasmV1(
   if (prepared.analysis === 'op') return simulateOp(prepared, request, exports);
   if (prepared.analysis === 'dc') return simulateDc(prepared, request, exports);
   if (prepared.analysis === 'tran') {
-    if (prepared.compiled.devices.some(device => ['D', 'Q'].includes(device.name[0]?.toUpperCase() ?? ''))) {
+    if (prepared.compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''))) {
       return simulateNonlinearTransient(prepared, request, exports, maxPoints);
     }
     return simulateTransient(prepared, request, exports);
@@ -669,7 +669,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   }
   const devices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q']
+    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M']
       : ['R', 'C', 'L', 'I', 'V'];
   if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
@@ -727,7 +727,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
   const allowedDevices = analysis === 'op' ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
     : analysis === 'dc' ? ['R', 'I', 'V', 'D', 'Q', 'M']
-    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q']
+    : analysis === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M']
       : ['R', 'C', 'L', 'I', 'V'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
@@ -736,9 +736,10 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
-      if (analysis === 'tran' && mos) unsupported('diode-model', 'Only diode and BJT models are supported in bounded transients');
       const parameters = (model[2] ?? model[3] ?? '').trim();
-      const names = mos ? 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI' : bjt ? 'IS|BF|BR|NF|NR|VAF' : 'IS|N|RS';
+      const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI'
+        + (analysis === 'tran' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
+      const names = mos ? mosNames : bjt ? 'IS|BF|BR|NF|NR|VAF' : 'IS|N|RS';
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
       if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
         unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
@@ -746,7 +747,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const parameter = new RegExp(`(?:${names})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|,\\s*|$)`, 'gi');
 
       if (parameters.replace(parameter, '').trim()) {
-        if (mos) unsupported('mosfet-model-parameter', 'Only MOS1 model parameters LEVEL=1, VTO, KP, LAMBDA, GAMMA, and PHI are supported');
+        if (mos) unsupported('mosfet-model-parameter', `Only MOS1 model parameters ${mosNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
         if (bjt) unsupported('bjt-model-parameter', 'Only BJT model parameters IS, BF, BR, NF, NR, and VAF are supported');
         unsupported('diode-model-parameter', 'Only diode model parameters IS, N, and RS are supported');
       }
@@ -766,9 +767,10 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (tokens.length !== 5) unsupported('bjt-form', 'BJTs must use name collector base emitter model');
     } else if (type === 'M') {
       const instance = /^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+(.*)$/.exec(card);
-      const dimensions = new RegExp(`(?:W|L)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
+      const instanceNames = analysis === 'tran' ? 'W|L|AD|AS|PD|PS' : 'W|L';
+      const dimensions = new RegExp(`(?:${instanceNames})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
       if (!instance || instance[1]!.trim().replace(dimensions, '').trim()) {
-        unsupported('mosfet-form', 'MOSFETs must use name drain gate source bulk model with optional numeric W and L only');
+        unsupported('mosfet-form', `MOSFETs must use name drain gate source bulk model with optional numeric ${instanceNames.replaceAll('|', ', ')} only`);
       }
     } else if (type === 'L') {
       if (/\bIC\s*=/i.test(card)) {

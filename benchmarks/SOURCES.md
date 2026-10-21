@@ -1,5 +1,22 @@
 # Benchmark sources
 
+## WASM MOS1 transient (#1622)
+
+| Fixture | Source | Licence | Oracle |
+| --- | --- | --- | --- |
+| `wasm-mos1-tran/inverter.cir` | Original project-authored CMOS inverter, https://github.com/spicets/spice-ts/issues/1622 | Repository MIT | ngspice-47, identical deck bytes, default options |
+
+`wasm-mos1-tran/ngspice.json` contains the generated ngspice time grid and all
+node/source signals, tied to the deck SHA-256. Regenerate and compare with
+`spice-heavy pnpm exec tsx benchmarks/wasm-mos1-tran/compare.ts --update-oracle`
+after `pnpm build`. The WASM MOS1 transient test consumes this oracle. Comparison
+linearly interpolates ngspice at engine times and reports per-signal max/RMS
+absolute and relative errors (relative denominator floor 1e-12 in signal units).
+Before this change WASM rejected the deck; afterward it completes 230 points.
+Measured output-voltage max/RMS error is 1.38727e-3 / 1.78573e-4 V, not strict
+ngspice parity. Core/WASM point counts agree, but default-options time grids
+differ by up to 1.64113e-21 s. Exact-grid acceptance remains unresolved.
+
 ## LTRA small-signal AC (#1604)
 
 `benchmarks/ltra/ac/{rlc,rc,lc}.cir` are original project-authored MIT test
