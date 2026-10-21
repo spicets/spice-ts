@@ -59,29 +59,21 @@
   },
   "gapBuckets": [
     {
+      "bucket": "model: compact MOSFET model B3SOI (LEVEL=10)",
+      "fixtures": 2,
+      "ngspiceSuccess": 2,
+      "ids": [
+        "bsimsoi3-b3soitrandefaults-cir",
+        "init-conds-inv1xic-cir"
+      ],
+      "issue": "https://github.com/mfiumara/spice-ts/issues/747"
+    },
+    {
       "bucket": "convergence",
       "fixtures": 1,
       "ngspiceSuccess": 1,
       "ids": [
         "inductor-errormessagetest-cir"
-      ],
-      "issue": null
-    },
-    {
-      "bucket": "model: compact MOSFET model B3SOI (LEVEL=10)",
-      "fixtures": 1,
-      "ngspiceSuccess": 1,
-      "ids": [
-        "bsimsoi3-b3soitrandefaults-cir"
-      ],
-      "issue": "https://github.com/mfiumara/spice-ts/issues/747"
-    },
-    {
-      "bucket": "parse: other unsupported syntax",
-      "fixtures": 1,
-      "ngspiceSuccess": 1,
-      "ids": [
-        "init-conds-inv1xic-cir"
       ],
       "issue": null
     }
@@ -1918,14 +1910,14 @@
       "spiceTs": {
         "status": "unsupported",
         "analyses": [],
-        "firstErrorLine": "MOSFET 'XINV1.MN1' references unknown model '0'"
+        "firstErrorLine": "MOSFET 'XINV1.MN1' (model 'CMOSN') uses unsupported model LEVEL=10 (supported MOSFET levels: 1, 2, 3, 4, 5, 6, 8, 9, 14, 49, 54, 260)"
       },
       "comparedAnalyses": 0,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
       "outcome": "spice-ts-loss",
-      "gapBucket": "parse: other unsupported syntax"
+      "gapBucket": "model: compact MOSFET model B3SOI (LEVEL=10)"
     },
     {
       "id": "invalid-chars-colon-fails-device-name-cir",
@@ -4929,5 +4921,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "0a18c74fcd1328443022ee185005626e3f0cba9473c8e7b83c69830a85722f9e"
+  "outcomeSha256": "20b52f0bd425f61120378bcbd703b488535c48755b29e7461359b65fd06d632f"
 }
