@@ -279,9 +279,13 @@ export class BSIM3v3 implements DeviceModel {
     this.lastVon = dc.von;
     // Channel current from the effective drain to the effective source.
     stampControlledCurrent(ctx, type, m, nD, nS, nD, nG, nS, nB, dc.Ids, dc.gm, dc.gds, dc.gmbs, Vgs, Vds, Vbs);
-    // Substrate current from the effective drain into the bulk. Stamped even
-    // when zero so the bulk row keeps one sparsity pattern in both modes.
-    stampControlledCurrent(ctx, type, m, nD, nB, nD, nG, nS, nB, dc.Isub, dc.gbg, dc.gbd, dc.gbb, Vgs, Vds, Vbs);
+    // b3ld.c disables substrate current for these size parameters at every
+    // bias. Avoid eight zero matrix writes per load in that case. An enabled
+    // model must still stamp instantaneous zeros to retain its topology when
+    // bias or orientation changes; do not branch on dc.Isub.
+    if (!(this.size.alpha0 + this.size.alpha1 * this.size.leff <= 0 || this.size.beta0 <= 0)) {
+      stampControlledCurrent(ctx, type, m, nD, nB, nD, nG, nS, nB, dc.Isub, dc.gbg, dc.gbd, dc.gbb, Vgs, Vds, Vbs);
+    }
   }
 
   /** Transient-NQS AC and frequency-dependent noise remain outside this port. */
@@ -584,7 +588,10 @@ function stampControlledCurrent(
 ): void {
   const ceq = m * type * (current - gG * Vgs - gD * Vds - gB * Vbs);
   const gs = -(gG + gD + gB);
-  for (const [row, sign] of [[into, 1], [outOf, -1]] as const) {
+  // This runs for every Newton load: avoid allocating three tuple arrays.
+  for (let side = 0; side < 2; side++) {
+    const row = side === 0 ? into : outOf;
+    const sign = side === 0 ? 1 : -1;
     if (row < 0) continue;
     const s = sign * m;
     if (nG >= 0) ctx.stampG(row, nG, s * gG);
