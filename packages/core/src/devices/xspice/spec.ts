@@ -633,6 +633,17 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         ...DIGITAL_DELAYS, real('freq_in_load', 1e-12),
       ],
     },
+    ...([2, 3] as const).map(dimensions => ({
+      name: `table${dimensions}d`,
+      connections: [...['inx', 'iny', ...(dimensions === 3 ? ['inz'] : [])].map(name => input(name)),
+        { ...output('out'), defaultType: 'i' }],
+      params: [
+        { name: 'order', type: 'int' as const, defaultValue: [3], limits: [2, undefined] as const, vector: false, nullAllowed: true },
+        { name: 'verbose', type: 'int' as const, defaultValue: [0], limits: [0, 2] as const, vector: false, nullAllowed: true },
+        real('offset', 0), real('gain', 1),
+        { name: 'file', type: 'string' as const, defaultValue: [`${dimensions}D-table-model.txt`], vector: false, nullAllowed: true },
+      ],
+    })),
     unaryGate('d_buffer'), unaryGate('d_inverter'),
     // ngspice-47 digital/{d_open_c,d_open_e}/ifspec.ifs:30-74.
     ...(['d_open_c', 'd_open_e'] as const).map(name => ({
