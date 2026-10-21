@@ -1,5 +1,23 @@
 # Benchmark sources
 
+## LTRA small-signal AC (#1604)
+
+`benchmarks/ltra/ac/{rlc,rc,lc}.cir` are original project-authored MIT test
+netlists based on the minimal issue reproduction at
+https://github.com/spicets/spice-ts/issues/1604. Both simulators consume the
+identical committed decks, with `.ac dec 10 1k 1g` and no circuit-specific tuning.
+The adjacent JSON fixtures contain ngspice-47 binary raw-file frequency and
+complex `v(3)` values (61 points each). Regenerate using
+`spice-heavy python3 benchmarks/ltra/ac/generate.py`; run the comparison with
+`pnpm -C packages/core exec vitest run src/devices/lossy-transmission-line-ac.test.ts`.
+The frequency-dependent stamp follows ngspice-47's Berkeley-licensed
+[`ltraacld.c`](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/ltra/ltraacld.c).
+Before this change all three decks were rejected (RC at model validation,
+RLC/LC at the AC guard), so no numeric baseline error exists. Acceptance uses
+maximum relative magnitude error <= 1e-6 and wrapped phase error <= 1e-4 degrees
+at every frequency. RC transient and all LTRA noise analyses remain unsupported.
+This is bounded AC parity evidence, not a transient or performance claim.
+
 ## Corpus-f isolated companion resolution (#1548 / #1545)
 
 The unchanged `examples/rf/sp/file.cir` fixture comes from the ngspice examples
@@ -89,6 +107,18 @@ It checks source current and intrinsic collector voltage at every point for
 NPN at two base voltages, PNP, OP, series resistance, AREA/M, and temperature.
 This is a static correctness test, not a speed claim or AC/transient support.
 
+
+## BJT quasi-saturation AC (#1605)
+
+`packages/core/src/devices/fixtures/bjt-quasisat-ac-1605.json` contains eight
+original project-authored MIT decks and 248 ngspice-47 reference points.
+No third-party netlists are redistributed. The oracle equations are ngspice-47's
+BSD-3-Clause [`bjtload.c` and `bjtacld.c`](https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/bjt).
+The paired test documents the `spice-heavy ngspice -b` export commands and
+compares identical circuit/model/analysis directives for QCO=0/nonzero in
+forward-active/quasi-saturation, NPN and PNP (the latter with AREA=2, M=3).
+Acceptance is maximum relative magnitude error <=1e-5 and phase error <=1e-3
+degrees across every frequency. Transient epi-charge integration is not supported.
 
 ## Lossless transmission-line IC with UIC (#1497)
 
@@ -2464,4 +2494,78 @@ or execution. After: `montecarlo.sp` completes five AC runs; `mc_ring.sp` passes
 the comment line but still fails nominal transient convergence (tracked in #1600).
 This is control-language coverage, not a claim of full Monte Carlo parity.
 
+## XSPICE microstrip open end (#1621)
 
+| Fixture | Source | Licence |
+| --- | --- | --- |
+| `xspice-msopen/terminated.cir` and the generated variants embedded in `xspice-msopen/ngspice-47.json` | Original spice-ts mlin/msopen OP + AC regression decks | MIT |
+
+`xspice-msopen/compare.ts` sources identical deck bytes into ngspice-47 and
+spice-ts, comparing exact OP values and per-point AC magnitude, phase and complex
+relative errors. `ngspice-47.json` archives the numeric ngspice output read by the
+core regression test. See `xspice-msopen/README.md` for regeneration and limits.
+The implementation adapts BSD-3-Clause ngspice-47 formulas, Copyright 2025 Vadim
+Kuznetsov, with the full notice in `packages/core/src/devices/xspice/msopen.LICENSE`:
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/msopen/cfunc.mod
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/tlines/msopen/ifspec.ifs
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/tlines/msline_common.c
+
+## XSPICE multi_input_pwl min/max (#1620)
+
+| Files | Source | Licence |
+| --- | --- | --- |
+| `xspice-multi-input-pwl/{dc,tran}.cir` | Original spice-ts two-input min/max regression decks, authored for #1620 | MIT (repository licence) |
+| `xspice-multi-input-pwl/{dc,tran}.raw` | ngspice-47 generated output from the identical decks; regenerated and consumed by `compare.ts --refresh` | Generated data from the MIT decks |
+
+Model semantics: [ngspice-47 cfunc.mod](https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/analog/multi_input_pwl/cfunc.mod)
+and [ifspec.ifs](https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/analog/multi_input_pwl/ifspec.ifs).
+Only `and`/`or` are implemented here; `nand`/`nor` fail explicitly. The
+ngspice-47 model emits a diagnostic and truncates unequal x/y arrays; spice-ts
+instead raises `InvalidCircuitError`. ngspice sets neither PARTIAL nor AC_GAIN;
+spice-ts supplies the exact DC/transient Jacobian but preserves zero AC gain.
+Ports follow ngspice's `vd`/`id` interface (ground one terminal for single-ended
+signals). The ordinary `pwl` helper includes smoothing, extrapolation and an
+iteration limiter, so it cannot implement this model's clamped linear table.
+
+Reproduce: `spice-heavy pnpm exec tsx benchmarks/xspice-multi-input-pwl/compare.ts`.
+The observer loads each unchanged deck in ngspice-47 and writes only the output
+vectors. The script checks regenerated reference grid/data against the committed
+raw files, then reports the existing aggregate harness's linear alignment,
+absolute and relative max/RMS errors, deck SHA-256, versions, CPU and runtimes.
+Separate process boundaries mean these runtimes are not a speed claim.
+
+## XSPICE potentiometer (#1619)
+
+`benchmarks/xspice/potentiometer.cir` is an original project-authored MIT
+fixture; no upstream circuit is copied. Both engines receive identical bytes.
+It covers the default 100 kOhm midpoint, an explicit linear taper, and a log
+taper with nondefault `log_multiplier=2`, each with a loaded wiper and default
+single-ended `g` ports in `r0, wiper, r1` order. A 5 V operating point, nine-point
+source DC sweep, and short piecewise-linear transient exercise node voltages
+and source branch current without smooth-waveform interpolation error.
+
+Behavior and parameter references are ngspice-47's Public Domain sources
+(Georgia Tech Research Corporation, Jeffrey P. Murray):
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/xtradev/potentiometer/cfunc.mod
+and
+https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/xtradev/potentiometer/ifspec.ifs.
+The model's lower resistance is `position*r` for linear taper and
+`r/10**(position*log_multiplier)` for logarithmic taper; upper resistance is
+`r-lower`. The benchmark uses interior positions; endpoint clamping and warnings
+belong to unit coverage, not this parity claim. Contrary to the initial issue
+description, ngspice-47 has no `r_end` or `r_wiper` parameters. Out-of-range
+`position` is clamped to [0,1] with a MIF warning, not rejected as a parse error.
+The model then substitutes 1e-9 or 0.999999999 at the respective endpoints.
+
+Run `pnpm exec tsx benchmarks/xspice/potentiometer-compare.ts` from the repo root
+with ngspice and spice-heavy on PATH. The runner wraps every oracle batch in
+`spice-heavy`, uses `HERMES_SCRATCH_DIR` (default `~/.cache/spice-ts/benchmarks`,
+not system temporary storage), and compares both freshly generated and committed raw
+`potentiometer-reference/{op,dc,tran}.txt` ngspice-47 wrdata tables. Missing,
+nonfinite, incomplete, or mismatched samples fail closed. OP/DC use a fixed
+1e-6 pointwise relative threshold; transient uses 1e-6 peak-normalized maximum
+and RMS thresholds after linear interpolation at all reference times. No
+aggregate tolerance is relaxed. Output records fixture SHA-256, oracle version,
+platform, sample counts, metrics, and cold timings (oracle includes process
+startup/semaphore queueing; TS timing covers simulation). This is bounded
+resistive-network parity evidence, not a general speed claim.

@@ -238,7 +238,7 @@ export async function runNgspice(input: Buffer, circuit: CorpusFCircuit): Promis
 export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, select?: ReferenceSelection): Promise<ReferenceRun<PackedExecution>> {
   // SP plots are retained control plots, not batch -r AC output. Export them by
   // their real IDs using the same unchanged-deck wrapper as the supplement.
-  if (circuit.analyses.includes('sp')) {
+  if (circuit.analyses.includes('sp') && /^\s*\.control\b/im.test(input.toString('utf8'))) {
     const { runControlReference } = await import('./control-vectors.js');
     const run = await runControlReference(input, circuit, select);
     return { ...run, execution: asPacked(run.execution) };
@@ -284,13 +284,18 @@ export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, s
     });
     // -r does not export analyses run inside .control. Reuse the control-vector wrapper
     // on identical bytes, not wrdata expressions (which may square-root the spectra).
-    // Retain both the spectrum and integrated totals, with packed, selected columns.
+    // Retain noise, S-parameter and sensitivity control plots, with packed, selected columns.
     let exportNote: string | undefined;
-    if (analyses.length === 0 && !errorLine && /^\s*noise\s+/im.test(input.toString('utf8'))
+    const exportTypes = [
+      ...(/^\s*noise\s+/im.test(input.toString('utf8')) ? ['noise' as const] : []),
+      ...(circuit.analyses.includes('sp') ? ['sp' as const] : []),
+      ...(circuit.analyses.includes('sens') ? ['sens' as const] : []),
+    ];
+    if (analyses.length === 0 && !errorLine && exportTypes.length > 0
       && /^\s*\.control\b/im.test(input.toString('utf8'))) {
       const { controlWrapperDeck, controlExportDiagnostics } = await import('./control-vectors.js');
       await writeFile(resolve(directory, 'fixture.cir'), input);
-      await writeFile(resolve(directory, 'wrapper.cir'), controlWrapperDeck(['noise']));
+      await writeFile(resolve(directory, 'wrapper.cir'), controlWrapperDeck(exportTypes));
       const exported = spawnSync('ngspice', ['-b', 'wrapper.cir'], {
         cwd: directory, encoding: 'utf8', env: { ...process.env, HOME: directory },
         timeout: NGSPICE_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: 64 * 1024 * 1024,
@@ -304,13 +309,14 @@ export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, s
           scrub(exported.error?.message ?? exportError ?? `ngspice export exited ${exported.status}`, directory)),
           ...(exportNote ? { note: exportNote } : {}) };
       }
-      const files = (await readdir(directory)).filter(name => /^noise\d+\.raw$/.test(name))
+      const files = (await readdir(directory)).filter(name => /^(?:noise|sp|sens)\d+\.raw$/.test(name))
         .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]));
       for (const file of files) {
         const retained = await readNgspiceRawFilePacked(resolve(directory, file), keep);
         for (const plot of retained) {
-          if (analysisType(plot.plotName) !== 'noise') continue;
-          analyses.push({ type: 'noise', plotName: plot.plotName, plotId: file.replace(/\.raw$/, ''),
+          const type = analysisType(plot.plotName);
+          if (type !== 'noise' && type !== 'sp' && type !== 'sens') continue;
+          analyses.push({ type, plotName: plot.plotName, plotId: file.replace(/\.raw$/, ''),
             grid: Float64Array.from(plot.grid), signals: plot.signals });
         }
       }
@@ -409,6 +415,13 @@ export async function runFixture(
   }
   const input = await readFile(resolve(circuit.localPath));
   if (sha256(input) !== circuit.sha256) throw new Error(`${circuit.id}: fixture SHA-256 mismatch`);
+  // Older manifests predate batch S-parameter/sensitivity support. Promote declarations without
+  // rewriting the ingested corpus identity or changing the bytes sent to either engine.
+  circuit = {
+    ...circuit,
+    analyses: [...new Set([...circuit.analyses, ...circuit.unmappedAnalyses.filter(type => type === 'sp' || type === 'sens')])],
+    unmappedAnalyses: circuit.unmappedAnalyses.filter(type => type !== 'sp' && type !== 'sens'),
+  };
   // spice-ts runs first so a reference reader may keep only the signals that can be compared
   // (#694): compareExecutions scores common signals only, so the outcome is the same either way.
   // Both engines stay packed; the metric sees per-sample objects one bounded batch at a time (#839).

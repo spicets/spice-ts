@@ -53,6 +53,8 @@ export type WorkerFactory = (url: URL) => WorkerLike | Promise<WorkerLike>;
 
 export interface CreateSpiceEngineOptions {
   backend: 'spice-ts-js' | 'spice-ts-wasm';
+  /** Adaptive WASM diode/BJT transient point budget, including t=0. Default 4096. */
+  maxPoints?: number;
   manifest?: SpiceWorkerManifestV1;
   manifestUrl?: string | URL;
   workerFactory?: WorkerFactory;
@@ -127,6 +129,9 @@ interface StreamJobState {
 }
 
 export async function createSpiceEngine(options: CreateSpiceEngineOptions): Promise<SpiceEngine> {
+  if (options.maxPoints !== undefined && (!Number.isSafeInteger(options.maxPoints) || options.maxPoints < 1)) {
+    throw new RangeError('maxPoints must be a positive safe integer');
+  }
   if (options.backend !== 'spice-ts-js' && options.backend !== 'spice-ts-wasm') {
     throw backendUnavailable(String(options.backend));
   }
@@ -314,7 +319,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
         if (streamState) streamState.cancelled = true;
         finish(failure(requestId, cancelledError(), request, manifest, backend));
       };
-      const message: WorkerRequest = { id, operation, backend, request, ...(wasmBytes ? { wasmBytes } : {}) };
+      const message: WorkerRequest = { id, operation, backend, request, maxPoints: options.maxPoints, ...(wasmBytes ? { wasmBytes } : {}) };
       worker.postMessage(message);
     });
   };

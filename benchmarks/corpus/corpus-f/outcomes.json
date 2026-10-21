@@ -44,15 +44,15 @@
       "unsupported": 12
     },
     "spiceTs": {
-      "success": 240,
+      "success": 244,
       "failed": 13,
-      "unsupported": 83
+      "unsupported": 79
     },
     "outcomes": {
-      "matched": 100,
+      "matched": 104,
       "mismatch": 20,
       "not-compared": 115,
-      "spice-ts-loss": 71,
+      "spice-ts-loss": 67,
       "ngspice-failed": 5,
       "both-failed": 25
     }
@@ -195,18 +195,6 @@
         "examples-tclspice-tcl-testbench2-example-cir",
         "examples-tclspice-tcl-testbench4-example-cir",
         "examples-vdmos-100w-sp"
-      ],
-      "issue": null
-    },
-    {
-      "bucket": "harness: analysis result not produced or not mapped",
-      "fixtures": 4,
-      "ngspiceSuccess": 4,
-      "ids": [
-        "tests-regression-sens-sens-ac-1-cir",
-        "tests-regression-sens-sens-ac-2-cir",
-        "tests-regression-sens-sens-dc-1-cir",
-        "tests-regression-sens-sens-dc-2-cir"
       ],
       "issue": null
     },
@@ -12622,105 +12610,113 @@
       "id": "tests-regression-sens-sens-ac-1-cir",
       "sourcePath": "tests/regression/sens/sens-ac-1.cir",
       "sha256": "ba0dfea87e9294803beb75aec52f70dc93985a54b35424e4eed150d97a7cf9d7",
-      "analyses": [],
-      "unmappedAnalyses": [
+      "analyses": [
         "sens"
       ],
+      "unmappedAnalyses": [],
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "sens:1"
+        ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "fixture declares no runnable analysis"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "harness: analysis result not produced or not mapped"
+      "comparedAnalyses": 1,
+      "comparedSignals": 8,
+      "worstNormalizedError": 0.0000283,
+      "worstSignal": "sens v(c1)",
+      "outcome": "matched",
+      "gapBucket": null
     },
     {
       "id": "tests-regression-sens-sens-ac-2-cir",
       "sourcePath": "tests/regression/sens/sens-ac-2.cir",
       "sha256": "fd8e885c2311b6c5d076c253571e44c8cd375480be4812883eb951fea7aa07c9",
-      "analyses": [],
-      "unmappedAnalyses": [
+      "analyses": [
         "sens"
       ],
+      "unmappedAnalyses": [],
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "sens:1"
+        ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "fixture declares no runnable analysis"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "harness: analysis result not produced or not mapped"
+      "comparedAnalyses": 1,
+      "comparedSignals": 16,
+      "worstNormalizedError": 0.000001,
+      "worstSignal": "sens v(r5_scale)",
+      "outcome": "matched",
+      "gapBucket": null
     },
     {
       "id": "tests-regression-sens-sens-dc-1-cir",
       "sourcePath": "tests/regression/sens/sens-dc-1.cir",
       "sha256": "45289895c8658cdc34e5291bbbfdd7914babf50afbc11c0c82fd80a332de266d",
-      "analyses": [],
-      "unmappedAnalyses": [
+      "analyses": [
         "sens"
       ],
+      "unmappedAnalyses": [],
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "sens:1"
+        ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "fixture declares no runnable analysis"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "harness: analysis result not produced or not mapped"
+      "comparedAnalyses": 1,
+      "comparedSignals": 5,
+      "worstNormalizedError": 0.000001,
+      "worstSignal": "sens v(r1_scale)",
+      "outcome": "matched",
+      "gapBucket": null
     },
     {
       "id": "tests-regression-sens-sens-dc-2-cir",
       "sourcePath": "tests/regression/sens/sens-dc-2.cir",
       "sha256": "c0bfc2bd5cad9c10fb57d161a74a226ba682f3ca5dc05e0839f363a623368a56",
-      "analyses": [],
-      "unmappedAnalyses": [
+      "analyses": [
         "sens"
       ],
+      "unmappedAnalyses": [],
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "sens:1"
+        ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "fixture declares no runnable analysis"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "harness: analysis result not produced or not mapped"
+      "comparedAnalyses": 1,
+      "comparedSignals": 19,
+      "worstNormalizedError": 0.000001,
+      "worstSignal": "sens v(r4_scale)",
+      "outcome": "matched",
+      "gapBucket": null
     },
     {
       "id": "tests-regression-subckt-processing-global-1-cir",
@@ -13361,5 +13357,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "6d7cb88693c099818b0fa8d057405a4982fa51a840f04a0f7cd065fbb1afe527"
+  "outcomeSha256": "23d203d977326b597361faf83163c417ea4364d76da9839fc8b66b2ccbfafe4e"
 }

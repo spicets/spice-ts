@@ -6,11 +6,11 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `6d7cb88693c099818b0fa8d057405a4982fa51a840f04a0f7cd065fbb1afe527`.
+- Fixtures: 336. Outcome SHA-256: `23d203d977326b597361faf83163c417ea4364d76da9839fc8b66b2ccbfafe4e`.
 - ngspice (ngspice-47): 306 success, 18 failed, 12 unsupported.
-- spice-ts (0.4.0): 240 success, 13 failed, 83 unsupported.
-- Outcomes: matched 100, mismatch 20, not-compared 115, spice-ts-loss 71, ngspice-failed 5, both-failed 25.
-- Of the 306 decks ngspice runs successfully, spice-ts matches 100, mismatches 20, produces no comparable result for 115 and fails 71. For 137 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
+- spice-ts (0.4.0): 244 success, 13 failed, 79 unsupported.
+- Outcomes: matched 104, mismatch 20, not-compared 115, spice-ts-loss 67, ngspice-failed 5, both-failed 25.
+- Of the 306 decks ngspice runs successfully, spice-ts matches 104, mismatches 20, produces no comparable result for 115 and fails 67. For 133 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
 
@@ -51,7 +51,6 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | model: VDMOS power MOSFET | 6 | 0 | https://github.com/mfiumara/spice-ts/issues/506 |
 | control: analysis commands inside .control (tran/dc/op/ac/...) | 5 | 5 | https://github.com/mfiumara/spice-ts/issues/489 |
 | timeout: spice-ts exceeded the 120 s bound | 5 | 5 | none filed |
-| harness: analysis result not produced or not mapped | 4 | 4 | none filed |
 | convergence | 2 | 0 | none: ngspice also fails every fixture in this bucket |
 | device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP) | 2 | 2 | https://github.com/mfiumara/spice-ts/issues/490 |
 | expression: B-source V= and expression functions/operators | 1 | 0 | https://github.com/mfiumara/spice-ts/issues/495 |
@@ -377,10 +376,10 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [tests/regression/parser/xpressn-2.cir](fixtures/tests/regression/parser/xpressn-2.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [tests/regression/parser/xpressn-3.cir](fixtures/tests/regression/parser/xpressn-3.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [tests/regression/pz/ac-resistance.cir](fixtures/tests/regression/pz/ac-resistance.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
-| [tests/regression/sens/sens-ac-1.cir](fixtures/tests/regression/sens/sens-ac-1.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
-| [tests/regression/sens/sens-ac-2.cir](fixtures/tests/regression/sens/sens-ac-2.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
-| [tests/regression/sens/sens-dc-1.cir](fixtures/tests/regression/sens/sens-dc-1.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
-| [tests/regression/sens/sens-dc-2.cir](fixtures/tests/regression/sens/sens-dc-2.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: fixture declares no runnable analysis |
+| [tests/regression/sens/sens-ac-1.cir](fixtures/tests/regression/sens/sens-ac-1.cir) | success | success | matched | 0.0000283 | sens v(c1) |  |
+| [tests/regression/sens/sens-ac-2.cir](fixtures/tests/regression/sens/sens-ac-2.cir) | success | success | matched | 0.000001 | sens v(r5_scale) |  |
+| [tests/regression/sens/sens-dc-1.cir](fixtures/tests/regression/sens/sens-dc-1.cir) | success | success | matched | 0.000001 | sens v(r1_scale) |  |
+| [tests/regression/sens/sens-dc-2.cir](fixtures/tests/regression/sens/sens-dc-2.cir) | success | success | matched | 0.000001 | sens v(r4_scale) |  |
 | [tests/regression/subckt-processing/global-1.cir](fixtures/tests/regression/subckt-processing/global-1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [tests/regression/subckt-processing/model-scope-5.cir](fixtures/tests/regression/subckt-processing/model-scope-5.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [tests/regression/temper/temper-1.cir](fixtures/tests/regression/temper/temper-1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |

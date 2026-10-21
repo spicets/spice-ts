@@ -7,6 +7,7 @@ import { DEVICE_GMIN, type StampContext } from './device.js';
  */
 export function stampEpiRegion(
   ctx: StampContext, nodes: number[], params: BJTParams, vt: number, multiplier: number,
+  smallSignal = false,
 ): void {
   const [ci, b, , , , cx] = nodes;
   const voltage = (node: number): number => node >= 0 ? ctx.getVoltage(node) : 0;
@@ -32,6 +33,13 @@ export function stampEpiRegion(
     current = ohmic / quotient + gmin * vrci;
     gr = 1 / (RCO * quotient) - ohmic / (VO * quotient * quotient) + gmin;
     gi = vt * di * ki / (1 + ki) / (RCO * quotient);
+    if (smallSignal) {
+      // bjtload.c stores this Irci_Vbci for bjtacld.c, including its
+      // extra division by rKp1. It differs from the analytic DC Jacobian.
+      // Preserve DC Newton's true derivative, but reproduce ngspice's AC matrix.
+      const rKp1 = (1 + ki) / (1 + kx);
+      gi = vt * (di - di / (1 + ki) / rKp1) / (RCO * quotient);
+    }
     gx = -vt * dx * kx / (1 + kx) / (RCO * quotient);
   }
   const equivalent = polarity * multiplier * (current - gr * vrci - gi * vbc - gx * vbcx);

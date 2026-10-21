@@ -65,7 +65,6 @@ describe('bounded BJT WASM operating point', () => {
     ['transistor AREA=2', '.op', 'bjt-form'],
     ['substrate transistor', '.op', 'bjt-form'],
     ['transistor', '.ac dec 1 1 10', 'device-or-directive'],
-    ['transistor', '.tran 1u 1m', 'device-or-directive'],
   ])('rejects unsupported instance/analysis: %s %s', async (instance, analysis, feature) => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {

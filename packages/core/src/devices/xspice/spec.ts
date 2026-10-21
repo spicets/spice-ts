@@ -150,6 +150,20 @@ const PWL: XspiceCodeModelSpec = {
   ],
 };
 
+/** multi_input_pwl/ifspec.ifs (ngspice-47). */
+const MULTI_INPUT_PWL: XspiceCodeModelSpec = {
+  name: 'multi_input_pwl',
+  connections: [
+    { name: 'in', direction: 'in', defaultType: 'vd', allowedTypes: ['vd', 'id'], vector: true, vectorBounds: [2, undefined], nullAllowed: false },
+    { name: 'out', direction: 'out', defaultType: 'vd', allowedTypes: ['vd', 'id'], vector: false, nullAllowed: false },
+  ],
+  params: [
+    real('x', undefined, { vector: true, vectorBounds: [2, undefined], nullAllowed: false }),
+    real('y', undefined, { vector: true, vectorBounds: [2, undefined], nullAllowed: false }),
+    { name: 'model', type: 'string', defaultValue: ['and'], vector: false, nullAllowed: true },
+  ],
+};
+
 /** limit/ifspec.ifs */
 const LIMIT: XspiceCodeModelSpec = {
   name: 'limit',
@@ -318,6 +332,19 @@ const SQUARE: XspiceCodeModelSpec = {
     ...TRIANGLE.params.map(param => param.name === 'cntl_array' || param.name === 'freq_array'
       ? { ...param, defaultValue: undefined, nullAllowed: false } : param),
     real('rise_time', 1e-9), real('fall_time', 1e-9),
+  ],
+};
+
+/** ngspice-47 xtradev/potentiometer/ifspec.ifs (Public Domain). */
+const POTENTIOMETER: XspiceCodeModelSpec = {
+  name: 'potentiometer',
+  connections: ['r0', 'wiper', 'r1'].map(name => ({
+    name, direction: 'inout', defaultType: 'g', allowedTypes: ['g'], vector: false, nullAllowed: false,
+  })),
+  params: [
+    real('position', 0.5, { limits: [0, 1] }),
+    { name: 'log', type: 'boolean', defaultValue: [false], vector: false, nullAllowed: true },
+    real('r', 1e5), real('log_multiplier', 1),
   ],
 };
 
@@ -501,6 +528,13 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('tand', 2e-4), real('rho', .022e-6), real('d', .15e-6),
         ...['model', 'disp', 'tranmodel'].map(name => ({ name, type: 'int' as const, defaultValue: [0], vector: false, nullAllowed: true }))],
     }, {
+      name: 'msopen',
+      connections: [{ name: 'p1', direction: 'inout' as const, defaultType: 'gd', allowedTypes: ['gd'], vector: false, nullAllowed: false }],
+      // ngspice-47 tlines/msopen/ifspec.ifs. Loss parameters are accepted but unused upstream.
+      params: [real('w', 1e-3), real('er', 9.8), real('h', 1e-3), real('t', 35e-6),
+        real('tand', 2e-4), real('rho', .022e-6), real('d', .15e-6),
+        ...['model', 'disp', 'msopen_model'].map(name => ({ name, type: 'int' as const, defaultValue: [0], vector: false, nullAllowed: true }))],
+    }, {
       name: 'cpmlin',
       connections: ['p1', 'p2', 'p3', 'p4', 'p1s', 'p2s', 'p3s', 'p4s'].map((name, i) => ({
         name, direction: i < 4 ? 'inout' as const : 'in' as const,
@@ -529,6 +563,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('delmax', 0, { limits: [0, undefined] }),
         { name: 'buffer_size', type: 'int' as const, defaultValue: [1024], limits: [1, undefined] as const, vector: false, nullAllowed: true }],
     }, GAIN, SUMMER, MULT, DIVIDE, PWL,
+    MULTI_INPUT_PWL,
     // analog/pwlts/ifspec.ifs:30-75 shares pwl parameters, but has only an output.
     { name: 'pwlts', connections: [output('out')], params: PWL.params },
     LIMIT, INT, D_DT, S_XFER, XFER, OTA_SPEC, ...REACTIVE_IC_SPECS,
@@ -556,7 +591,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('rinit', 7000, { nullAllowed: false }), real('alpha', 0, { nullAllowed: false }),
         real('beta', 1, { nullAllowed: false }), real('vt', 0, { nullAllowed: false })],
     },
-    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, SIDIODE, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH, SEEGEN_SPEC,
+    CLIMIT, HYST, ILIMIT, SLEW, SINE, TRIANGLE, SQUARE, ZENER, SIDIODE, POTENTIOMETER, ONESHOT, CMETER, LMETER, PSWITCH, ASWITCH, SEEGEN_SPEC,
 
     ...REAL_SPECS, ADC_BRIDGE, DAC_BRIDGE,
     {

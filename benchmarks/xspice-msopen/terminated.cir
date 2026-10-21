@@ -1,0 +1,11 @@
+Microstrip terminated by an open-end discontinuity
+* Original spice-ts regression fixture, MIT license.
+v1 source 0 dc 1 ac 1
+rs source in 50
+a1 %hd(in 0) %hd(out 0) %vd(in 0) %vd(out 0) line
+a2 %gd(out 0) open
+.model line mlin(w=1m h=1m er=9.8 l=10m t=35u rho=22n tand=2e-4)
+.model open msopen(w=1m h=1m er=9.8 t=35u)
+.op
+.ac dec 20 1e8 2e10
+.end

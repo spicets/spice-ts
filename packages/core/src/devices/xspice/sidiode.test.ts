@@ -50,7 +50,7 @@ describe('XSPICE sidiode (#1563)', () => {
   });
 
   it('still rejects unimplemented code models', async () => {
-    await expect(simulate('unsupported\na1 (d 0) sd\n.model sd potentiometer\n.op\n.end'))
+    await expect(simulate('unsupported\na1 (d 0) sd\n.model sd d_process\n.op\n.end'))
       .rejects.toBeInstanceOf(UnsupportedCodeModelError);
   });
 });

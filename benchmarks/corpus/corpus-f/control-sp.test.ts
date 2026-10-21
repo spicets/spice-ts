@@ -54,7 +54,7 @@ describe('corpus-f headline control SP (#1627)', () => {
   it('preserves analysis detection for other control commands and ignores title/comments', () => {
     const text = 'sp lin 100 1 2 in title\n* sp lin 100 1 2\n.op\n.control\nac lin 2 1 2\ntran 1n 2n\ndc v1 0 1 .1\nnoise v(out) v1 lin 2 1 2\nsens v(out)\ntf v(out) v1\n.endc\n.end\n';
     assert.deepEqual(declaredAnalyses(text), {
-      mapped: ['op', 'ac', 'tran', 'dc', 'noise'], unmapped: ['sens', 'tf'],
+      mapped: ['op', 'ac', 'tran', 'dc', 'noise', 'sens'], unmapped: ['tf'],
     });
     assert.deepEqual(declaredAnalyses('title\nsp lin 2 1 2\n.control\n* sp lin 2 1 2\n.endc\n'), { mapped: [], unmapped: [] });
   });
