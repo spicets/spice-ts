@@ -212,9 +212,7 @@
       "examples-various-tmp-noise-cir",
 
       "examples-xspice-original-examples-analog-models2-transient-deck",
-      "examples-xspice-original-examples-analog-models4-transient-deck",
-
-      "tests-mesa-mesa11-cir"
+      "examples-xspice-original-examples-analog-models4-transient-deck"
     ]
   }
 }
