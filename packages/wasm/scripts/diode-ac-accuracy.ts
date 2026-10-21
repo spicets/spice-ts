@@ -1,8 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { arch, platform, release } from 'node:os';
-import { createSpiceEngine } from '../dist/index.js';
 import { diodeAcSource } from '../src/test-support/diode-ac.js';
+
+// Lint runs before build in CI; type against source, load the pinned built facade at runtime.
+const facadeUrl = new URL('../dist/index.js', import.meta.url).href;
+const { createSpiceEngine } = await import(facadeUrl) as typeof import('../src/index.js');
 
 // Reuse the public identical-deck harness without adding it to this package's build graph.
 const harnessUrl = new URL('../../../benchmarks/comparison-harness.ts', import.meta.url).href;
