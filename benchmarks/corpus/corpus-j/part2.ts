@@ -45,7 +45,13 @@ async function bounded(circuit: Circuit, engine: 'ngspice' | 'spiceTs') {
 async function main() {
 const manifestBytes = await readFile(`${ROOT}/manifest.json`);
 const manifest = JSON.parse(manifestBytes.toString()) as Manifest;
-const circuits = manifest.circuits.slice(11);
+// The immutable manifest predates batch sensitivity support (#1633). Promote
+// declarations symmetrically for both engines, as corpus-f/outcomes.ts does.
+const circuits = manifest.circuits.slice(11).map(circuit => ({
+  ...circuit,
+  analyses: [...new Set([...circuit.analyses, ...circuit.unmappedAnalyses.filter(type => type === 'sens')])],
+  unmappedAnalyses: circuit.unmappedAnalyses.filter(type => type !== 'sens'),
+}));
 if (process.argv[2] === '--engine') {
   const circuit = circuits.find(c => c.id === process.argv[4]);
   if (!circuit) throw new Error('unknown part2 fixture');

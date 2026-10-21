@@ -1,12 +1,13 @@
-Authored MIT BSIM4 RGATEMOD=3 static regression
+Authored MIT BSIM4 RGATEMOD=3 common-source regression
 .model DUT NMOS LEVEL=54 VERSION=4.8.3 IGCMOD=1 IGBMOD=1 TOXE=1n RGATEMOD=3 RSHG=1meg RBODYMOD=1
 Vdd supply 0 1.8
 Rd supply d 1k
-Vg g 0 1.4
+Vg g 0 1.4 AC 1
 Vb b 0 -0.2
 Vs s 0 0
 M1 d g s b DUT L=1u W=10u 
 .options abstol=1e-15 reltol=1e-10 vntol=1e-12
 .op
 .dc Vg 1.0 1.6 0.2
+.ac dec 3 1k 1g
 .end

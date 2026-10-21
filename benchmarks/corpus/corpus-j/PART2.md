@@ -6,16 +6,16 @@ Every deck below is byte-identical to its pinned upstream revision (ngspice-curr
 
 ## Totals
 
-- Fixtures: 9. Outcome SHA-256: `63cb0f3f9c610c27474b71114a727374e65f85e7c00e1d994641d5093e7cef38`.
+- Fixtures: 9. Outcome SHA-256: `6f18fc2468297c74860a2a9e90a920dcc39d440a25467ceb87db718ed14814aa`.
 - ngspice (ngspice-47): 6 success, 0 failed, 3 unsupported.
-- spice-ts (0.4.0): 5 success, 1 failed, 3 unsupported.
-- Outcomes: matched 5, mismatch 0, not-compared 0, spice-ts-loss 1, ngspice-failed 0, both-failed 3.
-- Of the 6 decks ngspice runs successfully, spice-ts matches 5, mismatches 0, produces no comparable result for 0 and fails 1.
+- spice-ts (0.4.0): 6 success, 0 failed, 3 unsupported.
+- Outcomes: matched 6, mismatch 0, not-compared 0, spice-ts-loss 0, ngspice-failed 0, both-failed 3.
+- Of the 6 decks ngspice runs successfully, spice-ts matches 6, mismatches 0, produces no comparable result for 0 and fails 0.
 
 | Source | Fixtures | Matched | Mismatch | Not compared | spice-ts loss | ngspice failed | Both failed |
 |---|---|---|---|---|---|---|---|
 | `ngspice-current` | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
-| `spicelib` | 5 | 1 | 0 | 0 | 1 | 0 | 3 |
+| `spicelib` | 5 | 2 | 0 | 0 | 0 | 0 | 3 |
 
 ## Method
 
@@ -30,7 +30,7 @@ Every deck below is byte-identical to its pinned upstream revision (ngspice-curr
 
 ## Follow-up issues
 
-- https://github.com/spicets/spice-ts/issues/1633: AC sensitivity without explicit AC excitation (j-19).
+- none
 
 ## spice-ts gap buckets
 
@@ -39,9 +39,8 @@ Grouped from spice-ts's own first error line (unchanged corpus-i/h/f rules). "ng
 | Bucket | Fixtures | ngspice ok | Issue |
 |---|---|---|---|
 | directive: .backanno | 3 | 0 | none: ngspice also fails every fixture in this bucket |
-| execution: other failure | 1 | 1 | https://github.com/spicets/spice-ts/issues/1633 (j-19) |
 
-## Losses (4)
+## Losses (3)
 
 Every fixture that is not matched: spice-ts failures, mismatches above the threshold, and results that could not be compared.
 
@@ -49,10 +48,9 @@ Every fixture that is not matched: spice-ts failures, mismatches above the thres
 |---|---|---|---|---|---|---|
 | [spicelib/examples/testfiles/ac_rawtest.net](fixtures/spicelib/examples/testfiles/ac_rawtest.net) | unsupported | unsupported | both-failed |  |  | ngspice: Error on line 6 or its substitute: / spice-ts: Parse error at line 6: Unsupported dot command: '.backanno' .backanno |
 | [spicelib/examples/testfiles/ngsteps.net](fixtures/spicelib/examples/testfiles/ngsteps.net) | unsupported | unsupported | both-failed |  |  | ngspice: Error on line 44 or its substitute: / spice-ts: Parse error at line 44: Unsupported dot command: '.backanno' .backanno |
-| [spicelib/examples/testfiles/sens_ngspice_rawtest.net](fixtures/spicelib/examples/testfiles/sens_ngspice_rawtest.net) | success | failed | spice-ts-loss |  |  | spice-ts: .sens does not support 'V1': AC sensitivity requires an AC voltage-source waveform |
 | [spicelib/examples/testfiles/tran_rawtest.net](fixtures/spicelib/examples/testfiles/tran_rawtest.net) | unsupported | unsupported | both-failed |  |  | ngspice: Error on line 11 or its substitute: / spice-ts: Parse error at line 11: Unsupported dot command: '.backanno' .backanno |
 
-## Wins (5)
+## Wins (6)
 
 Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every common signal.
 
@@ -63,26 +61,27 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 | [ngspice-current/examples/mos/nmos_pmos_BSIM330.sp](fixtures/ngspice-current/examples/mos/nmos_pmos_BSIM330.sp) | success | success | matched | 7.61e-9 | dc i(vssp) |  |
 | [ngspice-current/examples/xspice/original-examples/xspice.deck](fixtures/ngspice-current/examples/xspice/original-examples/xspice.deck) | success | success | matched | 2.36e-11 | tran i(vin) |  |
 | [spicelib/examples/testfiles/test_kicad_nets.cir](fixtures/spicelib/examples/testfiles/test_kicad_nets.cir) | success | success | matched | 0 | op i(v1) |  |
+| [spicelib/examples/testfiles/sens_ngspice_rawtest.net](fixtures/spicelib/examples/testfiles/sens_ngspice_rawtest.net) | success | success | matched | 5e-13 | sens v(v1_acmag) |  |
 
 
 ## Delivery and export limits
 
-Nine original part2 input hashes bring the manifest to 20. Historical j-1..j-11 outcomes.json and wall.jsonl remain byte-identical to #947; their 11 both-failed outcomes are not upgraded by this refresh. Part 2 has 6 ngspice raw successes, 5 matched rows, 1 spice-ts-only loss and 3 both-failed rows. The combined 20-row catalogue therefore has 5 matched, 1 spice-ts-only losses and 14 both-failed. Input-hash novelty is not a claim of nine novel topology families.
+Nine original part2 input hashes bring the manifest to 20. Historical j-1..j-11 outcomes.json and wall.jsonl remain byte-identical to #947; their 11 both-failed outcomes are not upgraded by this refresh. Part 2 has 6 ngspice raw successes, 6 matched rows, 0 spice-ts-only loss and 3 both-failed rows. The combined 20-row catalogue therefore has 6 matched, 0 spice-ts-only losses and 14 both-failed. Input-hash novelty is not a claim of nine novel topology families.
 
 Control decks use unchanged corpus-f runControlReference instead of batch-only raw capture: a source/write wrapper receives original bytes, defers quit/exit and exports all retained plots by ID for each declared type. No circuit, analysis or tolerance is rewritten. All six j-14 DC plots, including nested TEMP sweeps, are compared. Success here requires actual raw vectors. DISPLAY is removed by the control wrapper.
 
-The matched criterion and breakpoint-aware/linear metrics are unchanged. Null/empty metrics mean unavailable, never measured zero. Fine-step adapted references are not run. Cold engine groups are serial, 19 s execution deadline/20 s boundary; the persisted cumulative budget includes historical attempts, including an initial refresh before building the core package. Measured combined child wall: 60494.00092100001 ms. No speed superiority claim. No simulator change: this refresh uses the recorded coreTree on current main (#1632), not a before/after solver performance comparison. Nightly #855 owns aggregate incorporation.
+The matched criterion and breakpoint-aware/linear metrics are unchanged. Null/empty metrics mean unavailable, never measured zero. Fine-step adapted references are not run. Cold engine groups are serial, 19 s execution deadline/20 s boundary; the persisted cumulative budget includes historical attempts, including an initial refresh before building the core package. Measured combined child wall: 119065.042298 ms. No speed superiority claim. This refresh includes the absent-AC sensitivity fix (#1633); its coreTree identifies the tested core implementation. Nightly #855 owns aggregate incorporation.
 
 ## Issue deduplication
 
-Resolved historical gaps and the remaining loss:
+Resolved historical gaps:
 
 - j-14: [#956](https://github.com/spicets/spice-ts/issues/956), nested DC TEMP source lookup, is closed; all six DC plots now match.
 - j-16: [#957](https://github.com/spicets/spice-ts/issues/957), .title metadata, is closed; all seven OP signals now match.
 - j-17/j-18/j-20: both engines reject original .backanno; no spice-ts-only issue.
-- j-19: ngspice-47 now succeeds with a 31-point sensitivity plot (historical receipt: PMOS Nsub < Ni). spice-ts still rejects the missing AC source in .sens, so this is now a spice-ts-only loss, tracked by [#1633](https://github.com/spicets/spice-ts/issues/1633). The historical reference difference is not attributed to a specific change. Related closed #1389 covers explicit DC/AC values with transient waveforms, not absent AC excitation.
+- j-19: [#1633](https://github.com/spicets/spice-ts/issues/1633) fixes absent AC excitation: its nominal magnitude is zero, but its magnitude derivative is nonzero. Before: spice-ts rejection, no comparable metrics. After: seven shared sensitivity vectors over 31 points match ngspice-47, including v(v1_acmag) approximately 0.5 and six zero resistor sensitivities. Maximum absolute/RMS error is 2.4991120284312274e-13, maximum relative error is 4.998224056865921e-13, and worst normalized error is 5e-13. The unchanged common-vector comparison does not claim full MOS model/instance parameter coverage: ngspice exports 101 sensitivity vectors, whereas the bounded spice-ts API exposes seven here. Unsupported nonlinear parameter derivatives with nonzero AC excitation still reject. Historical ngspice PMOS Nsub < Ni failure is not attributed to a specific change. Related #1389 covers explicit DC/AC values with transient waveforms.
 
-The remaining loss has label bug and milestone M1 Correctness parity. No simulator fixes or fixture changes in this refresh.
+No fixture bytes or tolerances changed. The three original .backanno decks remain both-failed.
 
 ## Matched-point metrics
 
@@ -210,6 +209,13 @@ All compared signals below; relative metrics exclude zero reference samples unde
 | j-16 | op v(/vout) | 1 | 0 | 0 | unavailable | unavailable |
 | j-16 | op v(vcc) | 1 | 0 | 0 | 0 | 0 |
 | j-16 | op v(vee) | 1 | 0 | 0 | 0 | 0 |
+| j-19 | sens v(r1_ac) | 31 | 0 | 0 | unavailable | unavailable |
+| j-19 | sens v(r1_m) | 31 | 0 | 0 | unavailable | unavailable |
+| j-19 | sens v(r1_scale) | 31 | 0 | 0 | unavailable | unavailable |
+| j-19 | sens v(r2_ac) | 31 | 0 | 0 | unavailable | unavailable |
+| j-19 | sens v(r2_m) | 31 | 0 | 0 | unavailable | unavailable |
+| j-19 | sens v(r2_scale) | 31 | 0 | 0 | unavailable | unavailable |
+| j-19 | sens v(v1_acmag) | 31 | 2.4991120284312274e-13 | 2.4991120284312274e-13 | 4.998224056865921e-13 | 4.998224056865922e-13 |
 
 ## Commands
 

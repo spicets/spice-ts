@@ -73,8 +73,8 @@ test('part2 receipt includes every outcome, real reference vectors, fixed metric
   assert.deepEqual(report.fixtures.map((r: any) => r.sha256), manifest.circuits.slice(11).map((c: any) => c.sha256));
   assert.deepEqual(report.totals, summarize(report.fixtures).totals);
   assert.equal(report.totals.ngspice.success, 6);
-  assert.equal(report.totals.outcomes.matched, 5);
-  assert.equal(report.totals.outcomes['spice-ts-loss'], 1);
+  assert.equal(report.totals.outcomes.matched, 6);
+  assert.equal(report.totals.outcomes['spice-ts-loss'], 0);
   assert.equal(report.totals.outcomes['both-failed'], 3);
   assert.equal(report.policy.fixtureAdaptation, 'none'); assert.equal(report.policy.perCircuitToleranceTuning, false);
   assert.equal(report.policy.matchThreshold, 0.01); assert.equal(report.tools.ngspice, 'ngspice-47');
@@ -82,11 +82,15 @@ test('part2 receipt includes every outcome, real reference vectors, fixed metric
   assert(docs.includes('https://github.com/spicets/spice-ts/issues/956'));
   assert(docs.includes('https://github.com/spicets/spice-ts/issues/957'));
   assert(docs.includes('https://github.com/spicets/spice-ts/issues/1633'));
-  assert(docs.includes('5 matched, 1 spice-ts-only losses and 14 both-failed'));
+  assert(docs.includes('6 matched, 0 spice-ts-only losses and 14 both-failed'));
   assert(!docs.includes('j-14 fails spice-ts'));
   const tempSweep = report.fixtures.find((row: any) => row.id === 'j-14');
   assert.equal(tempSweep.comparisons.length, 6, 'retain all six control DC plots');
-  assert.equal(report.fixtures.find((row: any) => row.id === 'j-19').outcome, 'spice-ts-loss');
+  const sensitivity = report.fixtures.find((row: any) => row.id === 'j-19');
+  assert.equal(sensitivity.outcome, 'matched');
+  assert.equal(sensitivity.comparedSignals, 7);
+  assert.equal(sensitivity.comparisons[0].metrics.grid.alignedPoints, 31);
+  assert(sensitivity.worstNormalizedError < report.policy.matchThreshold);
   for (const row of report.fixtures) assert(docs.includes(row.sourcePath));
   const entries = (await Promise.all(['wall.jsonl', 'part2-wall.jsonl'].map(async file => (await readFile(`${ROOT}/${file}`, 'utf8')).trim().split('\n').map(line => JSON.parse(line))))).flat();
   assert.equal(entries.filter(e => e.event === 'start').length, entries.filter(e => e.event === 'end').length);

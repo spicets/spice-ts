@@ -44,15 +44,15 @@
       "unsupported": 12
     },
     "spiceTs": {
-      "success": 245,
+      "success": 246,
       "failed": 13,
-      "unsupported": 78
+      "unsupported": 77
     },
     "outcomes": {
       "matched": 104,
       "mismatch": 21,
-      "not-compared": 115,
-      "spice-ts-loss": 66,
+      "not-compared": 116,
+      "spice-ts-loss": 65,
       "ngspice-failed": 5,
       "both-failed": 25
     }
@@ -172,19 +172,6 @@
       "issue": "https://github.com/mfiumara/spice-ts/issues/489"
     },
     {
-      "bucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)",
-      "fixtures": 5,
-      "ngspiceSuccess": 3,
-      "ids": [
-        "examples-control-structs-new-check-4-sp",
-        "examples-monte-carlo-mc-ring-sp",
-        "examples-monte-carlo-montecarlo-sp",
-        "examples-rf-hbosc-examples-hb-osc-cir",
-        "tests-regression-misc-resume-1-cir"
-      ],
-      "issue": "https://github.com/mfiumara/spice-ts/issues/488"
-    },
-    {
       "bucket": "timeout: spice-ts exceeded the 120 s bound",
       "fixtures": 5,
       "ngspiceSuccess": 5,
@@ -196,6 +183,18 @@
         "examples-vdmos-100w-sp"
       ],
       "issue": null
+    },
+    {
+      "bucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)",
+      "fixtures": 4,
+      "ngspiceSuccess": 2,
+      "ids": [
+        "examples-control-structs-new-check-4-sp",
+        "examples-monte-carlo-mc-ring-sp",
+        "examples-monte-carlo-montecarlo-sp",
+        "tests-regression-misc-resume-1-cir"
+      ],
+      "issue": "https://github.com/mfiumara/spice-ts/issues/488"
     },
     {
       "bucket": "convergence",
@@ -3285,16 +3284,25 @@
         "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "firstErrorLine": "Parse error at line 12: Unsupported .control command 'let': vector function 'maximum()' is not evaluated by spice-ts let amp = (maximum(v(a))-minimum(v(a)))/2"
+        "status": "success",
+        "analyses": [
+          "tran:100011"
+        ]
       },
-      "comparedAnalyses": 0,
+      "comparedAnalyses": 1,
       "comparedSignals": 0,
       "worstNormalizedError": null,
       "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "control: ngspice control-language scripting (set/let/save/foreach/meas/...)"
+      "outcome": "not-compared",
+      "gapBucket": null,
+      "fineReference": {
+        "status": "unavailable",
+        "tmax": [],
+        "reason": "no .tran card outside .control",
+        "headline": null,
+        "spiceTsVsFine": null,
+        "ngspiceDefaultVsFine": null
+      }
     },
     {
       "id": "examples-rf-pss-colpitt-osc-pss-ctrl-cir",
@@ -13359,5 +13367,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "f73a39d4126b3248191918af2b27fe6fa4017f9c8828abac723d4714314e41fc"
+  "outcomeSha256": "8ab2ecbd8863a02b073905aa82654d18f1d48e9409176cae54838db7781d97bb"
 }

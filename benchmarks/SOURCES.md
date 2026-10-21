@@ -916,15 +916,15 @@ licence); `inverter-reference.json` is actual ngspice-47 output consumed by that
 test, not an upstream circuit. The corpus-g FD fixture is unchanged and retains
 its existing source/licence/hash provenance. Dynamic residuals are reported in #1367.
 
-The RGATEMOD=3 static decks in
+The RGATEMOD=3 OP/DC/AC common-source decks in
 `packages/core/src/devices/bsim4/__fixtures__/rgatemod3/` are original
 project-authored MIT probes, not copied third-party circuits. The committed
 `generate.py` runs identical decks with ngspice-47, adding output controls only,
-and records netlist SHA-256 hashes plus OP/DC samples in `ngspice-47.json`.
-Model equations/topology follow ngspice BSIM4 `b4ld.c`, `b4set.c`, `b4temp.c`
+and records netlist SHA-256 hashes plus OP/DC/complex AC samples in `ngspice-47.json`.
+Model equations/topology follow ngspice BSIM4 `b4ld.c`, `b4acld.c`, `b4set.c`, `b4temp.c`
 (https://github.com/ngspice/ngspice/tree/master/src/spicelib/devices/bsim4),
 with the existing ECL-2.0 port notices retained. No per-circuit tolerance tuning.
-AC/transient remain explicitly unsupported for mode 3.
+Transient remains explicitly unsupported for mode 3.
 
 The RGATEMOD=2 OP/DC/AC common-source decks in
 `packages/core/src/devices/bsim4/__fixtures__/rgatemod2/` are project-authored
@@ -2586,3 +2586,11 @@ aggregate tolerance is relaxed. Output records fixture SHA-256, oracle version,
 platform, sample counts, metrics, and cold timings (oracle includes process
 startup/semaphore queueing; TS timing covers simulation). This is bounded
 resistive-network parity evidence, not a general speed claim.
+
+## Bounded WASM diode AC (#1637)
+
+- Source: original project-authored diode+RC deck in `packages/wasm/src/test-support/diode-ac.ts`; no third-party material or adaptations.
+- URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/diode-ac.ts
+- Licence: repository MIT (`LICENSE`).
+- Reproduce: `pnpm -C packages/wasm build && pnpm -C packages/wasm exec tsx scripts/diode-ac-accuracy.ts`.
+- The runner supplies identical netlist bytes to WASM, JS and ngspice, recording SHA-256, ngspice version, machine and matched-frequency max/RMS complex relative errors. Default tolerances; no per-engine rewrites, no speed claim. This is one bounded diode AC fixture, not general device parity.
