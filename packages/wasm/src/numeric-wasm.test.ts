@@ -1241,7 +1241,7 @@ describe('bounded numeric WebAssembly backend', () => {
     }
   });
 
-  it('bounds AC result points and rejects nonlinear AC without fallback', async () => {
+  it('bounds AC result points and rejects BJT AC without fallback', async () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       const limited = await wasm.simulate(request(linCircuits[1].source, {
@@ -1256,7 +1256,7 @@ describe('bounded numeric WebAssembly backend', () => {
       });
 
       const nonlinear = await wasm.simulate(request(
-        'V1 in 0 AC 1\nR1 in out 1k\nD1 out 0 diode\n.model diode D\n.ac dec 3 10 10k',
+        'V1 in 0 AC 1\nR1 in out 1k\nQ1 out in 0 bipolar\n.model bipolar NPN\n.ac dec 3 10 10k',
       ), { requestId: 'ac-nonlinear' });
       expect(nonlinear).toMatchObject({
         ok: false,

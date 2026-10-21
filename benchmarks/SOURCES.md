@@ -2586,3 +2586,11 @@ aggregate tolerance is relaxed. Output records fixture SHA-256, oracle version,
 platform, sample counts, metrics, and cold timings (oracle includes process
 startup/semaphore queueing; TS timing covers simulation). This is bounded
 resistive-network parity evidence, not a general speed claim.
+
+## Bounded WASM diode AC (#1637)
+
+- Source: original project-authored diode+RC deck in `packages/wasm/src/test-support/diode-ac.ts`; no third-party material or adaptations.
+- URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/diode-ac.ts
+- Licence: repository MIT (`LICENSE`).
+- Reproduce: `pnpm -C packages/wasm build && pnpm -C packages/wasm exec tsx scripts/diode-ac-accuracy.ts`.
+- The runner supplies identical netlist bytes to WASM, JS and ngspice, recording SHA-256, ngspice version, machine and matched-frequency max/RMS complex relative errors. Default tolerances; no per-engine rewrites, no speed claim. This is one bounded diode AC fixture, not general device parity.
