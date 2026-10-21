@@ -6,7 +6,7 @@ Every deck below is byte-identical to Xyce_Regression `7bb7e98f0ed3a81a7d1cf1d10
 
 ## Totals
 
-- Fixtures: 128. Outcome SHA-256: `0a18c74fcd1328443022ee185005626e3f0cba9473c8e7b83c69830a85722f9e`.
+- Fixtures: 128. Outcome SHA-256: `20b52f0bd425f61120378bcbd703b488535c48755b29e7461359b65fd06d632f`.
 - ngspice (ngspice-47): 128 success, 0 failed, 0 unsupported.
 - spice-ts (0.4.0): 125 success, 1 failed, 2 unsupported.
 - Outcomes: matched 109, mismatch 14, not-compared 2, spice-ts-loss 3, ngspice-failed 0, both-failed 0.
@@ -36,9 +36,8 @@ Grouped from spice-ts's own first error line (corpus-g rules, then corpus-f rule
 
 | Bucket | Fixtures | ngspice ok | Issue |
 |---|---|---|---|
+| model: compact MOSFET model B3SOI (LEVEL=10) | 2 | 2 | https://github.com/mfiumara/spice-ts/issues/747 |
 | convergence | 1 | 1 | none filed |
-| model: compact MOSFET model B3SOI (LEVEL=10) | 1 | 1 | https://github.com/mfiumara/spice-ts/issues/747 |
-| parse: other unsupported syntax | 1 | 1 | none filed |
 
 ## Losses (19)
 
@@ -50,7 +49,7 @@ Every fixture that is not matched: spice-ts failures, mismatches above the thres
 | [EKV26/inverter_transient_ekv26.cir](fixtures/EKV26/inverter_transient_ekv26.cir) | success | success | mismatch | 2.4 | tran i(vdd) |  |
 | [EMBEDDED/printLine_for_embedded_cmosInverter.cir](fixtures/EMBEDDED/printLine_for_embedded_cmosInverter.cir) | success | success | not-compared |  |  |  |
 | [INDUCTOR/ErrorMessageTest.cir](fixtures/INDUCTOR/ErrorMessageTest.cir) | success | failed | spice-ts-loss |  |  | spice-ts: Singular matrix: zero pivot at matrix column 1 (nodes: 1a) |
-| [INIT_CONDS/inv1xIC.cir](fixtures/INIT_CONDS/inv1xIC.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: MOSFET 'XINV1.MN1' references unknown model '0' |
+| [INIT_CONDS/inv1xIC.cir](fixtures/INIT_CONDS/inv1xIC.cir) | success | unsupported | spice-ts-loss |  |  | spice-ts: MOSFET 'XINV1.MN1' (model 'CMOSN') uses unsupported model LEVEL=10 (supported MOSFET levels: 1, 2, 3, 4, 5, 6, 8, 9, 14, 49, 54, 260) |
 | [LTRA/ltra1.cir](fixtures/LTRA/ltra1.cir) | success | success | mismatch | 0.45 | tran v(4) |  |
 | [MCNC_BJT_LATCH/latch.cir](fixtures/MCNC_BJT_LATCH/latch.cir) | success | success | mismatch | 0.0222 | tran i(vset) |  |
 | [MOS13_IC/invert42_mos3.cir](fixtures/MOS13_IC/invert42_mos3.cir) | success | success | mismatch | 0.744 | tran i(vdddev) |  |

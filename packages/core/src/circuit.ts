@@ -4031,7 +4031,15 @@ export class Circuit {
           let modelName: string;
           let instanceParamStart: number;
           let bulkNode: string | undefined;
-          if (tokens[5] && !tokens[5].includes('=')) {
+          let soiNode: string | undefined;
+          // B3SOI has a fifth terminal before its model. Resolve through the
+          // lexical model scope, including .model cards below the instance.
+          if (tokens[6] && this._models.get(scopeModel(tokens[6]))?.params.LEVEL === 10) {
+            bulkNode = mapNode(tokens[4]);
+            soiNode = mapNode(tokens[5]);
+            modelName = tokens[6];
+            instanceParamStart = 7;
+          } else if (tokens[5] && !tokens[5].includes('=')) {
             bulkNode = mapNode(tokens[4]);
             modelName = tokens[5];
             instanceParamStart = 6;
@@ -4048,6 +4056,7 @@ export class Circuit {
           const nodes = bulkNode
             ? [mapNode(tokens[1]), mapNode(tokens[2]), mapNode(tokens[3]), bulkNode]
             : [mapNode(tokens[1]), mapNode(tokens[2]), mapNode(tokens[3])];
+          if (soiNode !== undefined) nodes.push(soiNode);
           result.push({
             type: 'M', name: devName, nodes, modelName, params: mParams,
           });
