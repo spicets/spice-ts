@@ -49,9 +49,9 @@
       "unsupported": 77
     },
     "outcomes": {
-      "matched": 104,
+      "matched": 124,
       "mismatch": 21,
-      "not-compared": 116,
+      "not-compared": 96,
       "spice-ts-loss": 65,
       "ngspice-failed": 5,
       "both-failed": 25
@@ -1803,7 +1803,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "note": "source/write wrapper exported no reference vectors: no plot of a declared analysis type was left to write"
       },
       "spiceTs": {
         "status": "success",
@@ -1848,7 +1848,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "note": "source/write wrapper exported no reference vectors: no plot of a declared analysis type was left to write"
       },
       "spiceTs": {
         "status": "success",
@@ -1893,7 +1893,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "note": "source/write wrapper exported no reference vectors: no plot of a declared analysis type was left to write"
       },
       "spiceTs": {
         "status": "success",
@@ -1938,7 +1938,7 @@
       "ngspice": {
         "status": "success",
         "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "note": "source/write wrapper exported no reference vectors: no plot of a declared analysis type was left to write"
       },
       "spiceTs": {
         "status": "success",
@@ -4890,8 +4890,11 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1",
+          "op:1",
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -4902,10 +4905,10 @@
         ]
       },
       "comparedAnalyses": 3,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 12,
+      "worstNormalizedError": 1.67e-16,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -11915,8 +11918,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:15"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -11925,10 +11929,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 68,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(b1004_t)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -11942,8 +11946,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:2"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -11952,10 +11957,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 6,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1001_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -11969,8 +11974,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -11979,10 +11985,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 9,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1001_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -11996,8 +12002,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12006,10 +12013,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 9,
+      "worstNormalizedError": 1.49e-16,
+      "worstSignal": "op v(n1002_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12023,8 +12030,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:7"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12033,10 +12041,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 2,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12108,8 +12116,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:8"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12118,10 +12127,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 34,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(b1001_t)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12236,8 +12245,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12246,10 +12256,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 2,
+      "worstNormalizedError": 1.3e-16,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12263,8 +12273,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12273,10 +12284,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 14,
+      "worstNormalizedError": 1.29e-16,
+      "worstSignal": "op v(b3)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12380,8 +12391,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12390,10 +12402,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 4,
+      "worstNormalizedError": 2.56e-7,
+      "worstSignal": "op v(3)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12407,8 +12419,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12417,10 +12430,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 2,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12434,8 +12447,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12444,10 +12458,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 9,
+      "worstNormalizedError": 4.45e-8,
+      "worstSignal": "op v(1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12461,8 +12475,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:155"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12471,10 +12486,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 622,
+      "worstNormalizedError": 4.25e-16,
+      "worstSignal": "op v(n1061_t)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12488,8 +12503,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12498,10 +12514,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 4,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(b2)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12515,8 +12531,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:118"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12525,10 +12542,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 472,
+      "worstNormalizedError": 1.82e-16,
+      "worstSignal": "op v(n1056_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12542,8 +12559,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12552,10 +12570,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 68,
+      "worstNormalizedError": 7.07e-16,
+      "worstSignal": "op v(n12)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12569,8 +12587,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:29"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12579,10 +12598,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 145,
+      "worstNormalizedError": 1.85e-16,
+      "worstSignal": "op v(x1086_t.1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12739,8 +12758,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:3"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12749,10 +12769,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 10,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12766,8 +12786,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:7"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12776,10 +12797,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 21,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1_g)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -12793,8 +12814,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "op:1"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -12803,10 +12825,10 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 1,
+      "worstNormalizedError": 2.68e-14,
+      "worstSignal": "op v(1)",
+      "outcome": "matched",
       "gapBucket": null
     },
     {
@@ -13367,5 +13389,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "8ab2ecbd8863a02b073905aa82654d18f1d48e9409176cae54838db7781d97bb"
+  "outcomeSha256": "5767a65d52a00b7442ff981fb42e333924e971c93ef55c2283008fcc97234a01"
 }

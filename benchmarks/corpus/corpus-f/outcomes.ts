@@ -236,9 +236,11 @@ export async function runNgspice(input: Buffer, circuit: CorpusFCircuit): Promis
  * changes no outcome.
  */
 export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, select?: ReferenceSelection): Promise<ReferenceRun<PackedExecution>> {
-  // SP plots are retained control plots, not batch -r AC output. Export them by
-  // their real IDs using the same unchanged-deck wrapper as the supplement.
-  if (circuit.analyses.includes('sp') && /^\s*\.control\b/im.test(input.toString('utf8'))) {
+  // SP and op-only control plots are not exported by batch -r. Reuse the
+  // unchanged-deck wrapper and retain their real plot IDs for standard pairing.
+  const opOnly = circuit.analyses.length === 1 && circuit.analyses[0] === 'op'
+    && (circuit.unmappedAnalyses ?? []).length === 0;
+  if ((circuit.analyses.includes('sp') || opOnly) && /^\s*\.control\b/im.test(input.toString('utf8').split(/\r?\n/).slice(1).join('\n'))) {
     const { runControlReference } = await import('./control-vectors.js');
     const run = await runControlReference(input, circuit, select);
     return { ...run, execution: asPacked(run.execution) };
@@ -639,6 +641,7 @@ export function renderMarkdown(report: CorpusFReport): string {
     `- spice-ts: \`${report.commands.spiceTs}\`, through the same adapter as the aggregate parity report. A deck whose analyses spice-ts does not return is unsupported.`,
     `- ${report.policy.matchRule}`,
     '- SP declarations are promoted from the historical manifest at execution time (#1627). ngspice sources the byte-identical fixture through the control export wrapper and writes every retained plot by ID. Complex S/Y/Z vectors are compared directly (real and imaginary parts), with the same 1% metric and generic peak floor. Non-SP analysis detection is unchanged.',
+    '- OP-only `.control` decks also use that unchanged-fixture export wrapper (#1652). Every retained OP plot is paired by plot ID and common vector name using the standard threshold and per-quantity floors. Decks that destroy their OP plots remain not-compared; mixed-analysis and non-control OP decks keep their existing reference path.',
     '- "worst" is that normalised error for the worst signal. ngspice-failed rows are not spice-ts losses but cannot be compared.',
     `- Bounds: ngspice ${NGSPICE_TIMEOUT_MS / 1000} s, spice-ts ${SPICE_TS_TIMEOUT_MS / 1000} s per fixture. The outcome hash excludes ${report.policy.deterministicHashExcludes.join(', ')}: ngspice's TRNOISE and Monte-Carlo decks change their time-point count from run to run even at the default seed.`,
     `- Regenerate: \`${report.commands.generate}\`; verify without writing: \`${report.commands.verify}\`.`,
