@@ -146,7 +146,9 @@ export function newtonRaphson(
     // ngspice CKTnoncon: an iterate a device had to limit was linearised at a
     // junction voltage the solution does not have, so it is not converged.
     const converged = (
-      isConverged(assembler.solution, assembler.prevSolution, assembler.numNodes, options)
+      // ngspice-47 niiter.c:287-290 forces CKTnoncon on the first load/solve,
+      // even when the initial guess already satisfies the tolerances.
+      iter > 0 && isConverged(assembler.solution, assembler.prevSolution, assembler.numNodes, options)
       && !selfLimiting.some(device => device.limitedLastStamp!())
       && (
         convergenceTested.every(device => device.convergenceTest!(assembler.solution, options))
