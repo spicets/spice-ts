@@ -98,7 +98,7 @@ export class BSIM4 implements DeviceModel {
   }
   assertAnalyses(analyses: readonly string[]): void {
     for (const analysis of analyses) {
-      if (this.instance.values.rgatemod === 3 && (analysis === 'ac' || analysis === 'tran')) {
+      if (this.instance.values.rgatemod === 3 && analysis === 'tran') {
         this.unsupported(`RGATEMOD=3 ${analysis} split overlap charge`);
       }
       if (analysis === 'tran') this.terminalCharges(() => 0);
@@ -110,7 +110,6 @@ export class BSIM4 implements DeviceModel {
   noise(): never { return this.unsupported('noise'); }
   stampSmallSignal(ctx: StampContext): void { this.stamp(ctx, true); }
   stampDynamic(ctx: StampContext): void {
-    if (this.instance.values.rgatemod === 3) this.unsupported('RGATEMOD=3 AC split overlap charge');
     const p = this.model.values.type;
     const read = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);
     const [d, g, s, b] = this.intrinsicNodes;
@@ -126,7 +125,13 @@ export class BSIM4 implements DeviceModel {
     // change the existing RBODYMOD=0 transient charge path.
     this.acProcessed ??= preprocessBsim4(this.model, this.instance, this.processed.temperatureK, 'ac');
     const tc = evaluateBsim4Charges(this.acProcessed, this.model.given,
-      { vgs: p * (read(g) - read(s)), vds: p * (read(d) - read(s)), vbs: p * (read(b) - read(s)) }, junction);
+      { vgs: p * (read(g) - read(s)), vds: p * (read(d) - read(s)), vbs: p * (read(b) - read(s)) }, junction,
+      this.instance.values.rgatemod === 3 ? {
+        bias: { vgs: p * (read(this.nodes[5]) - read(s)), vds: p * (read(d) - read(s)), vbs: p * (read(b) - read(s)) },
+        stamp: (other, _charge, capacitance) => {
+          this.stampConductance(ctx, this.nodes[5], this.intrinsicNodes[other], mult * capacitance, true);
+        },
+      } : undefined);
     for (let row = 0; row < 4; row++) for (let col = 0; col < 4; col++) {
       const r = this.intrinsicNodes[row], c = this.intrinsicNodes[col];
       if (r >= 0 && c >= 0) ctx.stampC(r, c, mult * tc.jacobian[4 * row + col]);

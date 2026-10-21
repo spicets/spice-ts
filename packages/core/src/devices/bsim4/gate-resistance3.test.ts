@@ -7,11 +7,11 @@ import type { StampContext } from '../device.js';
 
 const base = new URL('./__fixtures__/rgatemod3/', import.meta.url);
 const reference = JSON.parse(readFileSync(new URL('ngspice-47.json', base), 'utf8')) as {
-  cases: { deck: string; sha256: string; op: number[]; dc: number[][] }[];
+  cases: { deck: string; sha256: string; op: number[]; dc: number[][]; ac: number[][] }[];
 };
 const quantities = ['d', 'g', 's', 'b', 'M1.gate', 'M1.midgate', 'Vdd', 'Vg', 'Vs', 'Vb'];
 
-describe('BSIM4 RGATEMOD=3 static gate network', () => {
+describe('BSIM4 RGATEMOD=3 static and AC gate network', () => {
   for (const polarity of [1, -1] as const) for (const vds of [0.7, -0.7]) {
     it(`conserves six-node KCL and Jacobian: polarity=${polarity}, Vds=${vds}`, () => {
       const device = new BSIM4('M1', [0, 1, 2, 3, 4, 5],
@@ -42,15 +42,17 @@ describe('BSIM4 RGATEMOD=3 static gate network', () => {
       }
     });
   }
-  for (const item of reference.cases) it(`${item.deck}: identical-deck ngspice-47 OP/DC`, async () => {
+  for (const item of reference.cases) it(`${item.deck}: identical-deck ngspice-47 OP/DC/AC`, async () => {
     const deck = readFileSync(new URL(item.deck, base), 'utf8');
     expect(createHash('sha256').update(deck).digest('hex')).toBe(item.sha256);
     const result = await simulate(deck);
-    const errors = { op: 0, dc: 0 };
+    const errors = { op: 0, dc: 0, ac: 0 };
+    const absolute = { op: 0, dc: 0, ac: 0 };
     function check(actual: number, expected: number, analysis: keyof typeof errors, label: string) {
       const abs = Math.abs(actual - expected), rel = abs / Math.max(Math.abs(expected), 1e-30);
       errors[analysis] = Math.max(errors[analysis], rel);
-      expect(expected === 0 ? abs <= 1e-20 : rel <= 1e-6,
+      absolute[analysis] = Math.max(absolute[analysis], abs);
+      expect(analysis === 'ac' ? abs <= 1e-12 || rel <= 1e-6 : expected === 0 ? abs <= 1e-20 : rel <= 1e-6,
         `${analysis} ${label}: actual=${actual}, expected=${expected}, rel=${rel}`).toBe(true);
     }
     quantities.forEach((name, index) => {
@@ -58,12 +60,23 @@ describe('BSIM4 RGATEMOD=3 static gate network', () => {
       const dc = index < 6 ? result.dcSweep!.voltage(name) : result.dcSweep!.current(name);
       expect(dc).toHaveLength(item.dc.length);
       item.dc.forEach((row, n) => check(dc[n], row[index + 1], 'dc', `${name} ${row[0]}`));
+      const ac = index < 6 ? result.ac!.voltage(name) : result.ac!.current(name);
+      expect(ac).toHaveLength(item.ac.length);
+      item.ac.forEach((row, n) => {
+        check(result.ac!.frequencies[n], row[0], 'ac', 'frequency');
+        const phase = ac[n].phase * Math.PI / 180;
+        check(ac[n].magnitude * Math.cos(phase), row[1 + 2 * index], 'ac', `${name} real ${row[0]}`);
+        check(ac[n].magnitude * Math.sin(phase), row[2 + 2 * index], 'ac', `${name} imag ${row[0]}`);
+      });
     });
     expect(Math.abs(result.dc!.voltage('g') - result.dc!.voltage('M1.gate'))).toBeGreaterThan(1e-6);
-    console.info(`${item.deck}: max relative ${JSON.stringify(errors)}`);
+    console.info(`${item.deck}: max relative ${JSON.stringify(errors)}, max absolute ${JSON.stringify(absolute)}`);
   });
-  for (const analysis of ['.tran 1n 10n', '.ac dec 3 1k 1g']) it(`rejects ${analysis} structurally`, async () => {
-    const deck = readFileSync(new URL('nmos.cir', base), 'utf8').replace('.op\n', `${analysis}\n`);
-    await expect(simulate(deck)).rejects.toMatchObject({ code: 'UNSUPPORTED_MODEL_PARAMETER' });
+  for (const item of reference.cases) it(`${item.deck}: rejects transient structurally`, async () => {
+    const deck = readFileSync(new URL(item.deck, base), 'utf8').replace('.ac dec 3 1k 1g', '.tran 1n 10n');
+    await expect(simulate(deck)).rejects.toMatchObject({
+      code: 'UNSUPPORTED_MODEL_PARAMETER',
+      message: expect.stringContaining('RGATEMOD=3 tran split overlap charge'),
+    });
   });
 });
