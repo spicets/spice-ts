@@ -743,7 +743,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
       const diodeNames = 'IS|N|RS' + (analysis === 'ac' ? '|CJO|CJ0|VJ|M|FC|TT' : '');
-      const names = mos ? mosNames : bjt ? 'IS|BF|BR|NF|NR|VAF' : diodeNames;
+      const names = mos ? mosNames : bjt ? 'IS|BF|BR|NF|NR|VAF|RC|RE' : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
       if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
         unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
@@ -752,7 +752,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
 
       if (parameters.replace(parameter, '').trim()) {
         if (mos) unsupported('mosfet-model-parameter', `Only MOS1 model parameters ${mosNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
-        if (bjt) unsupported('bjt-model-parameter', 'Only BJT model parameters IS, BF, BR, NF, NR, and VAF are supported');
+        if (bjt) unsupported('bjt-model-parameter', 'Only BJT model parameters IS, BF, BR, NF, NR, VAF, RC, and RE are supported');
         unsupported('diode-model-parameter', analysis === 'ac'
           ? `Only diode model parameters ${diodeNames.replaceAll('|', ', ')} are supported`
           : 'Only diode model parameters IS, N, and RS are supported');
