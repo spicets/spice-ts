@@ -44,6 +44,45 @@ describe('spice_convert', () => {
     expect(lossy).toBe(false);
   });
 
+  it.each([5, 0, -5])('round-trips a %s V DC source with OP voltage error below 1e-12', async voltage => {
+    const original = `V1 in 0 ${voltage}\nR1 in out 1k\nR2 out 0 2k`;
+    const exported = await executeTool('spice_convert', { netlist: original });
+    expect(exported.isError).not.toBe(true);
+    const { circuitJson } = exported.structuredContent as { circuitJson: unknown[] };
+    const imported = await executeTool('spice_convert', { circuitJson });
+    expect(imported.isError).not.toBe(true);
+    expect(imported.structuredContent).toMatchObject({ diagnostics: [], lossy: false });
+    const restored = (imported.structuredContent as { netlist: string }).netlist;
+    const solve = async (source: string) => {
+      const result = await executeTool('spice_simulate', { request: { apiVersion: '1', input: { format: 'spice', source: `${source.replace(/^\.end\s*$/gim, '')}\n.op` } } });
+      expect(result.isError).not.toBe(true);
+      const analysis = (result.structuredContent as unknown as SimulationResultV1).analyses[0];
+      if (analysis.type !== 'op') throw new Error('Expected OP');
+      return analysis.voltagesV;
+    };
+    const before = await solve(original);
+    const after = await solve(restored);
+    expect(before.in).toBeCloseTo(voltage, 12);
+    expect(before.out).toBeCloseTo(voltage * 2 / 3, 12);
+    expect(Object.keys(after).sort()).toEqual(Object.keys(before).sort());
+    for (const node of Object.keys(before)) expect(Math.abs(before[node] - after[node])).toBeLessThan(1e-12);
+  });
+
+  it.each([
+    ['D1', 'simple_diode', {}],
+    ['D1', 'simple_led', {}],
+    ['M1', 'simple_mosfet', { channel_type: 'n', mosfet_mode: 'enhancement' }],
+    ['Q1', 'simple_transistor', { transistor_type: 'npn' }],
+  ])('still requires an explicit SPICE model for %s (%s)', async (name, ftype, fields) => {
+    expect(await executeTool('spice_convert', { circuitJson: [
+      { type: 'source_component', source_component_id: name, name, ftype, ...fields },
+    ] })).toMatchObject({
+      isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ELEMENT', details: { diagnostics: [
+        expect.objectContaining({ message: 'SPICE export requires an explicit model', elementId: name }),
+      ] } } },
+    });
+  });
+
   it('returns structured diagnostics for a voltage source missing name and voltage', async () => {
     expect(await executeTool('spice_convert', { circuitJson: [{ type: 'source_component', source_component_id: 'V1', ftype: 'simple_voltage_source' }] })).toMatchObject({
       isError: true, structuredContent: { error: { code: 'INVALID_CIRCUIT', details: { diagnostics: [

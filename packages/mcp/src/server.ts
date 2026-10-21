@@ -1416,7 +1416,7 @@ function convertTool(args: unknown, limits: McpLimits, signal?: AbortSignal): Ca
     const circuit = new Circuit();
     for (const component of converted.value!.components) {
       // Circuit JSON has no SPICE model cards. Never invent transistor models.
-      if (component.type !== 'R' && component.type !== 'C') {
+      if (component.type !== 'R' && component.type !== 'C' && component.type !== 'V') {
         throw apiError('UNSUPPORTED_ELEMENT', 'SPICE export requires a model unavailable in circuit-json', 'validation', {
           diagnostics: [{ severity: 'error', code: 'UNSUPPORTED_ELEMENT', message: 'SPICE export requires an explicit model', path: '/', elementId: component.id, simulationRelevant: true }],
         });
@@ -1429,7 +1429,8 @@ function convertTool(args: unknown, limits: McpLimits, signal?: AbortSignal): Ca
       }
       const port = (name: string) => component.ports.find(port => port.name === name)!.net;
       if (component.type === 'R') circuit.addResistor(component.name, port('p'), port('n'), component.params.resistance as number);
-      else circuit.addCapacitor(component.name, port('p'), port('n'), component.params.capacitance as number);
+      else if (component.type === 'C') circuit.addCapacitor(component.name, port('p'), port('n'), component.params.capacitance as number);
+      else circuit.addVoltageSource(component.name, port('p'), port('n'), { dc: component.params.dc as number });
     }
     output = { netlist: circuit.toNetlist(), diagnostics: converted.diagnostics, lossy: false };
   }
