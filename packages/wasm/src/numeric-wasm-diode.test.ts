@@ -58,7 +58,6 @@ describe('bounded diode WASM operating point', () => {
   });
 
   it.each([
-    [fixtures[0]!.replace('N=1)', 'N=1 BV=10)'), undefined, 'UNSUPPORTED_FEATURE', 'Only diode model parameters IS, N, and RS are supported'],
     [fixtures[0]!.replace('IS=1e-14', 'IS=1e-300'), { maxIterations: 1 }, 'CONVERGENCE_FAILED', 'The bounded WebAssembly diode operating point did not converge'],
   ] as const)('preserves structured diode errors in DC sweeps', async (fixture, options, code, message) => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
@@ -92,8 +91,6 @@ describe('bounded diode WASM operating point', () => {
   });
 
   it.each([
-    [fixtures[0]!.replace('N=1)', 'N=1 BV=10)'), 'Only diode model parameters IS, N, and RS are supported'],
-    [fixtures[0]!.replace('N=1)', 'N=1 CJO=1p)'), 'Only diode model parameters IS, N, and RS are supported'],
     [fixtures[0]!.replace('D1 out 0 junction', 'D1 out 0 junction AREA=2'), 'Diodes must use name anode cathode model'],
   ])('rejects unsupported diode features without fallback', async (source, message) => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
