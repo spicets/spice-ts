@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { JsonValue, SimulationReadDataV1, SimulationRequestV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 import { createToolExecutor, DEFAULT_MCP_LIMITS, executeTool } from './server.js';
 
-// The converter supports passive R/C elements, not independent voltage sources.
-// This unpowered divider has a zero operating point in both representations.
+// Exercise DC voltage-source import with the same powered RC divider in SPICE.
 const circuit: JsonValue[] = [
+  { type: 'source_component', source_component_id: 'V1', name: 'V1', ftype: 'simple_voltage_source', voltage: 1 },
   { type: 'source_component', source_component_id: 'R1', name: 'R1', ftype: 'simple_resistor', resistance: 1000 },
   { type: 'source_component', source_component_id: 'R2', name: 'R2', ftype: 'simple_resistor', resistance: 2000 },
   { type: 'source_component', source_component_id: 'C1', name: 'C1', ftype: 'simple_capacitor', capacitance: 1e-6 },
   ...['in', 'out', '0'].map(name => ({ type: 'source_net', source_net_id: name, name })),
-  ...[['R1', 'p', 'in'], ['R1', 'n', 'out'], ['R2', 'p', 'out'], ['R2', 'n', '0'], ['C1', 'p', 'out'], ['C1', 'n', '0']].flatMap(([owner, name, net], index): JsonValue[] => [
+  ...[['V1', 'p', 'in'], ['V1', 'n', '0'], ['R1', 'p', 'in'], ['R1', 'n', 'out'], ['R2', 'p', 'out'], ['R2', 'n', '0'], ['C1', 'p', 'out'], ['C1', 'n', '0']].flatMap(([owner, name, net], index): JsonValue[] => [
     { type: 'source_port', source_port_id: `p${index}`, source_component_id: owner, name },
     { type: 'source_trace', source_trace_id: `t${index}`, connected_source_port_ids: [`p${index}`], connected_source_net_ids: [net] },
   ]),
@@ -40,7 +40,7 @@ describe('MCP circuit-json input (#1155)', () => {
   });
 
   it('matches SPICE op node voltages in one-shot and isolated stream workers', async () => {
-    const spice: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice', source: 'R1 in out 1k\nR2 out 0 2k\nC1 out 0 1u\n.op' } };
+    const spice: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice', source: 'V1 in 0 1\nR1 in out 1k\nR2 out 0 2k\nC1 out 0 1u\n.op' } };
     const expected = await executeTool('spice_simulate', { request: spice });
     expect(expected.isError).not.toBe(true);
     const actual = await executeTool('spice_simulate', { request });
@@ -48,14 +48,14 @@ describe('MCP circuit-json input (#1155)', () => {
     expect(actual.structuredContent).toEqual(expected.structuredContent);
     expect(await stream(request)).toEqual(expected.structuredContent);
     const result = actual.structuredContent as unknown as SimulationResultV1;
-    expect(result.analyses[0]).toMatchObject({ type: 'op', voltagesV: { in: 0, out: 0 } });
-    expect(await executeTool('spice_measure', { request, measurements: [{ kind: 'max', signal: 'v(out)', analysis: 0 }] })).toMatchObject({ structuredContent: { measurements: [{ value: 0, unit: 'V' }] } });
+    expect(result.analyses[0]).toMatchObject({ type: 'op', voltagesV: { in: 1, out: expect.closeTo(2 / 3, 12) } });
+    expect(await executeTool('spice_measure', { request, measurements: [{ kind: 'max', signal: 'v(out)', analysis: 0 }] })).toMatchObject({ structuredContent: { measurements: [{ value: expect.closeTo(2 / 3, 12), unit: 'V' }] } });
   });
 
   it.each(['spice_validate', 'spice_simulate', 'spice_simulation_start'])('%s preserves unsupported-element diagnostics', async tool => {
-    const unsupported = { ...request, input: { ...request.input, circuit: [{ type: 'source_component', ftype: 'simple_voltage_source', source_component_id: 'V1' }] } };
+    const unsupported = { ...request, input: { ...request.input, circuit: [{ type: 'source_component', ftype: 'simple_chip', source_component_id: 'X1' }] } };
     const result = await executeTool(tool, { request: unsupported });
-    expect(result).toMatchObject({ isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ELEMENT', details: { diagnostics: [{ code: 'UNSUPPORTED_ELEMENT', path: '/0', elementId: 'V1' }] } } } });
+    expect(result).toMatchObject({ isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ELEMENT', details: { diagnostics: [{ code: 'UNSUPPORTED_ELEMENT', path: '/0', elementId: 'X1' }] } } } });
   });
 
   it.each(['spice_validate', 'spice_simulate', 'spice_simulation_start'])('%s exposes nonfatal layout diagnostics', async tool => {
@@ -74,7 +74,7 @@ describe('MCP circuit-json input (#1155)', () => {
   it('preserves unsupported-parameter diagnostics without solving', async () => {
     const invalid = structuredClone(request);
     if (invalid.input.format !== 'circuit-json') throw new Error('Expected circuit-json');
-    invalid.input.circuit[0] = { type: 'source_component', source_component_id: 'R1', ftype: 'simple_resistor', resistance: -1 };
+    invalid.input.circuit[1] = { type: 'source_component', source_component_id: 'R1', ftype: 'simple_resistor', resistance: -1 };
     expect(await executeTool('spice_simulate', { request: invalid })).toMatchObject({
       isError: true, structuredContent: { error: { code: 'INVALID_CIRCUIT', details: { diagnostics: [{ code: 'UNSUPPORTED_PARAMETER' }] } } },
     });
