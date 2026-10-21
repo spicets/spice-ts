@@ -1,0 +1,24 @@
+Control extrema oracle (original spice-ts fixture, MIT)
+V1 1 0 1
+R1 1 0 1k
+.control
+set numdgt=15
+let r = vector(5)*2-3
+let z = (r, 10-vector(5)*3)
+let a = maximum(r)
+let b = minimum(r)
+let c = maximum(z)
+let d = minimum(z)
+let e = maximum(-7)
+let f = minimum(-7)
+let g = maximum((3,-4))
+let h = minimum((3,-4))
+print a b c d e f g h
+let ci = imag(c)
+let di = imag(d)
+let gi = imag(g)
+let hi = imag(h)
+echo $&a $&b $&c $&ci $&d $&di $&e $&f $&g $&gi $&h $&hi
+quit
+.endc
+.end
