@@ -58,7 +58,7 @@ describe('bounded BJT WASM DC sweeps', () => {
     } finally { await wasm.close(); }
   });
 
-  it.each(['CJE=1p', 'TF=1n', 'RB=10', 'XTI=3', 'IKF=1m', 'TNOM=27'])(
+  it.each(['CJS=1p', 'XTF=1', 'RB=10', 'XTI=3', 'IKF=1m', 'TNOM=27'])(
     'rejects out-of-subset DC model parameter %s', async parameter => {
       const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {

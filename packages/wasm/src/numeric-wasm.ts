@@ -747,7 +747,10 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
       const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV';
-      const names = mos ? mosNames : bjt ? 'IS|BF|BR|NF|NR|VAF|RC|RE' : diodeNames;
+      // The core device supplies the charge Jacobian and accepted/rejected-step
+      // history; the nonlinear transient and AC paths solve it through WASM.
+      const bjtNames = 'IS|BF|BR|NF|NR|VAF|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR';
+      const names = mos ? mosNames : bjt ? bjtNames : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
       if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
         unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
@@ -757,7 +760,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const remaining = parameters.replace(parameter, '').trim();
       if (remaining) {
         if (mos) unsupported('mosfet-model-parameter', `Only MOS1 model parameters ${mosNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
-        if (bjt) unsupported('bjt-model-parameter', 'Only BJT model parameters IS, BF, BR, NF, NR, VAF, RC, and RE are supported');
+        if (bjt) unsupported('bjt-model-parameter', `Only BJT model parameters ${bjtNames.replaceAll('|', ', ')} are supported`);
         const name = /^[a-z][a-z0-9_]*/i.exec(remaining)?.[0]?.toUpperCase();
         unsupported(name ? `diode-model-parameter:${name}` : 'diode-model-parameter',
           `Only diode model parameters ${diodeNames.replaceAll('|', ', ')} are supported`);
