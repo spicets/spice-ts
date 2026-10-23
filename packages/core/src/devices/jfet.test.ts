@@ -83,8 +83,8 @@ describe('NJF level-1', () => {
   });
 
   it('rejects unsupported J-card instance parameters explicitly', () => {
-    expect(() => parse('title\nJ1 d g s MOD AREA=2\n.model MOD NJF LEVEL=1\n.op'))
-      .toThrow(/Unsupported JFET instance parameter: 'AREA=2'/);
+    expect(() => parse('title\nJ1 d g s MOD UNKNOWN=2\n.model MOD NJF LEVEL=1\n.op'))
+      .toThrow(/Unsupported JFET instance parameter: 'UNKNOWN=2'/);
   });
 });
 

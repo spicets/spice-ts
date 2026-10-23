@@ -24,6 +24,34 @@ error and point counts. The unchanged acceptance bound is 1e-6 V; no fixture-
 specific solver settings. Before #1685 these decks reject `d_source` as
 unsupported; this is new bounded correctness coverage, not a speed claim.
 
+## JFET OFF and IC initialization (#1695, slice 2)
+
+`benchmarks/jfet-off-ic/compare.ts` and
+`packages/core/src/devices/jfet-off-ic-1695.test.ts` contain original
+project-authored netlists under the repository MIT licence. The live comparison
+runs identical bytes with default options on ngspice-47 and spice-ts, reporting
+OP voltage/current errors, transient max/RMS relative errors at interpolated
+matched times (denominator floor 1e-12), first-point values and runtimes.
+Run `spice-heavy pnpm exec tsx benchmarks/jfet-off-ic/compare.ts`.
+It exits nonzero when any deck exceeds the unchanged 1e-6 OP or 1% transient
+gate, including known losses. No generated receipts are committed.
+
+Semantic source pin: [ngspice a80f6e3e95d51534905b1f23410a951802666656](https://github.com/imr/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices).
+`jfet/jfetpar.c:JFETparam` and `jfet2/jfet2par.c:JFET2param` set OFF and IC;
+`jfet/jfetload.c:JFETload` and `jfet2/jfet2load.c:JFET2load` select the
+MODEINITJCT/MODEINITFIX and MODETRANOP+MODEUIC local junction biases;
+`jfet/jfetic.c:JFETgetic` and `jfet2/jfet2ic.c:JFET2getic` supply unspecified
+ICs from external terminal voltages. These sources carry their upstream
+Berkeley/SPICE notices; they are referenced, not redistributed here.
+
+Known uncovered model gap: level-2 `jfet2/psmodel.c:PScharge/qgg` uses coupled,
+path-dependent charges, while spice-ts currently uses independent level-1
+depletion charges for both levels. The nonzero-CGS/CGD UIC decks expose this
+loss; OFF/IC parsing and initial history do not fix that underlying law.
+The resistively grounded gate OP also exposes different ngspice OFF results;
+it is not presented as a verified bistable circuit.
+
+
 ## XSPICE open-collector/emitter buffers (#1682)
 
 The inline `openDeck` netlists in
@@ -2626,6 +2654,15 @@ platform, sample counts, metrics, and cold timings (oracle includes process
 startup/semaphore queueing; TS timing covers simulation). This is bounded
 resistive-network parity evidence, not a general speed claim.
 
+
+## JFET instance area/m regressions (#1695)
+
+- Original project-authored decks in `packages/core/src/devices/jfet-instance-1695.test.ts`, MIT under repository `LICENSE`. No third-party netlists were copied.
+- Oracle: ngspice-47, identical `.op` and `.tran` netlists, `ngspice -b -r deck.raw deck.cir` with `SPICE_ASCIIRAWFILE=1`.
+- Model semantics are pinned to [ngspice-47 a80f6e3](https://github.com/imr/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices): `jfet/jfetpar.c`, `jfet/jfetload.c`, `jfet2/jfet2par.c`, `jfet2/jfet2load.c`, and `jfet2/psmodel.c`. AREA scales current, junction charge and series conductance; M multiplies the complete stamp, including gmin. PSids uses DELTA/AREA before multiplying the device by M.
+- Targeted reproduction: `pnpm -C packages/core exec vitest run src/devices/jfet-instance-1695.test.ts` checks three pinned OP results at 1e-6 relative and the transient endpoint at 1%. The full-waveform one-off comparison measured max/RMS relative V(2) error 0.0435873%/0.00887238% over 126 samples (ngspice linearly interpolated at spice-ts times). No corpus tolerance was changed. These are correctness checks, not speed evidence.
+- Before: all ten area/m simulation cases were rejected. After: three OP decks match ngspice at worst 2.77e-10 relative. OFF, IC and non-nominal TEMP remain unsupported; no general JFET instance-form parity claim.
+
 ## XSPICE table2d/table3d (#1683)
 
 - Fixtures: original project-authored generators `tableDeck` / `tableData` in
@@ -2648,6 +2685,16 @@ resistive-network parity evidence, not a general speed claim.
   bilinear/trilinear interpolant. This is not general nonlinear parity at 1e-9.
   The test reports the full metric and keeps a regression for the discrepancy;
   it does not count these fixtures as passing the 1e-9 parity threshold.
+
+
+## JFET instance and circuit temperature (#1695)
+
+- Source: original project-authored decks generated in `benchmarks/jfet-temperature/compare.ts`, MIT under repository `LICENSE`. No third-party decks copied.
+- URL: https://github.com/spicets/spice-ts/blob/main/benchmarks/jfet-temperature/compare.ts
+- Semantic source pin: ngspice-47 `a80f6e3e95d51534905b1f23410a951802666656`, `src/spicelib/devices/jfet/jfettemp.c:JFETtemp`, `jfet2/jfet2temp.c:JFET2temp`, `jfet2/psmodel.h:NVT/VBI`, `jfet2/psmodel.c:PSinstanceinit`, and `src/spicelib/analysis/cktsopt.c:CKTsetOpt` (model TNOM default). Upstream source licences apply to consulted references; not redistributed here.
+- Reproduce: `spice-heavy pnpm exec tsx benchmarks/jfet-temperature/compare.ts`. Identical deck bytes and SHA-256 per engine, ngspice-47 version check, machine, wall times, matched-point max/RMS relative errors. No performance claim.
+- Before: nonnominal instance/circuit temperatures rejected with `UnsupportedTemperatureError`; circuit TNOM rejected at parse time. After: eight required NJF/PJF OP decks have maximum relative error `5.12134e-11`; two nonnominal-temperature transient decks have maximum voltage/current relative errors `1.14508e-4` / `6.81479e-5` at linearly matched points. Unchanged gates: OP `1e-6`, transient `1%`, denominator floor `1e-12`.
+- Explicit losses: two additional level-2 OFF + biased-gate OP decks produce voltage/current relative errors `0.0472779` / `0.109026`. They are printed with failing signal verdicts as known initialization losses related to #1698, not counted as temperature-law passes. Existing level-2 charge-law losses in `jfet-off-ic` remain unchanged. `.step TEMP` is still explicitly rejected because JFETs have no mutable temperature hook. Nondefault circuit TNOM is bounded to JFETs and temperature-independent passives/sources; unsupported model families fail closed.
 
 ## Bounded WASM diode AC (#1637)
 

@@ -266,10 +266,9 @@ describe('unsupported temperature dependence is rejected, not ignored (#374)', (
     expect(result.steps).toHaveLength(1);
   });
 
-  it('rejects .options TEMP off 27 C for such a device with the same structured error', () => {
+  it('accepts JFET .options TEMP after implementing its temperature law (#1695)', () => {
     const circuit = parse(`jfet temp\n${jfet}\n.options temp=100`);
-    expect(() => circuit.compile()).toThrow(UnsupportedTemperatureError);
-    expect(() => circuit.compile()).toThrow(InvalidCircuitError);
+    expect(() => circuit.compile()).not.toThrow();
   });
 
   it.each([
