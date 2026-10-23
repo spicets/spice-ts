@@ -645,6 +645,14 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
       ],
     })),
     unaryGate('d_buffer'), unaryGate('d_inverter'),
+    {
+      // ngspice-47 digital/d_source/ifspec.ifs:30-63.
+      name: 'd_source', connections: [digital('out', 'out', true)],
+      params: [
+        { name: 'input_file', type: 'string' as const, defaultValue: ['source.txt'], vector: false, nullAllowed: true },
+        real('input_load', 1e-12),
+      ],
+    },
     // ngspice-47 digital/{d_open_c,d_open_e}/ifspec.ifs:30-74.
     ...(['d_open_c', 'd_open_e'] as const).map(name => ({
       ...unaryGate(name),

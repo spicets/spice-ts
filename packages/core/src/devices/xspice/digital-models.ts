@@ -20,6 +20,7 @@ import { ram } from './ram-model.js';
 import { tristate } from './d-tristate.js';
 import { bidiBridge } from './bidi-bridge.js';
 import { genlut } from './genlut.js';
+import { digitalSource } from './d-source.js';
 
 /** What a digital model factory sees of its instance besides parameters. */
 export interface DigitalModelContext {
@@ -487,6 +488,7 @@ export const DIGITAL_MODELS: ReadonlyMap<string, DigitalModelFactory> = new Map<
   ['d_fdiv', frequencyDivider],
   ['d_pulldown', pull(ZERO)],
   ['d_pullup', pull(ONE)],
+  ['d_source', digitalSource],
   ['d_buffer', gate(buffer)],
   ['d_open_c', gate(buffer, 'collector')],
   ['d_open_e', gate(buffer, 'emitter')],
