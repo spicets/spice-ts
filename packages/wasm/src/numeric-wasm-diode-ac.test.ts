@@ -41,12 +41,12 @@ describe('bounded diode WASM AC', () => {
     } finally { await wasm.close(); await js.close(); }
   });
 
-  it.each(['BV=10', 'CJSW=1p'])('keeps structured rejection for unsupported %s', async parameter => {
+  it.each(['IKF=1m', 'CJSW=1p'])('keeps structured rejection for unsupported %s', async parameter => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
       const result = await wasm.simulate(request(diodeAcSource.replace('TT=2n)', `TT=2n ${parameter})`)), { requestId: 'unsupported-diode-ac' });
       expect(result).toMatchObject({ ok: false, error: {
-        code: 'UNSUPPORTED_FEATURE', phase: 'validation', details: { feature: 'diode-model-parameter' },
+        code: 'UNSUPPORTED_FEATURE', phase: 'validation', details: { feature: `diode-model-parameter:${parameter.split('=')[0]}` },
       } });
     } finally { await wasm.close(); }
   });

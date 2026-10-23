@@ -2602,6 +2602,7 @@ platform, sample counts, metrics, and cold timings (oracle includes process
 startup/semaphore queueing; TS timing covers simulation). This is bounded
 resistive-network parity evidence, not a general speed claim.
 
+
 ## JFET instance area/m regressions (#1695)
 
 - Original project-authored decks in `packages/core/src/devices/jfet-instance-1695.test.ts`, MIT under repository `LICENSE`. No third-party netlists were copied.
@@ -2609,6 +2610,30 @@ resistive-network parity evidence, not a general speed claim.
 - Model semantics are pinned to [ngspice-47 a80f6e3](https://github.com/imr/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices): `jfet/jfetpar.c`, `jfet/jfetload.c`, `jfet2/jfet2par.c`, `jfet2/jfet2load.c`, and `jfet2/psmodel.c`. AREA scales current, junction charge and series conductance; M multiplies the complete stamp, including gmin. PSids uses DELTA/AREA before multiplying the device by M.
 - Targeted reproduction: `pnpm -C packages/core exec vitest run src/devices/jfet-instance-1695.test.ts` checks three pinned OP results at 1e-6 relative and the transient endpoint at 1%. The full-waveform one-off comparison measured max/RMS relative V(2) error 0.0435873%/0.00887238% over 126 samples (ngspice linearly interpolated at spice-ts times). No corpus tolerance was changed. These are correctness checks, not speed evidence.
 - Before: all ten area/m simulation cases were rejected. After: three OP decks match ngspice at worst 2.77e-10 relative. OFF, IC and non-nominal TEMP remain unsupported; no general JFET instance-form parity claim.
+
+## XSPICE table2d/table3d (#1683)
+
+- Fixtures: original project-authored generators `tableDeck` / `tableData` in
+  `packages/core/src/devices/xspice/table.test.ts`, MIT under repository LICENSE.
+  Each oracle writes identical deck and table bytes for spice-ts and ngspice-47.
+- Reproduce: `NGSPICE_TABLE_REFERENCE=1 pnpm -C packages/core exec vitest run src/devices/xspice/table.test.ts`.
+- Semantic references (GPL-2.0 upstream, consulted, not embedded):
+  https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/table/table2D/cfunc.mod
+  (file layout 533-595, 648-711; clamping/ENO partials/bilinear output 286-377),
+  https://github.com/imr/ngspice/blob/ngspice-47/src/xspice/icm/table/table3D/cfunc.mod
+  (file layout 569-660, 715-784; trilinear output/partials 355-410), and
+  `table/mada/{eno,eno2,eno3}.c` for the ENO numerical contract.
+- Before: both models rejected as unsupported. After: OP/DC/transient run.
+  Affine fixtures: 17 matched DC points each, maximum relative output error 0;
+  ngspice/spice-ts Newton iterations 56/55 for both dimensions.
+- Explicit loss, retained without tolerance changes or discarded points:
+  quadratic fixtures produce maximum relative error 5.800464037123877e-4 (2D)
+  and 4.2345966546693053e-4 (3D), 17 matched points each; iterations 65/64.
+  At x=0.5 ngspice's default-tolerance output is 2.5mV below the exact
+  bilinear/trilinear interpolant. This is not general nonlinear parity at 1e-9.
+  The test reports the full metric and keeps a regression for the discrepancy;
+  it does not count these fixtures as passing the 1e-9 parity threshold.
+
 
 ## Bounded WASM diode AC (#1637)
 

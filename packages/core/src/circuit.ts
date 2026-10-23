@@ -63,7 +63,7 @@ import {
   type PreparedXspiceInstance,
 } from './devices/xspice/compile.js';
 import { parseXspiceInstance, parseXspiceModelCard, xspiceModelType, type XspiceInstanceCard, type XspiceModelCard } from './parser/xspice-parser.js';
-import { resolveXferData, resolveXferFile } from './devices/xspice/xfer.js';
+import { resolveXspiceData, resolveXspiceFile, xspiceFilePath } from './devices/xspice/files.js';
 import type { IncludeResolver } from './types.js';
 import { assertControlledSourceCard, withoutNodePairParentheses } from './parser/controlled-source.js';
 import type { ControlScript } from './parser/control/script.js';
@@ -1572,7 +1572,7 @@ export class Circuit {
     // instances expand, including definitions nested inside other subcircuits.
     if (resolver) this.expandAllSubcircuits(this.collectGlobalNodes());
     for (const [name, model] of this._xspiceModels) {
-      this._xspiceModels.set(name, await resolveXferFile(model, load));
+      this._xspiceModels.set(name, await resolveXspiceFile(model, load));
     }
     if (!files.size) return;
 
@@ -1581,9 +1581,9 @@ export class Circuit {
     const retain = (circuit: Circuit): Circuit => {
       circuit._xspiceFiles = files;
       for (const [name, model] of circuit._xspiceModels) {
-        const file = model.codeModel === 'xfer' ? model.params.get('file')?.[0] : undefined;
+        const file = xspiceFilePath(model);
         if (file !== undefined && files.has(String(file))) {
-          circuit._xspiceModels.set(name, resolveXferData(model, files.get(String(file))));
+          circuit._xspiceModels.set(name, resolveXspiceData(model, files.get(String(file))));
         }
       }
       const atTemperature = circuit.reparseAtTemperature;
@@ -3655,9 +3655,9 @@ export class Circuit {
       if (xspiceModelType(modelTokens) !== undefined) {
         const card = parseXspiceModelCard(evaluated, lineNumber);
         const scoped = `${instanceName}:${card.name}`;
-        const file = card.codeModel === 'xfer' ? card.params.get('file')?.[0] : undefined;
+        const file = xspiceFilePath(card);
         const resolved = file !== undefined && this._xspiceFiles.has(String(file))
-          ? resolveXferData(card, this._xspiceFiles.get(String(file))) : card;
+          ? resolveXspiceData(card, this._xspiceFiles.get(String(file))) : card;
         this._xspiceModels.set(scoped.toUpperCase(), { ...resolved, name: scoped });
         this._subcircuitModelNames.add(scoped.toUpperCase());
         local.set(card.name.toUpperCase(), scoped);

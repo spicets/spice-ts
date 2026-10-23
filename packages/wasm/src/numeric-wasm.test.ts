@@ -1268,7 +1268,7 @@ describe('bounded numeric WebAssembly backend', () => {
         capacitor: 'V1 in 0 1\nC1 in 0 1u\n.op',
         waveform: 'V1 in 0 PULSE(0 1 0 1n 1n 1m 2m)\nR1 in 0 1k\n.op',
         coupledInductorTransient: 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m\nL2 b 0 1m\nR2 b 0 1\nK1 L1 L2 0.5\n.tran 1u 1m',
-        nonlinearTransient: 'V1 in 0 1\nD1 in 0 D\n.model D D(CJO=1p)\n.tran 1u 1m',
+        unsupportedDiodeParameterTransient: 'V1 in 0 1\nD1 in 0 D\n.model D D(CJSW=1p)\n.tran 1u 1m',
       })) {
         const result = await wasm.simulate(request(source), { requestId: `unsupported-${name}` });
         expect(result).toMatchObject({
