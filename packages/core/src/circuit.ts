@@ -886,6 +886,7 @@ export class Circuit {
   private _parameterScope: ParameterScope | undefined;
   private _simulationOptions: SimulationOptions = {};
   private _temperature: number | undefined;
+  private _nominalTemperature: number | undefined;
   /** @internal Parser-supplied evaluator for TEMPER-dependent parameter expressions. */
   recompileAtTemperature?: (celsius: number) => CompiledCircuit;
   /** @internal Re-evaluate TEMPER before applying runtime control alterations. */
@@ -928,6 +929,19 @@ export class Circuit {
    */
   get temperature(): number | undefined {
     return this._temperature;
+  }
+
+  /** Circuit model nominal temperature; undefined retains ngspice's 27 C default. */
+  get nominalTemperature(): number | undefined {
+    return this._nominalTemperature;
+  }
+
+  /** Set the default model TNOM. Non-default values currently support only JFET circuits. */
+  setNominalTemperature(celsius: number): void {
+    if (!Number.isFinite(celsius) || celsius <= -CELSIUS_TO_KELVIN) {
+      throw new InvalidCircuitError(`Invalid circuit nominal temperature: ${celsius} C`);
+    }
+    this._nominalTemperature = celsius;
   }
 
   /**
@@ -1010,6 +1024,7 @@ export class Circuit {
     const models = Array.from(this._models.values(), model => ({ model, params: model.params }));
     const simulationOptions = this._simulationOptions;
     const temperature = this._temperature;
+    const nominalTemperature = this._nominalTemperature;
     return () => {
       for (const { descriptor, value, waveform, params, multiplier } of descriptors) {
         descriptor.value = value;
@@ -1021,6 +1036,7 @@ export class Circuit {
       this._subcircuitAlterations = subcircuitAlterations;
       this._simulationOptions = simulationOptions;
       this._temperature = temperature;
+      this._nominalTemperature = nominalTemperature;
     };
   }
 
@@ -2128,6 +2144,7 @@ export class Circuit {
       if (this._simulationOptions[flag]) serializedOptions.push(flag);
     }
     if (this._temperature !== undefined) serializedOptions.push(`temp=${this._temperature}`);
+    if (this._nominalTemperature !== undefined) serializedOptions.push(`tnom=${this._nominalTemperature}`);
     if (this._xspiceTrtol !== undefined) serializedOptions.push(`xtrtol=${this._xspiceTrtol}`);
     if (serializedOptions.length > 0) lines.push(`.options ${serializedOptions.join(' ')}`);
 
@@ -2204,6 +2221,23 @@ export class Circuit {
       return { ...desc, params };
     });
     this.assertDeviceModelTypes(flatDescriptors);
+    // ngspice a80f6e3 cktsopt.c sets the default model TNOM; currently only
+    // JFET construction consumes it. Fail closed for other device families.
+    if (this._nominalTemperature !== undefined && this._nominalTemperature !== NOMINAL_TEMPERATURE_C) {
+      for (const desc of flatDescriptors) {
+        const passiveParams = { ...this._models.get(desc.modelName ?? '')?.params, ...desc.params };
+        const unsupportedPassive = ['R', 'C', 'L'].includes(desc.type)
+          && passiveParams.TNOM === undefined
+          && ((passiveParams.TC1 ?? 0) !== 0 || (passiveParams.TC2 ?? 0) !== 0
+            || (passiveParams.TCE ?? 0) !== 0);
+        if (unsupportedPassive || !['J', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type)) {
+          throw new InvalidCircuitError(
+            `.options TNOM=${this._nominalTemperature} is unsupported for ${desc.type} '${desc.name}': `
+            + 'circuit TNOM currently supports only JFETs, R/C/L and independent or behavioral sources',
+          );
+        }
+      }
+    }
     const expandedDescriptors = withRFPortNodes(this.expandPassiveParasitics(
       this.expandLossyTransmissionLines(flatDescriptors.flatMap(desc => {
         if (desc.type !== 'U') return [desc];
@@ -2580,15 +2614,9 @@ export class Circuit {
           if (model.type !== 'NJF' && model.type !== 'PJF') {
             throw new Error(`Unsupported JFET model type: '${model.type}'`);
           }
-          // ngspice jfettemp.c/jfet2temp.c scale nothing at TEMP = TNOM = 27 C;
-          // spice-ts has no JFET temperature law for any other value.
-          const instanceTemperature = desc.params?.TEMP;
-          if (instanceTemperature !== undefined && instanceTemperature !== NOMINAL_TEMPERATURE_C) {
-            throw new UnsupportedTemperatureError(desc.name, instanceTemperature);
-          }
           devices.push(new JFET(desc.name, nodeIndices, model.params, model.type === 'PJF' ? -1 : 1, {
             ...desc.params, OFF: desc.params?.OFF === undefined ? undefined : desc.params.OFF !== 0,
-          }));
+          }, { temperatureC: this._temperature, nominalTemperatureC: this._nominalTemperature }));
           break;
         }
         case 'Z': {
@@ -2922,7 +2950,7 @@ export class Circuit {
         || device instanceof MOS2 || (device instanceof MOS3 && device.model.level === 3)
         || device instanceof BSIM3v3 || device instanceof BSIM4 || device instanceof EKV26) {
         device.setTemperature(temperature);
-      } else if (device.isNonlinear) {
+      } else if (device.isNonlinear && !(device instanceof JFET)) {
         throw new UnsupportedTemperatureError(device.name, temperature);
       }
     }

@@ -1,3 +1,4 @@
+import { UnsupportedModelParameterError } from '../errors.js';
 import type {
   ChargeIntegration, ChargeTruncation, DeviceModel, StampContext,
 } from './device.js';
@@ -6,6 +7,16 @@ import type { JFETInstanceParams } from '../parser/jfet-parser.js';
 import { stampChargeBranch, stampChargeCurrent, TransientChargeState } from './charge-state.js';
 
 export interface JFETParams {
+  TNOM: number;
+  N: number;
+  EG: number;
+  XTI: number;
+  TCV: number;
+  VTOTC: number;
+  BEX: number;
+  BETATCE: number;
+  /** Nominal Sydney coefficient (not recomputed from temperature-adjusted PB/VTO). */
+  bFactor?: number;
   LEVEL: number;
   VTO: number;
   BETA: number;
@@ -27,19 +38,57 @@ export interface JFETParams {
 
 export const NJF_LEVEL1_PARAMETERS = new Set<keyof JFETParams>([
   'LEVEL', 'VTO', 'BETA', 'LAMBDA', 'RD', 'RS', 'CGS', 'CGD',
-  'PB', 'IS', 'B', 'FC', 'KF', 'AF',
+  'PB', 'IS', 'B', 'FC', 'KF', 'AF', 'TNOM', 'N', 'EG', 'XTI', 'TCV', 'VTOTC', 'BEX', 'BETATCE',
 ]);
 
 export const NJF_LEVEL2_PARAMETERS = new Set<keyof JFETParams>([
   'LEVEL', 'VTO', 'BETA', 'LAMBDA', 'DELTA', 'THETA', 'RD', 'RS',
-  'CGS', 'CGD', 'PB', 'IS', 'FC', 'KF', 'AF',
+  'CGS', 'CGD', 'PB', 'IS', 'FC', 'KF', 'AF', 'TNOM', 'N',
 ]);
 
-// ngspice-47 jfettemp.c/jfet2temp.c: vt = temp * CONSTKoverQ at 300.15 K, with
-// const.h CONSTboltz and CHARGE (the old 0.02585 V put a forward-biased gate
-// junction ~1% off ngspice, #717).
-const THERMAL_VOLTAGE = (27 + 273.15) * 1.38064852e-23 / 1.6021766208e-19;
+const K_OVER_Q = 1.38064852e-23 / 1.6021766208e-19;
+const REFERENCE_K = 300.15;
 
+export interface JFETTemperatureEnvironment {
+  temperatureC?: number;
+  nominalTemperatureC?: number;
+}
+
+/** ngspice a80f6e3e95d51534905b1f23410a951802666656
+ * jfettemp.c:JFETtemp; jfet2temp.c:JFET2temp; psmodel.h:NVT/VBI.
+ * Resolve once per instance, before AREA/M. RD/RS remain nominal.
+ */
+function applyTemperature(p: JFETParams, card: Record<string, number>, temperatureC: number): void {
+  const temperature = temperatureC + 273.15;
+  const nominal = p.TNOM + 273.15;
+  if (!Number.isFinite(temperature) || temperature <= 0 || !Number.isFinite(nominal) || nominal <= 0) {
+    throw new Error('JFET TEMP and TNOM must be finite and above absolute zero');
+  }
+  p.bFactor = (1 - p.B) / (p.PB - p.VTO);
+  p.FC = Math.min(p.FC, 0.95);
+  const correction = (kelvin: number): number => {
+    const gap = 1.16 - 7.02e-4 * kelvin * kelvin / (kelvin + 1108);
+    return -2 * K_OVER_Q * kelvin * (1.5 * Math.log(kelvin / REFERENCE_K)
+      + (-gap / (2 * kelvin) + 1.1150877 / (2 * REFERENCE_K)) / K_OVER_Q);
+  };
+  const pbo = (p.PB - correction(nominal)) / (nominal / REFERENCE_K);
+  const oldGamma = (p.PB - pbo) / pbo;
+  p.PB = temperature / REFERENCE_K * pbo + correction(temperature);
+  const newGamma = (p.PB - pbo) / pbo;
+  const capFactor = (1 + 0.5 * (4e-4 * (temperature - REFERENCE_K) - newGamma))
+    / (1 + 0.5 * (4e-4 * (nominal - REFERENCE_K) - oldGamma));
+  p.CGS *= capFactor;
+  p.CGD *= capFactor;
+  const ratio = temperature / nominal;
+  p.IS *= Math.exp((ratio - 1) * (p.LEVEL === 1 ? p.EG / p.N : 1.11) / (temperature * K_OVER_Q));
+  if (p.LEVEL === 1) {
+    // XTI's setup default is 3, but ngspice applies it only when explicitly given.
+    if (card.XTI !== undefined) p.IS *= Math.pow(ratio, p.XTI);
+    p.VTO += (card.VTOTC !== undefined ? p.VTOTC : -p.TCV) * (temperature - nominal);
+    p.BETA *= card.BETATCE !== undefined
+      ? Math.pow(1.01, p.BETATCE * (temperature - nominal)) : Math.pow(ratio, p.BEX);
+  }
+}
 
 export function resolveNJFETParams(params: Record<string, number>): JFETParams {
   const level = params.LEVEL ?? 1;
@@ -48,11 +97,20 @@ export function resolveNJFETParams(params: Record<string, number>): JFETParams {
   const supported = level === 1 ? NJF_LEVEL1_PARAMETERS : NJF_LEVEL2_PARAMETERS;
   for (const name of Object.keys(params)) {
     if (!supported.has(name as keyof JFETParams)) {
-      throw new Error(`Unsupported NJF level-${level} model parameter: '${name}'`);
+      throw new UnsupportedModelParameterError('', name,
+        `Unsupported NJF level-${level} model parameter: '${name}'`, { model: `JFET${level}` });
     }
   }
 
   const resolved: JFETParams = {
+    TNOM: params.TNOM ?? 27,
+    N: params.N ?? 1,
+    EG: params.EG ?? 1.11,
+    XTI: params.XTI ?? 3,
+    TCV: params.TCV ?? 0,
+    VTOTC: params.VTOTC ?? 0,
+    BEX: params.BEX ?? 0,
+    BETATCE: params.BETATCE ?? 0,
     LEVEL: level,
     VTO: params.VTO ?? -2,
     BETA: params.BETA ?? 1e-4,
@@ -74,7 +132,7 @@ export function resolveNJFETParams(params: Record<string, number>): JFETParams {
   if (resolved.BETA < 0 || resolved.RD < 0 || resolved.RS < 0
     || resolved.CGS < 0 || resolved.CGD < 0 || resolved.PB <= 0
     || resolved.IS <= 0 || resolved.FC <= 0 || resolved.FC >= 1
-    || resolved.DELTA < 0) {
+    || resolved.DELTA < 0 || !Number.isFinite(resolved.N) || resolved.N <= 0) {
     throw new Error(`Invalid NJF level-${level} model parameter value`);
   }
   return resolved;
@@ -88,6 +146,7 @@ export class JFET implements DeviceModel {
   readonly truncationCoversCharges = true;
   readonly params: JFETParams;
   private readonly multiplicity: number;
+  private readonly thermalVoltage: number;
   /** Gate charges qgd/qgs integrated as ngspice jfetload.c (NIintegrate) when CGD or CGS is set. */
   readonly integratesTransientCharge: boolean;
   readonly storesCharge: boolean;
@@ -105,8 +164,13 @@ export class JFET implements DeviceModel {
     params: Record<string, number>,
     readonly polarity: 1 | -1 = 1,
     private readonly instance: JFETInstanceParams = {},
+    environment: JFETTemperatureEnvironment = {},
   ) {
     this.params = resolveNJFETParams(params);
+    this.params.TNOM = params.TNOM ?? environment.nominalTemperatureC ?? 27;
+    const temperatureC = instance.TEMP ?? environment.temperatureC ?? 27;
+    applyTemperature(this.params, params, temperatureC);
+    this.thermalVoltage = (temperatureC + 273.15) * K_OVER_Q * this.params.N;
     const area = instance.AREA ?? 1;
     this.multiplicity = instance.M ?? 1;
     if (!Number.isFinite(area) || area <= 0
@@ -286,10 +350,10 @@ export class JFET implements DeviceModel {
     cathode: number,
     voltage: number,
   ): void {
-    const exponential = Math.exp(Math.min(voltage / THERMAL_VOLTAGE, 40));
+    const exponential = Math.exp(Math.min(voltage / this.thermalVoltage, 40));
     const gmin = (ctx.gmin ?? DEVICE_GMIN) * this.multiplicity;
     const current = this.params.IS * (exponential - 1) + gmin * voltage;
-    const conductance = this.params.IS * exponential / THERMAL_VOLTAGE + gmin;
+    const conductance = this.params.IS * exponential / this.thermalVoltage + gmin;
     const ieq = this.polarity * (current - conductance * voltage);
     stampTwoTerminal(ctx, anode, cathode, conductance, ieq);
   }
@@ -321,7 +385,7 @@ function channelCurrent(
   if (overdrive <= 0) return { current: 0, gm: 0, gds: 0 };
 
   const betaPrime = params.BETA * (1 + params.LAMBDA * vDS);
-  const bFactor = (1 - params.B) / (params.PB - params.VTO);
+  const bFactor = params.bFactor ?? (1 - params.B) / (params.PB - params.VTO);
 
   if (overdrive >= vDS) {
     const aPart = 2 * params.B + 3 * bFactor * (overdrive - vDS);

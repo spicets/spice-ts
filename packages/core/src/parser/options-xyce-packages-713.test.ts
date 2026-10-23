@@ -141,7 +141,7 @@ describe('Xyce .options packages follow ngspice-47 (#713)', () => {
   });
 
   it.each([
-    ['.options device tnom=50\n.op', "Unsupported .options field: 'tnom'"],
+    ['.options device tnom=-273.15\n.op', 'Invalid .options tnom value'],
     ['.options nonlin gminsteps=10\n.op', "Unsupported .options field: 'gminsteps'"],
     ['.options output savecurrents=1\n.op', "Unsupported .options field: 'savecurrents=1'"],
     ['.options timeint reltol=-1m\n.op', "Invalid .options reltol value: '-1m'"],

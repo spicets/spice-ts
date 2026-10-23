@@ -84,9 +84,9 @@ describe('#790 trailing non-ASCII unit text on numbers', () => {
     expect(circuit.temperature).toBe(27);
   });
 
-  it('still rejects a TNOM other than the 27 C default with a ParseError', () => {
-    expect(() => parse('t\nV1 1 0 1\nR1 1 0 1k\n.options tnom=50\n.op\n.end'))
-      .toThrow("Unsupported .options field: 'tnom'");
+  it('rejects nondefault circuit TNOM for unsupported diodes at compile time', () => {
+    const circuit = parse('t\nV1 1 0 1\nR1 1 0 1k\nD1 1 0 DM\n.model DM D\n.options tnom=50\n.op\n.end');
+    expect(() => circuit.compile()).toThrow(/TNOM=50/);
   });
 });
 
