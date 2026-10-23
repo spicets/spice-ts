@@ -89,7 +89,7 @@ import { parseZInstance } from './parser/z-device-parser.js';
 import { parseSwitchInstance } from './parser/switch-parser.js';
 import { DEVICE_GMIN } from './devices/device.js';
 import { parseBJTInstance, type BJTInstanceParams } from './parser/bjt-parser.js';
-import { parseJFETInstance, type JFETInstanceParams } from './parser/jfet-parser.js';
+import { jfetInstanceDescriptorParams, parseJFETInstance, type JFETInstanceParams } from './parser/jfet-parser.js';
 import {
   formatCplModelCard,
   parseCplLines,
@@ -664,7 +664,12 @@ function formatDevice(desc: DeviceDescriptor): string {
       const ic = ICVBE === undefined ? '' : ` IC=${formatNumber(ICVBE)}${ICVCE === undefined ? '' : `,${formatNumber(ICVCE)}`}`;
       return `${desc.name} ${desc.nodes.join(' ')} ${desc.modelName ?? ''}${instance ? ` ${instance}` : ''}${ic}`.trim();
     }
-    case 'J':
+    case 'J': {
+      const { OFF, ICVDS, ICVGS, ...scaling } = desc.params ?? {};
+      const instance = formatParams(scaling);
+      const ic = ICVDS === undefined ? '' : ` IC=${formatNumber(ICVDS)},${formatNumber(ICVGS ?? 0)}`;
+      return `${desc.name} ${desc.nodes.join(' ')} ${desc.modelName ?? ''}${instance ? ` ${instance}` : ''}${OFF ? ' OFF' : ''}${ic}`.trim();
+    }
     case 'Z':
       return `${desc.name} ${desc.nodes[0]} ${desc.nodes[1]} ${desc.nodes[2]} ${desc.modelName ?? ''}`.trim();
     case 'M':
@@ -1706,7 +1711,7 @@ export class Circuit {
     this.nodeSet.add(nodeSource);
     this.descriptors.push({
       type: 'J', name, nodes: [nodeDrain, nodeGate, nodeSource], modelName,
-      ...(instanceParams === undefined ? {} : { params: { ...instanceParams } }),
+      ...(instanceParams === undefined ? {} : { params: jfetInstanceDescriptorParams(instanceParams) }),
     });
   }
 
@@ -2581,7 +2586,9 @@ export class Circuit {
           if (instanceTemperature !== undefined && instanceTemperature !== NOMINAL_TEMPERATURE_C) {
             throw new UnsupportedTemperatureError(desc.name, instanceTemperature);
           }
-          devices.push(new JFET(desc.name, nodeIndices, model.params, model.type === 'PJF' ? -1 : 1, desc.params));
+          devices.push(new JFET(desc.name, nodeIndices, model.params, model.type === 'PJF' ? -1 : 1, {
+            ...desc.params, OFF: desc.params?.OFF === undefined ? undefined : desc.params.OFF !== 0,
+          }));
           break;
         }
         case 'Z': {
@@ -4012,7 +4019,7 @@ export class Circuit {
             type: 'J', name: devName,
             nodes: [instance.drain, instance.gate, instance.source].map(mapNode),
             modelName: instance.modelName,
-            ...(instance.params ? { params: { ...instance.params } } : {}),
+            ...(instance.params ? { params: jfetInstanceDescriptorParams(instance.params) } : {}),
           });
           break;
         }
