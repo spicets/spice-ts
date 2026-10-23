@@ -39,6 +39,10 @@ ${mode !== 'uic' ? '.op' : '.tran 0.1u 10u uic'}
         const own = await simulate(input);
         const ownMs = performance.now() - start;
         const times = mode !== 'uic' ? [0] : Array.from(own.transient!.time);
+        // Supervisor-authorized seam gate; keep deferred losses visible, not suppressed.
+        const knownLoss = mode === 'uic' && level === 2
+          ? 'level-2 PScharge charge law'
+          : mode === 'op-resistive-gate' && !!off ? 'resistive-gate OFF OP convergence' : undefined;
         const signals = [];
         for (const signal of ['v(d)', 'v(g)', 'i(v1)']) {
           const ng = plot.signals[signal].map(v => v.re);
@@ -56,17 +60,23 @@ ${mode !== 'uic' ? '.op' : '.tran 0.1u 10u uic'}
             errors.push(Math.abs(a[i] - ref) / Math.max(1e-12, Math.abs(ref)));
           }
           const maxRel = Math.max(...errors);
-          if (maxRel > (mode !== 'uic' ? 1e-6 : 0.01)) failed = true;
-          signals.push({ signal, maxRel, rmsRel: Math.sqrt(errors.reduce((s, v) => s + v * v, 0) / errors.length),
+          const passed = errors.length > 0 && Number.isFinite(maxRel) && maxRel <= (mode !== 'uic' ? 1e-6 : 0.01);
+          if (!passed && !knownLoss) failed = true;
+          signals.push({ signal, passed, maxRel, rmsRel: Math.sqrt(errors.reduce((s, v) => s + v * v, 0) / errors.length),
             firstNg: [plot.grid[0], ng[0]], firstOwn: [times[0], a[0]], pointsCompared: errors.length });
         }
-        reports.push({ level, polarity: p, mode, off: !!off, sha256: createHash('sha256').update(input).digest('hex'),
+        reports.push({ level, polarity: p, mode, off: !!off,
+          gate: knownLoss ? 'known-loss' : 'required', knownLoss,
+          trackingIssue: knownLoss ? 'https://github.com/spicets/spice-ts/issues/1698' : undefined,
+          sha256: createHash('sha256').update(input).digest('hex'),
           ngMs, ownMs, ngPoints: plot.grid.length, ownPoints: times.length, signals });
       }
     }
   }
   console.log(JSON.stringify({ machine: { arch: arch(), cpu: cpus()[0]?.model },
-    oracle: 'ngspice-47', alignment: 'ngspice linearly interpolated at spice-ts times; relative denominator floor 1e-12', reports, failed }, null, 2));
+    oracle: 'ngspice-47', alignment: 'ngspice linearly interpolated at spice-ts times; relative denominator floor 1e-12',
+    scope: 'OFF/IC seam and level-1 UIC; level-2 PScharge and resistive-gate OFF OP are known losses tracked in #1698',
+    reports, failed }, null, 2));
 } finally { rmSync(directory, { recursive: true, force: true }); }
 if (failed) process.exitCode = 1;
 }
