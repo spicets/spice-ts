@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { UnsupportedTemperatureError } from '../errors.js';
 import { parse } from '../parser/index.js';
 import { simulate } from '../simulate.js';
 import { JFET } from './jfet.js';
@@ -94,8 +93,10 @@ describe('JFET instance TEMP= (#717)', () => {
     expect(withTemp.ig).toBe(plain.ig);
   });
 
-  it('rejects a non-nominal instance TEMP instead of silently running at 27 C', async () => {
-    await expect(op('NJF', LEVEL1, 5, -1, 'TEMP=50')).rejects.toBeInstanceOf(UnsupportedTemperatureError);
+  it('applies a non-nominal instance TEMP instead of silently running at 27 C', async () => {
+    const nominal = await op('NJF', LEVEL1, 5, -1);
+    const warm = await op('NJF', LEVEL1, 5, -1, 'TEMP=50');
+    expect(Math.abs(warm.ig)).toBeGreaterThan(Math.abs(nominal.ig));
   });
 
   it('still rejects other instance keywords', () => {

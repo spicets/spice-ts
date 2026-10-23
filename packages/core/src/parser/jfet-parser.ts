@@ -30,11 +30,8 @@ export function jfetInstanceDescriptorParams(params: JFETInstanceParams): Record
 /**
  * Parse `Jname d g s model [area] [AREA=val] [M=val] [OFF] [IC=vds,vgs] [TEMP=val]`.
  *
- * `TEMP` is the ngspice-47 jfet/jfet2 instance temperature. spice-ts has no
- * JFET temperature law, so the circuit accepts only the nominal 27 C (where
- * ngspice applies no temperature scaling) and rejects any other value with a
- * typed error. Other instance keywords (DTEMP, ...) are
- * still rejected rather than ignored.
+ * `TEMP` overrides circuit temperature for ngspice-47 JFET/JFET2 laws.
+ * Other instance keywords (DTEMP, ...) are rejected rather than ignored.
  */
 export function parseJFETInstance(tokens: string[], lineNumber: number): ParsedJFETInstance {
   const line = tokens.join(' ');

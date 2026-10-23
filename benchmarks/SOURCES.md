@@ -2662,6 +2662,15 @@ resistive-network parity evidence, not a general speed claim.
   it does not count these fixtures as passing the 1e-9 parity threshold.
 
 
+## JFET instance and circuit temperature (#1695)
+
+- Source: original project-authored decks generated in `benchmarks/jfet-temperature/compare.ts`, MIT under repository `LICENSE`. No third-party decks copied.
+- URL: https://github.com/spicets/spice-ts/blob/main/benchmarks/jfet-temperature/compare.ts
+- Semantic source pin: ngspice-47 `a80f6e3e95d51534905b1f23410a951802666656`, `src/spicelib/devices/jfet/jfettemp.c:JFETtemp`, `jfet2/jfet2temp.c:JFET2temp`, `jfet2/psmodel.h:NVT/VBI`, `jfet2/psmodel.c:PSinstanceinit`, and `src/spicelib/analysis/cktsopt.c:CKTsetOpt` (model TNOM default). Upstream source licences apply to consulted references; not redistributed here.
+- Reproduce: `spice-heavy pnpm exec tsx benchmarks/jfet-temperature/compare.ts`. Identical deck bytes and SHA-256 per engine, ngspice-47 version check, machine, wall times, matched-point max/RMS relative errors. No performance claim.
+- Before: nonnominal instance/circuit temperatures rejected with `UnsupportedTemperatureError`; circuit TNOM rejected at parse time. After: eight required NJF/PJF OP decks have maximum relative error `5.12134e-11`; two nonnominal-temperature transient decks have maximum voltage/current relative errors `1.14508e-4` / `6.81479e-5` at linearly matched points. Unchanged gates: OP `1e-6`, transient `1%`, denominator floor `1e-12`.
+- Explicit losses: two additional level-2 OFF + biased-gate OP decks produce voltage/current relative errors `0.0472779` / `0.109026`. They are printed with failing signal verdicts as known initialization losses related to #1698, not counted as temperature-law passes. Existing level-2 charge-law losses in `jfet-off-ic` remain unchanged. `.step TEMP` is still explicitly rejected because JFETs have no mutable temperature hook. Nondefault circuit TNOM is bounded to JFETs and temperature-independent passives/sources; unsupported model families fail closed.
+
 ## Bounded WASM diode AC (#1637)
 
 See also the bounded BJT AC fixtures (#1653): original project-authored NPN/PNP common-emitter, common-base and forward-biased collector-base junction decks in `packages/wasm/src/test-support/bjt-ac.ts`, MIT under the repository `LICENSE`. Source URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/bjt-ac.ts. After `pnpm build`, reproduce with `spice-heavy pnpm -C packages/wasm exec tsx scripts/bjt-ac-accuracy.ts`. The runner uses identical netlist bytes for JS, WASM and ngspice and records hashes, version, host, point counts, end-to-end request time (not a speed benchmark), matched complex max/RMS relative errors, and rejected/missing signals without hiding losses. No per-circuit tolerance changes.

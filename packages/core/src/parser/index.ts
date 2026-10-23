@@ -395,8 +395,10 @@ export function parseControlOptions(tokens: string[], lineNumber: number, contex
     // with the same tokenizer as dot cards (e.g. `option xmu = 0.49`).
     const fields = splitXyceOptionPackage(tokenizeLine(tokens.join(' '))).fields;
     const temperature = circuit ? takeCircuitTemperatureOption(fields, lineNumber, context) : undefined;
+    const nominalTemperature = circuit ? takeCircuitTemperatureOption(fields, lineNumber, context, 'tnom') : undefined;
     const options = parseSimulationOptions(fields, lineNumber, context);
     if (temperature !== undefined) circuit!.setTemperature(temperature);
+    if (nominalTemperature !== undefined) circuit!.setNominalTemperature(nominalTemperature);
     return options;
   } catch (e) {
     if (e instanceof ParseError) throw e;
@@ -739,6 +741,7 @@ function parseDotCommand(
       const { fields: optionTokens, warning } = splitXyceOptionPackage(tokens.slice(1));
       if (warning !== undefined) circuit.addParseWarning(warning);
       const temperature = takeCircuitTemperatureOption(optionTokens, lineNumber, context);
+      const nominalTemperature = takeCircuitTemperatureOption(optionTokens, lineNumber, context, 'tnom');
       const xspiceTrtol = takeXspiceTrtolOption(optionTokens, lineNumber, context);
       circuit.setSimulationOptions(parseSimulationOptions(optionTokens, lineNumber, context, {
         warn: message => circuit.addParseWarning(message),
@@ -748,6 +751,7 @@ function parseDotCommand(
         },
       }));
       if (temperature !== undefined) circuit.setTemperature(temperature);
+      if (nominalTemperature !== undefined) circuit.setNominalTemperature(nominalTemperature);
       if (xspiceTrtol !== undefined) circuit.setXspiceTrtol(xspiceTrtol);
       break;
     }
@@ -919,27 +923,28 @@ function stripGnucapTraceSuffix(
 }
 
 /**
- * Remove an ngspice `TEMP=<celsius>` field from `.options` tokens (in place) and
- * return its value. As in ngspice, it sets the circuit temperature that every
- * device without an instance TEMP is evaluated at (default 27 C).
+ * Remove TEMP or TNOM fields from `.options` tokens (in place), returning the
+ * last value. TEMP selects operating temperature; TNOM defaults model nominal
+ * temperature. Both are Celsius and default to 27 C when absent.
  */
 function takeCircuitTemperatureOption(
   tokens: string[],
   lineNumber: number,
   context: string,
+  optionName: 'temp' | 'tnom' = 'temp',
 ): number | undefined {
   let temperature: number | undefined;
   for (let index = tokens.length - 1; index >= 0; index -= 1) {
     const token = tokens[index];
     const separator = token.indexOf('=');
     const name = token.slice(0, separator < 0 ? token.length : separator).toLowerCase();
-    if (name !== 'temp') continue;
+    if (name !== optionName) continue;
     const rawValue = separator < 0 ? '' : token.slice(separator + 1);
     const value = rawValue === '' ? Number.NaN : parseNumber(rawValue);
     if (!Number.isFinite(value) || value <= -273.15) {
-      throw new ParseError(`Invalid .options temp value: '${rawValue}'`, lineNumber, context);
+      throw new ParseError(`Invalid .options ${optionName} value: '${rawValue}'`, lineNumber, context);
     }
-    // The last TEMP field wins, as with every other repeated .options field.
+    // The last field wins, as with every other repeated .options field.
     temperature ??= value;
     tokens.splice(index, 1);
   }
