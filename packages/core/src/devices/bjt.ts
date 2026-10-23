@@ -718,6 +718,24 @@ export class BJT implements DeviceModel {
     return this.temperature;
   }
 
+  /** Unscaled model values for bounded DC sensitivity. */
+  sensitivityModelParameters(): BJTParams {
+    return resolveBJTParams(this.suppliedParams);
+  }
+
+  /** Rebuild cached thermal/geometry data without mutating the nominal device. */
+  withSensitivityParameter(parameter: 'IS' | 'BF' | 'NF' | 'VAF' | 'BR' | 'NR' | 'M', value: number): BJT {
+    const model = parameter === 'M' ? this.suppliedParams : { ...this.suppliedParams, [parameter]: value };
+    const instance = parameter === 'M' ? { ...this.instance, M: value } : this.instance;
+    const copy = new BJT(this.name, this.nodes, model, instance, this.icTerminals);
+    copy.setTemperature(this.temperature);
+    return copy;
+  }
+
+  get sensitivityMultiplier(): number {
+    return this.multiplier;
+  }
+
   /**
    * ngspice-47 bjttemp.c (TLEV = TLEVC = 0) at the device temperature:
    * IS and ISS scale by exp(factlog), factlog = (T/TNOM - 1)*EG/vt +

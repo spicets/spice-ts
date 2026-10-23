@@ -44,15 +44,15 @@
       "unsupported": 11
     },
     "spiceTs": {
-      "success": 248,
-      "failed": 15,
+      "success": 251,
+      "failed": 12,
       "unsupported": 73
     },
     "outcomes": {
       "matched": 128,
-      "mismatch": 17,
+      "mismatch": 20,
       "not-compared": 99,
-      "spice-ts-loss": 66,
+      "spice-ts-loss": 63,
       "ngspice-failed": 4,
       "both-failed": 22
     }
@@ -172,19 +172,6 @@
       "issue": "https://github.com/mfiumara/spice-ts/issues/489"
     },
     {
-      "bucket": "execution: other failure",
-      "fixtures": 5,
-      "ngspiceSuccess": 4,
-      "ids": [
-        "examples-control-structs-if-test-1-cir",
-        "examples-tclspice-tcl-diffpair-cir",
-        "examples-xspice-original-examples-bad-io-deck",
-        "tests-general-diffpair-cir",
-        "tests-sensitivity-diffpair-cir"
-      ],
-      "issue": null
-    },
-    {
       "bucket": "convergence",
       "fixtures": 3,
       "ngspiceSuccess": 1,
@@ -214,6 +201,16 @@
         "examples-cider-diode-pindiode-cir"
       ],
       "issue": "https://github.com/mfiumara/spice-ts/issues/490"
+    },
+    {
+      "bucket": "execution: other failure",
+      "fixtures": 2,
+      "ngspiceSuccess": 1,
+      "ids": [
+        "examples-control-structs-if-test-1-cir",
+        "examples-xspice-original-examples-bad-io-deck"
+      ],
+      "issue": null
     },
     {
       "bucket": "expression: B-source V= and expression functions/operators",
@@ -3847,16 +3844,17 @@
         ]
       },
       "spiceTs": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": ".sens does not support 'q1': device type BJT is outside the bounded slice"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "execution: other failure"
+      "comparedAnalyses": 1,
+      "comparedSignals": 45,
+      "worstNormalizedError": 4.55e+28,
+      "worstSignal": "sens v(q1:is)",
+      "outcome": "mismatch",
+      "gapBucket": null
     },
     {
       "id": "examples-transient-noise-noi-sc-tr-cir",
@@ -11201,16 +11199,17 @@
         ]
       },
       "spiceTs": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": ".sens does not support 'q1': device type BJT is outside the bounded slice"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "execution: other failure"
+      "comparedAnalyses": 1,
+      "comparedSignals": 45,
+      "worstNormalizedError": 4.55e+28,
+      "worstSignal": "sens v(q1:is)",
+      "outcome": "mismatch",
+      "gapBucket": null
     },
     {
       "id": "tests-general-fourbitadder-cir",
@@ -13079,16 +13078,17 @@
         ]
       },
       "spiceTs": {
-        "status": "failed",
-        "analyses": [],
-        "firstErrorLine": ".sens does not support 'q1': device type BJT is outside the bounded slice"
+        "status": "success",
+        "analyses": [
+          "sens:1"
+        ]
       },
-      "comparedAnalyses": 0,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "spice-ts-loss",
-      "gapBucket": "execution: other failure"
+      "comparedAnalyses": 1,
+      "comparedSignals": 45,
+      "worstNormalizedError": 4.55e+28,
+      "worstSignal": "sens v(q1:is)",
+      "outcome": "mismatch",
+      "gapBucket": null
     },
     {
       "id": "tests-transmission-cpl-ibm2-cir",
@@ -13409,5 +13409,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "d76e0240028bffc0da342b50c32b2f7e311cb80d859bd250e4f84311dd695868"
+  "outcomeSha256": "712bc521bc89d6dd0f07f9584ad2db21b94266bc7d9244edd7352250b477d6f4"
 }

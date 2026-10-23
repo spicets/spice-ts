@@ -6,11 +6,11 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `d76e0240028bffc0da342b50c32b2f7e311cb80d859bd250e4f84311dd695868`.
+- Fixtures: 336. Outcome SHA-256: `712bc521bc89d6dd0f07f9584ad2db21b94266bc7d9244edd7352250b477d6f4`.
 - ngspice (ngspice-47): 310 success, 15 failed, 11 unsupported.
-- spice-ts (0.4.0): 248 success, 15 failed, 73 unsupported.
-- Outcomes: matched 128, mismatch 17, not-compared 99, spice-ts-loss 66, ngspice-failed 4, both-failed 22.
-- Of the 310 decks ngspice runs successfully, spice-ts matches 128, mismatches 17, produces no comparable result for 99 and fails 66. For 112 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
+- spice-ts (0.4.0): 251 success, 12 failed, 73 unsupported.
+- Outcomes: matched 128, mismatch 20, not-compared 99, spice-ts-loss 63, ngspice-failed 4, both-failed 22.
+- Of the 310 decks ngspice runs successfully, spice-ts matches 128, mismatches 20, produces no comparable result for 99 and fails 63. For 112 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
 
@@ -50,10 +50,10 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | timeout: spice-ts exceeded the 120 s bound | 7 | 6 | none filed |
 | model: VDMOS power MOSFET | 6 | 0 | https://github.com/mfiumara/spice-ts/issues/506 |
 | control: analysis commands inside .control (tran/dc/op/ac/...) | 5 | 5 | https://github.com/mfiumara/spice-ts/issues/489 |
-| execution: other failure | 5 | 4 | none filed |
 | convergence | 3 | 1 | none filed |
 | control: ngspice control-language scripting (set/let/save/foreach/meas/...) | 2 | 0 | https://github.com/mfiumara/spice-ts/issues/488 |
 | device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP) | 2 | 2 | https://github.com/mfiumara/spice-ts/issues/490 |
+| execution: other failure | 2 | 1 | none filed |
 | expression: B-source V= and expression functions/operators | 1 | 0 | https://github.com/mfiumara/spice-ts/issues/495 |
 | model: string-valued model parameters (MFG= and similar) | 1 | 0 | none: ngspice also fails every fixture in this bucket |
 | source: TRNOISE/EXTERNAL waveforms | 1 | 0 | https://github.com/mfiumara/spice-ts/issues/501 |
@@ -178,7 +178,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/soa/diode-soa-simple.cir](fixtures/examples/soa/diode-soa-simple.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/tclspice/tcl-testbench2/example.cir](fixtures/examples/tclspice/tcl-testbench2/example.cir) | success | failed | spice-ts-loss |  |  | spice-ts: spice-ts exceeded the 120000 ms aggregate execution bound |
 | [examples/tclspice/tcl-testbench4/example.cir](fixtures/examples/tclspice/tcl-testbench4/example.cir) | success | failed | spice-ts-loss |  |  | spice-ts: spice-ts exceeded the 120000 ms aggregate execution bound |
-| [examples/tclspice/tcl/diffpair.cir](fixtures/examples/tclspice/tcl/diffpair.cir) † | success | failed | spice-ts-loss |  |  | spice-ts: .sens does not support 'q1': device type BJT is outside the bounded slice |
+| [examples/tclspice/tcl/diffpair.cir](fixtures/examples/tclspice/tcl/diffpair.cir) † | success | success | mismatch | 4.55e+28 | sens v(q1:is) |  |
 | [examples/transient-noise/noi-sc-tr.cir](fixtures/examples/transient-noise/noi-sc-tr.cir) | success | success | mismatch | 1.69 | tran v(2) |  |
 | [examples/transient-noise/noise_vnoi.cir](fixtures/examples/transient-noise/noise_vnoi.cir) | success | success | matched | 0.00124 | tran v(1) |  |
 | [examples/transient-noise/rts-1.cir](fixtures/examples/transient-noise/rts-1.cir) | success | success | mismatch | 1.38 | tran v(9) |  |
@@ -328,7 +328,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/verilator/pwm.cir](fixtures/examples/xspice/verilator/pwm.cir) | success | unsupported | spice-ts-loss |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare / spice-ts: Parse error at line 4: XSPICE code model 'd_cosim' (.model 'pwm_sin') is not supported (supported: mlin, msopen, cpmlin, cpline, astate, delay, gain, summer, mult, divide, pwl, multi_input_pwl, pwlts, limit, int, d_dt, s_xfer, xfer, ota, ca |
 | [tests/bsim1/test.cir](fixtures/tests/bsim1/test.cir) | success | success | matched | 9.46e-9 | dc i(v4) |  |
 | [tests/bsim2/test.cir](fixtures/tests/bsim2/test.cir) | success | success | matched | 8.17e-12 | dc i(v1) |  |
-| [tests/general/diffpair.cir](fixtures/tests/general/diffpair.cir) † | success | failed | spice-ts-loss |  |  | spice-ts: .sens does not support 'q1': device type BJT is outside the bounded slice |
+| [tests/general/diffpair.cir](fixtures/tests/general/diffpair.cir) † | success | success | mismatch | 4.55e+28 | sens v(q1:is) |  |
 | [tests/general/fourbitadder.cir](fixtures/tests/general/fourbitadder.cir) | success | success | matched | 0.00143 | tran v(x1.x1.x1.x7.8) |  |
 | [tests/general/mosmem.cir](fixtures/tests/general/mosmem.cir) † | success | success | matched | 0.000636 | tran i(vdd) |  |
 | [tests/general/rca3040.cir](fixtures/tests/general/rca3040.cir) † | success | success | mismatch | 0.0111 | tran v(31) |  |
@@ -389,7 +389,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [tests/resistance/res_array.cir](fixtures/tests/resistance/res_array.cir) | success | success | matched | 8.81e-16 | tran i(vr4) |  |
 | [tests/resistance/res_partition.cir](fixtures/tests/resistance/res_partition.cir) | success | success | matched | 1.83e-16 | ac i(vin) |  |
 | [tests/resistance/res_simple.cir](fixtures/tests/resistance/res_simple.cir) | success | success | matched | 0 | tran i(v1) |  |
-| [tests/sensitivity/diffpair.cir](fixtures/tests/sensitivity/diffpair.cir) † | success | failed | spice-ts-loss |  |  | spice-ts: .sens does not support 'q1': device type BJT is outside the bounded slice |
+| [tests/sensitivity/diffpair.cir](fixtures/tests/sensitivity/diffpair.cir) † | success | success | mismatch | 4.55e+28 | sens v(q1:is) |  |
 | [tests/transmission/cpl_ibm2.cir](fixtures/tests/transmission/cpl_ibm2.cir) | success | success | matched | 0.00306 | tran v(v4) |  |
 | [tests/transmission/cpl3_4_line.cir](fixtures/tests/transmission/cpl3_4_line.cir) | success | success | matched | 2.44e-11 | tran v(9) |  |
 | [tests/transmission/ltra2_2_line.cir](fixtures/tests/transmission/ltra2_2_line.cir) | success | success | matched | 0.000796 | tran i(vs) |  |

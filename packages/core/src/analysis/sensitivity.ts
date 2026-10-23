@@ -1,4 +1,5 @@
 import type { CompiledCircuit } from '../circuit.js';
+import { BJT } from '../devices/bjt.js';
 import { Capacitor } from '../devices/capacitor.js';
 import { CCCS } from '../devices/cccs.js';
 import { CCVS } from '../devices/ccvs.js';
@@ -28,12 +29,14 @@ interface ParameterTarget {
   device: string;
   parameter: SensitivityEntry['parameter'];
   value: number;
+  step?: number;
   set(value: number): void;
 }
 
 /**
  * Solve the bounded `.sens` slice (primary device values plus the instance
- * multiplier and scale of R, C, L and current sources) by symmetric perturbation.
+ * multiplier and scale of R, C, L and current sources, plus positive BJT
+ * IS/BF/NF/VAF/BR/NR and instance m in DC) by symmetric perturbation.
  * With zero AC excitation, nonlinear devices may participate in the source
  * transfer calculation; their model/instance parameter vectors are not exposed.
  */
@@ -117,6 +120,14 @@ function collectTargets(compiled: CompiledCircuit, mode: 'dc' | 'ac'): Parameter
     return (excitation?.magnitude ?? 0) === 0;
   });
   for (const device of compiled.devices) {
+    // Compiler-expanded BJT series resistors belong to the transistor, not
+    // independent netlist instances. Do not leak synthetic sensitivity vectors.
+    if (device instanceof Resistor && compiled.devices.some(owner => owner instanceof BJT
+      && ['RB', 'RC', 'RE'].some(suffix => device.name === `${owner.name}.${suffix}`))) continue;
+    if (mode === 'dc' && device instanceof BJT) {
+      targets.push(...bjtTargets(compiled, device));
+      continue;
+    }
     const target = parameterTarget(device, mode, zeroACResponse);
     if (target && (target.value !== 0 || target.parameter === 'acMagnitude')) targets.push(target);
     targets.push(...scalingTargets(device));
@@ -127,13 +138,40 @@ function collectTargets(compiled: CompiledCircuit, mode: 'dc' | 'ac'): Parameter
   );
 }
 
-/**
- * Instance multiplier (`<dev>_m`) and `scale` (`<dev>_scale`) of R, C, L and
- * current sources, which ngspice-47 cktsens.c lists for every such instance,
- * also when the derivative is zero (C and L in DC). Each is perturbed directly,
- * as ngspice does: R = R_nom * scale / m, C = C_unit * m, L = L_unit / m,
- * I = m * I_value. Voltage sources have no instance m in ngspice-47.
- */
+/** Bounded DC transport derivatives of one BJT instance's stamp. */
+function bjtTargets(compiled: CompiledCircuit, device: BJT): ParameterTarget[] {
+  const index = compiled.devices.indexOf(device);
+  const model = device.sensitivityModelParameters();
+  const seriesResistors = compiled.devices.filter((candidate): candidate is Resistor =>
+    candidate instanceof Resistor
+    && ['RB', 'RC', 'RE'].some(suffix => candidate.name === `${device.name}.${suffix}`),
+  ).map(resistor => ({ resistor, value: resistor.getParameter() }));
+  const targets: ParameterTarget[] = [];
+  // Positive transport parameters in ngspice-47's BJT model-table order.
+  // Full enumeration (including zero/default-disabled parameters) is deferred.
+  for (const [key, parameter] of [
+    ['IS', 'bjt:is'], ['BF', 'bjt:bf'], ['NF', 'bjt:nf'],
+    ['VAF', 'bjt:vaf'], ['BR', 'bjt:br'], ['NR', 'bjt:nr'],
+    ['M', 'multiplier'],
+  ] as const) {
+    const value = key === 'M' ? device.sensitivityMultiplier : model[key];
+    if (!(value > 0) || !Number.isFinite(value)) continue;
+    targets.push({
+      device: device.name, parameter, value,
+      // Tiny saturation currents must not inherit the ordinary 1e-12 floor.
+      step: value * 1e-3,
+      set: next => {
+        if (key === 'M') {
+          for (const series of seriesResistors) series.resistor.setParameter(series.value * value / next);
+        }
+        compiled.devices[index] = next === value ? device : device.withSensitivityParameter(key, next);
+      },
+    });
+  }
+  return targets;
+}
+
+/** Additional instance scaling parameters, including zero-response C/L in DC. */
 function scalingTargets(device: DeviceModel): ParameterTarget[] {
   if (device instanceof Resistor) {
     return [
@@ -262,11 +300,17 @@ function differentiateScalar(
   target: ParameterTarget,
   evaluate: (value: number) => number,
 ): number {
-  const step = perturbation(target.value);
+  const step = target.step ?? perturbation(target.value);
   try {
     const high = evaluate(target.value + step);
     const low = evaluate(target.value - step);
-    return (high - low) / (2 * step);
+    const coarse = (high - low) / (2 * step);
+    if (target.step === undefined) return coarse;
+    // Larger relative BJT steps avoid cancellation in weak derivatives;
+    // Richardson extrapolation removes their leading truncation error.
+    const halfHigh = evaluate(target.value + step / 2);
+    const halfLow = evaluate(target.value - step / 2);
+    return (4 * (halfHigh - halfLow) / step - coarse) / 3;
   } finally {
     target.set(target.value);
   }
