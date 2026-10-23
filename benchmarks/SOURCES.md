@@ -2602,6 +2602,14 @@ platform, sample counts, metrics, and cold timings (oracle includes process
 startup/semaphore queueing; TS timing covers simulation). This is bounded
 resistive-network parity evidence, not a general speed claim.
 
+## JFET instance area/m regressions (#1695)
+
+- Original project-authored decks in `packages/core/src/devices/jfet-instance-1695.test.ts`, MIT under repository `LICENSE`. No third-party netlists were copied.
+- Oracle: ngspice-47, identical `.op` and `.tran` netlists, `ngspice -b -r deck.raw deck.cir` with `SPICE_ASCIIRAWFILE=1`.
+- Model semantics are pinned to [ngspice-47 a80f6e3](https://github.com/imr/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices): `jfet/jfetpar.c`, `jfet/jfetload.c`, `jfet2/jfet2par.c`, `jfet2/jfet2load.c`, and `jfet2/psmodel.c`. AREA scales current, junction charge and series conductance; M multiplies the complete stamp, including gmin. PSids uses DELTA/AREA before multiplying the device by M.
+- Targeted reproduction: `pnpm -C packages/core exec vitest run src/devices/jfet-instance-1695.test.ts` checks three pinned OP results at 1e-6 relative and the transient endpoint at 1%. The full-waveform one-off comparison measured max/RMS relative V(2) error 0.0435873%/0.00887238% over 126 samples (ngspice linearly interpolated at spice-ts times). No corpus tolerance was changed. These are correctness checks, not speed evidence.
+- Before: all ten area/m simulation cases were rejected. After: three OP decks match ngspice at worst 2.77e-10 relative. OFF, IC and non-nominal TEMP remain unsupported; no general JFET instance-form parity claim.
+
 ## Bounded WASM diode AC (#1637)
 
 See also the bounded BJT AC fixtures (#1653): original project-authored NPN/PNP common-emitter, common-base and forward-biased collector-base junction decks in `packages/wasm/src/test-support/bjt-ac.ts`, MIT under the repository `LICENSE`. Source URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/test-support/bjt-ac.ts. After `pnpm build`, reproduce with `spice-heavy pnpm -C packages/wasm exec tsx scripts/bjt-ac-accuracy.ts`. The runner uses identical netlist bytes for JS, WASM and ngspice and records hashes, version, host, point counts, end-to-end request time (not a speed benchmark), matched complex max/RMS relative errors, and rejected/missing signals without hiding losses. No per-circuit tolerance changes.
