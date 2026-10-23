@@ -2,6 +2,7 @@ import type {
   ChargeIntegration, ChargeTruncation, DeviceModel, StampContext,
 } from './device.js';
 import { DEVICE_GMIN } from './device.js';
+import type { JFETInstanceParams } from '../parser/jfet-parser.js';
 import { stampChargeBranch, stampChargeCurrent, TransientChargeState } from './charge-state.js';
 
 export interface JFETParams {
@@ -82,6 +83,7 @@ export function resolveNJFETParams(params: Record<string, number>): JFETParams {
 export class JFET implements DeviceModel {
   readonly branches: number[] = [];
   readonly isNonlinear = true;
+  readonly initializesOperatingPoint = true;
   /** {@link truncateTransientStep} is the complete ngspice-47 step bound (JFETtrunc: qgs, qgd). */
   readonly truncationCoversCharges = true;
   readonly params: JFETParams;
@@ -102,7 +104,7 @@ export class JFET implements DeviceModel {
     readonly nodes: number[],
     params: Record<string, number>,
     readonly polarity: 1 | -1 = 1,
-    instance: { AREA?: number; M?: number } = {},
+    private readonly instance: JFETInstanceParams = {},
   ) {
     this.params = resolveNJFETParams(params);
     const area = instance.AREA ?? 1;
@@ -127,9 +129,13 @@ export class JFET implements DeviceModel {
     const nG = this.nodes[1];
     let nS = this.nodes[2];
     const p = this.polarity;
-    const vD = p * (nD >= 0 ? ctx.getVoltage(nD) : 0);
-    const vG = p * (nG >= 0 ? ctx.getVoltage(nG) : 0);
-    const vS = p * (nS >= 0 ? ctx.getVoltage(nS) : 0);
+    // ngspice-47 jfetload/jfet2load MODEINITJCT/MODEINITFIX: a
+    // device-local bias, not a global node seed. IC is ignored for DC.
+    const initializing = ctx.operatingPointPhase === 'junction'
+      || (ctx.operatingPointPhase === 'fixed' && this.instance.OFF);
+    const vD = initializing ? 0 : p * (nD >= 0 ? ctx.getVoltage(nD) : 0);
+    const vG = initializing ? (this.instance.OFF ? 0 : -1) : p * (nG >= 0 ? ctx.getVoltage(nG) : 0);
+    const vS = initializing ? 0 : p * (nS >= 0 ? ctx.getVoltage(nS) : 0);
 
     this.stampGateJunction(ctx, nG, this.nodes[0], vG - vD);
     this.stampGateJunction(ctx, nG, this.nodes[2], vG - vS);
@@ -187,8 +193,14 @@ export class JFET implements DeviceModel {
     if (!this.integratesTransientCharge) return;
     const [nD, nG, nS] = this.nodes;
     const vG = nG >= 0 ? ctx.getVoltage(nG) : 0;
-    const vGD = vG - (nD >= 0 ? ctx.getVoltage(nD) : 0);
-    const vGS = vG - (nS >= 0 ? ctx.getVoltage(nS) : 0);
+    // jfetic/jfet2ic fill unspecified ICs from external nodes. With UIC,
+    // jfetload/jfet2load initialize qgs/qgd from those local voltages.
+    const vDS = ctx.initialUIC && this.instance.ICVDS !== undefined
+      ? this.instance.ICVDS
+      : (nD >= 0 ? ctx.getVoltage(nD) : 0) - (nS >= 0 ? ctx.getVoltage(nS) : 0);
+    const vGS = ctx.initialUIC && this.instance.ICVGS !== undefined
+      ? this.instance.ICVGS : vG - (nS >= 0 ? ctx.getVoltage(nS) : 0);
+    const vGD = vGS - vDS;
     this.circuitJunctionCharge(vGD, this.params.CGD);
     this.charges.accept(GATE_DRAIN, this.junction.charge);
     this.circuitJunctionCharge(vGS, this.params.CGS);

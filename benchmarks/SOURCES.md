@@ -1,5 +1,32 @@
 # Benchmark sources
 
+## JFET OFF and IC initialization (#1695, slice 2)
+
+`benchmarks/jfet-off-ic/compare.ts` and
+`packages/core/src/devices/jfet-off-ic-1695.test.ts` contain original
+project-authored netlists under the repository MIT licence. The live comparison
+runs identical bytes with default options on ngspice-47 and spice-ts, reporting
+OP voltage/current errors, transient max/RMS relative errors at interpolated
+matched times (denominator floor 1e-12), first-point values and runtimes.
+Run `spice-heavy pnpm exec tsx benchmarks/jfet-off-ic/compare.ts`.
+It exits nonzero when any deck exceeds the unchanged 1e-6 OP or 1% transient
+gate, including known losses. No generated receipts are committed.
+
+Semantic source pin: [ngspice a80f6e3e95d51534905b1f23410a951802666656](https://github.com/imr/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices).
+`jfet/jfetpar.c:JFETparam` and `jfet2/jfet2par.c:JFET2param` set OFF and IC;
+`jfet/jfetload.c:JFETload` and `jfet2/jfet2load.c:JFET2load` select the
+MODEINITJCT/MODEINITFIX and MODETRANOP+MODEUIC local junction biases;
+`jfet/jfetic.c:JFETgetic` and `jfet2/jfet2ic.c:JFET2getic` supply unspecified
+ICs from external terminal voltages. These sources carry their upstream
+Berkeley/SPICE notices; they are referenced, not redistributed here.
+
+Known uncovered model gap: level-2 `jfet2/psmodel.c:PScharge/qgg` uses coupled,
+path-dependent charges, while spice-ts currently uses independent level-1
+depletion charges for both levels. The nonzero-CGS/CGD UIC decks expose this
+loss; OFF/IC parsing and initial history do not fix that underlying law.
+The resistively grounded gate OP also exposes different ngspice OFF results;
+it is not presented as a verified bistable circuit.
+
 ## XSPICE open-collector/emitter buffers (#1682)
 
 The inline `openDeck` netlists in
