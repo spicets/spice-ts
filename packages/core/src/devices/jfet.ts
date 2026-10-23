@@ -85,6 +85,7 @@ export class JFET implements DeviceModel {
   /** {@link truncateTransientStep} is the complete ngspice-47 step bound (JFETtrunc: qgs, qgd). */
   readonly truncationCoversCharges = true;
   readonly params: JFETParams;
+  private readonly multiplicity: number;
   /** Gate charges qgd/qgs integrated as ngspice jfetload.c (NIintegrate) when CGD or CGS is set. */
   readonly integratesTransientCharge: boolean;
   readonly storesCharge: boolean;
@@ -101,8 +102,22 @@ export class JFET implements DeviceModel {
     readonly nodes: number[],
     params: Record<string, number>,
     readonly polarity: 1 | -1 = 1,
+    instance: { AREA?: number; M?: number } = {},
   ) {
     this.params = resolveNJFETParams(params);
+    const area = instance.AREA ?? 1;
+    this.multiplicity = instance.M ?? 1;
+    if (!Number.isFinite(area) || area <= 0
+      || !Number.isFinite(this.multiplicity) || this.multiplicity <= 0) {
+      throw new Error('JFET AREA and M must be finite and positive');
+    }
+    // ngspice jfetload/jfet2load: AREA scales intrinsic currents/charges;
+    // M multiplies the complete device stamp, including junction gmin.
+    const scale = area * this.multiplicity;
+    for (const key of ['BETA', 'IS', 'CGS', 'CGD'] as const) this.params[key] *= scale;
+    // PSids uses DELTA / AREA; applying M to BETA also requires undoing it
+    // in the heating coefficient so independent parallel copies stay independent.
+    this.params.DELTA /= scale;
     this.storesCharge = this.params.CGS !== 0 || this.params.CGD !== 0;
     this.integratesTransientCharge = this.storesCharge;
   }
@@ -260,7 +275,7 @@ export class JFET implements DeviceModel {
     voltage: number,
   ): void {
     const exponential = Math.exp(Math.min(voltage / THERMAL_VOLTAGE, 40));
-    const gmin = ctx.gmin ?? DEVICE_GMIN;
+    const gmin = (ctx.gmin ?? DEVICE_GMIN) * this.multiplicity;
     const current = this.params.IS * (exponential - 1) + gmin * voltage;
     const conductance = this.params.IS * exponential / THERMAL_VOLTAGE + gmin;
     const ieq = this.polarity * (current - conductance * voltage);

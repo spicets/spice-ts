@@ -1706,7 +1706,7 @@ export class Circuit {
     this.nodeSet.add(nodeSource);
     this.descriptors.push({
       type: 'J', name, nodes: [nodeDrain, nodeGate, nodeSource], modelName,
-      ...(instanceParams?.TEMP === undefined ? {} : { params: { TEMP: instanceParams.TEMP } }),
+      ...(instanceParams === undefined ? {} : { params: { ...instanceParams } }),
     });
   }
 
@@ -2581,7 +2581,7 @@ export class Circuit {
           if (instanceTemperature !== undefined && instanceTemperature !== NOMINAL_TEMPERATURE_C) {
             throw new UnsupportedTemperatureError(desc.name, instanceTemperature);
           }
-          devices.push(new JFET(desc.name, nodeIndices, model.params, model.type === 'PJF' ? -1 : 1));
+          devices.push(new JFET(desc.name, nodeIndices, model.params, model.type === 'PJF' ? -1 : 1, desc.params));
           break;
         }
         case 'Z': {
@@ -3264,18 +3264,19 @@ export class Circuit {
           throw new Error(`Unsupported JFET model type: '${model.type}'`);
         }
         const params = resolveNJFETParams(model.params);
+        const scale = (desc.params?.AREA ?? 1) * (desc.params?.M ?? 1);
         let [drain, gate, source] = desc.nodes;
         if (params.RD > 0) {
           const drainPrime = internalNodeName(desc.name, 'rd');
           result.push({
-            type: 'R', name: `${desc.name}.RD`, nodes: [drain, drainPrime], value: params.RD,
+            type: 'R', name: `${desc.name}.RD`, nodes: [drain, drainPrime], value: params.RD / scale,
           });
           drain = drainPrime;
         }
         if (params.RS > 0) {
           const sourcePrime = internalNodeName(desc.name, 'rs');
           result.push({
-            type: 'R', name: `${desc.name}.RS`, nodes: [source, sourcePrime], value: params.RS,
+            type: 'R', name: `${desc.name}.RS`, nodes: [source, sourcePrime], value: params.RS / scale,
           });
           source = sourcePrime;
         }
