@@ -278,8 +278,10 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_tf',
-    description: 'Run native small-signal .tf for v(node) or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accepts optional top-level params overrides. Rejects conflicting analyses, steps and control blocks.',
-    inputSchema: tfInputSchema,
+    description: 'Run native small-signal .tf for v(node) or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). Optional params overrides require SPICE input. Reject conflicting analyses, steps and control blocks.',
+    inputSchema: { ...requestInputSchema, required: ['output', 'input_source'],
+      properties: { ...requestInputSchema.properties, ...tfInputSchema.properties },
+      oneOf: [{ required: ['netlist'] }, { required: ['request'] }] },
     outputSchema: { type: 'object', oneOf: [tfOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
   {
@@ -602,21 +604,33 @@ async function executeToolWithStore(
       } finally { release(); }
     }
     if (name === 'spice_tf') {
-      const selectors = tfArgs(args);
       enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
-      const request = overrideParameters({
-        apiVersion: '1', input: { format: 'spice', source: selectors.netlist },
-      }, selectors.params);
-      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(request)), 'validation');
-      enforceMaximum('maxAnalyses', limits.maxAnalyses, 1, 'validation');
+      if (!isRecord(args) || ('netlist' in args) === ('request' in args)) {
+        throw apiError('INVALID_REQUEST', 'Expected exactly one of netlist or request', 'validation', {});
+      }
+      const { request: rawRequest, ...selectorArgs } = args;
+      const selectors = tfArgs('netlist' in args ? selectorArgs : { ...selectorArgs, netlist: 'protocol request' });
+      const original = toolRequest('netlist' in args ? {
+        request: { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } },
+      } : { request: rawRequest });
+      if (!validateMetricsRequest(original).valid) {
+        throw apiError('INVALID_REQUEST', 'Invalid transfer-function request', 'validation', {});
+      }
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const overridden = overrideParameters(original, selectors.params);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(overridden)), 'validation');
+      throwIfCancelled(options.signal);
+      const { request, diagnostics } = convertRequest(overridden);
+      enforceMaximum('maxAnalyses', effective.maxAnalyses, 1, 'validation');
       const release = streamStore.acquireOneShotSlot();
       try {
-        const raw = await runInWorker<TransferFunctionResult>('tf', request, limits.maxWallTimeMs, options, undefined,
+        const raw = await runInWorker<TransferFunctionResult>('tf', boundedRequest(request, effective), effective.maxWallTimeMs, options, undefined,
           { output: selectors.output, inputSource: selectors.input_source });
-        enforceMaximum('maxResultPoints', limits.maxResultPoints, 3, 'transport');
+        enforceMaximum('maxResultPoints', effective.maxResultPoints, 3, 'transport');
         const result = tfReport(raw, selectors);
-        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
-        return success(result);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        return success(result, diagnostics);
       } finally { release(); }
     }
     if (name === 'spice_sensitivity') {
@@ -1842,7 +1856,8 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
       return;
     }
     if (operation === 'tf') {
-      const circuit = core.parseTitleless(request.input.source);
+      const circuit = request.input.format === 'spice'
+        ? core.parseTitleless(request.input.source) : core.circuitFromDocument(request.input.document);
       const compiled = circuit.compile();
       const analysis = core.parseTitleless('.tf ' + tfSelector.output + ' ' + tfSelector.inputSource).analyses[0];
       const sameAnalysis = a => a.type === 'tf'
@@ -1851,12 +1866,18 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
         && (a.outputReferenceNode || '').toLowerCase() === (analysis.outputReferenceNode || '').toLowerCase()
         && (a.outputSource || '').toLowerCase() === (analysis.outputSource || '').toLowerCase();
       if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript
-        || /(^|\n)\s*\.control\b/i.test(request.input.source)
+        || (request.input.format === 'spice' && /(^|\n)\s*\.control\b/i.test(request.input.source))
         || circuit.analyses.length > 1 || circuit.analyses.some(a => !sameAnalysis(a))) {
         throw new core.InvalidCircuitError('Transfer function requires an unstepped deck without control blocks or conflicting analyses');
       }
+      // Use protocol preflight for component/expansion limits even though TF has a dedicated result envelope.
+      const preflightInput = request.input.format === 'spice'
+        ? { ...request.input, source: (circuit.analyses.length ? '' : '.op\n') + request.input.source }
+        : { ...request.input, document: { ...request.input.document,
+          analyses: circuit.analyses.length ? request.input.document.analyses : [{ type: 'op' }] } };
+      await core.validateProtocolV1({ ...request, input: preflightInput });
       circuit.analyses.splice(0, circuit.analyses.length, analysis);
-      const result = (await core.simulate(circuit)).transferFunction;
+      const result = (await core.simulate(circuit, request.options)).transferFunction;
       parentPort.postMessage({ type: 'result', result });
       return;
     }
