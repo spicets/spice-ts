@@ -161,7 +161,7 @@ const capabilitiesOutputSchema = {
     inputFormats: { type: 'array', items: { enum: ['spice', 'spice-ts', 'circuit-json'] } },
     tools: { type: 'array', items: { type: 'string' } },
     sensitivity: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
-      properties: { tool: { const: 'spice_sensitivity' }, analyses: { type: 'array', items: { const: 'dc' } } } },
+      properties: { tool: { const: 'spice_sensitivity' }, analyses: { type: 'array', items: { enum: ['dc', 'ac'] } } } },
     tf: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
       properties: { tool: { const: 'spice_tf' }, analyses: { type: 'array', items: { const: 'tf' } } } },
     impedance: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
@@ -283,7 +283,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_sensitivity',
-    description: 'Run native DC sensitivity for v(node), v(a,b) or i(vsrc). Return signed absolute derivatives and value*dOut/dParam, ranked by descending absolute normalised sensitivity, with optional top. Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected. AC is not supported.',
+    description: 'Run native DC or AC sensitivity for v(node), v(a,b) or i(vsrc). Return absolute derivatives and value*dOut/dParam, ranked by descending normalised magnitude, with optional top per frequency for AC. AC requires a dec/oct/lin sweep and returns complex derivatives. Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected.',
     inputSchema: sensitivityInputSchema,
     outputSchema: { type: 'object', oneOf: [sensitivityOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
@@ -513,7 +513,7 @@ const capabilities = Object.freeze({
   analyses: Object.freeze(['op', 'dc', 'tran', 'ac']),
   inputFormats: Object.freeze(['spice', 'spice-ts', 'circuit-json']),
   tools: Object.freeze(MCP_TOOLS.map(tool => tool.name)),
-  sensitivity: Object.freeze({ tool: 'spice_sensitivity', analyses: Object.freeze(['dc']) }),
+  sensitivity: Object.freeze({ tool: 'spice_sensitivity', analyses: Object.freeze(['dc', 'ac']) }),
   tf: Object.freeze({ tool: 'spice_tf', analyses: Object.freeze(['tf']) }),
   impedance: Object.freeze({ tool: 'spice_impedance', analyses: Object.freeze(['ac']) }),
   parameterOverrides,
@@ -620,8 +620,10 @@ async function executeToolWithStore(
       try {
         const raw = await runInWorker<SensitivityResult>('sensitivity', {
           apiVersion: '1', input: { format: 'spice', source: selectors.netlist },
-        }, limits.maxWallTimeMs, options, selectors.output);
-        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.entries.length, 'transport');
+        }, limits.maxWallTimeMs, options, selectors.sweep
+          ? `${selectors.output} ac ${selectors.sweep.type} ${selectors.sweep.points} ${selectors.sweep.fstart} ${selectors.sweep.fstop}`
+          : selectors.output);
+        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.entries.length * Math.max(1, raw.frequencies?.length ?? 0), 'transport');
         const result = sensitivityReport(raw, selectors);
         enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
         return success(result);
