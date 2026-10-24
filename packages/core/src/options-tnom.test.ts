@@ -35,18 +35,17 @@ describe('bounded circuit TNOM', () => {
     expect(() => circuit.compile()).not.toThrow();
   });
 
-  it('rejects circuit TNOM for passive temperature coefficients without a nominal override', () => {
+  it('permits circuit TNOM for resistor temperature coefficients without a nominal override', () => {
     const circuit = parse(deck('.options TNOM=40\nR1 d 0 1k TC1=0.01'));
-    expect(() => circuit.compile()).toThrow(InvalidCircuitError);
+    expect(() => circuit.compile()).not.toThrow();
   });
 
   it('checks unsupported devices inside expanded subcircuits', () => {
-    const circuit = parse('nested\nV1 d 0 1\nX1 d diode\n.subckt diode a\nD1 a 0 DM\n.model DM D\n.ends\n.options TNOM=40\n.op');
+    const circuit = parse('nested\nV1 d 0 1\nX1 d mos\n.subckt mos a\nM1 a a 0 0 MM\n.model MM NMOS\n.ends\n.options TNOM=40\n.op');
     expect(() => circuit.compile()).toThrow(/TNOM=40/);
   });
 
   it.each([
-    'D1 d 0 DM\n.model DM D',
     'M1 d d 0 0 MM\n.model MM NMOS',
   ])('rejects unsupported devices at compile time: %s', cards => {
     const circuit = parse(`unsupported nominal\nV1 d 0 1\n${cards}\n.options TNOM=40\n.op`);

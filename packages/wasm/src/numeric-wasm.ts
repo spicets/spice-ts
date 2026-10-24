@@ -682,8 +682,22 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   try {
     // Core owns expansion, lexical model scope and hierarchical node/branch names.
     // Only compilation is shared: numeric solves continue to use the WASM kernel.
-    compiled = parseTitleless(normalizedCards.join('\n')).compile();
+    const circuit = parseTitleless(normalizedCards.join('\n'));
+    const temperature = circuit.temperature ?? 27;
+    const nominalTemperature = circuit.nominalTemperature ?? 27;
+    const temperatureRequested = circuit.temperature !== undefined || circuit.nominalTemperature !== undefined;
+    if (temperatureRequested && analysis !== 'op' && analysis !== 'dc') {
+      unsupported('circuit-temperature', 'Circuit temperature is supported only for OP/DC');
+    }
+    // Check parsed, effective options before compile: core may reject these
+    // models itself, but the numeric facade must return a structured feature.
+    if ((temperature !== 27 || nominalTemperature !== 27)
+      && normalizedCards.some(card => /^[QMJ]/i.test(card))) {
+      unsupported('circuit-temperature', 'Nonnominal TEMP/TNOM is supported only for diodes and resistors');
+    }
+    compiled = circuit.compile();
   } catch (error) {
+    if (error instanceof NumericBackendError) throw error;
     throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
   }
   if (compiled.devices.length > componentLimit) {
@@ -784,22 +798,36 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
   if (stack.length !== 1) throw numericError('INVALID_CIRCUIT', 'Unclosed .subckt definition', 'validation');
   for (const indices of scopes) {
     const scopeCards = indices.map(index => cards[index]!);
-    validateCards(scopeCards, analysis);
+    validateCards(scopeCards, analysis, cards.some(card => /^\.(?:temp|options)\b/i.test(card)));
     const scoped = normalizeAndValidateCurrentControlledSources(scopeCards);
     indices.forEach((index, offset) => { normalized[index] = scoped[offset]!; });
   }
   return normalized;
 }
 
-function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
+function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', temperatureEnabled: boolean): void {
   const allowedDevices = analysis === 'op' || analysis === 'dc'
     ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J'];
   for (const card of cards) {
+    if (/^\.options\b/i.test(card)) {
+      const options = card.replace(/^\.options\s*/i, '');
+      const option = new RegExp(`\\b(?:TEMP|TNOM)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
+      if (!options || options.replace(option, '').trim()) {
+        unsupported('circuit-temperature', 'Only numeric .options TEMP/TNOM are supported');
+      }
+      continue;
+    }
+    if (/^\.temp\b/i.test(card)) {
+      if (!new RegExp(`^\\.temp\\s+${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i').test(card)) {
+        unsupported('circuit-temperature', 'Only one numeric circuit temperature is supported');
+      }
+      continue;
+    }
     if (/^\.param\b/i.test(card)) continue;
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
-      const model = /^\.model\s+\S+\s+(D|NPN|PNP|NMOS|PMOS|NJF|PJF)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
+      const model = /^\.model\s+\S+\s+(D|R|RES|NPN|PNP|NMOS|PMOS|NJF|PJF)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT, MOS1 and JFET models are supported');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
@@ -807,12 +835,14 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const parameters = (model[2] ?? model[3] ?? '').trim();
       const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS|RSH'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
-      const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV';
+      const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV'
+        + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|EG|XTI|TNOM|TBV1' : '');
       // The core device supplies the charge Jacobian and accepted/rejected-step
       // history; the nonlinear transient and AC paths solve it through WASM.
       const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR';
       const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS|CGS|CGD|PB|FC';
-      const names = jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
+      const resistor = /^(R|RES)$/i.test(model[1]!);
+      const names = resistor ? 'TC1|TC2|TNOM' : jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
       if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
         unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
@@ -824,6 +854,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
 
       const remaining = parameters.replace(parameter, '').trim();
       if (remaining) {
+        if (resistor) unsupported('resistor-model-parameter', 'Only resistor TC1, TC2 and TNOM are supported');
         if (jfet) unsupported('jfet-model-parameter', `Only JFET model parameters ${jfetNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
         if (mos) unsupported('mosfet-model-parameter', `Only MOS1 model parameters ${mosNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
         if (bjt) unsupported('bjt-model-parameter', `Only BJT model parameters ${bjtNames.replaceAll('|', ', ')} are supported`);
@@ -867,7 +898,21 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (withoutIC.length !== 4 || !SPICE_NUMBER.test(withoutIC[3]!)) {
         unsupported('inductor-form', 'Inductors must use name positive negative constant-inductance');
       }
-    } else if (type === 'R' || type === 'C') {
+    } else if (type === 'R') {
+      // Preserve the existing four-token expression/parameter form unchanged.
+      if (tokens.length === 4) continue;
+      const instance = /^\S+\s+\S+\s+\S+\s+(\S+)(?:\s+([^=\s]+))?(.*)$/.exec(card);
+      const number = SPICE_NUMBER.source.slice(1, -1);
+      const parameters = new RegExp(`\\b(?:TC1|TC2|TNOM)\\s*=\\s*${number}(?:\\s+|$)`, 'gi');
+      // A model may precede an explicit resistance, as in core's resistor parser.
+      const tail = card.split(/\s+/).slice(4).join(' ');
+      const numericValue = SPICE_NUMBER.test(tokens[3] ?? '');
+      const remainder = numericValue ? tail : tail.replace(new RegExp(`^${number}(?:\\s+|$)`, 'i'), '');
+      if (!instance || (!numericValue && !SPICE_NUMBER.test(tokens[4] ?? ''))
+        || remainder.replace(parameters, '').trim()) {
+        unsupported('passive-form', 'Resistors require a resistance, optional model, and numeric TC1/TC2/TNOM only');
+      }
+    } else if (type === 'C') {
       const withoutIC = type === 'C'
         ? card.replace(new RegExp(`\\s+IC\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i'), '').split(/\s+/)
         : tokens;

@@ -936,7 +936,7 @@ export class Circuit {
     return this._nominalTemperature;
   }
 
-  /** Set the default model TNOM. Non-default values currently support only JFET circuits. */
+  /** Set the default model TNOM for supported JFET, diode and resistor circuits. */
   setNominalTemperature(celsius: number): void {
     if (!Number.isFinite(celsius) || celsius <= -CELSIUS_TO_KELVIN) {
       throw new InvalidCircuitError(`Invalid circuit nominal temperature: ${celsius} C`);
@@ -2225,18 +2225,18 @@ export class Circuit {
     });
     this.assertDeviceModelTypes(flatDescriptors);
     // ngspice a80f6e3 cktsopt.c sets the default model TNOM; currently only
-    // JFET construction consumes it. Fail closed for other device families.
+    // JFET, diode and resistor construction consume it. Fail closed for other families.
     if (this._nominalTemperature !== undefined && this._nominalTemperature !== NOMINAL_TEMPERATURE_C) {
       for (const desc of flatDescriptors) {
         const passiveParams = { ...this._models.get(desc.modelName ?? '')?.params, ...desc.params };
-        const unsupportedPassive = ['R', 'C', 'L'].includes(desc.type)
+        const unsupportedPassive = ['C', 'L'].includes(desc.type)
           && passiveParams.TNOM === undefined
           && ((passiveParams.TC1 ?? 0) !== 0 || (passiveParams.TC2 ?? 0) !== 0
             || (passiveParams.TCE ?? 0) !== 0);
-        if (unsupportedPassive || !['J', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type)) {
+        if (unsupportedPassive || !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type)) {
           throw new InvalidCircuitError(
             `.options TNOM=${this._nominalTemperature} is unsupported for ${desc.type} '${desc.name}': `
-            + 'circuit TNOM currently supports only JFETs, R/C/L and independent or behavioral sources',
+            + 'circuit TNOM currently supports only JFETs, diodes, R/C/L and independent or behavioral sources',
           );
         }
       }
@@ -2449,7 +2449,10 @@ export class Circuit {
       switch (desc.type) {
         case 'R': {
           const model = desc.modelName ? this.requireModel('Resistor', desc) : undefined;
-          const resolved = resolveResistor(desc.name, desc.value, model, desc.params);
+          const resolved = resolveResistor(desc.name, desc.value, model, {
+            TNOM: desc.params?.TNOM ?? model?.params.TNOM ?? this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
+            ...desc.params,
+          });
           // A zero-ohm resistor is an ideal voltage constraint, not infinite
           // conductance. Give it an MNA branch so its equation and current are
           // represented exactly. Stepped resistors also use branch form because
@@ -2556,8 +2559,10 @@ export class Circuit {
           break;
         }
         case 'D': {
-          const modelParams = desc.diodeModelParams
+          const rawModelParams = desc.diodeModelParams
             ?? (desc.modelName ? this.requireModel('Diode', desc).params : {});
+          const modelParams = this._nominalTemperature === undefined ? rawModelParams
+            : { TNOM: rawModelParams.TREF ?? this._nominalTemperature, ...rawModelParams };
           if (desc.params?.THERMAL && nodeIndices.length === 3 && modelParams.RTH0 !== undefined) {
             if (!(modelParams.RTH0 > 0) || (modelParams.CTH0 ?? 1e-5) < 0) {
               throw new InvalidCircuitError('Diode RTH0 must be positive and CTH0 non-negative');
