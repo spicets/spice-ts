@@ -94,10 +94,10 @@ export interface SpiceEngineCapabilitiesV1 {
     inputFormats: readonly ['spice'];
     analyses: readonly ['op', 'dc', 'tran', 'ac'];
     devicesByAnalysis: {
-      op: readonly ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
-      dc: readonly ['R', 'I', 'V', 'D'];
-      tran: readonly ['R', 'C', 'L', 'I', 'V'];
-      ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M'];
+      op: readonly ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J'];
+      dc: readonly ['R', 'I', 'V', 'D', 'J'];
+      tran: readonly ['R', 'C', 'L', 'I', 'V', 'J'];
+      ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J'];
     };
     fallback: 'reject';
     limits: typeof NUMERIC_WASM_LIMITS;
@@ -208,10 +208,10 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
         inputFormats: ['spice'] as const,
         analyses: ['op', 'dc', 'tran', 'ac'] as const,
         devicesByAnalysis: {
-          op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'] as const,
-          dc: ['R', 'I', 'V', 'D'] as const,
-          tran: ['R', 'C', 'L', 'I', 'V'] as const,
-          ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M'] as const,
+          op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J'] as const,
+          dc: ['R', 'I', 'V', 'D', 'J'] as const,
+          tran: ['R', 'C', 'L', 'I', 'V', 'J'] as const,
+          ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J'] as const,
         },
         fallback: 'reject' as const,
         limits: NUMERIC_WASM_LIMITS,

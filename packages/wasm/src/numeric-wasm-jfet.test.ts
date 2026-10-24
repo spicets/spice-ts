@@ -73,7 +73,7 @@ describe('bounded JFET WASM OP/DC', () => {
     } finally { await wasm.close(); }
   });
 
-  it.each(['LEVEL=2', 'LEVEL=1.1', 'LEVEL=2 LEVEL=1', 'LEVEL=1 LEVEL=2', 'CGS=1p', 'CGD=1p', 'PB=1', 'FC=0.5', 'TNOM=27', 'BETA={1}', 'VTO=-2 garbage'])(
+  it.each(['LEVEL=2', 'LEVEL=1.1', 'LEVEL=2 LEVEL=1', 'LEVEL=1 LEVEL=2', 'TNOM=27', 'BETA={1}', 'VTO=-2 garbage'])(
     'rejects unsupported model parameter %s', async parameters => {
       const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {
@@ -96,11 +96,11 @@ describe('bounded JFET WASM OP/DC', () => {
   it.each(['.tran 1u 10u', '.ac dec 1 1 10'].flatMap(analysis => [
     { analysis, source: `${circuit('NJF')}\n${analysis}` },
     { analysis, source: `V1 node 0 1\nR1 node 0 1k\n.model unused PJF\n${analysis}` },
-  ]))('rejects JFET instances or unused models in $analysis', async ({ source }) => {
+  ]))('accepts default JFET instances or unused models in $analysis', async ({ source }) => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
       expect(await wasm.simulate(request(source), { requestId: 'jfet-analysis' }))
-        .toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
+        .toMatchObject({ ok: true, metadata: { backend: 'spice-ts-wasm' } });
     } finally { await wasm.close(); }
   });
 });
