@@ -66,8 +66,8 @@ quit
     expect(result.control?.output).toEqual(['9 9', '9']);
   });
 
-  it('does not expose .param values as control vectors or hide unknown-vector errors', async () => {
-    await expect(simulate(`title
+  it('does not expose .param values as control vectors and diagnoses false conditions', async () => {
+    const result = await simulate(`title
 .param hidden = 7
 .csparam visible = {hidden}
 .control
@@ -75,7 +75,9 @@ if hidden < visible
 echo bad
 end
 .endc
-.end`)).rejects.toThrow("no such vector 'hidden'");
+.end`);
+    expect(result.control?.output).toEqual([]);
+    expect(result.warnings?.map(warning => warning.message).join('\n')).toContain("no such vector 'hidden'");
   });
 
   it('keeps bad .csparam expression diagnostics at the source card', () => {
