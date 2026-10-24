@@ -1,0 +1,9 @@
+Authored MIT BSIM4 grounded-channel gate-charge regression (#1367)
+.model nch nmos level=54
+.options method=gear reltol=1e-6 temp=25
+Vdrive gate 0 PWL(0 0 80p 0 280p 1.6)
+Mtest 0 gate sense 0 nch l=0.2u w=0.8u
+Rshunt sense 0 0.0001
+Cshunt sense 0 100n
+.tran 2p 800p
+.end
