@@ -25,11 +25,10 @@ async function parity(source: string): Promise<void> {
         const observed = actual[field][name]!;
         const values = typeof observed === 'number' ? [observed] : observed;
         expect(values).toHaveLength(expected.length);
-        const peak = Math.max(...expected.map(value => Math.abs(value)));
         expected.forEach((value, index) => {
-          // Signal-peak-relative error; all-zero signals must match exactly.
+          // Pointwise relative error; zero reference samples must match exactly.
           const delta = Math.abs(values[index]! - value);
-          const error = peak === 0 ? (delta === 0 ? 0 : Infinity) : delta / peak;
+          const error = value === 0 ? (delta === 0 ? 0 : Infinity) : delta / Math.abs(value);
           maximum = Math.max(maximum, error);
         });
       }
@@ -40,6 +39,10 @@ async function parity(source: string): Promise<void> {
 }
 
 describe('WASM circuit temperature OP/DC', () => {
+  it('matches reverse-leakage DC samples at TEMP127/TNOM27', async () => {
+    await parity(`${diode}\n.options TEMP=127 TNOM=27\n.dc V1 -2 2 0.5`);
+  });
+
   it('matches core diode OP at 127 C', async () => {
     await parity(`${diode}\n.temp 127\n.op`);
   });
