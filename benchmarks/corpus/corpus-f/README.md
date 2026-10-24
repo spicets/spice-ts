@@ -6,11 +6,11 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `712bc521bc89d6dd0f07f9584ad2db21b94266bc7d9244edd7352250b477d6f4`.
+- Fixtures: 336. Outcome SHA-256: `19220c18eb366fce554fb0a5a953f297879b288132444ac55695f193b9e17ee4`.
 - ngspice (ngspice-47): 310 success, 15 failed, 11 unsupported.
 - spice-ts (0.4.0): 251 success, 12 failed, 73 unsupported.
-- Outcomes: matched 128, mismatch 20, not-compared 99, spice-ts-loss 63, ngspice-failed 4, both-failed 22.
-- Of the 310 decks ngspice runs successfully, spice-ts matches 128, mismatches 20, produces no comparable result for 99 and fails 63. For 112 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
+- Outcomes: matched 128, mismatch 21, not-compared 98, spice-ts-loss 63, ngspice-failed 4, both-failed 22.
+- Of the 310 decks ngspice runs successfully, spice-ts matches 128, mismatches 21, produces no comparable result for 98 and fails 63. For 111 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
 
@@ -302,7 +302,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/original-examples/supply_ramping.deck](fixtures/examples/xspice/original-examples/supply_ramping.deck) | success | success | matched | 3.32e-12 | tran v(2) |  |
 | [examples/xspice/original-examples/user_defined_nodes.deck](fixtures/examples/xspice/original-examples/user_defined_nodes.deck) | success | success | matched | 4.84e-14 | tran v(analog_node) |  |
 | [examples/xspice/pwm-osc/fmcw-dosc.cir](fixtures/examples/xspice/pwm-osc/fmcw-dosc.cir) | success | success | matched | 0.000161 | tran v(afout) |  |
-| [examples/xspice/pwm-osc/pwm-sin.cir](fixtures/examples/xspice/pwm-osc/pwm-sin.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
+| [examples/xspice/pwm-osc/pwm-sin.cir](fixtures/examples/xspice/pwm-osc/pwm-sin.cir) | success | success | mismatch | 1 | tran v(outn) |  |
 | [examples/xspice/see/repeat_loop_seegen.net](fixtures/examples/xspice/see/repeat_loop_seegen.net) | success | success | mismatch | 0.0909 | tran v(mon) |  |
 | [examples/xspice/see/seegen_cm1.cir](fixtures/examples/xspice/see/seegen_cm1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/xspice/see/set1.cir](fixtures/examples/xspice/see/set1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
@@ -497,7 +497,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/original-examples/supply_ramping.deck](fixtures/examples/xspice/original-examples/supply_ramping.deck) | matched | 3.32e-12 (v(2)) | 0.0155 (v(1)) | 0.0155 (v(1)) | 0.01 |  |
 | [examples/xspice/original-examples/user_defined_nodes.deck](fixtures/examples/xspice/original-examples/user_defined_nodes.deck) | matched | 4.84e-14 (v(analog_node)) | 1 (v(analog_node)) | 1 (v(analog_node)) | 1e-7 |  |
 | [examples/xspice/pwm-osc/fmcw-dosc.cir](fixtures/examples/xspice/pwm-osc/fmcw-dosc.cir) | matched | 0.000161 (v(afout)) | 0.00471 (v(afout)) | 0.00343 (v(afout)) | 0.000001 |  |
-| [examples/xspice/pwm-osc/pwm-sin.cir](fixtures/examples/xspice/pwm-osc/pwm-sin.cir) | not-compared |  |  |  |  | no .tran card outside .control |
+| [examples/xspice/pwm-osc/pwm-sin.cir](fixtures/examples/xspice/pwm-osc/pwm-sin.cir) | mismatch | 1 (v(outn)) |  |  |  | no .tran card outside .control |
 | [examples/xspice/see/repeat_loop_seegen.net](fixtures/examples/xspice/see/repeat_loop_seegen.net) | mismatch | 0.0909 (v(mon)) | 0.367 (v(mon)) | 0.0376 (v(mon)) | 1e-11 |  |
 | [examples/xspice/see/seegen_cm1.cir](fixtures/examples/xspice/see/seegen_cm1.cir) | not-compared |  |  |  |  | no .tran card outside .control |
 | [examples/xspice/see/set1.cir](fixtures/examples/xspice/see/set1.cir) | not-compared |  |  |  |  | no .tran card outside .control |

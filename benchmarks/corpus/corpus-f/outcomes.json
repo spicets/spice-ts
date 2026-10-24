@@ -50,8 +50,8 @@
     },
     "outcomes": {
       "matched": 128,
-      "mismatch": 20,
-      "not-compared": 99,
+      "mismatch": 21,
+      "not-compared": 98,
       "spice-ts-loss": 63,
       "ngspice-failed": 4,
       "both-failed": 22
@@ -8269,8 +8269,9 @@
       "sameNameAs": [],
       "ngspice": {
         "status": "success",
-        "analyses": [],
-        "note": "ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare"
+        "analyses": [
+          "tran:270503"
+        ]
       },
       "spiceTs": {
         "status": "success",
@@ -8279,16 +8280,19 @@
         ]
       },
       "comparedAnalyses": 1,
-      "comparedSignals": 0,
-      "worstNormalizedError": null,
-      "worstSignal": null,
-      "outcome": "not-compared",
+      "comparedSignals": 10,
+      "worstNormalizedError": 1,
+      "worstSignal": "tran v(outn)",
+      "outcome": "mismatch",
       "gapBucket": null,
       "fineReference": {
         "status": "unavailable",
         "tmax": [],
         "reason": "no .tran card outside .control",
-        "headline": null,
+        "headline": {
+          "worst": 1,
+          "signal": "v(outn)"
+        },
         "spiceTsVsFine": null,
         "ngspiceDefaultVsFine": null
       }
@@ -13409,5 +13413,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "712bc521bc89d6dd0f07f9584ad2db21b94266bc7d9244edd7352250b477d6f4"
+  "outcomeSha256": "19220c18eb366fce554fb0a5a953f297879b288132444ac55695f193b9e17ee4"
 }

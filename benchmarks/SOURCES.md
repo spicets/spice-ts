@@ -1,5 +1,17 @@
 # Benchmark sources
 
+## Corpus-f control-only transient export (#1221)
+
+`benchmarks/corpus/corpus-f/control-transient.test.ts` contains original
+project-authored RC decks under the repository MIT licence (source:
+https://github.com/spicets/spice-ts/issues/1221). Live ngspice-47 receives the
+identical bytes; a harness-side wrapper sources the control-only deck and
+exports retained plots without changing analyses or solver tolerances.
+The rescored upstream `examples/xspice/pwm-osc/pwm-sin.cir` retains the
+BSD-3-Clause provenance and checksum in `corpus/corpus-f/SOURCES.md` and
+`corpus/corpus-f/manifest.json`. Only that fixture is rescored; all other
+committed outcome rows are retained, not claimed as fresh measurements.
+
 ## XSPICE file-driven digital source (#1685)
 
 | Fixture | Source | Licence | Oracle |
