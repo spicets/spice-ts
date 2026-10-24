@@ -25,9 +25,13 @@ export function lowerControlledTables<T extends { text: string; line: number; co
     const head = /^\s*([eg]\S*)\s+\(?\s*([^\s()]+)\s+([^\s()]+)\s*\)?\s+table\s*(?==|\{|')/i.exec(code);
     if (!head) return [statement];
     const fail = (message: string): never => { throw new ParseError(`TABLE source '${head[1]}': ${message}`, statement.line, raw); };
-    const body = code.slice(head[0].length).replace(/^\s*=\s*/, '');
-    const expression = /^(?:\{([^{}]+)\}|'([^']+)')\s*=?\s*/.exec(body);
+    const tail = code.slice(head[0].length);
+    const leadingAssignment = /^\s*=/.test(tail);
+    const body = tail.replace(/^\s*=\s*/, '');
+    const expression = /^(?:\{([^{}]+)\}|'([^']+)')\s*(=?)\s*/.exec(body);
     if (!expression) return fail('expected a braced or quoted input expression');
+    // Also retain ngspice's compatibility spelling TABLE = {expr} (pairs).
+    if (!leadingAssignment && !expression[3]) return fail('expected = between the input expression and table pairs');
     let rest = body.slice(expression[0].length);
     const xs: string[] = [];
     const ys: string[] = [];

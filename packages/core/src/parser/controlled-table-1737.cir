@@ -1,0 +1,11 @@
+Self-authored MIT E/G TABLE parity fixture (#1737)
+Vinput in 0 DC 0 AC 1 PWL(0 -2 1 2)
+Elookup eout 0 TABLE {v(in)} = (-1,-2) (0,0) (1,3)
+Glookup gout 0 TABLE {v(in)} = (-1,-2m) (0,0) (1,3m)
+Re eout 0 1k
+Rg gout 0 1k
+.op
+.dc Vinput -2 2 .025
+.tran .01 1
+.ac lin 1 1 1
+.end
