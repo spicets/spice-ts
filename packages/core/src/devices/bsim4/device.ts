@@ -149,12 +149,10 @@ export class BSIM4 implements DeviceModel {
     // behind the static/nonlinear gate resistor. Only RGATEMOD=3 splits
     // overlap charge onto a mid-gate node. Acceptance and LTE also use GP.
     const v = this.intrinsicNodes.map(node => node < 0 ? 0 : read(node));
-    // Newly enabled gate/body modes use native default fringe capacitance,
-    // as AC does. Preserve legacy RBODYMOD=0, RGATEMOD=0/1 preprocessing.
-    const nativeCharge = this.instance.values.rgatemod >= 2 || this.bodyNodes.length > 0;
-    if (nativeCharge) {
-      this.acProcessed ??= preprocessBsim4(this.model, this.instance, this.processed.temperatureK, 'ac');
-    }
+    // All transient modes need native default CF (b4temp.c:173-175).
+    // b4ld.c:4149-4177 integrates the same overlap capacitance as AC;
+    // omitting fringe charge here loses gate current even with D/S grounded.
+    this.acProcessed ??= preprocessBsim4(this.model, this.instance, this.processed.temperatureK, 'ac');
     // b4ld.c: RBODYMOD separates qbd/qbs from intrinsic qbulk/qdrn.
     // Physical junction identities stay DB-D and SB-S in reverse mode too.
     const junctions = this.bodyNodes.length ? [
@@ -163,7 +161,7 @@ export class BSIM4 implements DeviceModel {
     ] : [];
     const overlaps: { gate: number; terminal: number; charge: number; capacitance: number }[] = [];
     const voltage = (node: number) => node < 0 ? 0 : read(node);
-    const tc = evaluateBsim4Charges(nativeCharge ? this.acProcessed! : this.processed, this.model.given,
+    const tc = evaluateBsim4Charges(this.acProcessed, this.model.given,
       { vgs: p * (v[1] - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) },
       junctions.length ? {
         vbd: p * (voltage(junctions[0].body) - v[0]),

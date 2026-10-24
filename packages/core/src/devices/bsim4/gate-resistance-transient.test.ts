@@ -56,10 +56,8 @@ describe('BSIM4 RGATEMOD=1 transient intrinsic gate mapping', () => {
   it.each(['g', 'Vg'])('matches native %s within the shared 1% peak bound', signal => {
     expect(errors[signal]).toBeLessThanOrEqual(0.01);
   });
-  // Preserve the shared 1% criterion, not a tuned tolerance: the charge port
-  // retains a ~1.85% GP waveform loss after this node-mapping repair. Setup,
-  // completion, finite values and physical RC lag are checked outside it.fails.
-  it.fails('matches native GP within the shared 1% peak bound (known charge-port residual)', () => {
+  // Native fringe preprocessing also repairs the former GP waveform loss.
+  it('matches native GP within the shared 1% peak bound', () => {
     expect(errors['M1.gate']).toBeLessThanOrEqual(0.01);
   });
   for (const polarity of [1, -1] as const) for (const vds of [0.7, -0.7]) {

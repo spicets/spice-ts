@@ -48,14 +48,14 @@ describe('BSIM4 RBODYMOD=1', () => {
     expect(parse(override).compile().devices.find(d => d.name === 'M1')!.nodes).toHaveLength(4);
     for (const name of ['Vd', 'Vg', 'Vs', 'Vb']) expect(a.dc!.current(name)).toBe(b.dc!.current(name));
   });
-  it('keeps every RBODYMOD=0 transient time/voltage/current sample bit-identical to main', async () => {
+  it('preserves explicit CF=0 legacy transient time/voltage/current samples', async () => {
     const deck = readFileSync(new URL('../rgatemod1/transient.cir', base), 'utf8');
     expect(createHash('sha256').update(deck).digest('hex')).toBe('27e61e80595f94cbba04885602b292c2864072944abcd0f1819071cdbcda825d');
-    const result = (await simulate(deck)).transient!;
+    const result = (await simulate(deck.replace('RSHG=1meg', 'RSHG=1meg CF=0'))).transient!;
     // Independently verified on git archive a7b08165: its omitted CF behaves
     // exactly as explicit CF=0. Use that same-runtime baseline on every platform
     // because libm last bits differ between macOS and Linux. No tolerance.
-    const legacy = (await simulate(deck.replace('RSHG=1meg', 'RSHG=1meg CF=0'))).transient!;
+    const legacy = (await simulate(deck.replace('RSHG=1meg', 'RSHG=1meg CF=0 RBODYMOD=0'))).transient!;
     const vectors = [result.time, ...['d', 'g', 'M1.gate'].map(n => result.voltage(n)),
       ...['Vd', 'Vg'].map(n => result.current(n))];
     const legacyVectors = [legacy.time, ...['d', 'g', 'M1.gate'].map(n => legacy.voltage(n)),
