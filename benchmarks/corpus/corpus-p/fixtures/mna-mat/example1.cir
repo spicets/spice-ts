@@ -1,0 +1,7 @@
+corpus-p mna-mat/example1.cir
+Vs 1 0 12
+R1 1 2 1000
+R2 2 0 2000
+R3 2 0 2000
+.op
+.end

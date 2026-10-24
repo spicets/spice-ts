@@ -1,0 +1,8 @@
+corpus-p mna-mat/example3.cir
+Vb 1 0 12
+R1 1 2 10
+R2 2 0 20
+R3 2 0 50
+C1 2 0 47E-06
+.op
+.end
