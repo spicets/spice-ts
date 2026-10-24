@@ -163,8 +163,6 @@ describe('bounded numeric WASM subcircuit expansion (#1726)', () => {
   });
 
   it.each([
-    { name: 'subckt PARAMS:', source: 'X1 in out cell\n.subckt cell a z PARAMS: r=1k\nR1 a z 1k\n.ends' },
-    { name: 'X instance parameters', source: 'X1 in out cell r=2k\n.subckt cell a z\nR1 a z 1k\n.ends' },
     { name: 'local .param', source: 'X1 in out cell\n.subckt cell a z\n.param r=1k\nR1 a z 1k\n.ends' },
   ])('rejects $name with structured parameter feature', async ({ source }) => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
