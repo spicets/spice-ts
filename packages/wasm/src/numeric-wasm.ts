@@ -83,9 +83,11 @@ export async function simulateLinearOpWasmV1(
   if (prepared.analysis === 'op') return simulateOp(prepared, request, exports);
   if (prepared.analysis === 'dc') return simulateDc(prepared, request, exports);
   if (prepared.analysis === 'tran') {
-    if (prepared.hierarchical || prepared.compiled.devices.some(device => {
+    if (prepared.transient.useInitialConditions || prepared.hierarchical || prepared.compiled.devices.some(device => {
       const waveform = (device as unknown as Partial<SweepableSource>).waveform;
       return ['D', 'Q', 'M', 'K'].includes(deviceType(device.name) ?? '')
+        || (['C', 'L'].includes(deviceType(device.name) ?? '')
+          && (device as { ic?: number }).ic !== undefined)
         || waveform?.type === 'sin' || waveform?.type === 'pwl';
     })) {
       return simulateAdaptiveTransient(prepared, request, exports, maxPoints);
@@ -391,7 +393,7 @@ function simulateTransient(
 
 /** Shared adaptive driver and device models; every DC/Newton solve stays in WASM. */
 async function simulateAdaptiveTransient(
-  { compiled, normalizedSource }: PreparedPassiveTran,
+  { compiled, transient, normalizedSource }: PreparedPassiveTran,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
   maxPoints: number,
@@ -435,7 +437,8 @@ async function simulateAdaptiveTransient(
     for (const [name, value] of step.currents) currentsA[name]!.push(value);
   };
   try {
-    append(sim.peekInitialStep());
+    // UIC's t=0 state is an IC seed, not a solved output point (#856).
+    if (!transient.useInitialConditions) append(sim.peekInitialStep());
     while (!sim.isDone) append(sim.advance());
   } finally { sim.dispose(); }
   const result: SimulationResultV1 = { status: 'complete', analyses: [{ type: 'tran', analysisIndex: 0, timeS, voltagesV, currentsA }] };
@@ -834,14 +837,15 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
         unsupported('mosfet-form', `MOSFETs must use name drain gate source bulk model with optional numeric ${instanceNames.replaceAll('|', ', ')} only`);
       }
     } else if (type === 'L') {
-      if (/\bIC\s*=/i.test(card)) {
-        unsupported('inductor-initial-condition', 'Inductor initial conditions (IC=) are not supported');
-      }
-      if (tokens.length !== 4 || !SPICE_NUMBER.test(tokens[3]!)) {
+      const withoutIC = card.replace(new RegExp(`\\s+IC\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i'), '').split(/\s+/);
+      if (withoutIC.length !== 4 || !SPICE_NUMBER.test(withoutIC[3]!)) {
         unsupported('inductor-form', 'Inductors must use name positive negative constant-inductance');
       }
     } else if (type === 'R' || type === 'C') {
-      if (tokens.length !== 4) {
+      const withoutIC = type === 'C'
+        ? card.replace(new RegExp(`\\s+IC\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i'), '').split(/\s+/)
+        : tokens;
+      if (withoutIC.length !== 4) {
         unsupported('passive-form', 'Passive devices must use name positive negative value');
       }
     } else if (type === 'G') {
@@ -972,9 +976,7 @@ function dcPointCount(start: number, stop: number, step: number): number {
 
 function validateTransientControls(card: string, request: SimulationRequestV1): void {
   const tokens = card.trim().split(/\s+/).slice(1);
-  if (tokens.some(token => token.toUpperCase() === 'UIC')) {
-    unsupported('tran-uic', 'Transient UIC is not supported');
-  }
+  if (tokens.at(-1)?.toUpperCase() === 'UIC') tokens.pop();
   if (tokens.length >= 4) unsupported('tran-max-timestep', 'Transient maximum timestep is not supported');
   if (tokens.length >= 3) unsupported('tran-start-time', 'Transient start time is not supported');
   if (request.options?.integrationMethod && request.options.integrationMethod !== 'trapezoidal') {
