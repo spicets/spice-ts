@@ -1,0 +1,561 @@
+{
+  "schemaVersion": "spice-ts-corpus-p-outcomes/v1",
+  "sources": [
+    {
+      "key": "mna-mat",
+      "revision": "a77a4eb409aba1eb7f04919aa3990a60b0233cce",
+      "license": "MIT"
+    },
+    {
+      "key": "netlistparse",
+      "revision": "94386c7fcf669ce9e930686815d94e11050307f6",
+      "license": "MIT"
+    }
+  ],
+  "manifestSha256": "b257222dcb74fc0079f768f545ae27b598529d49444a4ea0bbd86c816ada2e39",
+  "tools": {
+    "ngspice": "ngspice-47",
+    "spiceTs": "0.4.0",
+    "node": "v22.23.4"
+  },
+  "environment": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "commands": {
+    "generate": "pnpm build && spice-heavy pnpm exec tsx benchmarks/corpus/corpus-p/parity.ts",
+    "verify": "spice-heavy pnpm exec tsx benchmarks/corpus/corpus-p/parity.ts --check",
+    "ngspice": "ngspice -b -r <raw> <identical-fixture> (HOME=<tmp> with .spiceinit \"set filetype=ascii\")",
+    "spiceTs": "@spice-ts/core simulate(<identical-fixture>) in a bounded child process (no parse() pre-check)"
+  },
+  "policy": {
+    "input": "byte-identical fixture for both engines",
+    "fixtureAdaptation": "none",
+    "perCircuitToleranceTuning": false,
+    "matchThreshold": 0.01,
+    "matchRule": "matched = both engines succeed, every spice-ts analysis has an ngspice counterpart, and for every common signal max|spice-ts - ngspice| <= 0.01 x max(peak |ngspice signal|, floor), with the corpus-f floor: 0.0001 V for node voltages, 1e-10 A for branch currents, 1e-12 otherwise. Errors are taken at spice-ts points with ngspice interpolated (transient breakpoint alignment as in the aggregate report).",
+    "fineReference": "Fine-step reference (#592): ngspice-47 runs the same deck with every active .tran card rewritten to TMAX_fine = min(TSTEP, (TSTOP - TSTART)/50, deck TMAX if given) / 10, i.e. the ngspice default step ceiling divided by 10; TSTEP, TSTOP, TSTART, UIC and every other card are unchanged. The rule is the same for every transient fixture. No reference is generated when the deck has no parsable .tran card outside .control, or when TSTOP/TMAX_fine exceeds 1000000 steps; the ngspice run is bounded at 600 s. Each default run (spice-ts, ngspice) is scored by the same procedure: at the reference's output points, with the default run linearly interpolated onto them, over the transient signals of the headline comparison, normalised by the reference peak with the same per-quantity floors. The headline's one-sided breakpoint alignment applies at every default-run time point within ngspice's breakpoint merge distance (CKTminBreak = 0.00005 x TMAX_fine) of a reference time point; the headline matches breakpoints bit for bit, which here would favour ngspice, whose default run lands on its own reference's breakpoint times exactly while spice-ts's land a few ulps away. This charges each engine for its own published waveform, so a coarse output grid counts against whichever engine produced it. Status (matched/mismatch) is defined by the headline column only. One fine reference is not a convergence proof, and neither column is an accuracy ranking of the engines.",
+    "deterministicHashExcludes": [
+      "environment",
+      "tools.node",
+      "ngspice.analyses",
+      "spiceTs.analyses"
+    ]
+  },
+  "totals": {
+    "fixtures": 16,
+    "ngspice": {
+      "success": 13,
+      "failed": 2,
+      "unsupported": 1
+    },
+    "spiceTs": {
+      "success": 14,
+      "failed": 0,
+      "unsupported": 2
+    },
+    "outcomes": {
+      "matched": 13,
+      "mismatch": 0,
+      "not-compared": 0,
+      "spice-ts-loss": 0,
+      "ngspice-failed": 1,
+      "both-failed": 2
+    },
+    "bySource": {
+      "mna-mat": {
+        "matched": 12,
+        "mismatch": 0,
+        "not-compared": 0,
+        "spice-ts-loss": 0,
+        "ngspice-failed": 0,
+        "both-failed": 0
+      },
+      "netlistparse": {
+        "matched": 1,
+        "mismatch": 0,
+        "not-compared": 0,
+        "spice-ts-loss": 0,
+        "ngspice-failed": 1,
+        "both-failed": 2
+      }
+    }
+  },
+  "gapBuckets": [
+    {
+      "bucket": "directive: .global_param",
+      "fixtures": 1,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "p-15"
+      ],
+      "issue": null
+    },
+    {
+      "bucket": "parse: other unsupported syntax",
+      "fixtures": 1,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "p-16"
+      ],
+      "issue": null
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "p-1",
+      "sourcePath": "mna-mat/example1.cir",
+      "sha256": "47b2b32d4742d1f1ba3d725932367527768885ef125ee0c9553f4691766ae0cf",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 3,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(vs)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-2",
+      "sourcePath": "mna-mat/example2.cir",
+      "sha256": "32f14fa6fd0d86ebbde54f50d909fd02292d319124b1ce16bdd521eb9d6c7a66",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 5,
+      "worstNormalizedError": 2.49e-16,
+      "worstSignal": "op i(vx)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-3",
+      "sourcePath": "mna-mat/example3.cir",
+      "sha256": "e18350455268ab9a887a4ec320b7e7cbd53b66bcd13fc3d655b77a4de9d91478",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 3,
+      "worstNormalizedError": 1.12e-16,
+      "worstSignal": "op i(vb)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-4",
+      "sourcePath": "mna-mat/example4.cir",
+      "sha256": "e8d98bbcac0ab3ba11464642692611651c52011ea7a83c859e2a52a88504f2f2",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 4,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(vin)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-5",
+      "sourcePath": "mna-mat/example5.cir",
+      "sha256": "4c4b5aad4920c5893959c48dcb59ec435687b8b5e6720a1e5199cb68adfb0103",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 6,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(e1)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-6",
+      "sourcePath": "mna-mat/example6.cir",
+      "sha256": "fcc29f63864ebb0da42055075b92120cac2c833c425d5816bf3d6d980029adea",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 5,
+      "worstNormalizedError": 1.67e-16,
+      "worstSignal": "op i(v2)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-7",
+      "sourcePath": "mna-mat/example7.cir",
+      "sha256": "a36fd7dcdec8b56935c3b2f27d5773f72f6340ec1c6d58e825a95f179bfcdc56",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 3,
+      "worstNormalizedError": 1.76e-8,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-8",
+      "sourcePath": "mna-mat/example8.cir",
+      "sha256": "4d62a07298edb867bfd4a8111e866e919f7a1aed5243542a0bf0c7d9aeb9622e",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 3,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-9",
+      "sourcePath": "mna-mat/example9.cir",
+      "sha256": "7b3eed51214ade8de2f5b1c78c172e694f5fe1b1294b67e92eef5dee24c6d6fd",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 6,
+      "worstNormalizedError": 9.16e-16,
+      "worstSignal": "op i(e2)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-10",
+      "sourcePath": "mna-mat/example10.cir",
+      "sha256": "a78c5a9eaa7af0b6a02b7b003402e09e47531b12030fb2cb79a61ff9c4a9e0dc",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.33e-16,
+      "worstSignal": "op i(v1)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-11",
+      "sourcePath": "mna-mat/example11.cir",
+      "sha256": "3dd5aba941f33165b49fdf4d3d34c585622c1f5022168b63476b1d49ffdbac46",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 12,
+      "worstNormalizedError": 7.01e-7,
+      "worstSignal": "op i(l2)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-12",
+      "sourcePath": "mna-mat/example12.cir",
+      "sha256": "64ccef64c20f218de4af224e9f11b95a31b70575335abdb30fbed9e5e16062c0",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 14,
+      "worstNormalizedError": 5.72e-12,
+      "worstSignal": "op v(6)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-13",
+      "sourcePath": "netlistparse/tests/corpus/rlc.sp",
+      "sha256": "3e6649a7828302c861b0bca97516c3151f3419b816c64b9c920bfac65cb0b24f",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 6,
+      "worstNormalizedError": 0,
+      "worstSignal": "op i(l1)",
+      "outcome": "matched",
+      "gapBucket": null
+    },
+    {
+      "id": "p-14",
+      "sourcePath": "netlistparse/tests/corpus/ext_devices.sp",
+      "sha256": "1af1489e088f233780214406776d95e1cf3407f5f2e1389880f8354b6853358f",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "failed",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 2, new internal line no. 17:"
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "op:1"
+        ]
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "ngspice-failed",
+      "gapBucket": null
+    },
+    {
+      "id": "p-15",
+      "sourcePath": "netlistparse/tests/corpus/ext_xyce_cmds.sp",
+      "sha256": "c5a5e72ad2cbce59ac014c3a59fb73bd9994e0d668a5c64b2b2a95002c87ce67",
+      "analyses": [
+        "tran",
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 14 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 3: Unsupported dot command: '.global_param' .global_param tc=27"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "directive: .global_param"
+    },
+    {
+      "id": "p-16",
+      "sourcePath": "netlistparse/tests/corpus/ext_xyce_y.sp",
+      "sha256": "938a3fdef8d38e42d101369710f4eae4a8debdfbdb573bf4f7bef3584c4721d3",
+      "analyses": [
+        "op"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "failed",
+        "analyses": [],
+        "firstErrorLine": "Error on line 2 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 2: TXL Y-card requires 'Yname n1 ref1 n2 ref2 model [len=value]' YGENEXT g1 a b osdimod"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "parse: other unsupported syntax"
+    }
+  ],
+  "outcomeSha256": "ac34acb3e14b1c02683e209de2a70bd6839e48604d5fafddf4e13123981cfdbe",
+  "classCounts": {
+    "matched": 13,
+    "ngspice-failed": 1,
+    "unsupported": 2
+  },
+  "gapLinks": {},
+  "coreTree": "0d3ec72383ef72c20092858233556bbba0bbb177",
+  "sourceAdaptation": "13 committed mechanical OP wrappers, 3 verbatim decks; manifest records reversible wrappers and both hashes. policy.fixtureAdaptation=none refers to runtime input."
+}
