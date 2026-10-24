@@ -718,7 +718,7 @@ function formatAnalysis(analysis: AnalysisDirective | PoleZeroAnalysis): string 
       return `.disto dec ${analysis.points} ${formatNumber(analysis.startFreq)} ${formatNumber(analysis.stopFreq)}${analysis.f2OverF1 === undefined ? '' : ` ${formatNumber(analysis.f2OverF1)}`}`;
     case 'tf':
       return 'outputNode' in analysis
-        ? `.tf v(${analysis.outputNode}) ${analysis.inputSource}`
+        ? `.tf v(${analysis.outputNode}${analysis.outputReferenceNode === undefined ? '' : `,${analysis.outputReferenceNode}`}) ${analysis.inputSource}`
         : `.tf i(${analysis.outputSource}) ${analysis.inputSource}`;
     case 'pz':
       return `.pz ${analysis.inputPositive} ${analysis.inputNegative} ${analysis.outputPositive} ${analysis.outputNegative} ${analysis.inputType} ${analysis.mode}`;
@@ -1871,7 +1871,7 @@ export class Circuit {
   addAnalysis(type: 'sp', params: { variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number; noise?: boolean }): void;
   addAnalysis(type: 'disto', params: { variation: 'dec'; points: number; startFreq: number; stopFreq: number; f2OverF1?: number }): void;
   addAnalysis(type: 'tf', params:
-    | { outputNode: string; inputSource: string }
+    | { outputNode: string; outputReferenceNode?: string; inputSource: string }
     | { outputSource: string; inputSource: string }): void;
   addAnalysis(type: 'pz', params: { inputPositive: string; inputNegative: string; outputPositive: string; outputNegative: string; inputType: 'cur' | 'vol'; mode: 'pol' | 'zer' | 'pz' }): void;
   addAnalysis(type: 'sens', params: { outputNode: string; outputReferenceNode?: string; mode: 'dc' }): void;
@@ -2002,6 +2002,9 @@ export class Circuit {
           : {
             type: 'tf',
             outputNode: params!.outputNode as string,
+            ...(params!.outputReferenceNode === undefined ? {} : {
+              outputReferenceNode: params!.outputReferenceNode as string,
+            }),
             inputSource: params!.inputSource as string,
           });
         break;

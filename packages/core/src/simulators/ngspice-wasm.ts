@@ -348,7 +348,7 @@ function formatAnalysis(analysis: AnalysisDirective): string {
       throw new InvalidCircuitError('ngspice-wasm does not support .sp result mapping');
     case 'tf':
       return 'outputNode' in analysis
-        ? `.tf v(${analysis.outputNode}) ${analysis.inputSource}`
+        ? `.tf v(${analysis.outputNode}${analysis.outputReferenceNode === undefined ? '' : `,${analysis.outputReferenceNode}`}) ${analysis.inputSource}`
         : `.tf i(${analysis.outputSource}) ${analysis.inputSource}`;
     case 'sens':
       throw new InvalidCircuitError('ngspice-wasm does not support .sens result mapping');
