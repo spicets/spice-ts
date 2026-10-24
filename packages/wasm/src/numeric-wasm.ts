@@ -758,7 +758,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   return { analysis, compiled, order, frequenciesHz: frequencyGrid(compiledAnalysis, reltol, 'ac') };
 }
 
-/** Validate raw device/model forms before core expands parameter-free hierarchy. */
+/** Validate raw device/model forms before core expands hierarchy and parameters. */
 function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): string[] {
   const normalized = [...cards];
   const scopes: number[][] = [[]];
@@ -766,9 +766,8 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
   for (const [index, card] of cards.entries()) {
     const definition = /^\.subckt\b/i.test(card);
     const instance = /^X/i.test(card);
-    if (((definition || instance) && /params\s*:|=/i.test(card))
-      || (stack.length > 1 && /^\.param\b/i.test(card))) {
-      unsupported('subcircuit-parameters', 'Subcircuit parameters are not supported');
+    if (stack.length > 1 && /^\.param\b/i.test(card)) {
+      unsupported('subcircuit-parameters', 'Subcircuit-local .param cards are not supported');
     }
     if (definition) {
       const scope: number[] = [];
@@ -796,6 +795,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
     ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
   for (const card of cards) {
+    if (/^\.param\b/i.test(card)) continue;
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
       const model = /^\.model\s+\S+\s+(D|NPN|PNP|NMOS|PMOS|NJF|PJF)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
