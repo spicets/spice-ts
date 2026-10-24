@@ -44,10 +44,18 @@ MODEINITJCT/MODEINITFIX and MODETRANOP+MODEUIC local junction biases;
 ICs from external terminal voltages. These sources carry their upstream
 Berkeley/SPICE notices; they are referenced, not redistributed here.
 
-Known uncovered model gap: level-2 `jfet2/psmodel.c:PScharge/qgg` uses coupled,
-path-dependent charges, while spice-ts currently uses independent level-1
-depletion charges for both levels. The nonzero-CGS/CGD UIC decks expose this
-loss; OFF/IC parsing and initial history do not fix that underlying law.
+LEVEL=2 PScharge (#1698 slice 1): independently implemented the coupled,
+path-dependent Statz gate-charge equations and PScharge rectangular-path
+partition for the supported parameter subset (XI=1000, XC=ACGAM=0).
+Reference: [ngspice-47 source archive](https://downloads.sourceforge.net/project/ngspice/ng-spice-rework/47/ngspice-47.tar.gz),
+`src/spicelib/devices/jfet2/psmodel.c:qgg/PScharge/PSinstanceinit` and
+`jfet2parm.h` defaults. The upstream PS model carries the Macquarie University
+copyright notice (1994-1996); upstream C is referenced, not redistributed.
+`packages/core/src/devices/jfet-pscharge-1698.test.ts` uses original MIT decks,
+static charge/capacitance values evaluated by that release's qgg function, and
+ngspice-47 transient first points. The unchanged comparison still labels these
+cases as known-loss but now reports all their signals passing at the existing
+1% transient gate. OFF OP remains an honest loss outside this slice.
 The resistively grounded gate OP also exposes different ngspice OFF results;
 it is not presented as a verified bistable circuit.
 

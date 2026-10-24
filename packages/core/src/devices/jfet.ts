@@ -152,6 +152,7 @@ export class JFET implements DeviceModel {
   readonly storesCharge: boolean;
   private readonly charges = new TransientChargeState(2);
   private readonly junction = { charge: 0, capacitance: 0 };
+  private psInitialized = false;
 
   /**
    * @param polarity - +1 for NJF, -1 for PJF. As in ngspice jfetload.c and
@@ -235,6 +236,12 @@ export class JFET implements DeviceModel {
     const vD = p * (nD >= 0 ? ctx.getVoltage(nD) : 0);
     const vG = p * (nG >= 0 ? ctx.getVoltage(nG) : 0);
     const vS = p * (nS >= 0 ? ctx.getVoltage(nS) : 0);
+    if (this.params.LEVEL === 2) {
+      const q = this.psCharge(vG - vS, vG - vD, false);
+      stampCapacitance(ctx, nG, nD, q.cgd);
+      stampCapacitance(ctx, nG, nS, q.cgs);
+      return;
+    }
     this.stampJunctionCapacitance(ctx, nG, nD, vG - vD, this.params.CGD);
     this.stampJunctionCapacitance(ctx, nG, nS, vG - vS, this.params.CGS);
   }
@@ -243,6 +250,15 @@ export class JFET implements DeviceModel {
     const [nD, nG, nS] = this.nodes;
     const charges = this.charges;
     charges.begin(integration);
+    if (this.params.LEVEL === 2) {
+      const vg = nG >= 0 ? ctx.getVoltage(nG) : 0;
+      const vgs = vg - (nS >= 0 ? ctx.getVoltage(nS) : 0);
+      const vgd = vg - (nD >= 0 ? ctx.getVoltage(nD) : 0);
+      const q = this.psCharge(this.polarity * vgs, this.polarity * vgd, true);
+      stampChargeBranch(ctx, nG, nD, charges.current(GATE_DRAIN, q.qgd), charges.factor * q.cgd, vgd);
+      stampChargeBranch(ctx, nG, nS, charges.current(GATE_SOURCE, q.qgs), charges.factor * q.cgs, vgs);
+      return;
+    }
     this.stampGateCharge(ctx, GATE_DRAIN, nG, nD, this.params.CGD);
     this.stampGateCharge(ctx, GATE_SOURCE, nG, nS, this.params.CGS);
   }
@@ -265,6 +281,14 @@ export class JFET implements DeviceModel {
     const vGS = ctx.initialUIC && this.instance.ICVGS !== undefined
       ? this.instance.ICVGS : vG - (nS >= 0 ? ctx.getVoltage(nS) : 0);
     const vGD = vGS - vDS;
+    if (this.params.LEVEL === 2) {
+      const q = this.psCharge(this.polarity * vGS, this.polarity * vGD, this.psInitialized);
+      this.charges.accept(GATE_DRAIN, q.qgd, this.polarity * vGD);
+      this.charges.accept(GATE_SOURCE, q.qgs, this.polarity * vGS);
+      this.charges.commit();
+      this.psInitialized = true;
+      return;
+    }
     this.circuitJunctionCharge(vGD, this.params.CGD);
     this.charges.accept(GATE_DRAIN, this.junction.charge);
     this.circuitJunctionCharge(vGS, this.params.CGS);
@@ -274,11 +298,68 @@ export class JFET implements DeviceModel {
 
   resetTransient(): void {
     this.charges.reset();
+    this.psInitialized = false;
   }
 
   /** ngspice JFETtrunc: qgs and qgd. */
   truncateTransientStep(ctx: StampContext, truncation: ChargeTruncation): number {
     return this.charges.truncationTimestep(truncation, () => this.acceptTransientStep(ctx));
+  }
+
+  /** ngspice-47 PScharge: partition Qgg changes along both rectangular paths.
+   * Voltages are n-channel frame; histories and returned charges circuit frame.
+   * Only accepted voltages/charges participate, including during LTE trials.
+   */
+  private psCharge(vgs: number, vgd: number, transient: boolean): {
+    qgs: number; qgd: number; cgs: number; cgd: number;
+  } {
+    const a = this.psTotalGateCharge(vgs, vgd);
+    const p = this.polarity;
+    if (!transient) return { qgs: p * a.q, qgd: p * a.q, cgs: a.cgs, cgd: a.cgd };
+    const vgs1 = this.charges.acceptedBranchVoltage(GATE_SOURCE);
+    const vgd1 = this.charges.acceptedBranchVoltage(GATE_DRAIN);
+    const b = this.psTotalGateCharge(vgs1, vgd);
+    const c = this.psTotalGateCharge(vgs, vgd1);
+    const d = this.psTotalGateCharge(vgs1, vgd1);
+    return {
+      qgs: this.charges.incrementalCharge(GATE_SOURCE, 0, 0) + p * 0.5 * (a.q - b.q + c.q - d.q),
+      qgd: this.charges.incrementalCharge(GATE_DRAIN, 0, 0) + p * 0.5 * (a.q - c.q + b.q - d.q),
+      cgs: 0.5 * (a.cgs + c.cgs),
+      cgd: 0.5 * (a.cgd + b.cgd),
+    };
+  }
+
+  /** Statz Qgg as used by PScharge, for the supported LEVEL=2 parameter
+   * subset (ngspice defaults XI=1000, XC=0, ACGAM=0). CGS/CGD and PB
+   * already carry instance temperature, AREA and M corrections.
+   */
+  private psTotalGateCharge(vgs: number, vgd: number): { q: number; cgs: number; cgd: number } {
+    const { PB, VTO, FC, CGS, CGD } = this.params;
+    const alpha = (1000 * (PB - VTO) / 1001 / 2) ** 2;
+    const vds = vgs - vgd;
+    const vert = Math.sqrt(vds * vds + alpha);
+    const veff = 0.5 * (vgs + vgd + vert);
+    const vnr = veff - VTO;
+    const vnrt = Math.sqrt(vnr * vnr + 0.04);
+    const vnew = veff + 0.5 * (vnrt - vnr);
+    const vmax = FC * PB;
+    let ext = 0;
+    let par = 1;
+    const qrt = Math.sqrt(1 - Math.min(vnew, vmax) / PB);
+    if (vnew >= vmax) {
+      const vx = 0.5 * (vnew - vmax);
+      par += vx / (PB - vmax);
+      ext = vx * (1 + par) / qrt;
+    }
+    const cgso = 0.5 * CGS / qrt * (1 + vnr / vnrt) * par;
+    const cpm = vds / vert;
+    const cplus = 0.5 * (1 + cpm);
+    const cminus = cplus - cpm;
+    return {
+      q: CGS * (2 * PB * (1 - qrt) + ext) + CGD * (veff - vert),
+      cgs: cgso * cplus + CGD * cminus,
+      cgd: cgso * cminus + CGD * cplus,
+    };
   }
 
   private stampGateCharge(
