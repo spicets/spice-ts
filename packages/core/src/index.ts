@@ -1,6 +1,6 @@
 export { simulate, simulateStream, simulateStepStream, createSimulator } from './simulate.js';
 export {
-  simulateProtocolV1, simulateNoiseProtocolV1,
+  simulateProtocolV1, simulateNoiseProtocolV1, operatingPointReportProtocolV1,
   simulatePoleZeroProtocolV1, validateProtocolV1, mapProtocolErrorV1, estimateProtocolResultPointsV1,
 } from './protocol/adapter.js';
 export type { ProtocolValidationResultV1 } from './protocol/adapter.js';

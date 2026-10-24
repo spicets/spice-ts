@@ -1,4 +1,5 @@
 import { parseTitlelessAsync } from './parser/index.js';
+import type { Circuit } from './circuit.js';
 import { solveDCOperatingPoint } from './analysis/dc.js';
 import { resolveOptions, withNetlistOptions } from './types.js';
 import { InvalidCircuitError } from './errors.js';
@@ -21,8 +22,8 @@ export interface OperatingPointReport {
 }
 
 /** Read the existing DC model loads at the converged OP; no second solve or model equations. */
-export async function operatingPointReport(netlist: string, options?: SimulationOptions): Promise<OperatingPointReport> {
-  const circuit = await parseTitlelessAsync(netlist);
+export async function operatingPointReport(input: string | Circuit, options?: SimulationOptions): Promise<OperatingPointReport> {
+  const circuit = typeof input === 'string' ? await parseTitlelessAsync(input) : input;
   const compiled = circuit.compile();
   if (compiled.steps.length) throw new InvalidCircuitError('OP report requires an unstepped circuit');
   const resolved = resolveOptions(withNetlistOptions(compiled.simulationOptions, options));

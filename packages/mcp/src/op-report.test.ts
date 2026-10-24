@@ -17,7 +17,74 @@ async function report(netlist: string, topN?: number): Promise<Report> {
   return response.structuredContent as unknown as Report;
 }
 
+const components = [
+  { type: 'V', id: 'V1', name: 'V1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { waveform: 'dc', dc: 10 } },
+  { type: 'R', id: 'R1', name: 'R1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: 'out' }], params: { resistance: 1000 } },
+  { type: 'R', id: 'R2', name: 'R2', ports: [{ name: 'p', net: 'out' }, { name: 'n', net: '0' }], params: { resistance: 1000 } },
+  { type: 'D', id: 'D1', name: 'D1', ports: [{ name: 'anode', net: 'out' }, { name: 'cathode', net: '0' }], params: { modelName: '' } },
+];
+const document = { format: 'spice-ts', schemaVersion: '1.0', circuit: { components, nets: ['in', 'out'] }, analyses: [], models: [], subcircuits: [] };
+const circuit = [
+  ...['in', 'out', '0'].map(name => ({ type: 'source_net', source_net_id: name, name })),
+  ...components.flatMap((component, i) => [
+    { type: 'source_component', source_component_id: component.id, name: component.name,
+      ...[{ ftype: 'simple_voltage_source', voltage: 10 }, { ftype: 'simple_resistor', resistance: 1000 },
+        { ftype: 'simple_resistor', resistance: 1000 }, { ftype: 'simple_diode' }][i] },
+    ...component.ports.flatMap((port, j) => [
+      { type: 'source_port', source_port_id: `${component.id}-${j}`, source_component_id: component.id, name: port.name },
+      { type: 'source_trace', source_trace_id: `${component.id}-${j}`, connected_source_port_ids: [`${component.id}-${j}`], connected_source_net_ids: [port.net] },
+    ]),
+  ]),
+];
+const jsonInputs = [{ format: 'spice-ts', document }, { format: 'circuit-json', circuit, analyses: [] }];
+const request = (input: unknown) => ({ apiVersion: '1', input });
+
 describe('spice_op_report', () => {
+  it.each([...jsonInputs, { format: 'spice', source: `${divider}\nD1 out 0 DEFAULT\n.model DEFAULT D` }])('matches every SPICE report field exactly for $format', async input => {
+    const expected = await report(`${divider}\nD1 out 0 DEFAULT\n.model DEFAULT D`, 2);
+    const response = await executeTool('spice_op_report', { request: request(input), topN: 2 });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    expect(response.structuredContent).toEqual(expected);
+  });
+
+  it('retains native JSON models and ignores unrelated analyses', async () => {
+    const input = { format: 'spice-ts', document: { ...document,
+      circuit: { ...document.circuit, components: components.map(c => c.type === 'D' ? { ...c, params: { modelName: 'custom' } } : c) },
+      models: [{ name: 'custom', type: 'D', params: { IS: 1e-12 } }],
+      analyses: [{ type: 'tran', timestep: 1e-6, stopTime: 1 }],
+    } };
+    const response = await executeTool('spice_op_report', { request: request(input) });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    expect(response.structuredContent).toEqual(await report(`${divider}\nD1 out 0 custom\n.model custom D(IS=1e-12)`));
+  });
+  it.each(jsonInputs)('honors request limits and cancellation for $format', async input => {
+    expect(await executeTool('spice_op_report', { request: { ...request(input), options: { limits: { maxResultPoints: 1 } } } })).toMatchObject({
+      isError: true, structuredContent: { error: { code: 'RESOURCE_LIMIT' } },
+    });
+    expect(await executeTool('spice_op_report', { request: request(input) }, { signal: AbortSignal.abort() })).toMatchObject({
+      isError: true, structuredContent: { error: { code: 'CANCELLED' } },
+    });
+  });
+  const invalidInputs = [
+    {}, { netlist: divider, request: request(jsonInputs[0]) }, { request: request({ format: 'spice-ts', document: {} }) },
+    { request: request({ format: 'spice-ts', document: '{invalid json' }) },
+    { request: request({ format: 'circuit-json', circuit: {}, analyses: [] }) },
+  ];
+  it.each(invalidInputs)('rejects invalid or ambiguous input %#', async args => {
+    expect(await executeTool('spice_op_report', args)).toMatchObject({ isError: true,
+      structuredContent: { error: { code: 'INVALID_REQUEST', phase: 'validation', retryable: false } } });
+  });
+  it('returns structured conversion diagnostics', async () => {
+    expect(await executeTool('spice_op_report', { request: request({ format: 'circuit-json', analyses: [],
+      circuit: [{ type: 'source_component', source_component_id: 'U1', name: 'U1', ftype: 'simple_chip' }] }) })).toMatchObject({
+      isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ELEMENT', phase: 'validation', retryable: false, details: { diagnostics: expect.any(Array) } } },
+    });
+  });
+  it('advertises mutually exclusive legacy and protocol inputs', () => {
+    const validate = new AjvJsonSchemaValidator().getValidator(MCP_TOOLS.find(tool => tool.name === 'spice_op_report')!.inputSchema);
+    for (const args of [{ netlist: divider }, ...jsonInputs.map(input => ({ request: request(input), topN: 0 }))]) expect(validate(args).valid, JSON.stringify(validate(args))).toBe(true);
+    for (const args of invalidInputs) expect(validate(args).valid).toBe(false);
+  });
   it('reports divider V²/R to 1e-12 relative with passive current signs', async () => {
     const result = await report(divider, 1);
     expect(result.nodeVoltages.out).toBe(5);

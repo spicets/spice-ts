@@ -466,10 +466,11 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_op_report',
-    description: 'Run one DC operating point from a titleless SPICE netlist. Return node voltages, terminal currents entering devices (A), absorbed power (W), delivered/absorbed totals and top dissipators. Ignores analysis/control commands; rejects parameter steps. Negative device power means delivery.',
+    description: 'Run one DC operating point from exactly one of a titleless SPICE netlist or a protocol-v1 request (SPICE text, spice-ts JSON or circuit-json). Return node voltages, terminal currents entering devices (A), absorbed power (W), delivered/absorbed totals and top dissipators. Ignores analysis/control commands; rejects parameter steps. Negative device power means delivery.',
     inputSchema: {
-      type: 'object', required: ['netlist'], additionalProperties: false,
-      properties: { netlist: { type: 'string', minLength: 1 }, topN: { type: 'integer', minimum: 0, maximum: 10000 } },
+      ...requestInputSchema,
+      required: [], oneOf: [{ required: ['netlist'] }, { required: ['request'] }],
+      properties: { ...requestInputSchema.properties, netlist: { type: 'string', minLength: 1 }, topN: { type: 'integer', minimum: 0, maximum: 10000 } },
     },
     outputSchema: {
       type: 'object', required: ['nodeVoltages', 'devices', 'sourceDeliveredPowerW', 'dissipatedPowerW', 'topDissipators'],
@@ -644,22 +645,28 @@ async function executeToolWithStore(
       return success(report);
     }
     if (name === 'spice_op_report') {
-      if (!isRecord(args) || Object.keys(args).some(key => !['netlist', 'topN'].includes(key))
-        || typeof args.netlist !== 'string' || !args.netlist.trim()
+      if (!isRecord(args) || Object.keys(args).some(key => !['netlist', 'request', 'topN'].includes(key))
+        || (('netlist' in args) === ('request' in args))
+        || ('netlist' in args && (typeof args.netlist !== 'string' || !args.netlist.trim()))
         || (args.topN !== undefined && (!Number.isInteger(args.topN) || (args.topN as number) < 0 || (args.topN as number) > 10000))) {
-        throw apiError('INVALID_REQUEST', 'Expected netlist and optional integer topN (0–10000)', 'validation', {});
+        throw apiError('INVALID_REQUEST', 'Expected exactly one of netlist or request and optional integer topN (0–10000)', 'validation', {});
       }
-      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      const original = toolRequest('netlist' in args ? { request: { apiVersion: '1', input: { format: 'spice', source: args.netlist } } } : args);
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      if (!validateOpReportRequest(original).valid) {
+        throw apiError('INVALID_REQUEST', 'Invalid operating-point request', 'validation', {});
+      }
+      throwIfCancelled(options.signal);
+      const { request } = convertRequest(original);
       const release = streamStore.acquireOneShotSlot();
       try {
-        const report = await runInWorker<OperatingPointReport>('op-report', {
-          apiVersion: '1', input: { format: 'spice', source: args.netlist },
-        }, limits.maxWallTimeMs, options);
-        enforceMaximum('maxResultPoints', limits.maxResultPoints, report.devices.length, 'transport');
+        const report = await runInWorker<OperatingPointReport>('op-report', request, effective.maxWallTimeMs, options);
+        enforceMaximum('maxResultPoints', effective.maxResultPoints, report.devices.length, 'transport');
         const result = { ...report, topDissipators: report.devices.filter(device => device.powerW > 0)
           .sort((a, b) => b.powerW - a.powerW || a.name.localeCompare(b.name))
           .slice(0, (args.topN as number | undefined) ?? 10).map(({ name, powerW }) => ({ name, powerW })) };
-        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
         return success(result);
       } finally { release(); }
     }
@@ -1395,6 +1402,9 @@ function effectiveLimits(request: SimulationRequestV1, configured: McpLimits): M
 const validatePoleZeroInput = new AjvJsonSchemaValidator().getValidator({
   ...commonSchemaV1.$defs.simulationInput, $defs: commonSchemaV1.$defs,
 });
+const validateOpReportRequest = new AjvJsonSchemaValidator().getValidator({
+  ...commonSchemaV1.$defs.simulationRequest, $defs: commonSchemaV1.$defs,
+});
 
 function toolRequest(args: unknown): SimulationRequestV1 {
   if (!isRecord(args) || !isRecord(args.request)) {
@@ -1845,7 +1855,7 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
       ? await core.validateProtocolV1(request, { topologyWarnings: true })
       : operation === 'pz' ? await core.simulatePoleZeroProtocolV1(request)
       : operation === 'noise' ? await core.simulateNoiseProtocolV1(request)
-      : operation === 'op-report' ? await core.operatingPointReport(request.input.source)
+      : operation === 'op-report' ? await core.operatingPointReportProtocolV1(request)
       : await core.simulateProtocolV1(request);
     parentPort.postMessage({ type: 'result', result });
   } catch (error) {
