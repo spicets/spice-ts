@@ -94,6 +94,19 @@ const COMPONENT_MAPPING: Record<string, {
           frequency: element.frequency as number, phase: (element.phase as number | undefined) ?? 0,
         };
       }
+      if (element.wave_shape === 'square') {
+        const period = 1 / (element.frequency as number);
+        const amplitude = (element.peak_to_peak_voltage as number) / 2;
+        return {
+          waveform: 'pulse',
+          v1: (element.voltage as number) - amplitude,
+          v2: (element.voltage as number) + amplitude,
+          delay: ((element.phase as number | undefined) ?? 0) / 360 * period,
+          rise: period * 1e-6, fall: period * 1e-6,
+          width: ((element.duty_cycle as number | undefined) ?? 0.5) * period,
+          period,
+        };
+      }
       return { waveform: 'dc', dc: element.voltage as number };
     },
   },
@@ -218,9 +231,43 @@ function validateComponentFields(
           `/${index}/${key}`, element,
         ));
       }
+    } else if (element.wave_shape === 'square') {
+      const diagnosticCount = diagnostics.length;
+      for (const key of ['frequency', 'peak_to_peak_voltage', 'phase', 'duty_cycle']) {
+        allowed.add(key);
+        const value = element[key];
+        if ((key === 'phase' || key === 'duty_cycle') && value === undefined) continue;
+        const valid = isFiniteNumber(value)
+          && (key !== 'frequency' || value > 0)
+          && (key !== 'phase' || value >= 0)
+          && (key !== 'duty_cycle' || (value > 0 && value < 1));
+        if (!valid) diagnostics.push(importDiagnostic(
+          'UNSUPPORTED_PARAMETER', `Square parameter ${key} is outside its supported numeric range`,
+          `/${index}/${key}`, element,
+        ));
+      }
+      if (diagnostics.length === diagnosticCount && isFiniteNumber(element.voltage)) {
+        const params = COMPONENT_MAPPING.simple_voltage_source.params(element);
+        const positiveFinite = (value: unknown): boolean => isFiniteNumber(value) && value > 0;
+        const amplitude = (element.peak_to_peak_voltage as number) / 2;
+        const checks: Array<[string, boolean]> = [
+          ['frequency', positiveFinite(params.period) && positiveFinite(params.rise) && positiveFinite(params.fall)],
+          ['peak_to_peak_voltage', isFiniteNumber(params.v1) && isFiniteNumber(params.v2)
+            && (element.peak_to_peak_voltage === 0 || amplitude !== 0)],
+          ['duty_cycle', positiveFinite(params.width)],
+          ['phase', isFiniteNumber(params.delay)
+            && (((element.phase as number | undefined) ?? 0) === 0 || positiveFinite(params.delay))],
+        ];
+        for (const [key, valid] of checks) {
+          if (!valid) diagnostics.push(importDiagnostic(
+            'UNSUPPORTED_PARAMETER', `Square parameter ${key} produces unrepresentable PULSE parameters`,
+            `/${index}/${key}`, element,
+          ));
+        }
+      }
     } else if (element.wave_shape !== undefined && element.wave_shape !== 'dc') {
       diagnostics.push(importDiagnostic(
-        'UNSUPPORTED_PARAMETER', 'Only DC and sinewave voltage sources are supported',
+        'UNSUPPORTED_PARAMETER', 'Only DC, sinewave and square voltage sources are supported',
         `/${index}/wave_shape`, element,
       ));
     }
@@ -610,6 +657,37 @@ function mapExportComponent(
     case 'V':
     case 'I':
       ftype = component.type === 'V' ? 'simple_voltage_source' : 'simple_current_source';
+      if (component.type === 'V' && component.params.waveform === 'pulse') {
+        allowedParams = ['waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period'];
+        const params = component.params;
+        const period = params.period as number;
+        const voltage = (params.v1 as number) / 2 + (params.v2 as number) / 2;
+        const peakToPeak = (params.v2 as number) - (params.v1 as number);
+        fields = {
+          voltage, wave_shape: 'square', peak_to_peak_voltage: peakToPeak,
+          frequency: 1 / period, phase: (params.delay as number) / period * 360,
+          duty_cycle: (params.width as number) / period,
+        };
+        // Re-import must reproduce every timing/level exactly. In particular,
+        // equal but noncanonical edges cannot be represented by this schema.
+        const reconstructed = COMPONENT_MAPPING.simple_voltage_source.params(fields);
+        const diagnosticCount = diagnostics.length;
+        for (const key of allowedParams.slice(1)) {
+          if (isFiniteNumber(params[key]) && params[key] === reconstructed[key]
+            && (key !== 'period' || period > 0)
+            && (key !== 'delay' || (params.delay as number) >= 0)
+            && (key !== 'width' || ((params.width as number) > 0 && (params.width as number) < period))
+            && (!['rise', 'fall'].includes(key) || (params[key] as number) > 0)) continue;
+          diagnostics.push(exportDiagnostic(
+            `PULSE parameter ${key} on ${component.id} cannot be represented exactly as a square wave`,
+            `/components/${index}/params/${key}`, component,
+          ));
+        }
+        // Even allowLossy must not emit invalid square fields (e.g. Infinity
+        // serializes to null). Keep only the independently representable subset.
+        if (diagnostics.length !== diagnosticCount) return undefined;
+        break;
+      }
       if (component.type === 'V' && component.params.waveform === 'sin') {
         allowedParams = ['waveform', 'offset', 'amplitude', 'frequency', 'phase', 'delay', 'damping'];
         const params = component.params;

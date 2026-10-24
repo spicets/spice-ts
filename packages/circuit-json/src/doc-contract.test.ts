@@ -45,6 +45,7 @@ describe('ai-native-api doc matches the circuit-json adapter contract (#514)', (
       ['simple_diode', {}],
       ['simple_led', {}],
       ['simple_voltage_source', { voltage: 5 }],
+      ['simple_voltage_source', { voltage: 1, wave_shape: 'square', peak_to_peak_voltage: 4, frequency: 1000 }],
       ['simple_current_source', { current: 0.001, wave_shape: 'dc' }],
     ] as const) {
       expect(readme).toContain(ftype);
@@ -52,6 +53,9 @@ describe('ai-native-api doc matches the circuit-json adapter contract (#514)', (
     }
     expect(readme).toContain('IS=1e-14 A, N=1');
     expect(readme).toContain('no voltage');
+    expect(readme).toContain('## Square voltage sources');
+    expect(readme).toContain('PER * 1e-6');
+    expect(readme).toContain('phase / 360 * PER');
     expect(readme).toContain('LED color/wavelength');
   });
 
