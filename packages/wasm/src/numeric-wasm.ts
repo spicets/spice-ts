@@ -108,7 +108,7 @@ function simulateDc(
   const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
   const originalWaveform = source.waveform;
-  const nonlinear = compiled.devices.some(device => ['D', 'Q', 'M'].includes(deviceType(device.name) ?? ''));
+  const nonlinear = compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''));
   let previous: Float64Array | undefined;
   try {
     for (let point = 0; point < pointCount; point++) {
@@ -164,7 +164,7 @@ function simulateOp(
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
-  if (compiled.devices.some(device => ['D', 'Q', 'M'].includes(deviceType(device.name) ?? ''))) {
+  if (compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''))) {
     return opResult(compiled, solveNonlinearOp(compiled, order, request, exports), request);
   }
   const matrix = new Float64Array(order * order);
@@ -693,7 +693,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
   const devices = analysis === 'op' || analysis === 'dc'
-    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
   if (compiled.devices.some(device => !devices.includes(deviceType(device.name) ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
@@ -793,15 +793,19 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
   const allowedDevices = analysis === 'op' || analysis === 'dc'
-    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
-      const model = /^\.model\s+\S+\s+(D|NPN|PNP|NMOS|PMOS)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
-      if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT and MOS1 models are supported in nonlinear operating points');
+      const model = /^\.model\s+\S+\s+(D|NPN|PNP|NMOS|PMOS|NJF|PJF)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
+      if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT, MOS1 and OP/DC JFET models are supported');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
+      const jfet = /^(NJF|PJF)$/i.test(model[1]!);
+      if (jfet && (analysis === 'tran' || analysis === 'ac')) {
+        unsupported('jfet-analysis', 'JFET models are supported only in OP and DC');
+      }
       const parameters = (model[2] ?? model[3] ?? '').trim();
       const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS|RSH'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
@@ -809,15 +813,20 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       // The core device supplies the charge Jacobian and accepted/rejected-step
       // history; the nonlinear transient and AC paths solve it through WASM.
       const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR';
-      const names = mos ? mosNames : bjt ? bjtNames : diodeNames;
+      const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS';
+      const names = jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
       if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
         unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
+      }
+      if (jfet && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
+        unsupported('jfet-model-parameter', 'Only JFET LEVEL=1 is supported');
       }
       const parameter = new RegExp(`\\b(?:${names})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|,\\s*|$)`, 'gi');
 
       const remaining = parameters.replace(parameter, '').trim();
       if (remaining) {
+        if (jfet) unsupported('jfet-model-parameter', `Only JFET model parameters ${jfetNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
         if (mos) unsupported('mosfet-model-parameter', `Only MOS1 model parameters ${mosNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
         if (bjt) unsupported('bjt-model-parameter', `Only BJT model parameters ${bjtNames.replaceAll('|', ', ')} are supported`);
         const name = /^[a-z][a-z0-9_]*/i.exec(remaining)?.[0]?.toUpperCase();
@@ -837,7 +846,13 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
     if (!allowedDevices.includes(type)) {
       unsupported('device-or-directive', `Unsupported linear .${analysis} card '${tokens[0] ?? ''}'`);
     }
-    if (type === 'D') {
+    if (type === 'J') {
+      const area = tokens[5];
+      if ((tokens.length !== 5 && tokens.length !== 6)
+        || (area !== undefined && (!SPICE_NUMBER.test(area) || !Number.isFinite(parseFloat(area)) || parseFloat(area) <= 0))) {
+        unsupported('jfet-form', 'JFETs must use name drain gate source model with optional positive numeric positional area');
+      }
+    } else if (type === 'D') {
       if (tokens.length !== 4) unsupported('diode-form', 'Diodes must use name anode cathode model');
     } else if (type === 'Q') {
       if (tokens.length !== 5) unsupported('bjt-form', 'BJTs must use name collector base emitter model');
