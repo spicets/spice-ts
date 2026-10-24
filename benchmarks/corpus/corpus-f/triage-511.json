@@ -16,6 +16,12 @@
   },
   "rootCauses": [
     {
+      "id": "pwm-modulated-control-parity",
+      "kind": "simulator",
+      "issue": "https://github.com/mfiumara/spice-ts/issues/1221",
+      "summary": "Control-plot export exposes a pwm-sin transient mismatch. Both engines execute; numerical parity is not established. Root cause of the measured error remains unclassified, not attributed to the harness fix."
+    },
+    {
       "id": "bjt-dc-sensitivity-parity",
       "kind": "simulator",
       "issue": "https://github.com/mfiumara/spice-ts/issues/1689",
@@ -83,6 +89,13 @@
     }
   ],
   "fixtures": [
+    {
+      "id": "examples-xspice-pwm-osc-pwm-sin-cir",
+      "issueTable": null,
+      "current": { "outcome": "mismatch", "worst": 1, "signal": "tran v(outn)" },
+      "rootCauses": ["pwm-modulated-control-parity"],
+      "evidence": "#1221 control-only plot capture: unchanged SHA256 337645cecf1f123e1437ec759db59ab5724cc061bcd955f94abf11a7407e9db8; ngspice-47 success with 270503 transient points, spice-ts success with 271151. Previously not-compared (0 common signals, no error available), now 10 common signals with max normalized error 1 on tran v(outn), using the unchanged standard metric. Published loss; no fine-TMAX or root-cause claim. Only pwm-sin is rescored."
+    },
     {
       "id": "examples-tclspice-tcl-diffpair-cir",
       "issueTable": null,
