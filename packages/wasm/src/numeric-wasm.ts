@@ -744,7 +744,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
       const parameters = (model[2] ?? model[3] ?? '').trim();
-      const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI'
+      const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
       const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV';
       // The core device supplies the charge Jacobian and accepted/rejected-step

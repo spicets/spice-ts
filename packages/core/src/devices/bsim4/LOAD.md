@@ -76,8 +76,8 @@ poly depletion and nonnominal temperature. Run:
 
 The parity tests read the native oracle and print maximum normalized gate and
 drain branch-current errors. Before this extension the same IGCMOD=1 cards
-throw UnsupportedModelParameterError. IGCMOD=2, nonbaseline RBODYMOD
-and RGATEMOD=3 transient remain unsupported; see below for the gate extensions.
+throw UnsupportedModelParameterError. IGCMOD=2 and RBODYMOD=2 remain
+unsupported; see below for the gate extensions.
 
 ### RGATEMOD=2 extension (#1427)
 
@@ -97,7 +97,7 @@ static Newton stamp; charge companions, accepted currents and LTE use GP.
 timepoints with the standard 1%-of-peak bound and no solver/tolerance overrides.
 It also checks GP Jacobians and accepted currents for both polarities and channel
 orientations. RGATEMOD=0/1 retain their existing transient preprocessing and
-known residuals. RGATEMOD=3 transient and RBODYMOD=2 remain structured unsupported errors.
+known residuals. RBODYMOD=2 remains a structured unsupported error.
 
 ### RGATEMOD=3 static and AC extensions (#1598, #1636)
 
@@ -116,8 +116,34 @@ AC follows the `b4acld.c` mode-3 topology: intrinsic capacitances and tunneling
 remain on GP; overlap capacitances use GM bias and connect GM to physical D/S/BP.
 Junction capacitances retain their physical bulk or DB/SB endpoints. The same
 OP/AC component bound applies (relative 1e-6 or absolute 1e-12), with no solver
-or tolerance tuning. Transient still rejects with `UNSUPPORTED_MODEL_PARAMETER`;
-GM charge integration is outside this slice.
+or tolerance tuning.
+
+RGATEMOD=3 transient (#1707) retains intrinsic GP charges and integrates three
+physical GM-D, GM-S and GM-BP overlap pairs, including CGBO. Both polarities
+use M*MULT_Q scaling, accepted-current replay and LTE; junction state indices
+3..4 remain separate from overlap indices 5..7. Native AC fringe preprocessing
+applies to modes 2/3, leaving modes 0/1 unchanged. The new transient tests check
+AC versus BE/trapezoidal/Gear-2 Jacobians, physical endpoints in both channel
+orientations, accepted KCL and multiplicity. Four new authored MIT decks cover
+NMOS/PMOS forward/reverse channels with nonlinear CGSL/CGDL and nonzero CGBO.
+Regenerate with `spice-heavy python3
+packages/core/src/devices/bsim4/__fixtures__/rgatemod3/generate-transient.py`.
+Identical bytes and default solvers are used for the 201-point, 1%-of-peak
+v(out)/i(vdd) waveform checks. Peak-normalized errors (max/RMS) are:
+
+| Deck | v(out) | i(vdd) |
+| --- | --- | --- |
+| NMOS forward | 4.78336e-5 / 5.52866e-6 | 4.90810e-5 / 5.67283e-6 |
+| NMOS reverse | 1.74559e-4 / 2.24320e-5 | 1.79078e-4 / 2.30128e-5 |
+| PMOS forward | 1.91483e-4 / 2.15066e-5 | 2.03980e-4 / 2.29102e-5 |
+| PMOS reverse | 4.22042e-4 / 3.96603e-5 | 4.49502e-4 / 4.22408e-5 |
+
+An optional cross-method experiment (spice-ts BE/Gear-2 versus ngspice's
+default trapezoidal oracle) did not meet 1%: maximum v(out) errors ranged
+2.096%–8.053% for BE and 1.200%–6.131% for Gear-2. This is not matched-method
+waveform parity. BE/Gear-2 are covered by local charge/Jacobian/history tests;
+waveform parity here is claimed only for matched default trapezoidal methods.
+No timestep/tolerance overrides were introduced to hide this residual.
 
 ### RGATEMOD=1 extension (#1370)
 
@@ -246,7 +272,7 @@ remaining waveform/current parity work is not solved by charge integration alone
 
 Other unsupported selectors and model paths:
 
-- TRNQSMOD/ACNQSMOD != 0; RDSMOD != 0, RBODYMOD outside 0/1, RGATEMOD=3 transient,
+- TRNQSMOD/ACNQSMOD != 0; RDSMOD != 0, RBODYMOD outside 0/1,
   and positive RSH with given positive NRD/NRS.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,
   MTRLCOMPATMOD, CVCHARGEMOD, GIDLMOD, WPEMOD, FNOIMOD or TNOIMOD selectors.

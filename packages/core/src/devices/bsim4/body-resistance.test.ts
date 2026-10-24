@@ -67,7 +67,14 @@ describe('BSIM4 RBODYMOD=1', () => {
       expect(createHash('sha256').update(JSON.stringify(vectors)).digest('hex')).toBe('f82c26e941f88ce67a12a945519f1e2ecc7bf999ac1fb5d6d82225d53a1cfe32');
     }
   });
-  for (const selector of ['capmod=0', 'capmod=1', 'rbodymod=2', 'rgatemod=3', 'trnqsmod=1']) {
+  it('supports the RGATEMOD=3 body transient combination', async () => {
+    const deck = readFileSync(new URL('transient.cir', base), 'utf8')
+      .replace(/RBODYMOD=1 CAPMOD=2/, 'RBODYMOD=1 CAPMOD=2 RGATEMOD=3');
+    const result = (await simulate(deck)).transient!;
+    expect(result.time.length).toBeGreaterThan(2);
+    expect(Array.from(result.voltage('M1.midgate')).every(Number.isFinite)).toBe(true);
+  });
+  for (const selector of ['capmod=0', 'capmod=1', 'rbodymod=2', 'trnqsmod=1']) {
     it(`keeps unsupported body transient combination ${selector} structured`, () => {
       const deck = readFileSync(new URL('transient.cir', base), 'utf8')
         .replace(/RBODYMOD=1 CAPMOD=2/, selector.startsWith('rbodymod') ? selector : `RBODYMOD=1 ${selector}`);
