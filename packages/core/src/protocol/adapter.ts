@@ -18,6 +18,7 @@ import type {
   TransientResultV1,
 } from './types.js';
 import { Circuit } from '../circuit.js';
+import { operatingPointReport } from '../op-report.js';
 import {
   ConvergenceError,
   CycleError,
@@ -91,6 +92,15 @@ export async function validateProtocolV1(
     analysisCount: compiled.analyses.length,
     ...(diagnostics.length ? { diagnostics } : {}),
   };
+}
+
+/** Native OP readouts using the shared JSON circuit construction path. */
+export async function operatingPointReportProtocolV1(request: SimulationRequestV1) {
+  const guard = protocolGuard(request);
+  enforceInputLimits(request, guard);
+  // Preserve OP report semantics: SPICE analysis/control commands are ignored.
+  const input = request.input.format === 'spice' ? request.input.source : await requestCircuit(request, guard);
+  return operatingPointReport(input, coreOptions(request.options));
 }
 
 /** Bounded native pole-zero result, separate from the v1 result/stream union. */

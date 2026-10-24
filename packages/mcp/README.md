@@ -85,12 +85,24 @@ Domain errors set `isError` with `UNKNOWN_SIGNAL`, `NO_TRANSIENT`, `INSUFFICIENT
 
 ### Operating-point power report
 
-Call `spice_op_report` with a titleless SPICE `netlist` and optional `topN` (integer
-0–10000; default 10). For example:
+Call `spice_op_report` with exactly one of a titleless SPICE `netlist` or a
+protocol-v1 `request`, plus optional `topN` (integer 0–10000; default 10).
+The request input accepts the same `spice`, `spice-ts` and `circuit-json` union
+as `spice_pz_metrics`. For example:
 
 ```json
 {"netlist":"V1 in 0 10\nR1 in out 1k\nR2 out 0 1k","topN":2}
 ```
+
+JSON callers use `{ "request": { "apiVersion": "1", "input": {
+"format": "spice-ts", "document": { ... } } }, "topN": 2 }`, or
+`{ "request": { "apiVersion": "1", "input": { "format": "circuit-json",
+"circuit": [ ... ], "analyses": [] } } }`. These are JSON objects, not
+JSON-encoded strings. Native documents retain their models and subcircuits;
+circuit-json uses the shared converter without a SPICE serialization round-trip.
+Malformed documents return `INVALID_REQUEST` validation errors; unsupported
+circuit-json elements return conversion diagnostics in the structured error.
+Supplying both `netlist` and `request`, or neither, is invalid.
 
 This returns `nodeVoltages` (`out: 5` V), `devices` with `terminalCurrents`
 (amps entering each node terminal) and `powerW` (watts absorbed),
