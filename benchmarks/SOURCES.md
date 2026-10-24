@@ -2765,6 +2765,13 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Reproduce after `pnpm build`: `pnpm -C packages/wasm exec vitest run src/numeric-wasm-mos1-series.test.ts`.
 - Identical netlist bytes and default options compare WASM against core TypeScript for NMOS/PMOS, RD-only, RS-only and RD+RS across OP/DC/tran/AC (24 fixtures). Every node and source current is checked at `max(1e-12, 1e-9 * abs(reference))`; AC magnitude and phase use `1e-9` relative only. Accepted transient time grids must be identical. The test prints maximum absolute differences and point counts. Before this slice all 24 fixtures returned structured `UNSUPPORTED_FEATURE`; this is bounded backend parity evidence, not an ngspice accuracy or speed claim.
 
+## WASM parameter-free hierarchy parity (#1726)
+
+- Source: original project-authored fixtures in `packages/wasm/src/numeric-wasm-subckt.test.ts`, MIT under repository `LICENSE`. No external decks or model cards are redistributed.
+- Nine circuits cover two-instance resistor/RC networks, global and nested two-level definitions, case-insensitive lookup, diode clamps, twice-instanced BJT and CMOS inverters, local F/H sensing branches and sibling-local model shadowing. They produce 34 OP/DC/TRAN/AC parity cases (RC uses the existing TRAN/AC-only passive-device surface).
+- Reproduce with `pnpm -C packages/wasm exec vitest run src/numeric-wasm-subckt.test.ts`. Both backends receive identical source bytes and default options. Every node, branch and AC component uses `max(1e-12, 1e-9 * abs(reference))`; accepted transient grids are exactly equal. Seven structured rejection cases and the flattened 64/65-unknown boundary bring the total to 43 tests.
+- Before: all 43 tests fail, including all 34 valid hierarchy cases rejected as unsupported. After: all 43 pass. This is bounded WASM/core agreement, not an ngspice accuracy or speed claim. Numeric kernel and artifact are unchanged; parameterized hierarchy remains unsupported.
+
 ## WASM constant BJT base resistance (#1720)
 
 - Source: original project-authored NPN/PNP decks in `packages/wasm/src/numeric-wasm-bjt-rb.test.ts`, MIT under repository `LICENSE`. Public source: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/numeric-wasm-bjt-rb.test.ts. No third-party netlists or model cards.
@@ -2778,6 +2785,7 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Check: `pnpm -C packages/core exec vitest run src/devices/bsim4/grounded-channel-transient.test.ts`. Gate/sense voltages and drive current use the existing corpus 1% peak-normalized criterion and voltage/current floors; no circuit-specific tolerance. Gate-current error falls from `0.0488944993069725` to `1.2928237646189238e-13`.
 - Equation source: ngspice-47 `a80f6e3e95d51534905b1f23410a951802666656`, [BSIM4](https://github.com/ngspice/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/bsim4), ECL-2.0 (existing BSIM4 notices). `b4temp.c:173-175,1301-1304` supplies omitted CF to overlap capacitances; `b4ld.c:4149-4177,4422-4424,4629-4635` forms/integrates charge; `b4acld.c:248-250` is the AC counterpart.
 - Unchanged corpus-g fixture `sens-bsim4-issue694-fd-cir`: all six signals pass, worst normalized error `0.0558` -> `1.41e-12`; spice-ts versus fine reference `0.0584` -> `0.00314`, equal to ngspice default-versus-fine self-consistency. Only this outcome row and derived summaries are refreshed. No full-device parity or speed claim.
+
 
 
 ## BSIM4 DIOMOD=0/2 junction laws (#1703)
