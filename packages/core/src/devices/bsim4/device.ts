@@ -88,7 +88,8 @@ export class BSIM4 implements DeviceModel {
       throw new InvalidCircuitError('BSIM4 requires internal nodes for enabled RGATEMOD/RBODYMOD');
     }
     this.bodyNodes = body ? nodes.slice(4 + gateNodes) : [];
-    this.chargeState = new TransientChargeState(body ? 5 : 3);
+    // 0..2 intrinsic, 3..4 junctions, 5..7 physical GM overlap pairs.
+    this.chargeState = new TransientChargeState(this.instance.values.rgatemod === 3 ? 8 : body ? 5 : 3);
     this.intrinsicNodes = [nodes[0], gate ? nodes[4] : nodes[1], nodes[2], this.bodyNodes[1] ?? nodes[3]];
     this.processed = preprocessBsim4(this.model, this.instance);
     this.von = this.evaluate(this.previous).von; // enforce all DC guards at construction
@@ -98,9 +99,6 @@ export class BSIM4 implements DeviceModel {
   }
   assertAnalyses(analyses: readonly string[]): void {
     for (const analysis of analyses) {
-      if (this.instance.values.rgatemod === 3 && analysis === 'tran') {
-        this.unsupported(`RGATEMOD=3 ${analysis} split overlap charge`);
-      }
       if (analysis === 'tran') this.terminalCharges(() => 0);
       else if (analysis !== 'op' && analysis !== 'dc' && analysis !== 'ac') this.unsupported(analysis);
     }
@@ -146,7 +144,6 @@ export class BSIM4 implements DeviceModel {
   }
   resetTransient(): void { this.chargeState.reset(); }
   private terminalCharges(read: (node: number) => number) {
-    if (this.instance.values.rgatemod === 3) this.unsupported('RGATEMOD=3 transient split overlap charge');
     const p = this.model.values.type;
     // RGATEMOD=1/2 store intrinsic and overlap charge at GP (b4ld.c),
     // behind the static/nonlinear gate resistor. Only RGATEMOD=3 splits
@@ -154,7 +151,7 @@ export class BSIM4 implements DeviceModel {
     const v = this.intrinsicNodes.map(node => node < 0 ? 0 : read(node));
     // Newly enabled gate/body modes use native default fringe capacitance,
     // as AC does. Preserve legacy RBODYMOD=0, RGATEMOD=0/1 preprocessing.
-    const nativeCharge = this.instance.values.rgatemod === 2 || this.bodyNodes.length > 0;
+    const nativeCharge = this.instance.values.rgatemod >= 2 || this.bodyNodes.length > 0;
     if (nativeCharge) {
       this.acProcessed ??= preprocessBsim4(this.model, this.instance, this.processed.temperatureK, 'ac');
     }
@@ -164,6 +161,7 @@ export class BSIM4 implements DeviceModel {
       { body: this.bodyNodes[0], terminal: this.intrinsicNodes[0], charge: 0, capacitance: 0 },
       { body: this.bodyNodes[2], terminal: this.intrinsicNodes[2], charge: 0, capacitance: 0 },
     ] : [];
+    const overlaps: { gate: number; terminal: number; charge: number; capacitance: number }[] = [];
     const voltage = (node: number) => node < 0 ? 0 : read(node);
     const tc = evaluateBsim4Charges(nativeCharge ? this.acProcessed! : this.processed, this.model.given,
       { vgs: p * (v[1] - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) },
@@ -175,8 +173,13 @@ export class BSIM4 implements DeviceModel {
           junction.charge += charge;
           junction.capacitance += capacitance;
         },
+      } : undefined, this.instance.values.rgatemod === 3 ? {
+        bias: { vgs: p * (voltage(this.nodes[5]) - v[2]), vds: p * (v[0] - v[2]), vbs: p * (v[3] - v[2]) },
+        stamp: (other, charge, capacitance) => {
+          overlaps.push({ gate: this.nodes[5], terminal: this.intrinsicNodes[other], charge, capacitance });
+        },
       } : undefined);
-    return { ...tc, junctions };
+    return { ...tc, junctions, overlaps };
   }
   stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {
     const tc = this.terminalCharges(node => ctx.getVoltage(node));
@@ -207,6 +210,15 @@ export class BSIM4 implements DeviceModel {
       this.stampConductance(ctx, body, terminal, g);
       stampChargeCurrent(ctx, body, terminal, equivalent);
     }
+    for (const [index, overlap] of tc.overlaps.entries()) {
+      const { gate, terminal, charge, capacitance } = overlap;
+      const g = state.factor * mult * capacitance;
+      const voltage = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);
+      const equivalent = state.current(5 + index, mult * this.model.values.type * charge)
+        - g * (voltage(gate) - voltage(terminal));
+      this.stampConductance(ctx, gate, terminal, g);
+      stampChargeCurrent(ctx, gate, terminal, equivalent);
+    }
   }
   stampAcceptedChargeCurrent(ctx: StampContext): void {
     for (let index = 0; index < 3; index++) {
@@ -215,12 +227,16 @@ export class BSIM4 implements DeviceModel {
     if (this.bodyNodes.length) for (const [index, body, terminal] of [
       [3, this.bodyNodes[0], this.intrinsicNodes[0]], [4, this.bodyNodes[2], this.intrinsicNodes[2]],
     ]) stampChargeCurrent(ctx, body, terminal, this.chargeState.acceptedChargeCurrent(index));
+    if (this.instance.values.rgatemod === 3) for (const [index, terminal] of [0, 2, 3].entries()) {
+      stampChargeCurrent(ctx, this.nodes[5], this.intrinsicNodes[terminal], this.chargeState.acceptedChargeCurrent(5 + index));
+    }
   }
   acceptTransientStep(ctx: StampContext): void {
     const tc = this.terminalCharges(node => ctx.getVoltage(node));
     const scale = this.instance.values.m * this.instance.values.mult_q * this.model.values.type;
     for (let index = 0; index < 3; index++) this.chargeState.accept(index, scale * tc.q[[1, 0, 3][index]]);
     for (const [index, junction] of tc.junctions.entries()) this.chargeState.accept(3 + index, scale * junction.charge);
+    for (const [index, overlap] of tc.overlaps.entries()) this.chargeState.accept(5 + index, scale * overlap.charge);
     this.chargeState.commit();
   }
   truncateTransientStep(ctx: StampContext, truncation: ChargeTruncation): number {

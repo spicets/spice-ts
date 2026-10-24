@@ -996,6 +996,16 @@ The RGATEMOD=3 OP/DC/AC common-source decks in
 project-authored MIT probes, not copied third-party circuits. The committed
 `generate.py` runs identical decks with ngspice-47, adding output controls only,
 and records netlist SHA-256 hashes plus OP/DC/complex AC samples in `ngspice-47.json`.
+
+The four `rgatemod3/transient-{nmos,pmos}-{forward,reverse}.cir` decks (#1707)
+are likewise original project-authored MIT probes. `generate-transient.py`, run
+through `spice-heavy`, executes identical committed deck bytes with ngspice-47
+and records SHA-256 hashes, native point counts and 201 interpolated samples of
+v(out)/i(vdd) per deck. Hashes are additionally frozen in
+`gate-resistance3-transient.test.ts`. There are no solver/tolerance overrides.
+The test's 1%-of-peak bounds compare matched default trapezoidal waveforms;
+LOAD.md reports max/RMS errors and the unsuccessful optional cross-method
+BE/Gear-2 comparison rather than claiming parity for that experiment.
 Model equations/topology follow ngspice BSIM4 `b4ld.c`, `b4acld.c`, `b4set.c`, `b4temp.c`
 (https://github.com/ngspice/ngspice/tree/master/src/spicelib/devices/bsim4),
 with the existing ECL-2.0 port notices retained. No per-circuit tolerance tuning.

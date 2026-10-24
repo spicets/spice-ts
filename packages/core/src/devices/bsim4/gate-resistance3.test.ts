@@ -72,11 +72,10 @@ describe('BSIM4 RGATEMOD=3 static and AC gate network', () => {
     expect(Math.abs(result.dc!.voltage('g') - result.dc!.voltage('M1.gate'))).toBeGreaterThan(1e-6);
     console.info(`${item.deck}: max relative ${JSON.stringify(errors)}, max absolute ${JSON.stringify(absolute)}`);
   });
-  for (const item of reference.cases) it(`${item.deck}: rejects transient structurally`, async () => {
+  for (const item of reference.cases) it(`${item.deck}: supports transient with split overlap charge`, async () => {
     const deck = readFileSync(new URL(item.deck, base), 'utf8').replace('.ac dec 3 1k 1g', '.tran 1n 10n');
-    await expect(simulate(deck)).rejects.toMatchObject({
-      code: 'UNSUPPORTED_MODEL_PARAMETER',
-      message: expect.stringContaining('RGATEMOD=3 tran split overlap charge'),
-    });
+    const result = (await simulate(deck)).transient!;
+    expect(result.time.at(-1)).toBeCloseTo(10e-9, 18);
+    expect(Array.from(result.voltage('M1.midgate')).every(Number.isFinite)).toBe(true);
   });
 });
