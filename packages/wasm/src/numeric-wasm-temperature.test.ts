@@ -6,15 +6,17 @@ import { createSpiceEngine } from './index.js';
 const request = (source: string) => ({ apiVersion: '1' as const, input: { format: 'spice' as const, source }, options: { reltol: 1e-10, abstol: 1e-18, vntol: 1e-12 } });
 const diode = 'V1 in 0 2\nR1 in out 1k\nD1 out 0 junction\n.model junction D(IS=1e-14 N=1.2 RS=10)';
 
-async function parity(source: string): Promise<void> {
+async function parity(source: string, defaults = false): Promise<void> {
+  const input = request(source);
+  const simulationRequest = defaults ? { apiVersion: input.apiVersion, input: input.input } : input;
   const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
   try {
-    const response = await engine.simulate(request(source), { requestId: 'temperature' });
+    const response = await engine.simulate(simulationRequest, { requestId: 'temperature' });
     expect(response.ok, JSON.stringify(response)).toBe(true);
     if (!response.ok) throw new Error(response.error.message);
     expect(response.metadata.backend).toBe('spice-ts-wasm');
     const actual = response.data.analyses[0];
-    const reference = (await simulateProtocolV1(request(source))).analyses[0];
+    const reference = (await simulateProtocolV1(simulationRequest)).analyses[0];
     let maximum = 0;
     for (const field of ['voltagesV', 'currentsA'] as const) {
       if ((actual?.type !== 'op' && actual?.type !== 'dc') || (reference?.type !== 'op' && reference?.type !== 'dc')) throw new Error('Expected OP/DC');
@@ -39,8 +41,8 @@ async function parity(source: string): Promise<void> {
 }
 
 describe('WASM circuit temperature OP/DC', () => {
-  it('matches reverse-leakage DC samples at TEMP127/TNOM27', async () => {
-    await parity(`${diode}\n.options TEMP=127 TNOM=27\n.dc V1 -2 2 0.5`);
+  it.each([false, true])('matches reverse-leakage DC samples at TEMP127/TNOM27 (default options=%s)', async defaults => {
+    await parity(`${diode}\n.options TEMP=127 TNOM=27\n.dc V1 -2 2 0.5`, defaults);
   });
 
   it('matches core diode OP at 127 C', async () => {

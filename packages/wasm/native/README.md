@@ -28,15 +28,15 @@ checked artifact bytes:
       native/dense-solver.unstripped.wasm native/dense-solver.wasm
     rm native/dense-solver.unstripped.wasm
     chmod 0644 native/dense-solver.wasm
-    test "$(wc -c < native/dense-solver.wasm | tr -d ' ')" = 4418
+    test "$(wc -c < native/dense-solver.wasm | tr -d ' ')" = 4777
     printf '%s  %s\n' \
-      1caf95e0d05779f626523363bd90287d128670fa79cc0dc9068a22c0fbc61537 \
+      469fa25a20fe953a3dd852ba0c200e26aa6ee01633491c986cde82156d637038 \
       native/dense-solver.wasm | shasum -a 256 -c -
 
 Expected artifact:
 
-- byte length: 4418
-- SHA-256: `1caf95e0d05779f626523363bd90287d128670fa79cc0dc9068a22c0fbc61537`
+- byte length: 4777
+- SHA-256: `469fa25a20fe953a3dd852ba0c200e26aa6ee01633491c986cde82156d637038`
 - imports: none
 - memory: fixed at 3 WebAssembly pages (196608 bytes)
 - ABI version: 2
