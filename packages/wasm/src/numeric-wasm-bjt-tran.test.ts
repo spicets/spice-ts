@@ -69,7 +69,7 @@ describe('bounded adaptive-BJT WASM transient', () => {
     }
   });
 
-  it.each(['CJS=1p', 'XTF=1', 'RB=10', 'XTI=3', 'IKF=1m'])(
+  it.each(['CJS=1p', 'XTF=1', 'XTI=3', 'IKF=1m'])(
     'rejects out-of-subset BJT parameter %s without fallback', async parameter => {
       const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {

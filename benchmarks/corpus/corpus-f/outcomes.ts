@@ -287,12 +287,12 @@ export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, s
     });
     // -r does not export analyses run inside .control. Reuse the control-vector wrapper
     // on identical bytes, not wrdata expressions (which may square-root the spectra).
-    // Retain noise, S-parameter and sensitivity control plots, with packed, selected columns.
+    // Retain every declared control analysis, with packed, selected columns. In
+    // particular, control-only transient decks otherwise silently score zero vectors.
     let exportNote: string | undefined;
     const exportTypes = [
       ...(/^\s*noise\s+/im.test(input.toString('utf8')) ? ['noise' as const] : []),
-      ...(circuit.analyses.includes('sp') ? ['sp' as const] : []),
-      ...(circuit.analyses.includes('sens') ? ['sens' as const] : []),
+      ...scoredPlotTypes(circuit),
     ];
     if (analyses.length === 0 && !errorLine && exportTypes.length > 0
       && /^\s*\.control\b/im.test(input.toString('utf8'))) {
@@ -312,15 +312,18 @@ export async function runNgspicePacked(input: Buffer, circuit: CorpusFCircuit, s
           scrub(exported.error?.message ?? exportError ?? `ngspice export exited ${exported.status}`, directory)),
           ...(exportNote ? { note: exportNote } : {}) };
       }
-      const files = (await readdir(directory)).filter(name => /^(?:noise|sp|sens)\d+\.raw$/.test(name))
+      const files = (await readdir(directory)).filter(name => /^(?:op|dc|ac|tran|noise|pz|disto|sp|sens)\d+\.raw$/.test(name))
         .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]));
       for (const file of files) {
         const retained = await readNgspiceRawFilePacked(resolve(directory, file), keep);
         for (const plot of retained) {
           const type = analysisType(plot.plotName);
-          if (type !== 'noise' && type !== 'sp' && type !== 'sens') continue;
-          analyses.push({ type, plotName: plot.plotName, plotId: file.replace(/\.raw$/, ''),
-            grid: Float64Array.from(plot.grid), signals: plot.signals });
+          if (!type || !exportTypes.includes(type)) continue;
+          const plotId = file.replace(/\.raw$/, '');
+          const secondaryGrid = type === 'dc' ? declaredSecondaryGrid(input.toString('utf8'), plotId, plot.grid) : undefined;
+          analyses.push({ type, plotName: plot.plotName, plotId,
+            grid: Float64Array.from(plot.grid), signals: plot.signals,
+            ...(secondaryGrid ? { secondaryGrid: Float64Array.from(secondaryGrid) } : {}) });
         }
       }
     }

@@ -6,11 +6,11 @@ Every deck below is byte-identical to Xyce_Regression `7bb7e98f0ed3a81a7d1cf1d10
 
 ## Totals
 
-- Fixtures: 128. Outcome SHA-256: `20b52f0bd425f61120378bcbd703b488535c48755b29e7461359b65fd06d632f`.
+- Fixtures: 128. Outcome SHA-256: `8e5027db17915426e94e4aa545eba5d1773cf3f96a420b3aa341934dcc166d5d`.
 - ngspice (ngspice-47): 128 success, 0 failed, 0 unsupported.
 - spice-ts (0.4.0): 125 success, 1 failed, 2 unsupported.
-- Outcomes: matched 109, mismatch 14, not-compared 2, spice-ts-loss 3, ngspice-failed 0, both-failed 0.
-- Of the 128 decks ngspice runs successfully, spice-ts matches 109, mismatches 14, produces no comparable result for 2 and fails 3.
+- Outcomes: matched 110, mismatch 13, not-compared 2, spice-ts-loss 3, ngspice-failed 0, both-failed 0.
+- Of the 128 decks ngspice runs successfully, spice-ts matches 110, mismatches 13, produces no comparable result for 2 and fails 3.
 
 ## Method
 
@@ -39,7 +39,7 @@ Grouped from spice-ts's own first error line (corpus-g rules, then corpus-f rule
 | model: compact MOSFET model B3SOI (LEVEL=10) | 2 | 2 | https://github.com/mfiumara/spice-ts/issues/747 |
 | convergence | 1 | 1 | none filed |
 
-## Losses (19)
+## Losses (18)
 
 Every fixture that is not matched: spice-ts failures, mismatches above the threshold, and results that could not be compared.
 
@@ -60,12 +60,11 @@ Every fixture that is not matched: spice-ts failures, mismatches above the thres
 | [SANDLER21/sandler21.cir](fixtures/SANDLER21/sandler21.cir) | success | success | mismatch | 0.144 | tran i(v2) |  |
 | [SANDLER22/sandler22.cir](fixtures/SANDLER22/sandler22.cir) | success | success | mismatch | 0.359 | tran v(x2.29) |  |
 | [SANDLER25/sandler25.cir](fixtures/SANDLER25/sandler25.cir) | success | success | mismatch | 0.146 | tran v(x5.8) |  |
-| [SENS/bsim4_issue694_FD.cir](fixtures/SENS/bsim4_issue694_FD.cir) | success | success | mismatch | 0.0558 | tran i(vin1_w) |  |
 | [SUBCKT/subckt_a0.cir](fixtures/SUBCKT/subckt_a0.cir) | success | success | mismatch | 0.235 | tran v(out) |  |
 | [TIA/ERROROPTION/erroroption.cir](fixtures/TIA/ERROROPTION/erroroption.cir) | success | success | mismatch | 0.224 | tran i(vin1) |  |
 | [WAMPDE/BLOCKING/simple_single_channel.cir](fixtures/WAMPDE/BLOCKING/simple_single_channel.cir) | success | success | mismatch | 2.47 | tran i(l2) |  |
 
-## Wins (109)
+## Wins (110)
 
 Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every common signal.
 
@@ -164,6 +163,7 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 | [SANDLER23/sandler23.cir](fixtures/SANDLER23/sandler23.cir) | success | success | matched | 6.73e-12 | tran v(x1.12) |  |
 | [SEMIC_CAPACITOR/semicap_subc.cir](fixtures/SEMIC_CAPACITOR/semicap_subc.cir) | success | success | matched | 3.47e-12 | tran i(vmon) |  |
 | [SEMIC_RESISTOR/semic_resistor.cir](fixtures/SEMIC_RESISTOR/semic_resistor.cir) | success | success | matched | 8.67e-17 | dc i(vin) |  |
+| [SENS/bsim4_issue694_FD.cir](fixtures/SENS/bsim4_issue694_FD.cir) | success | success | matched | 1.41e-12 | tran i(vin1_w) |  |
 | [SOLN_DEP_RES/multSolDepRes.cir](fixtures/SOLN_DEP_RES/multSolDepRes.cir) | success | success | matched | 3.33e-16 | dc i(v1) |  |
 | [SUPERNODE/supernode1.cir](fixtures/SUPERNODE/supernode1.cir) | success | success | matched | 0 | dc i(v1) |  |
 | [TESTJAC/testjac_comp.cir](fixtures/TESTJAC/testjac_comp.cir) | success | success | matched | 1.39e-7 | dc v(2) |  |
@@ -185,7 +185,7 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 
 - Fine-step reference (#592): ngspice-47 runs the same deck with every active .tran card rewritten to TMAX_fine = min(TSTEP, (TSTOP - TSTART)/50, deck TMAX if given) / 10, i.e. the ngspice default step ceiling divided by 10; TSTEP, TSTOP, TSTART, UIC and every other card are unchanged. The rule is the same for every transient fixture. No reference is generated when the deck has no parsable .tran card outside .control, or when TSTOP/TMAX_fine exceeds 1000000 steps; the ngspice run is bounded at 600 s. Each default run (spice-ts, ngspice) is scored by the same procedure: at the reference's output points, with the default run linearly interpolated onto them, over the transient signals of the headline comparison, normalised by the reference peak with the same per-quantity floors. The headline's one-sided breakpoint alignment applies at every default-run time point within ngspice's breakpoint merge distance (CKTminBreak = 0.00005 x TMAX_fine) of a reference time point; the headline matches breakpoints bit for bit, which here would favour ngspice, whose default run lands on its own reference's breakpoint times exactly while spice-ts's land a few ulps away. This charges each engine for its own published waveform, so a coarse output grid counts against whichever engine produced it. Status (matched/mismatch) is defined by the headline column only. One fine reference is not a convergence proof, and neither column is an accuracy ranking of the engines.
 - One fine reference is not a convergence proof: it is one more discretisation of the same circuit by the same engine. These columns are diagnostics of grid sensitivity, not an accuracy ranking and not a claim that either engine is more accurate. Status stays defined by the headline column.
-- Transient rows: 72; fine reference compared for 62, unavailable for 10. Above 0.01 among compared rows: headline (transient signals) 14, spice-ts vs fine 39, ngspice default vs fine 38.
+- Transient rows: 72; fine reference compared for 62, unavailable for 10. Above 0.01 among compared rows: headline (transient signals) 13, spice-ts vs fine 38, ngspice default vs fine 38.
 
 | Fixture | Status (headline) | Headline tran worst (vs ngspice default) | spice-ts vs fine | ngspice default vs fine | Fine TMAX | Note |
 |---|---|---|---|---|---|---|
@@ -246,7 +246,7 @@ Fixtures where spice-ts matches ngspice-47 within the uniform threshold on every
 | [SANDLER23/sandler23.cir](fixtures/SANDLER23/sandler23.cir) | matched | 6.73e-12 (v(x1.12)) | 0.0481 (v(x1.12)) | 0.0481 (v(x1.12)) | 1e-7 |  |
 | [SANDLER25/sandler25.cir](fixtures/SANDLER25/sandler25.cir) | mismatch | 0.146 (v(x5.8)) | 1.16 (v(x5.8)) | 1.16 (v(x5.8)) | 1e-7 |  |
 | [SEMIC_CAPACITOR/semicap_subc.cir](fixtures/SEMIC_CAPACITOR/semicap_subc.cir) | matched | 3.47e-12 (i(vmon)) | 0.000596 (i(vin)) | 0.000596 (i(vin)) | 1e-10 |  |
-| [SENS/bsim4_issue694_FD.cir](fixtures/SENS/bsim4_issue694_FD.cir) | mismatch | 0.0558 (i(vin1_w)) | 0.0584 (i(vin1)) | 0.00314 (i(vin1_w)) | 2e-13 |  |
+| [SENS/bsim4_issue694_FD.cir](fixtures/SENS/bsim4_issue694_FD.cir) | matched | 1.41e-12 (i(vin1_w)) | 0.00314 (i(vin1_w)) | 0.00314 (i(vin1_w)) | 2e-13 |  |
 | [SUBCKT/subckt_a0.cir](fixtures/SUBCKT/subckt_a0.cir) | mismatch | 0.235 (v(out)) | 0.349 (i(vdddev)) | 0.241 (i(vdddev)) | 2e-9 |  |
 | [TIA/ERROROPTION/erroroption.cir](fixtures/TIA/ERROROPTION/erroroption.cir) | mismatch | 0.224 (i(vin1)) | 1.13 (i(vin1)) | 1.13 (i(vin1)) | 2e-9 |  |
 | [TL1X/TL1X_mpi.cir](fixtures/TL1X/TL1X_mpi.cir) | matched | 8e-12 (v(33)) | 0.0019 (i(vslow)) | 0.0019 (i(vslow)) | 0.00001 |  |

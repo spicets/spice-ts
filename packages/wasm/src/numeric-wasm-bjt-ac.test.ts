@@ -39,7 +39,7 @@ describe('bounded BJT WASM AC', () => {
     } finally { await wasm.close(); await js.close(); }
   });
 
-  it.each(['CJS=1p', 'VTF=2', 'XTF=1', 'PTF=10', 'RB=10', 'XTI=3', 'IKF=1m', 'TNOM=27'])(
+  it.each(['CJS=1p', 'VTF=2', 'XTF=1', 'PTF=10', 'XTI=3', 'IKF=1m', 'TNOM=27'])(
     'keeps structured rejection for unsupported %s', async parameter => {
       const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {

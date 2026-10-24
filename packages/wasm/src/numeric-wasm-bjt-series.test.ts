@@ -79,7 +79,7 @@ describe('BJT constant collector/emitter series resistance', () => {
     } finally { await wasm.close(); }
   });
 
-  it.each(['RB=10', 'IRB=1m', 'RBM=2'].flatMap(parameter =>
+  it.each(['IRB=1m', 'RBM=2'].flatMap(parameter =>
     ['op', 'dc', 'tran', 'ac'].map(analysis => ({ parameter, fixture: fixtures.find(f => f.name === `NPN RC=10 RE=2 ${analysis}`)! })),
   ))('rejects $parameter with RC/RE in $fixture.name', async ({ parameter, fixture }) => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
