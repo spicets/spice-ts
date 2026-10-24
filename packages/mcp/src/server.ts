@@ -16,6 +16,7 @@ import type {
   SuccessEnvelopeV1,
 } from '@spice-ts/core/protocol';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
 import { createRequire } from 'node:module';
 import { Worker } from 'node:worker_threads';
 import { estimatedResultPoints, requestPlan, resolvedOptions } from './request-plan.js';
@@ -411,7 +412,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_pz_metrics',
-    description: 'Run exactly one unstepped .pz (mode pol or pz) from SPICE text. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Other analyses are not executed.',
+    description: 'Run exactly one unstepped pole-zero analysis (mode pol or pz) from SPICE text, spice-ts JSON or circuit-json. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Other analyses are not executed.',
     inputSchema: requestInputSchema,
     outputSchema: {
       type: 'object', oneOf: [pzMetricsOutputSchema, toolFailureOutputSchema],
@@ -749,11 +750,11 @@ async function executeToolWithStore(
     const dcInput = name === 'spice_dc_metrics' ? dcMetricsInput(args) : undefined;
     let original = toolRequest(args);
     if (distoSelector && original.input.format !== 'spice') unsupportedDisto();
-    if (name === 'spice_pz_metrics' && original.input.format !== 'spice') {
-      throw apiError('UNSUPPORTED_FEATURE', 'Pole-zero metrics require SPICE text input', 'validation', {});
-    }
     const effective = effectiveLimits(original, limits);
     enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
+    if (name === 'spice_pz_metrics' && original.input.format !== 'spice' && !validatePoleZeroInput(original.input).valid) {
+      throw apiError('INVALID_REQUEST', 'Invalid pole-zero JSON input', 'validation', {});
+    }
     if ((name === 'spice_simulate' || name === 'spice_simulation_start') && isRecord(args) && args.params !== undefined) {
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
       original = overrideParameters(original, args.params);
@@ -1389,6 +1390,10 @@ function effectiveLimits(request: SimulationRequestV1, configured: McpLimits): M
   };
 }
 
+const validatePoleZeroInput = new AjvJsonSchemaValidator().getValidator({
+  ...commonSchemaV1.$defs.simulationInput, $defs: commonSchemaV1.$defs,
+});
+
 function toolRequest(args: unknown): SimulationRequestV1 {
   if (!isRecord(args) || !isRecord(args.request)) {
     throw apiError('INVALID_REQUEST', "Expected an object containing 'request'", 'validation', {});
@@ -1485,6 +1490,7 @@ function convertRequest(request: SimulationRequestV1): {
         document: {
           format: 'spice-ts', schemaVersion: '1.0', circuit: converted.value!,
           analyses: request.input.analyses, models: [], subcircuits: [],
+          ...(request.input.poleZeroAnalyses !== undefined ? { poleZeroAnalyses: request.input.poleZeroAnalyses } : {}),
         },
       },
     },

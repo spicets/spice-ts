@@ -67,8 +67,51 @@ describe('spice_pz_metrics', () => {
     expect(m.poles).toHaveLength(1);
     expect(m.zeros).toEqual([]);
   });
-  it('rejects JSON IR with a structured unsupported error', async () => {
-    expect(await executeTool('spice_pz_metrics', { request: { apiVersion: '1', input: { format: 'spice-ts', document: {} } } })).toMatchObject({ isError: true, structuredContent: { error: { code: 'UNSUPPORTED_FEATURE' } } });
+  const poleZeroAnalyses = [{ type: 'pz', inputPositive: 'in', inputNegative: '0', outputPositive: 'in', outputNegative: '0', inputType: 'cur', mode: 'pz' }];
+  const lowpass = rc;
+  const components = [
+    { type: 'R', id: 'R1', name: 'R1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { resistance: 1000 } },
+    { type: 'C', id: 'C1', name: 'C1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { capacitance: 1e-6 } },
+  ];
+  const document = { format: 'spice-ts', schemaVersion: '1.0', circuit: { components, nets: ['in'] }, analyses: [], models: [], subcircuits: [], poleZeroAnalyses };
+  const circuit = [
+    { type: 'source_net', source_net_id: 'in', name: 'in' },
+    { type: 'source_net', source_net_id: '0', name: '0' },
+    ...components.flatMap((component, i) => [
+      { type: 'source_component', source_component_id: component.id, name: component.name,
+        ftype: ['simple_resistor', 'simple_capacitor'][i],
+        ...[{ resistance: 1000 }, { capacitance: 1e-6 }][i] },
+      ...component.ports.flatMap((port, j) => [
+        { type: 'source_port', source_port_id: `${component.id}-${j}`, source_component_id: component.id, name: port.name, pin_number: j + 1 },
+        { type: 'source_trace', source_trace_id: `${component.id}-${j}`, connected_source_port_ids: [`${component.id}-${j}`], connected_source_net_ids: [port.net] },
+      ]),
+    ]),
+  ];
+  const jsonInputs = [
+    { format: 'spice-ts', document },
+    { format: 'circuit-json', circuit, analyses: [], poleZeroAnalyses },
+  ];
+  it.each(jsonInputs)('matches all SPICE RC lowpass metrics for $format', async input => {
+    const expected = await run(lowpass);
+    const response = await executeTool('spice_pz_metrics', { request: { apiVersion: '1', input } });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    expect(response.structuredContent).toEqual(expected);
+  });
+  it.each(jsonInputs)('accepts $format in the tool input schema', input => {
+    const schema = MCP_TOOLS.find(t => t.name === 'spice_pz_metrics')!.inputSchema;
+    expect(validator.getValidator(schema)({ request: { apiVersion: '1', input } }).valid).toBe(true);
+  });
+  it('advertises all accepted input formats', async () => {
+    expect((await executeTool('spice_capabilities', {})).structuredContent?.inputFormats).toEqual(['spice', 'spice-ts', 'circuit-json']);
+  });
+  it('returns conversion diagnostics for unsupported circuit-json', async () => {
+    const response = await executeTool('spice_pz_metrics', { request: { apiVersion: '1', input: {
+      format: 'circuit-json', circuit: [{ type: 'source_component', source_component_id: 'U1', name: 'U1', ftype: 'simple_chip' }], analyses: [], poleZeroAnalyses,
+    } } });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ELEMENT', retryable: false, details: { diagnostics: expect.any(Array) } } } });
+  });
+  it.each([{}, { ...document, poleZeroAnalyses: [{ ...poleZeroAnalyses[0], inputType: 'invalid' }] }, { ...document, poleZeroAnalyses: {} }])('rejects malformed JSON IR as INVALID_REQUEST', document => {
+    return expect(executeTool('spice_pz_metrics', { request: { apiVersion: '1', input: { format: 'spice-ts', document } } })).resolves.toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST' } } });
   });
   it('handles marginal poles, signed Q, repeated conjugate roots and zero pairs without claiming stability', () => {
     const roots = [{ real: 0, imaginary: 2 }, { real: 0, imaginary: -2 }];
