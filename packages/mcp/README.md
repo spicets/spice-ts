@@ -369,6 +369,36 @@ semantics are changed by this tool.
 ## Pole-zero metrics
 
 Call `spice_pz_metrics` with `{ request: { apiVersion: "1", input: { format: "spice", source: "R1 in 0 1k\nC1 in 0 1u\n.pz in 0 in 0 cur pz" } } }`.
+
+JSON inputs use optional `poleZeroAnalyses`, separate from the ordinary `analyses`
+and result/stream unions. The equivalent RC lowpass request is:
+
+```json
+{
+  "request": {
+    "apiVersion": "1",
+    "input": {
+      "format": "spice-ts",
+      "document": {
+        "format": "spice-ts", "schemaVersion": "1.0",
+        "circuit": {
+          "nets": ["in"],
+          "components": [
+            { "type": "R", "id": "R1", "name": "R1", "ports": [{ "name": "p", "net": "in" }, { "name": "n", "net": "0" }], "params": { "resistance": 1000 } },
+            { "type": "C", "id": "C1", "name": "C1", "ports": [{ "name": "p", "net": "in" }, { "name": "n", "net": "0" }], "params": { "capacitance": 0.000001 } }
+          ]
+        },
+        "analyses": [], "models": [], "subcircuits": [],
+        "poleZeroAnalyses": [{ "type": "pz", "inputPositive": "in", "inputNegative": "0", "outputPositive": "in", "outputNegative": "0", "inputType": "cur", "mode": "pz" }]
+      }
+    }
+  }
+}
+```
+
+For `format: "circuit-json"`, supply `circuit`, `analyses: []`, and the same
+`poleZeroAnalyses` array directly on `input`. Conversion preserves the analysis;
+unsupported simulation elements return structured conversion diagnostics.
 Use titleless SPICE text (a leading `*` comment is fine), with exactly one
 `.pz in+ in- out+ out- {cur|vol} {pol|pz}` directive. Other analyses are not
 executed. Includes, netlist options/temperature, request option overrides,
