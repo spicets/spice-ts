@@ -90,7 +90,43 @@ describe('BSIM4 default DIOMOD=1 standalone DC junction subset', () => {
   it.each(['trnqsmod', 'acnqsmod', 'sa', 'sb', 'saref', 'rgatemod', 'rbodymod', 'mtrlmod', 'jtss', 'capmod', 'vth0', 'typo'])('never silently accepts unported parameter %s', parameter => {
     expect(() => setupBsim4Junction(input({ [parameter]: 1 }))).toThrow(UnsupportedModelParameterError);
   });
-  it.each([0, 2, 3])('rejects unported/invalid DIOMOD=%s rather than resetting', diomod => {
+  it.each(['source', 'drain'] as const)('DIOMOD=0 evaluates exponential and breakdown laws for %s', terminal => {
+    const model = setupBsim4Junction({ ...input({ diomod: 0, bvs: 0.6, xjbvs: 2 }), terminal });
+    for (const voltage of [-0.8, -0.6, 0, 0.4, 1]) {
+      const ev = Math.exp(voltage / model.nvtm);
+      const breakdown = 2 * Math.exp(-(0.6 + voltage) / model.nvtm);
+      const result = evaluateBsim4Junction(model, voltage, 1e-12);
+      expect(result.current).toBeCloseTo(model.saturationCurrent * (ev + 2 * Math.exp(-0.6 / model.nvtm) - breakdown - 1) + 1e-12 * voltage, 18);
+      expect(result.conductance).toBeCloseTo(model.saturationCurrent * (ev + breakdown) / model.nvtm + 1e-12, 16);
+    }
+  });
+
+  it.each(['source', 'drain'] as const)('DIOMOD=2 evaluates all three regions and Newton slopes for %s', terminal => {
+    const model = setupBsim4Junction({ ...input({ diomod: 2, bvs: 0.6, xjbvs: 2, ijthsfwd: 1e-6, ijthsrev: 1e-6 }), terminal });
+    const is = model.saturationCurrent;
+    const nv = model.nvtm;
+    const x = 2 * Math.exp(-0.6 / nv);
+    const reverseVoltage = -0.6 - nv * Math.log((1e-6 / is - 1) / 2);
+    const reverseExp = 2 * Math.exp(-(0.6 + reverseVoltage) / nv);
+    for (const voltage of [reverseVoltage - 0.1, reverseVoltage, -0.7, -0.2, 0, 0.4, model.forwardVoltage, model.forwardVoltage + 0.1]) {
+      let expected: number;
+      if (voltage < reverseVoltage) {
+        expected = (1.713908431e-15 - 1) * (is * (1 + reverseExp) - is * reverseExp / nv * (voltage - reverseVoltage));
+      } else if (voltage <= model.forwardVoltage) {
+        expected = is * ((voltage / nv < -34 ? 1.713908431e-15 : Math.exp(voltage / nv)) + x - 1 - 2 * Math.exp(-(0.6 + voltage) / nv));
+      } else {
+        const ev = Math.exp(model.forwardVoltage / nv);
+        expected = is * (ev - x / ev + x - 1) + is * (ev + x / ev) / nv * (voltage - model.forwardVoltage);
+      }
+      const actual = evaluateBsim4Junction(model, voltage, 1e-12);
+      expect(actual.current).toBeCloseTo(expected + 1e-12 * voltage, 18);
+      const h = 1e-7;
+      const numeric = (evaluateBsim4Junction(model, voltage + h, 1e-12).current - evaluateBsim4Junction(model, voltage - h, 1e-12).current) / (2 * h);
+      expect(Math.abs(numeric - actual.conductance) / Math.max(1e-12, actual.conductance)).toBeLessThan(3e-6);
+    }
+  });
+
+  it.each([-1, 3, 1.5])('rejects invalid DIOMOD=%s rather than resetting', diomod => {
     expect(() => setupBsim4Junction(input({ diomod }))).toThrow(UnsupportedModelParameterError);
   });
   it.each(['4.3', '4.7', 'other'])('rejects VERSION=%s', version => {

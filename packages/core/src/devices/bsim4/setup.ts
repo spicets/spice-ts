@@ -69,7 +69,7 @@ function readonlySet<T>(input: Set<T>): ReadonlySet<T> {
 // static implementation contract. Reject BEFORE upstream warning/reset branches.
 // This is not a claim of channel-current support; b4temp/b4ld remain separate ports.
 const BASELINE_MODES = {
-  mobmod: 0, capmod: 2, diomod: 1, rdsmod: 0, rbodymod: 0, rgatemod: 0,
+  mobmod: 0, capmod: 2, rdsmod: 0, rbodymod: 0, rgatemod: 0,
   geomod: 0, permod: 1, tempmod: 0,
   trnqsmod: 0, acnqsmod: 0, mtrlmod: 0, mtrlcompatmod: 0, cvchargemod: 0,
   gidlmod: 0, wpemod: 0, fnoimod: 1, tnoimod: 0,
@@ -130,6 +130,7 @@ export function setupBsim4Model(
       const baseline = (BASELINE_MODES as Readonly<Record<string, number>>)[key];
       if (key === 'igcmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGCMOD=0/1 is ported');
       if (key === 'igbmod' && value !== 0 && value !== 1) unsupported(raw, 'only IGBMOD=0/1 is ported');
+      if (key === 'diomod' && ![0, 1, 2].includes(value)) unsupported(raw, 'expected DIOMOD=0, 1 or 2');
       if (baseline !== undefined && value !== baseline && !(['rgatemod', 'rbodymod'].includes(key) && value === 1) && !(key === 'rgatemod' && [2, 3].includes(value))) unsupported(raw, 'nonbaseline selector path is not ported; no silent upstream reset');
       if (['rbpb', 'rbpd', 'rbps', 'rbdb', 'rbsb'].includes(key) && value <= 0) throw new InvalidCircuitError(`BSIM4 ${raw} must be positive`);
       if (key === 'gbmin' && value < 0) throw new InvalidCircuitError('BSIM4 gbmin must be nonnegative');

@@ -23,7 +23,7 @@ standard can be found at: http://www.si2.org/cmc
 */
 
 /** Modified/ported to TypeScript by spice-ts.
- * Standalone DIOMOD=1 junction subset, NOT a registered BSIM4 transistor.
+ * Standalone DC junction laws, also used by the registered BSIM4 transistor.
  * ngspice-47 a80f6e3e95d51534905b1f23410a951802666656:
  * b4set.c:94-100,614-617,2038-2049,2074-2081;
  * b4temp.c:52-64,200-276,376-381,2107-2129;
@@ -47,6 +47,14 @@ export interface Bsim4JunctionInput {
 }
 
 export interface Bsim4Junction {
+  readonly diomod: 0 | 1 | 2;
+  readonly breakdownVoltage: number;
+  readonly breakdownFactor: number;
+  readonly breakdownExponential: number;
+  readonly forwardSlope: number;
+  readonly reverseVoltage: number;
+  readonly reverseCurrent: number;
+  readonly reverseSlope: number;
   readonly saturationCurrent: number;
   readonly nvtm: number;
   readonly forwardVoltage: number;
@@ -66,6 +74,8 @@ const EXP_THRESHOLD = 34;
 const PARAMETERS = new Set([
   'diomod', 'tnom', 'jss', 'jsd', 'jsws', 'jswd', 'jswgs', 'jswgd',
   'njs', 'njd', 'xtis', 'xtid', 'ijthsfwd', 'ijthdfwd',
+  'bvs', 'bvd', 'xjbvs', 'xjbvd',
+  'ijthsrev', 'ijthdrev',
 ]);
 
 function unsupported(parameter: string, reason: string): never {
@@ -84,7 +94,7 @@ function positive(name: string, value: number): number {
 }
 
 /** Resolve junction defaults and silicon temperature law. This is not full
- * model setup: channel/size/stress, trap-assisted leakage and DIOMOD=0/2
+ * model setup: channel/size/stress and trap-assisted leakage
  * have not been ported. Their parameters are rejected, even if zero.
  */
 export function setupBsim4Junction(input: Bsim4JunctionInput): Bsim4Junction {
@@ -106,7 +116,8 @@ export function setupBsim4Junction(input: Bsim4JunctionInput): Bsim4Junction {
     if (Object.hasOwn(p, name)) throw new InvalidCircuitError(`Duplicate BSIM4 junction parameter ${name}`);
     p[name] = finite(name, value);
   }
-  if ((p.diomod ?? 1) !== 1) unsupported('diomod', 'only the default DIOMOD=1 law is ported');
+  const diomod = p.diomod ?? 1;
+  if (diomod !== 0 && diomod !== 1 && diomod !== 2) unsupported('diomod', 'expected DIOMOD=0, 1 or 2');
   const { area, perimeter, gateEdge } = input.geometry;
   for (const [name, value] of Object.entries({ area, perimeter, gateEdge })) {
     finite(name, value);
@@ -115,6 +126,11 @@ export function setupBsim4Junction(input: Bsim4JunctionInput): Bsim4Junction {
   const tnom = positive('TNOM kelvin', (p.tnom ?? 27) + 273.15);
   const temp = positive('TEMP kelvin', (input.temperatureC ?? 27) + 273.15);
   const drain = input.terminal === 'drain';
+  // b4temp.c resets nonpositive BV and negative XJBV for mode 0.
+  const bv = drain ? (p.bvd ?? p.bvs ?? 10) : (p.bvs ?? 10);
+  const xjbv = drain ? (p.xjbvd ?? p.xjbvs ?? 1) : (p.xjbvs ?? 1);
+  const breakdownVoltage = Math.max(0, bv);
+  const breakdownFactor = Math.max(0, xjbv);
   const emission = positive('emission coefficient', drain ? (p.njd ?? p.njs ?? 1) : (p.njs ?? 1));
   // Validate both sides rather than accept an invalid unused source/drain override.
   if (p.njs !== undefined) positive('NJS', p.njs);
@@ -135,17 +151,34 @@ export function setupBsim4Junction(input: Bsim4JunctionInput): Bsim4Junction {
   const density = (value: number) => Math.max(0, finite('temperature-adjusted density', value * scale));
   const saturationCurrent = (area <= 0 && perimeter <= 0) ? 0
     : finite('saturation current', area * density(bottom) + perimeter * density(sidewall) + gateEdge * density(gateSidewall));
+  const breakdownExponential = breakdownFactor * (breakdownVoltage / nvtm > EXP_THRESHOLD ? MIN_EXP : Math.exp(-breakdownVoltage / nvtm));
+  const common = { diomod, breakdownVoltage, breakdownFactor, breakdownExponential,
+    forwardSlope: 0, reverseVoltage: 0, reverseCurrent: 0, reverseSlope: 0 } as const;
   if (saturationCurrent <= 0) {
-    return Object.freeze({ saturationCurrent: 0, nvtm, forwardVoltage: 0, forwardExponentialCurrent: 0 });
+    return Object.freeze({ ...common, saturationCurrent: 0, nvtm, forwardVoltage: 0, forwardExponentialCurrent: 0 });
+  }
+  if (diomod === 2) {
+    // b4temp.c:2131-2161, BSIM4DioIjthVjmEval and both continuations.
+    const tb = 1 + forwardLimit / saturationCurrent - breakdownExponential;
+    const forwardVoltage = nvtm * Math.log(0.5 * (tb + Math.sqrt(tb * tb + 4 * breakdownExponential)));
+    const ev = Math.exp(forwardVoltage / nvtm);
+    const forwardExponentialCurrent = saturationCurrent * (ev - breakdownExponential / ev + breakdownExponential - 1);
+    const forwardSlope = saturationCurrent * (ev + breakdownExponential / ev) / nvtm;
+    const reverseLimit = Math.max(0, drain ? (p.ijthdrev ?? p.ijthsrev ?? 0.1) : (p.ijthsrev ?? 0.1));
+    const ratio = reverseLimit / saturationCurrent;
+    const reverseVoltage = -breakdownVoltage - nvtm * Math.log(((ratio < 1 ? 10 : ratio) - 1) / breakdownFactor);
+    const reverseExp = breakdownFactor * Math.exp(-(breakdownVoltage + reverseVoltage) / nvtm);
+    return Object.freeze({ ...common, saturationCurrent, nvtm, forwardVoltage, forwardExponentialCurrent,
+      forwardSlope, reverseVoltage, reverseCurrent: saturationCurrent * (1 + reverseExp), reverseSlope: -saturationCurrent * reverseExp / nvtm });
   }
   // b4temp.c BSIM4DioIjthVjmEval with XExpBV=0, followed by IVjsmFwd.
   const tb = 1 + forwardLimit / saturationCurrent;
   const forwardVoltage = finite('forward voltage', nvtm * Math.log(0.5 * (tb + Math.sqrt(tb * tb))));
   const forwardExponentialCurrent = finite('forward exponential current', saturationCurrent * Math.exp(forwardVoltage / nvtm));
-  return Object.freeze({ saturationCurrent, nvtm, forwardVoltage, forwardExponentialCurrent });
+  return Object.freeze({ ...common, saturationCurrent, nvtm, forwardVoltage, forwardExponentialCurrent });
 }
 
-/** b4ld.c DIOMOD=1 current and analytic derivative. No charge/capacitance
+/** b4ld.c DIOMOD=0/1/2 current and analytic derivative. No charge/capacitance
  * approximations, no standalone-diode substitution, no transistor stamping.
  */
 export function evaluateBsim4Junction(model: Bsim4Junction, voltage: number, gmin: number): Bsim4JunctionResult {
@@ -158,6 +191,27 @@ export function evaluateBsim4Junction(model: Bsim4Junction, voltage: number, gmi
   if (is <= 0) {
     current = gmin * voltage;
     conductance = gmin;
+  } else if (model.diomod === 0) {
+    const ev = Math.exp(voltage / nvtm);
+    const reverse = model.breakdownFactor * Math.exp(-(model.breakdownVoltage + voltage) / nvtm);
+    current = is * (ev + model.breakdownExponential - reverse - 1) + gmin * voltage;
+    conductance = is * (ev + reverse) / nvtm + gmin;
+  } else if (model.diomod === 2) {
+    const ev = voltage / nvtm < -EXP_THRESHOLD ? MIN_EXP : Math.exp(voltage / nvtm);
+    const derivative = voltage / nvtm < -EXP_THRESHOLD ? 0 : ev / nvtm;
+    if (voltage < model.reverseVoltage) {
+      const continuation = model.reverseCurrent + model.reverseSlope * (voltage - model.reverseVoltage);
+      current = (ev - 1) * continuation + gmin * voltage;
+      conductance = derivative * continuation + (ev - 1) * model.reverseSlope + gmin;
+    } else if (voltage <= forwardVoltage) {
+      const arg = (model.breakdownVoltage + voltage) / nvtm;
+      const reverse = arg > EXP_THRESHOLD ? MIN_EXP : Math.exp(-arg);
+      current = is * (ev + model.breakdownExponential - 1 - model.breakdownFactor * reverse) + gmin * voltage;
+      conductance = is * (derivative + (arg > EXP_THRESHOLD ? 0 : model.breakdownFactor * reverse / nvtm)) + gmin;
+    } else {
+      current = forwardExponentialCurrent + model.forwardSlope * (voltage - forwardVoltage) + gmin * voltage;
+      conductance = model.forwardSlope + gmin;
+    }
   } else if (voltage / nvtm < -EXP_THRESHOLD) {
     current = is * (MIN_EXP - 1) + gmin * voltage;
     conductance = gmin;

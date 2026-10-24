@@ -127,12 +127,14 @@ export function preprocessBsim4(
   // b4temp.c:2068-2071,2099-2102. No prime-node resistance network in baseline.
   here.sourceConductance = here.drainConductance = 0;
 
-  // Reuse the independently C-verified DIOMOD=1 law (b4temp.c:2107-2189).
+  // Reuse the standalone junction laws (b4temp.c:2107-2221).
   // Pass nominal densities, not already-scaled densities, to avoid scaling twice.
   const parameters = { tnom: model.tnom - 273.15, diomod: model.diomod,
     jss: model.jss, jsd: model.jsd, jsws: model.jsws, jswd: model.jswd,
     jswgs: model.jswgs, jswgd: model.jswgd, njs: model.njs, njd: model.njd,
-    xtis: model.xtis, xtid: model.xtid, ijthsfwd: model.ijthsfwd, ijthdfwd: model.ijthdfwd };
+    xtis: model.xtis, xtid: model.xtid, ijthsfwd: model.ijthsfwd, ijthdfwd: model.ijthdfwd,
+    ijthsrev: model.ijthsrev, ijthdrev: model.ijthdrev, bvs: model.bvs, bvd: model.bvd,
+    xjbvs: model.xjbvs, xjbvd: model.xjbvd };
   const sourceJunction = setupBsim4Junction({ terminal: 'source', parameters, temperatureC: temperatureK - 273.15,
     geometry: { area: here.Aseff, perimeter: here.Pseff, gateEdge } });
   const drainJunction = setupBsim4Junction({ terminal: 'drain', parameters, temperatureC: temperatureK - 273.15,
