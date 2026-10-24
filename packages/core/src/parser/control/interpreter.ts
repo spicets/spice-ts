@@ -1658,6 +1658,7 @@ function sensitivityVectorNames(
 ): { name: string; firstPointOnly: boolean }[] {
   const name = device.toLowerCase();
   const plain = (vectorName: string) => [{ name: vectorName, firstPointOnly: false }];
+  if (parameter.startsWith('bjt:')) return plain(`${name}:${parameter.slice(4)}`);
   switch (parameter) {
     case 'resistance':
       return ac

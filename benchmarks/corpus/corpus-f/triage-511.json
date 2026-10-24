@@ -16,6 +16,12 @@
   },
   "rootCauses": [
     {
+      "id": "bjt-dc-sensitivity-parity",
+      "kind": "simulator",
+      "issue": "https://github.com/mfiumara/spice-ts/issues/1689",
+      "summary": "PR #1701 adds bounded BJT DC sensitivity execution, not ngspice-47 numerical parity. The three unchanged diffpair decks now execute but mismatch on common sensitivity vectors; full parameter enumeration is also deferred."
+    },
+    {
       "id": "mos1-saved-vector-regression",
       "kind": "simulator",
       "issue": "https://github.com/mfiumara/spice-ts/issues/1578",
@@ -77,6 +83,27 @@
     }
   ],
   "fixtures": [
+    {
+      "id": "examples-tclspice-tcl-diffpair-cir",
+      "issueTable": null,
+      "current": { "outcome": "mismatch", "worst": 4.55e+28, "signal": "sens v(q1:is)" },
+      "rootCauses": ["bjt-dc-sensitivity-parity"],
+      "evidence": "Measured on ee4fef2e for PR #1701 against ngspice-47 using unchanged fixture bytes: spiceTs failed -> success, spice-ts-loss -> mismatch. 45 common vectors, worst normalized error 4.55e28 at sens v(q1:is). Bounded BJT execution does not establish numerical parity; residuals and deferred enumeration are published in PR #1701."
+    },
+    {
+      "id": "tests-general-diffpair-cir",
+      "issueTable": null,
+      "current": { "outcome": "mismatch", "worst": 4.55e+28, "signal": "sens v(q1:is)" },
+      "rootCauses": ["bjt-dc-sensitivity-parity"],
+      "evidence": "Measured on ee4fef2e for PR #1701 against ngspice-47 using unchanged fixture bytes: spiceTs failed -> success, spice-ts-loss -> mismatch. 45 common vectors, worst normalized error 4.55e28 at sens v(q1:is). Bounded BJT execution does not establish numerical parity; residuals and deferred enumeration are published in PR #1701."
+    },
+    {
+      "id": "tests-sensitivity-diffpair-cir",
+      "issueTable": null,
+      "current": { "outcome": "mismatch", "worst": 4.55e+28, "signal": "sens v(q1:is)" },
+      "rootCauses": ["bjt-dc-sensitivity-parity"],
+      "evidence": "Measured on ee4fef2e for PR #1701 against ngspice-47 using unchanged fixture bytes: spiceTs failed -> success, spice-ts-loss -> mismatch. 45 common vectors, worst normalized error 4.55e28 at sens v(q1:is). Bounded BJT execution does not establish numerical parity; residuals and deferred enumeration are published in PR #1701."
+    },
     {
       "id": "examples-vdmos-vdmosp-out-sp",
       "issueTable": { "outcome": "mismatch", "worst": 5.05e+242, "signal": "dc i(vs)" },

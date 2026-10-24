@@ -3,6 +3,7 @@
  * sensitivity results, named as ngspice-47 writes them to a raw file. Decks without such a plot
  * type go through `runNativeSpiceTs` unchanged.
  */
+import type { SensitivityEntry } from '../../../packages/core/src/results.js';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { ComplexValue, SampleSeries } from '../../comparison-harness.js';
@@ -48,14 +49,7 @@ export function batchControlPlots<T extends PlotIdentity>(text: string, candidat
 
 interface CoreComplex { real: number; imaginary: number }
 interface SParameters { frequencies: number[]; vectors: Map<string, CoreComplex[]> }
-interface SensitivityEntry {
-  device: string;
-  parameter:
-    | 'resistance' | 'capacitance' | 'inductance' | 'dc' | 'acMagnitude' | 'gain'
-    | 'multiplier' | 'scale';
-  dc?: number;
-  ac?: CoreComplex[];
-}
+
 interface Sensitivity { mode: 'dc' | 'ac'; frequencies: number[]; entries: SensitivityEntry[] }
 interface CoreResult {
   sParameters?: SParameters;
@@ -82,6 +76,7 @@ export function sParameterSignalName(name: string): string {
  */
 export function sensitivitySignalName(entry: Pick<SensitivityEntry, 'device' | 'parameter'>, mode: 'dc' | 'ac'): string {
   const device = entry.device.toLowerCase();
+  if (entry.parameter.startsWith('bjt:')) return `v(${device}:${entry.parameter.slice(4)})`;
   switch (entry.parameter) {
     case 'resistance': return mode === 'ac' ? `v(${device}_ac)` : `v(${device})`;
     case 'gain': return `v(${device}_gain)`;

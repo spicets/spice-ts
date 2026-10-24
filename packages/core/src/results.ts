@@ -348,6 +348,8 @@ export interface ComplexSensitivityValue {
  * Sensitivity to one device parameter: a non-zero primary value, or the instance
  * multiplier `m` (ngspice `<dev>_m`) or `scale` (ngspice `<dev>_scale`) of a
  * resistor, capacitor, inductor or current source (`scale`: R, C and L only).
+ * DC BJTs additionally expose positive IS/BF/NF/VAF/BR/NR as `bjt:<name>`
+ * (ngspice `<dev>:<name>`), and the instance multiplier (`<dev>_m`).
  */
 export interface SensitivityEntry {
   device: string;
@@ -355,7 +357,8 @@ export interface SensitivityEntry {
   value: number;
   parameter:
     | 'resistance' | 'capacitance' | 'inductance' | 'dc' | 'acMagnitude' | 'gain'
-    | 'multiplier' | 'scale';
+    | 'multiplier' | 'scale'
+    | 'bjt:is' | 'bjt:bf' | 'bjt:nf' | 'bjt:vaf' | 'bjt:br' | 'bjt:nr';
   dc?: number;
   ac?: ComplexSensitivityValue[];
 }
