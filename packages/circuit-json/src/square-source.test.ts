@@ -168,3 +168,14 @@ describe('square waveform fidelity and export diagnostics', () => {
     expect(toCircuitJSON(ir).diagnostics.map(d => d.path)).toEqual(['/components/0/params/fall', '/components/0/params/rise']);
   });
 });
+
+
+it.each([['period', 0], ['period', Number.MIN_VALUE], ['v1', NaN], ['delay', Infinity], ['width', 0], ['rise', 0]])('omits invalid PULSE %s from the allowLossy subset', (key, value) => {
+  const ir = fromCircuitJSON(source(square)).value!;
+  ir.components[0].params[key] = value as number;
+  ir.components.push({ type: 'R', id: 'R1', name: 'R1', ports: [], params: { resistance: 1000 } });
+  const result = toCircuitJSON(ir, { allowLossy: true });
+  expect(result.lossy).toBe(true);
+  expect(result.value).toContainEqual(expect.objectContaining({ source_component_id: 'R1' }));
+  expect(result.value).not.toContainEqual(expect.objectContaining({ source_component_id: 'V1' }));
+});

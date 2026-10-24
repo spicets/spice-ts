@@ -671,6 +671,7 @@ function mapExportComponent(
         // Re-import must reproduce every timing/level exactly. In particular,
         // equal but noncanonical edges cannot be represented by this schema.
         const reconstructed = COMPONENT_MAPPING.simple_voltage_source.params(fields);
+        const diagnosticCount = diagnostics.length;
         for (const key of allowedParams.slice(1)) {
           if (isFiniteNumber(params[key]) && params[key] === reconstructed[key]
             && (key !== 'period' || period > 0)
@@ -682,6 +683,9 @@ function mapExportComponent(
             `/components/${index}/params/${key}`, component,
           ));
         }
+        // Even allowLossy must not emit invalid square fields (e.g. Infinity
+        // serializes to null). Keep only the independently representable subset.
+        if (diagnostics.length !== diagnosticCount) return undefined;
         break;
       }
       if (component.type === 'V' && component.params.waveform === 'sin') {
