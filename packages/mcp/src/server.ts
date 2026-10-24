@@ -1452,7 +1452,13 @@ function convertTool(args: unknown, limits: McpLimits, signal?: AbortSignal): Ca
       const port = (name: string) => component.ports.find(port => port.name === name)!.net;
       if (component.type === 'R') circuit.addResistor(component.name, port('p'), port('n'), component.params.resistance as number);
       else if (component.type === 'C') circuit.addCapacitor(component.name, port('p'), port('n'), component.params.capacitance as number);
-      else circuit.addVoltageSource(component.name, port('p'), port('n'), { dc: component.params.dc as number });
+      else if (component.params.waveform === 'sin') {
+        circuit.addVoltageSource(component.name, port('p'), port('n'), {
+          type: 'sin', offset: component.params.offset as number,
+          amplitude: component.params.amplitude as number, frequency: component.params.frequency as number,
+          delay: 0, damping: 0, phase: component.params.phase as number,
+        });
+      } else circuit.addVoltageSource(component.name, port('p'), port('n'), { dc: component.params.dc as number });
     }
     output = { netlist: circuit.toNetlist(), diagnostics: converted.diagnostics, lossy: false };
   }
