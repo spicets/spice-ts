@@ -108,7 +108,7 @@ describe('bounded adaptive MOS1 WASM transient', () => {
     } finally { await engine.close(); }
   });
 
-  it.each(['LEVEL=2', 'LEVEL=3', 'LEVEL=8', 'LEVEL=2 LEVEL=1', 'RSH=10', 'TNOM=30'])(
+  it.each(['LEVEL=2', 'LEVEL=3', 'LEVEL=8', 'LEVEL=2 LEVEL=1', 'RSH={10}', 'TNOM=30'])(
     'rejects out-of-subset model %s', async parameter => {
       const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {
