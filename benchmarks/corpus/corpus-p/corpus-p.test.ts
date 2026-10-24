@@ -58,6 +58,9 @@ test('corpus-p receipt covers every fixture with unchanged comparison policy and
   const counts: Record<string, number> = {};
   for (const [i, f] of r.fixtures.entries()) {
     assert.equal(f.sha256, m.circuits[i].sha256);
+    assert.ok(r.environment.perFixtureRuntimeMs[f.id].ngspice >= 0);
+    assert.ok(r.environment.perFixtureRuntimeMs[f.id].spiceTs >= 0);
+    if (f.outcome === 'matched') assert.ok(f.comparisons.length > 0);
     counts[f.outcome] = (counts[f.outcome] ?? 0) + 1;
     if (f.ngspice.status === 'success' && f.outcome !== 'matched') {
       assert.match(r.gapLinks[f.id] ?? '', /^https:\/\/github.com\/spicets\/spice-ts\/issues\/\d+$/);

@@ -22,7 +22,73 @@
     "platform": "darwin",
     "release": "27.0.0",
     "arch": "arm64",
-    "cpu": "Apple M5 Pro"
+    "cpu": "Apple M5 Pro",
+    "perFixtureRuntimeMs": {
+      "p-1": {
+        "ngspice": 13.889583999999559,
+        "spiceTs": 227.8685000000005
+      },
+      "p-2": {
+        "ngspice": 12.984791999999288,
+        "spiceTs": 220.07175000000007
+      },
+      "p-3": {
+        "ngspice": 11.510665999999219,
+        "spiceTs": 217.5755420000005
+      },
+      "p-4": {
+        "ngspice": 11.0996669999995,
+        "spiceTs": 224.05695800000012
+      },
+      "p-5": {
+        "ngspice": 12.791374999999789,
+        "spiceTs": 224.24049999999988
+      },
+      "p-6": {
+        "ngspice": 11.726416999999856,
+        "spiceTs": 219.55166699999972
+      },
+      "p-7": {
+        "ngspice": 11.345707999999831,
+        "spiceTs": 217.69687500000055
+      },
+      "p-8": {
+        "ngspice": 11.523040999999466,
+        "spiceTs": 220.13187500000004
+      },
+      "p-9": {
+        "ngspice": 11.681125000000065,
+        "spiceTs": 222.0480830000006
+      },
+      "p-10": {
+        "ngspice": 11.29412500000035,
+        "spiceTs": 221.55099999999948
+      },
+      "p-11": {
+        "ngspice": 11.937541999999667,
+        "spiceTs": 231.69283300000097
+      },
+      "p-12": {
+        "ngspice": 11.956583000001046,
+        "spiceTs": 218.10808299999917
+      },
+      "p-13": {
+        "ngspice": 11.564416999999594,
+        "spiceTs": 219.99229099999866
+      },
+      "p-14": {
+        "ngspice": 10.638167000000976,
+        "spiceTs": 223.0626659999998
+      },
+      "p-15": {
+        "ngspice": 10.589083999999275,
+        "spiceTs": 210.5147909999996
+      },
+      "p-16": {
+        "ngspice": 10.764166000000841,
+        "spiceTs": 208.2754590000004
+      }
+    }
   },
   "commands": {
     "generate": "pnpm build && spice-heavy pnpm exec tsx benchmarks/corpus/corpus-p/parity.ts",
@@ -130,7 +196,121 @@
       "worstNormalizedError": 0,
       "worstSignal": "op i(vs)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(vs)",
+            "v(1)",
+            "v(2)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vs)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vs)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-2",
@@ -158,7 +338,179 @@
       "worstNormalizedError": 2.49e-16,
       "worstSignal": "op i(vx)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(vg)",
+            "i(vx)",
+            "v(1)",
+            "v(2)",
+            "v(3)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vg)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 2.302684791815139e-16,
+                  "rms": 2.302684791815139e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vx)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 2.4868995751603504e-16,
+                  "rms": 2.4868995751603504e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.220446049250313e-16,
+                  "rms": 2.220446049250313e-16
+                },
+                "relativeError": {
+                  "max": 1.9428902930940237e-16,
+                  "rms": 1.9428902930940237e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vg)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 2.302684791815139e-16,
+                  "rms": 2.302684791815139e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vx)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 2.4868995751603504e-16,
+                  "rms": 2.4868995751603504e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.220446049250313e-16,
+                  "rms": 2.220446049250313e-16
+                },
+                "relativeError": {
+                  "max": 1.9428902930940237e-16,
+                  "rms": 1.9428902930940237e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-3",
@@ -186,7 +538,121 @@
       "worstNormalizedError": 1.12e-16,
       "worstSignal": "op i(vb)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(vb)",
+            "v(1)",
+            "v(2)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vb)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.551115123125783e-17,
+                  "rms": 5.551115123125783e-17
+                },
+                "relativeError": {
+                  "max": 1.1234399653945033e-16,
+                  "rms": 1.1234399653945033e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vb)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.551115123125783e-17,
+                  "rms": 5.551115123125783e-17
+                },
+                "relativeError": {
+                  "max": 1.1234399653945033e-16,
+                  "rms": 1.1234399653945033e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-4",
@@ -214,7 +680,150 @@
       "worstNormalizedError": 0,
       "worstSignal": "op i(vin)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(vin)",
+            "v(1)",
+            "v(2)",
+            "v(3)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vin)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vin)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-5",
@@ -242,7 +851,208 @@
       "worstNormalizedError": 0,
       "worstSignal": "op i(e1)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(e1)",
+            "i(v1)",
+            "i(v2)",
+            "v(1)",
+            "v(2)",
+            "v(3)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(e1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(e1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-6",
@@ -270,7 +1080,179 @@
       "worstNormalizedError": 1.67e-16,
       "worstSignal": "op i(v2)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(v1)",
+            "i(v2)",
+            "v(1)",
+            "v(2)",
+            "v(3)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.168404344971009e-19,
+                  "rms": 2.168404344971009e-19
+                },
+                "relativeError": {
+                  "max": 1.5213642144881092e-16,
+                  "rms": 1.5213642144881092e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.0842021724855044e-19,
+                  "rms": 1.0842021724855044e-19
+                },
+                "relativeError": {
+                  "max": 1.6718055226060138e-16,
+                  "rms": 1.6718055226060138e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.168404344971009e-19,
+                  "rms": 2.168404344971009e-19
+                },
+                "relativeError": {
+                  "max": 1.5213642144881092e-16,
+                  "rms": 1.5213642144881092e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.0842021724855044e-19,
+                  "rms": 1.0842021724855044e-19
+                },
+                "relativeError": {
+                  "max": 1.6718055226060138e-16,
+                  "rms": 1.6718055226060138e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-7",
@@ -298,7 +1280,121 @@
       "worstNormalizedError": 1.76e-8,
       "worstSignal": "op i(v1)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(v1)",
+            "v(1)",
+            "v(2)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.760513031652995e-18,
+                  "rms": 1.760513031652995e-18
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.842170943040401e-14,
+                  "rms": 2.842170943040401e-14
+                },
+                "relativeError": {
+                  "max": 1.9829099602607454e-16,
+                  "rms": 1.9829099602607454e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.760513031652995e-18,
+                  "rms": 1.760513031652995e-18
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 2.842170943040401e-14,
+                  "rms": 2.842170943040401e-14
+                },
+                "relativeError": {
+                  "max": 1.9829099602607454e-16,
+                  "rms": 1.9829099602607454e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-8",
@@ -326,7 +1422,121 @@
       "worstNormalizedError": 0,
       "worstSignal": "op i(v1)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(v1)",
+            "v(1)",
+            "v(2)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-9",
@@ -354,7 +1564,208 @@
       "worstNormalizedError": 9.16e-16,
       "worstSignal": "op i(e2)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(e1)",
+            "i(e2)",
+            "i(v1)",
+            "v(1)",
+            "v(2)",
+            "v(3)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(e1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.551115123125783e-17,
+                  "rms": 5.551115123125783e-17
+                },
+                "relativeError": {
+                  "max": 1.7959490104230476e-16,
+                  "rms": 1.7959490104230476e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(e2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.326672684688674e-17,
+                  "rms": 8.326672684688674e-17
+                },
+                "relativeError": {
+                  "max": 9.159339953157541e-16,
+                  "rms": 9.159339953157541e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.6653345369377348e-16,
+                  "rms": 1.6653345369377348e-16
+                },
+                "relativeError": {
+                  "max": 4.163336342344335e-16,
+                  "rms": 4.163336342344335e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 3.552713678800501e-15,
+                  "rms": 3.552713678800501e-15
+                },
+                "relativeError": {
+                  "max": 1.9539925233402758e-16,
+                  "rms": 1.9539925233402758e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(e1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.551115123125783e-17,
+                  "rms": 5.551115123125783e-17
+                },
+                "relativeError": {
+                  "max": 1.7959490104230476e-16,
+                  "rms": 1.7959490104230476e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(e2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.326672684688674e-17,
+                  "rms": 8.326672684688674e-17
+                },
+                "relativeError": {
+                  "max": 9.159339953157541e-16,
+                  "rms": 9.159339953157541e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.6653345369377348e-16,
+                  "rms": 1.6653345369377348e-16
+                },
+                "relativeError": {
+                  "max": 4.163336342344335e-16,
+                  "rms": 4.163336342344335e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 3.552713678800501e-15,
+                  "rms": 3.552713678800501e-15
+                },
+                "relativeError": {
+                  "max": 1.9539925233402758e-16,
+                  "rms": 1.9539925233402758e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-10",
@@ -382,7 +1793,150 @@
       "worstNormalizedError": 1.33e-16,
       "worstSignal": "op i(v1)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(v1)",
+            "v(1)",
+            "v(2)",
+            "v(3)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.551115123125783e-17,
+                  "rms": 5.551115123125783e-17
+                },
+                "relativeError": {
+                  "max": 1.332267629550187e-16,
+                  "rms": 1.332267629550187e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.551115123125783e-17,
+                  "rms": 5.551115123125783e-17
+                },
+                "relativeError": {
+                  "max": 1.332267629550187e-16,
+                  "rms": 1.332267629550187e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-11",
@@ -410,7 +1964,382 @@
       "worstNormalizedError": 7.01e-7,
       "worstSignal": "op i(l2)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(l1)",
+            "i(l2)",
+            "i(v1)",
+            "i(v2)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)",
+            "v(5)",
+            "v(6)",
+            "v(7)",
+            "v(8)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(l1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.551115123125783e-16,
+                  "rms": 5.551115123125783e-16
+                },
+                "relativeError": {
+                  "max": 9.868649107779183e-16,
+                  "rms": 9.868649107779183e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(l2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 7.012945340826397e-17,
+                  "rms": 7.012945340826397e-17
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.661338147750939e-16,
+                  "rms": 6.661338147750939e-16
+                },
+                "relativeError": {
+                  "max": 1.184237892933502e-15,
+                  "rms": 1.184237892933502e-15,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 1.133844791106543e-16,
+                  "rms": 1.133844791106543e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.7763568394002505e-15,
+                  "rms": 1.7763568394002505e-15
+                },
+                "relativeError": {
+                  "max": 3.3835368369528573e-16,
+                  "rms": 3.3835368369528573e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 4.179663151530001e-16,
+                  "rms": 4.179663151530001e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(6)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 4.179663151530001e-16,
+                  "rms": 4.179663151530001e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(7)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(8)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(l1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.551115123125783e-16,
+                  "rms": 5.551115123125783e-16
+                },
+                "relativeError": {
+                  "max": 9.868649107779183e-16,
+                  "rms": 9.868649107779183e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(l2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 7.012945340826397e-17,
+                  "rms": 7.012945340826397e-17
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(v2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 6.661338147750939e-16,
+                  "rms": 6.661338147750939e-16
+                },
+                "relativeError": {
+                  "max": 1.184237892933502e-15,
+                  "rms": 1.184237892933502e-15,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 1.133844791106543e-16,
+                  "rms": 1.133844791106543e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.7763568394002505e-15,
+                  "rms": 1.7763568394002505e-15
+                },
+                "relativeError": {
+                  "max": 3.3835368369528573e-16,
+                  "rms": 3.3835368369528573e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 4.179663151530001e-16,
+                  "rms": 4.179663151530001e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(6)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 8.881784197001252e-16,
+                  "rms": 8.881784197001252e-16
+                },
+                "relativeError": {
+                  "max": 4.179663151530001e-16,
+                  "rms": 4.179663151530001e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(7)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(8)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-12",
@@ -438,7 +2367,440 @@
       "worstNormalizedError": 5.72e-12,
       "worstSignal": "op v(6)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(l1)",
+            "i(l2)",
+            "i(l3)",
+            "i(l4)",
+            "i(l5)",
+            "i(v1)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)",
+            "v(5)",
+            "v(6)",
+            "v(7)",
+            "v(8)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(l1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(l2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(l3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(l4)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(l5)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.1102230246251565e-16,
+                  "rms": 1.1102230246251565e-16
+                },
+                "relativeError": {
+                  "max": 1.7393494052460788e-16,
+                  "rms": 1.7393494052460788e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(6)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.716467488495485e-16,
+                  "rms": 5.716467488495485e-16
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(7)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(8)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.716467488495485e-16,
+                  "rms": 5.716467488495485e-16
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(l1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(l2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(l3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(l4)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(l5)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.1102230246251565e-16,
+                  "rms": 1.1102230246251565e-16
+                },
+                "relativeError": {
+                  "max": 1.7393494052460788e-16,
+                  "rms": 1.7393494052460788e-16,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(6)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.716467488495485e-16,
+                  "rms": 5.716467488495485e-16
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(7)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(8)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 5.716467488495485e-16,
+                  "rms": 5.716467488495485e-16
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-13",
@@ -466,7 +2828,208 @@
       "worstNormalizedError": 0,
       "worstSignal": "op i(l1)",
       "outcome": "matched",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "op",
+          "signals": [
+            "i(l1)",
+            "i(l2)",
+            "i(v1)",
+            "v(n1)",
+            "v(vin)",
+            "v(vout)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(l1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(l2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(n1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(vin)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(vout)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(l1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(l2)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "i(v1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(n1)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(vin)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              },
+              "v(vout)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": null,
+                  "rms": null,
+                  "sampleCount": 0,
+                  "excludedZeroReferences": 1
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "p-14",
@@ -493,7 +3056,8 @@
       "worstNormalizedError": null,
       "worstSignal": null,
       "outcome": "ngspice-failed",
-      "gapBucket": null
+      "gapBucket": null,
+      "comparisons": []
     },
     {
       "id": "p-15",
@@ -520,7 +3084,8 @@
       "worstNormalizedError": null,
       "worstSignal": null,
       "outcome": "both-failed",
-      "gapBucket": "directive: .global_param"
+      "gapBucket": "directive: .global_param",
+      "comparisons": []
     },
     {
       "id": "p-16",
@@ -546,10 +3111,11 @@
       "worstNormalizedError": null,
       "worstSignal": null,
       "outcome": "both-failed",
-      "gapBucket": "parse: other unsupported syntax"
+      "gapBucket": "parse: other unsupported syntax",
+      "comparisons": []
     }
   ],
-  "outcomeSha256": "ac34acb3e14b1c02683e209de2a70bd6839e48604d5fafddf4e13123981cfdbe",
+  "outcomeSha256": "58209539e0bff85516a3aa242a954a91b13e22910c3bcdca71b92e644fb8edc9",
   "classCounts": {
     "matched": 13,
     "ngspice-failed": 1,

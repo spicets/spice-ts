@@ -11,7 +11,7 @@ Provenance, licences, upstream/adapted SHA256 and selection are in [SOURCES.md](
 - spice-ts: {"success":14,"failed":0,"unsupported":2}
 - Outcomes: {"matched":13,"mismatch":0,"not-compared":0,"spice-ts-loss":0,"ngspice-failed":1,"both-failed":2}
 - Classified (spice-ts unsupported/failed split out): {"matched":13,"ngspice-failed":1,"unsupported":2}
-- Outcome SHA256: `ac34acb3e14b1c02683e209de2a70bd6839e48604d5fafddf4e13123981cfdbe`
+- Outcome SHA256: `58209539e0bff85516a3aa242a954a91b13e22910c3bcdca71b92e644fb8edc9`
 - Core tree: `0d3ec72383ef72c20092858233556bbba0bbb177`
 
 | ID | Outcome | ngspice | spice-ts | Worst normalized error | First error (ngspice / spice-ts) |

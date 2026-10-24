@@ -2,16 +2,18 @@ import { spawnSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { outcomeDigest } from '../corpus-f/outcomes.js';
+import { outcomeDigest, runNgspicePacked, runBoundedSimulatePacked } from '../corpus-f/outcomes.js';
+import type { ClassicCircuit } from '../classic/report.js';
+import { reduceRow, type Manifest } from '../corpus-j/parity.js';
 import { parityReport, type CorpusHReport } from '../corpus-h/parity.js';
 import { gapBucket } from '../corpus-l/parity.js';
-import { ROOT } from './ingest.js';
+import { ROOT, hash } from './ingest.js';
 
 // Reuse the existing owned-child runner, metrics and global 1% threshold unchanged.
 const report = parityReport({ name: 'corpus-p', root: ROOT, scriptUrl: import.meta.url,
   title: '# corpus-p: public MNA-MAT and NetlistParse circuits (#1722)',
   earlierRules: 'corpus-l/i/h/f', gapIssues: {}, followUpIssues: [], gapBucket });
-type Receipt = CorpusHReport & { classCounts: Record<string, number>; gapLinks: Record<string, string>; coreTree: string; sourceAdaptation: string };
+type Receipt = CorpusHReport & { classCounts: Record<string, number>; gapLinks: Record<string, string>; coreTree: string; sourceAdaptation: string; environment: CorpusHReport['environment'] & { perFixtureRuntimeMs?: Record<string, { ngspice: number; spiceTs: number }> } };
 export function renderMarkdown(r: Receipt) {
   return `# corpus-p: MNA-MAT and NetlistParse (#1722)
 
@@ -56,6 +58,25 @@ async function main() {
       if (child.status !== 0) throw new Error(`corpus harness exited ${child.status}`);
     }
     const r = JSON.parse(await readFile(`${ROOT}/outcomes.json`, 'utf8')) as Receipt;
+    if (!process.argv.includes('--render')) {
+      // The summary runner omits full signal metrics. Remeasure identical bytes with
+      // the existing packed runner/reducer and retain max/RMS metrics plus cold wall time.
+      const manifest = JSON.parse(await readFile(`${ROOT}/manifest.json`, 'utf8')) as Manifest;
+      r.environment.perFixtureRuntimeMs = {};
+      for (const [i, circuit] of manifest.circuits.entries()) {
+        const input = await readFile(circuit.localPath);
+        if (hash(input) !== circuit.sha256) throw new Error(`fixture hash mismatch: ${circuit.id}`);
+        const start = performance.now();
+        const ng = await runNgspicePacked(input, circuit);
+        const middle = performance.now();
+        const spice = await runBoundedSimulatePacked(input, { ...circuit, category: 'corpus-p', ngspice: { expectedStatus: 'pass' }, spiceTs: { expectedStatus: 'pass' } } as unknown as ClassicCircuit);
+        r.environment.perFixtureRuntimeMs[circuit.id] = { ngspice: middle - start, spiceTs: performance.now() - middle };
+        const detailed = reduceRow(circuit, ng, spice);
+        if (detailed.outcome !== r.fixtures[i].outcome) throw new Error(`summary/detail outcome drift: ${circuit.id}`);
+        r.fixtures[i] = detailed;
+      }
+      Object.assign(r, report.summarize(r.fixtures));
+    }
     r.classCounts = {};
     r.gapLinks = {};
     for (const f of r.fixtures) {
