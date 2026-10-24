@@ -2737,6 +2737,13 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Reproduce after `pnpm build`: `pnpm -C packages/wasm exec vitest run src/numeric-wasm-mos1-series.test.ts`.
 - Identical netlist bytes and default options compare WASM against core TypeScript for NMOS/PMOS, RD-only, RS-only and RD+RS across OP/DC/tran/AC (24 fixtures). Every node and source current is checked at `max(1e-12, 1e-9 * abs(reference))`; AC magnitude and phase use `1e-9` relative only. Accepted transient time grids must be identical. The test prints maximum absolute differences and point counts. Before this slice all 24 fixtures returned structured `UNSUPPORTED_FEATURE`; this is bounded backend parity evidence, not an ngspice accuracy or speed claim.
 
+## WASM parameter-free hierarchy parity (#1726)
+
+- Source: original project-authored fixtures in `packages/wasm/src/numeric-wasm-subckt.test.ts`, MIT under repository `LICENSE`. No external decks or model cards are redistributed.
+- Nine circuits cover two-instance resistor/RC networks, global and nested two-level definitions, case-insensitive lookup, diode clamps, twice-instanced BJT and CMOS inverters, local F/H sensing branches and sibling-local model shadowing. They produce 34 OP/DC/TRAN/AC parity cases (RC uses the existing TRAN/AC-only passive-device surface).
+- Reproduce with `pnpm -C packages/wasm exec vitest run src/numeric-wasm-subckt.test.ts`. Both backends receive identical source bytes and default options. Every node, branch and AC component uses `max(1e-12, 1e-9 * abs(reference))`; accepted transient grids are exactly equal. Seven structured rejection cases and the flattened 64/65-unknown boundary bring the total to 43 tests.
+- Before: all 43 tests fail, including all 34 valid hierarchy cases rejected as unsupported. After: all 43 pass. This is bounded WASM/core agreement, not an ngspice accuracy or speed claim. Numeric kernel and artifact are unchanged; coupled inductors and parameterized hierarchy remain unsupported.
+
 ## BSIM4 DIOMOD=0/2 junction laws (#1703)
 
 - Sources: original project-authored `benchmarks/bsim4-diomod/mode0.cir` and `mode2.cir`, MIT under repository `LICENSE`. Public source directory: https://github.com/spicets/spice-ts/tree/main/benchmarks/bsim4-diomod.
