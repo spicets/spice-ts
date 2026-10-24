@@ -15,7 +15,7 @@ assert.deepEqual(capabilities, {
   protocolVersion: '1',
   analyses: ['op', 'dc', 'tran', 'ac'],
   inputFormats: ['spice', 'spice-ts', 'circuit-json'],
-  sensitivity: { tool: 'spice_sensitivity', analyses: ['dc'] },
+  sensitivity: { tool: 'spice_sensitivity', analyses: ['dc', 'ac'] },
   tf: { tool: 'spice_tf', analyses: ['tf'] },
   impedance: { tool: 'spice_impedance', analyses: ['ac'] },
   parameterOverrides: {
