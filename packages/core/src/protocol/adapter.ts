@@ -472,7 +472,8 @@ function coreOptions(options?: SimulationOptionsV1): SimulationOptions {
   };
 }
 
-function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit {
+/** Reconstruct a circuit from a validated native protocol document. */
+export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit {
   const circuit = new Circuit();
   for (const model of document.models) circuit.addModel(coreModel(model));
   for (const subcircuit of document.subcircuits) circuit.addSubcircuit(coreSubcircuit(subcircuit));

@@ -1,4 +1,4 @@
-import { Circuit, SpiceError, parseTitleless, mapProtocolErrorV1, simulateProtocolV1, validateProtocolV1 } from '@spice-ts/core';
+import { Circuit, circuitFromDocument, SpiceError, parseTitleless, mapProtocolErrorV1, simulateProtocolV1, validateProtocolV1 } from '@spice-ts/core';
 import { fromCircuitJSON, toCircuitJSON } from '@spice-ts/circuit-json';
 import type { CircuitJSON, ConversionDiagnosticV1 } from '@spice-ts/circuit-json';
 import { commonSchemaV1, sha256CanonicalJson } from '@spice-ts/core/protocol';
@@ -374,8 +374,13 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_power_metrics',
-    description: 'Summarize one transient: signed average absorbed power (W), RMS current (A), maximum signed instantaneous power and time (s) per two-terminal element. Optional window in seconds and input/output lists; efficiency is output absorption / input delivery, or null without positive input delivery. Uses zero-volt current probes; flat unstepped SPICE decks only.',
-    inputSchema: { type: 'object', required: ['netlist'], additionalProperties: false, properties: powerMetricsProperties },
+    description: 'Summarize one transient: signed average absorbed power (W), RMS current (A), maximum signed instantaneous power and time (s) per two-terminal element. Optional window in seconds and input/output lists; efficiency is output absorption / input delivery, or null without positive input delivery. Accepts exactly one legacy netlist or protocol-v1 request (SPICE, native spice-ts, circuit-json). Uses zero-volt current probes; flat unstepped circuits only.',
+    inputSchema: {
+      ...requestInputSchema,
+      required: [],
+      oneOf: [{ required: ['netlist'] }, { required: ['request'] }],
+      properties: { ...requestInputSchema.properties, ...powerMetricsProperties },
+    },
     outputSchema: { type: 'object', oneOf: [powerMetricsOutputSchema, powerMetricsErrorSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
   {
@@ -632,17 +637,35 @@ async function executeToolWithStore(
       } finally { release(); }
     }
     if (name === 'spice_power_metrics') {
-      const selectors = powerMetricsArgs(args);
-      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
-      const plan = powerPlan(selectors);
-      if ('error' in plan) return { ...success(plan), isError: true };
+      if (!isRecord(args) || (('netlist' in args) === ('request' in args))) {
+        throw apiError('INVALID_REQUEST', 'Expected exactly one of netlist or request', 'validation', {});
+      }
+      const { request: rawRequest, ...rawSelectors } = args;
+      // Validate selectors before conversion, while retaining the legacy argument contract.
+      const selectors = powerMetricsArgs('netlist' in args ? rawSelectors : { ...rawSelectors, netlist: 'pending' });
+      const original = toolRequest('netlist' in args ? {
+        request: { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } },
+      } : { request: rawRequest });
+      if (!validateMetricsRequest(original).valid) {
+        throw apiError('INVALID_REQUEST', 'Invalid power metrics request', 'validation', {});
+      }
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      throwIfCancelled(options.signal);
+      const { request, diagnostics } = convertRequest(original);
+      await boundedRequestPlan(request, effective);
+      const netlist = request.input.format === 'spice' ? request.input.source
+        : request.input.format === 'spice-ts' ? circuitFromDocument(request.input.document).toNetlist()
+        : selectors.netlist;
+      const plan = powerPlan({ ...selectors, netlist });
+      if ('error' in plan) return { ...success(plan, diagnostics), isError: true };
       const response = await executeToolWithStore('spice_simulate', {
-        request: { apiVersion: '1', input: { format: 'spice', source: plan.netlist } },
-      }, options, streamStore);
+        request: { ...request, input: { format: 'spice', source: plan.netlist } },
+      }, { ...options, limits: effective }, streamStore);
       if (response.isError) return response;
       const report = powerMetrics(response.structuredContent as unknown as SimulationResultV1, plan);
-      enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(report)), 'transport');
-      return success(report);
+      enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(report)), 'transport');
+      return success(report, diagnostics);
     }
     if (name === 'spice_op_report') {
       if (!isRecord(args) || Object.keys(args).some(key => !['netlist', 'request', 'topN'].includes(key))
@@ -654,7 +677,7 @@ async function executeToolWithStore(
       const original = toolRequest('netlist' in args ? { request: { apiVersion: '1', input: { format: 'spice', source: args.netlist } } } : args);
       const effective = effectiveLimits(original, limits);
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
-      if (!validateOpReportRequest(original).valid) {
+      if (!validateMetricsRequest(original).valid) {
         throw apiError('INVALID_REQUEST', 'Invalid operating-point request', 'validation', {});
       }
       throwIfCancelled(options.signal);
@@ -1402,7 +1425,7 @@ function effectiveLimits(request: SimulationRequestV1, configured: McpLimits): M
 const validatePoleZeroInput = new AjvJsonSchemaValidator().getValidator({
   ...commonSchemaV1.$defs.simulationInput, $defs: commonSchemaV1.$defs,
 });
-const validateOpReportRequest = new AjvJsonSchemaValidator().getValidator({
+const validateMetricsRequest = new AjvJsonSchemaValidator().getValidator({
   ...commonSchemaV1.$defs.simulationRequest, $defs: commonSchemaV1.$defs,
 });
 

@@ -3,7 +3,7 @@ import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv
 import { executeTool, MCP_TOOLS, DEFAULT_MCP_LIMITS } from './server.js';
 import { powerMetrics, powerPlan } from './power-metrics.js';
 
-const dc = 'V1 in 0 10\nR1 in 0 1k\n.tran 10u 1m\n.end';
+const dc = 'V1 in 0 10\nR1 in 0 1k\n.tran 0.00001 0.001\n.end';
 interface Report {
   elements: { name: string; averagePowerW: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number }[];
   efficiency: number | null;
@@ -17,7 +17,101 @@ async function run(netlist: string, extra = {}) {
   return response.structuredContent as unknown as Report;
 }
 
+const components = [
+  { type: 'V', id: 'V1', name: 'V1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { waveform: 'dc', dc: 10 } },
+  { type: 'R', id: 'R1', name: 'R1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { resistance: 1000 } },
+];
+const analyses = [{ type: 'tran', timestep: 1e-5, stopTime: 0.001 }];
+const document = { format: 'spice-ts', schemaVersion: '1.0', circuit: { components, nets: ['in'] }, analyses, models: [], subcircuits: [] };
+const circuit = [
+  ...['in', '0'].map(name => ({ type: 'source_net', source_net_id: name, name })),
+  ...components.flatMap((component, i) => [
+    { type: 'source_component', source_component_id: component.id, name: component.name,
+      ...[{ ftype: 'simple_voltage_source', voltage: 10 }, { ftype: 'simple_resistor', resistance: 1000 }][i] },
+    ...component.ports.flatMap((port, j) => [
+      { type: 'source_port', source_port_id: `${component.id}-${j}`, source_component_id: component.id, name: port.name },
+      { type: 'source_trace', source_trace_id: `${component.id}-${j}`, connected_source_port_ids: [`${component.id}-${j}`], connected_source_net_ids: [port.net] },
+    ]),
+  ]),
+];
+const protocolInputs = [
+  { format: 'spice', source: dc },
+  { format: 'spice-ts', document },
+  { format: 'circuit-json', circuit, analyses },
+];
+const request = (input: unknown) => ({ apiVersion: '1', input });
+
 describe('spice_power_metrics', () => {
+  it.each(protocolInputs)('deep-equals every legacy metric for $format requests', async input => {
+    const selectors = { elements: ['v1', 'r1'], input: ['V1'], output: ['R1'], window: [0.000123, 0.000789] };
+    const expected = await run(dc, selectors);
+    const response = await executeTool('spice_power_metrics', { request: request(input), ...selectors });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    expect(response.structuredContent).toEqual(expected);
+  });
+
+  it('advertises exactly one legacy or protocol input in the tool listing', () => {
+    const tools = MCP_TOOLS.filter(tool => tool.name === 'spice_power_metrics');
+    expect(tools).toHaveLength(1);
+    const validate = new AjvJsonSchemaValidator().getValidator(tools[0].inputSchema);
+    for (const args of [{ netlist: dc }, ...protocolInputs.map(input => ({ request: request(input) }))]) {
+      expect(validate(args).valid, JSON.stringify(validate(args))).toBe(true);
+    }
+    for (const args of [{}, { netlist: dc, request: request(protocolInputs[0]) }, { circuitJson: circuit },
+      { request: request(protocolInputs[0]), surprise: true }]) expect(validate(args).valid).toBe(false);
+  });
+
+  it.each([
+    { request: request({ format: 'spice-ts', document: {} }) },
+    { request: request({ format: 'spice-ts', document: '{invalid json' }) },
+    { request: request({ format: 'spice-ts', document: JSON.stringify(document) }) },
+    { request: request({ format: 'circuit-json', circuit: {}, analyses }) },
+    { netlist: dc, request: request(protocolInputs[0]) },
+    { circuitJson: circuit },
+  ])('rejects malformed or ambiguous structured input %#', async args => {
+    expect(await executeTool('spice_power_metrics', args)).toMatchObject({ isError: true,
+      structuredContent: { error: { code: 'INVALID_REQUEST', phase: 'validation', retryable: false } } });
+  });
+
+  it.each(protocolInputs)('honors original request limits and cancellation for $format', async input => {
+    for (const limits of [{ maxSourceBytes: 10 }, { maxResultPoints: 1 }, { maxComponents: 1 }]) {
+      expect(await executeTool('spice_power_metrics', { request: { ...request(input), options: { limits } } })).toMatchObject({
+        isError: true, structuredContent: { error: { code: 'RESOURCE_LIMIT' } },
+      });
+    }
+    expect(await executeTool('spice_power_metrics', { request: request(input) }, { signal: AbortSignal.abort() })).toMatchObject({
+      isError: true, structuredContent: { error: { code: 'CANCELLED' } },
+    });
+  });
+
+  it('bounds original layout bytes before lossy conversion shrinks them', async () => {
+    const input = { format: 'circuit-json', analyses, circuit: [...circuit,
+      { type: 'pcb_component', pcb_component_id: 'layout-only', source_component_id: 'R1', notes: 'x'.repeat(8000) }] };
+    for (const serverLimit of [false, true]) {
+      const args = { request: { ...request(input), ...(serverLimit ? {} : { options: { limits: { maxSourceBytes: 4000 } } }) } };
+      const response = await executeTool('spice_power_metrics', args,
+        serverLimit ? { limits: { ...DEFAULT_MCP_LIMITS, maxDocumentBytes: 4000 } } : {});
+      expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'RESOURCE_LIMIT' } } });
+    }
+  });
+
+  it('retains nonfatal lossy conversion diagnostics outside the metrics', async () => {
+    const response = await executeTool('spice_power_metrics', { request: request({ format: 'circuit-json', analyses,
+      circuit: [...circuit, { type: 'pcb_component', pcb_component_id: 'layout-only', source_component_id: 'R1' }] }) });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    expect(response.structuredContent).toEqual(await run(dc));
+    expect(response._meta).toMatchObject({ conversionDiagnostics: expect.arrayContaining([
+      expect.objectContaining({ severity: 'info', code: 'LAYOUT_ONLY', simulationRelevant: false }),
+    ]) });
+  });
+
+  it('preserves fatal conversion diagnostics', async () => {
+    expect(await executeTool('spice_power_metrics', { request: request({ format: 'circuit-json', analyses,
+      circuit: [{ type: 'source_component', source_component_id: 'U1', name: 'U1', ftype: 'simple_chip' }] }) })).toMatchObject({
+      isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ELEMENT', phase: 'validation', details: { diagnostics: expect.any(Array) } } },
+    });
+  });
+
   it('reports 0.1 W absorption and negative source delivery from a DC transient', async () => {
     const result = await run(dc);
     const load = result.elements.find(e => e.name === 'R1')!;
