@@ -34,6 +34,13 @@ async function stream(input: SimulationRequestV1): Promise<SimulationResultV1> {
 }
 
 describe('MCP circuit-json input (#1155)', () => {
+  it('converts sine voltage sources without replacing them with DC (#1721)', async () => {
+    const input = structuredClone(circuit);
+    input[0] = { type: 'source_component', source_component_id: 'V1', name: 'V1', ftype: 'simple_voltage_source', voltage: 1.25, wave_shape: 'sinewave', peak_to_peak_voltage: 4, frequency: 1000, phase: 30 };
+    const result = await executeTool('spice_convert', { circuitJson: input });
+    expect(result.isError).not.toBe(true);
+    expect((result.structuredContent as { netlist: string }).netlist).toContain('SIN(1.25 2 1000 0 0 30)');
+  });
   it('advertises circuit-json and validates the converted RC divider', async () => {
     expect((await executeTool('spice_capabilities', {})).structuredContent).toMatchObject({ inputFormats: ['spice', 'spice-ts', 'circuit-json'] });
     expect(await executeTool('spice_validate', { request })).toMatchObject({ structuredContent: { status: 'valid', nodeCount: 2, analysisCount: 1 } });

@@ -248,7 +248,9 @@ connectivity and component values, not analysis directives, solver options, or m
 cards. Reattach analyses (for example `.op`) when simulating the returned netlist.
 SPICE export currently supports passive resistors and capacitors. M/Q import cannot
 produce a runnable SPICE model from circuit-json alone and is rejected rather than
-inventing model parameters. Independent sources are unsupported in either direction.
+inventing model parameters. The adapter supports DC V/I sources in both directions
+and sinewave voltage sources with zero delay/damping. `spice_convert` emits DC and
+sinewave V sources as SPICE; current-source SPICE serialization remains unsupported.
 Lossy exports are rejected. Fatal errors use the usual `isError` and
 `error.details.diagnostics` shape, including `UNSUPPORTED_ELEMENT` for unsupported
 components and `UNSUPPORTED_PARAMETER` diagnostics for unrepresentable parameters
