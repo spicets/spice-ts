@@ -308,12 +308,25 @@ class ControlInterpreter {
   }
 
   private condition(text: string, line: ControlSourceLine): boolean {
-    const substituted = this.substitute(text, line).trim();
-    if (substituted === '') throw new ControlScriptError('missing condition', line.lineNumber, line.text);
-    // Condition-only convenience spelling requested in #1455. ngspice-47 uses
-    // not/~, not !; keep let/define expressions strict and preserve != tokens.
-    const expression = substituted.replace(/!(?!=)/g, '~');
-    return isTrue(this.evaluate(expression, line));
+    // ngspice frontend/control.c diagnoses a missing if; cpitf.c:cp_istrue
+    // returns false when substitution/parsing/evaluation produces no vector.
+    if (text.trim() === '') {
+      this.warnings.push('Error: missing if condition.');
+      return false;
+    }
+    try {
+      const substituted = this.substitute(text, line).trim();
+      if (substituted === '') return false;
+      // Condition-only convenience spelling requested in #1455. ngspice-47 uses
+      // not/~, not !; keep let/define expressions strict and preserve != tokens.
+      const expression = substituted.replace(/!(?!=)/g, '~');
+      return isTrue(this.evaluate(expression, line));
+    } catch (error) {
+      // Recover only supported-language errors, not unsupported features or bugs.
+      if (!(error instanceof ControlScriptError)) throw error;
+      this.warnings.push(error.message);
+      return false;
+    }
   }
 
   private command(name: string, line: ControlSourceLine): void {
@@ -1559,7 +1572,7 @@ class ControlInterpreter {
     const name = reference.slice(1);
     const value = this.variable(name);
     if (value === undefined) throw new ControlScriptError(`'${name}': no such variable`, line.lineNumber, line.text);
-    if (value === true) return '';
+    if (value === true) return 'TRUE';
     return Array.isArray(value) ? value.join(' ') : value;
   }
 
