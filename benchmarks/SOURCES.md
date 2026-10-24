@@ -2737,6 +2737,12 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Reproduce after `pnpm build`: `pnpm -C packages/wasm exec vitest run src/numeric-wasm-mos1-series.test.ts`.
 - Identical netlist bytes and default options compare WASM against core TypeScript for NMOS/PMOS, RD-only, RS-only and RD+RS across OP/DC/tran/AC (24 fixtures). Every node and source current is checked at `max(1e-12, 1e-9 * abs(reference))`; AC magnitude and phase use `1e-9` relative only. Accepted transient time grids must be identical. The test prints maximum absolute differences and point counts. Before this slice all 24 fixtures returned structured `UNSUPPORTED_FEATURE`; this is bounded backend parity evidence, not an ngspice accuracy or speed claim.
 
+## WASM constant BJT base resistance (#1720)
+
+- Source: original project-authored NPN/PNP decks in `packages/wasm/src/numeric-wasm-bjt-rb.test.ts`, MIT under repository `LICENSE`. Public source: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/numeric-wasm-bjt-rb.test.ts. No third-party netlists or model cards.
+- Reproduce after `pnpm build`: `pnpm -C packages/wasm exec vitest run src/numeric-wasm-bjt-rb.test.ts`.
+- Identical netlist bytes and default options compare constant `RB=5000`, alone and with `RC=10 RE=2`, across OP/DC/tran/AC (16 fixtures). Every node voltage and source current uses the existing `max(1e-12, 1e-9 * abs(reference))` bound; AC magnitude/phase use `1e-9` relative only. Accepted transient grids must be identical. Before, all 16 fixtures rejected RB; after, all pass. Maximum absolute differences by analysis are OP `2.7533531010703882e-14`, DC `7.549516567451064e-14`, transient `3.197442310920451e-14`, and AC magnitude/phase `5.684341886080801e-13`. These mixed-unit maxima are backend-parity receipts, not ngspice accuracy or speed evidence. No parity failures; IRB/RBM remain unsupported.
+
 ## BSIM4 DIOMOD=0/2 junction laws (#1703)
 
 - Sources: original project-authored `benchmarks/bsim4-diomod/mode0.cir` and `mode2.cir`, MIT under repository `LICENSE`. Public source directory: https://github.com/spicets/spice-ts/tree/main/benchmarks/bsim4-diomod.
