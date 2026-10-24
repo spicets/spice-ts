@@ -86,7 +86,7 @@ describe('MOS1 constant drain/source series resistance', () => {
   });
 
   it.each(['op', 'dc', 'tran', 'ac'].flatMap(analysis =>
-    ['RSH=10', 'RD={10}', 'RS={2}', 'RD=1+2', 'RS=variable', 'NRD=2', 'NRS=2'].map(parameter => ({ analysis, parameter })),
+    ['RSH={10}', 'RD={10}', 'RS={2}', 'RD=1+2', 'RS=variable', 'NRD=2', 'NRS=2'].map(parameter => ({ analysis, parameter })),
   ))('rejects nonconstant/sheet model parameter $parameter in $analysis', async ({ analysis, parameter }) => {
     const fixture = fixtures.find(f => f.name === `NMOS RD=10 RS=2 ${analysis}`)!;
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
@@ -100,8 +100,8 @@ describe('MOS1 constant drain/source series resistance', () => {
   });
 
   it.each(['op', 'dc', 'tran', 'ac'].flatMap(analysis =>
-    ['NRD=2', 'NRS=2'].map(parameter => ({ analysis, parameter })),
-  ))('rejects sheet instance parameter $parameter in $analysis', async ({ analysis, parameter }) => {
+    ['NRD={2}', 'NRS={2}'].map(parameter => ({ analysis, parameter })),
+  ))('rejects nonconstant sheet instance parameter $parameter in $analysis', async ({ analysis, parameter }) => {
     const fixture = fixtures.find(f => f.name === `NMOS RD=10 RS=2 ${analysis}`)!;
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {

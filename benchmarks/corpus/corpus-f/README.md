@@ -6,11 +6,11 @@ Every deck below is byte-identical to ngspice `3ef069fb1f04177a153f342a32d941fc2
 
 ## Totals
 
-- Fixtures: 336. Outcome SHA-256: `712bc521bc89d6dd0f07f9584ad2db21b94266bc7d9244edd7352250b477d6f4`.
+- Fixtures: 336. Outcome SHA-256: `0331d6df2a2728037060f922a1e29ab4750bfa3609dc291906c64d32dd7619b9`.
 - ngspice (ngspice-47): 310 success, 15 failed, 11 unsupported.
 - spice-ts (0.4.0): 251 success, 12 failed, 73 unsupported.
-- Outcomes: matched 128, mismatch 20, not-compared 99, spice-ts-loss 63, ngspice-failed 4, both-failed 22.
-- Of the 310 decks ngspice runs successfully, spice-ts matches 128, mismatches 20, produces no comparable result for 99 and fails 63. For 112 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
+- Outcomes: matched 129, mismatch 20, not-compared 98, spice-ts-loss 63, ngspice-failed 4, both-failed 22.
+- Of the 310 decks ngspice runs successfully, spice-ts matches 129, mismatches 20, produces no comparable result for 98 and fails 63. For 111 of those ngspice successes the deck runs its analyses from `.control` (or its control block ends with `quit`), so `ngspice -r` exports no vectors: they cannot be compared even when spice-ts runs them (harness follow-up https://github.com/mfiumara/spice-ts/issues/528).
 
 ## Method
 
@@ -277,7 +277,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/original-examples/bad_param_type.deck](fixtures/examples/xspice/original-examples/bad_param_type.deck) | failed | unsupported | both-failed |  |  | ngspice: Error on line 12 or its substitute: / spice-ts: Parse error at line 13: MIF-ERROR - model: gain_block - Bad real value .model gain_block gain (gain=false) |
 | [examples/xspice/original-examples/bad_param.deck](fixtures/examples/xspice/original-examples/bad_param.deck) | success | success | matched | 9.22e-16 | tran i(v1) |  |
 | [examples/xspice/original-examples/digital_invert.deck](fixtures/examples/xspice/original-examples/digital_invert.deck) | success | success | matched | 1.06e-13 | tran v(14) |  |
-| [examples/xspice/original-examples/digital_models.deck](fixtures/examples/xspice/original-examples/digital_models.deck) | success | success | mismatch | 1 | tran i(v1) |  |
+| [examples/xspice/original-examples/digital_models.deck](fixtures/examples/xspice/original-examples/digital_models.deck) | success | success | matched | 0 | tran i(v1) |  |
 | [examples/xspice/original-examples/digital_models1.deck](fixtures/examples/xspice/original-examples/digital_models1.deck) | success | success | matched | 0 | tran i(v1) |  |
 | [examples/xspice/original-examples/digital_models2.deck](fixtures/examples/xspice/original-examples/digital_models2.deck) | success | success | matched | 0.0000444 | tran v(500) |  |
 | [examples/xspice/original-examples/digital_models3.deck](fixtures/examples/xspice/original-examples/digital_models3.deck) | success | success | matched | 0.0000444 | tran v(500) |  |
@@ -302,7 +302,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/original-examples/supply_ramping.deck](fixtures/examples/xspice/original-examples/supply_ramping.deck) | success | success | matched | 3.32e-12 | tran v(2) |  |
 | [examples/xspice/original-examples/user_defined_nodes.deck](fixtures/examples/xspice/original-examples/user_defined_nodes.deck) | success | success | matched | 4.84e-14 | tran v(analog_node) |  |
 | [examples/xspice/pwm-osc/fmcw-dosc.cir](fixtures/examples/xspice/pwm-osc/fmcw-dosc.cir) | success | success | matched | 0.000161 | tran v(afout) |  |
-| [examples/xspice/pwm-osc/pwm-sin.cir](fixtures/examples/xspice/pwm-osc/pwm-sin.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
+| [examples/xspice/pwm-osc/pwm-sin.cir](fixtures/examples/xspice/pwm-osc/pwm-sin.cir) | success | success | mismatch | 1 | tran v(outn) |  |
 | [examples/xspice/see/repeat_loop_seegen.net](fixtures/examples/xspice/see/repeat_loop_seegen.net) | success | success | mismatch | 0.0909 | tran v(mon) |  |
 | [examples/xspice/see/seegen_cm1.cir](fixtures/examples/xspice/see/seegen_cm1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
 | [examples/xspice/see/set1.cir](fixtures/examples/xspice/see/set1.cir) | success | success | not-compared |  |  | ngspice note: ran its .control block (analyses run from .control, or the block ends with quit), so -r exported no vectors to compare |
@@ -403,7 +403,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 
 - Fine-step reference (#592): ngspice-47 runs the same deck with every active .tran card rewritten to TMAX_fine = min(TSTEP, (TSTOP - TSTART)/50, deck TMAX if given) / 10, i.e. the ngspice default step ceiling divided by 10; TSTEP, TSTOP, TSTART, UIC and every other card are unchanged. The rule is the same for every transient fixture. No reference is generated when the deck has no parsable .tran card outside .control, or when TSTOP/TMAX_fine exceeds 1000000 steps; the ngspice run is bounded at 600 s. Each default run (spice-ts, ngspice) is scored by the same procedure: at the reference's output points, with the default run linearly interpolated onto them, over the transient signals of the headline comparison, normalised by the reference peak with the same per-quantity floors. The headline's one-sided breakpoint alignment applies at every default-run time point within ngspice's breakpoint merge distance (CKTminBreak = 0.00005 x TMAX_fine) of a reference time point; the headline matches breakpoints bit for bit, which here would favour ngspice, whose default run lands on its own reference's breakpoint times exactly while spice-ts's land a few ulps away. This charges each engine for its own published waveform, so a coarse output grid counts against whichever engine produced it. Status (matched/mismatch) is defined by the headline column only. One fine reference is not a convergence proof, and neither column is an accuracy ranking of the engines.
 - One fine reference is not a convergence proof: it is one more discretisation of the same circuit by the same engine. These columns are diagnostics of grid sensitivity, not an accuracy ranking and not a claim that either engine is more accurate. Status stays defined by the headline column.
-- Transient rows: 120; fine reference compared for 61, unavailable for 59. Above 0.01 among compared rows: headline (transient signals) 13, spice-ts vs fine 34, ngspice default vs fine 31.
+- Transient rows: 120; fine reference compared for 61, unavailable for 59. Above 0.01 among compared rows: headline (transient signals) 12, spice-ts vs fine 33, ngspice default vs fine 31.
 
 | Fixture | Status (headline) | Headline tran worst (vs ngspice default) | spice-ts vs fine | ngspice default vs fine | Fine TMAX | Note |
 |---|---|---|---|---|---|---|
@@ -477,7 +477,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/original-examples/arbitrary_phase.deck](fixtures/examples/xspice/original-examples/arbitrary_phase.deck) | matched | 3.14e-15 (i(v1)) | 0.00196 (v(1)) | 0.00196 (i(v1)) | 0.000002 |  |
 | [examples/xspice/original-examples/bad_param.deck](fixtures/examples/xspice/original-examples/bad_param.deck) | matched | 9.22e-16 (i(v1)) | 0.000493 (v(2)) | 0.000493 (v(2)) | 0.000001 |  |
 | [examples/xspice/original-examples/digital_invert.deck](fixtures/examples/xspice/original-examples/digital_invert.deck) | matched | 1.06e-13 (v(14)) | 0.5 (v(12)) | 0.5 (v(12)) | 1e-9 |  |
-| [examples/xspice/original-examples/digital_models.deck](fixtures/examples/xspice/original-examples/digital_models.deck) | mismatch | 1 (i(v1)) | 1 (i(v1)) | 4.12e-15 (i(v1)) | 2e-10 |  |
+| [examples/xspice/original-examples/digital_models.deck](fixtures/examples/xspice/original-examples/digital_models.deck) | matched | 0 (i(v1)) | 3.47e-15 (i(v1)) | 4.12e-15 (i(v1)) | 2e-10 |  |
 | [examples/xspice/original-examples/digital_models1.deck](fixtures/examples/xspice/original-examples/digital_models1.deck) | matched | 0 (i(v1)) | 0 (i(v1)) | 0 (i(v1)) | 0.001 |  |
 | [examples/xspice/original-examples/digital_models2.deck](fixtures/examples/xspice/original-examples/digital_models2.deck) | matched | 0.0000444 (v(500)) | 0.0000444 (i(vreset)) | 0 (i(vclk)) | 0.001 |  |
 | [examples/xspice/original-examples/digital_models3.deck](fixtures/examples/xspice/original-examples/digital_models3.deck) | matched | 0.0000444 (v(500)) | 0.0000444 (i(vreset)) | 0 (i(vclk)) | 0.001 |  |
@@ -497,7 +497,7 @@ Grouped from spice-ts's own first error line. "ngspice ok" counts the fixtures i
 | [examples/xspice/original-examples/supply_ramping.deck](fixtures/examples/xspice/original-examples/supply_ramping.deck) | matched | 3.32e-12 (v(2)) | 0.0155 (v(1)) | 0.0155 (v(1)) | 0.01 |  |
 | [examples/xspice/original-examples/user_defined_nodes.deck](fixtures/examples/xspice/original-examples/user_defined_nodes.deck) | matched | 4.84e-14 (v(analog_node)) | 1 (v(analog_node)) | 1 (v(analog_node)) | 1e-7 |  |
 | [examples/xspice/pwm-osc/fmcw-dosc.cir](fixtures/examples/xspice/pwm-osc/fmcw-dosc.cir) | matched | 0.000161 (v(afout)) | 0.00471 (v(afout)) | 0.00343 (v(afout)) | 0.000001 |  |
-| [examples/xspice/pwm-osc/pwm-sin.cir](fixtures/examples/xspice/pwm-osc/pwm-sin.cir) | not-compared |  |  |  |  | no .tran card outside .control |
+| [examples/xspice/pwm-osc/pwm-sin.cir](fixtures/examples/xspice/pwm-osc/pwm-sin.cir) | mismatch | 1 (v(outn)) |  |  |  | no .tran card outside .control |
 | [examples/xspice/see/repeat_loop_seegen.net](fixtures/examples/xspice/see/repeat_loop_seegen.net) | mismatch | 0.0909 (v(mon)) | 0.367 (v(mon)) | 0.0376 (v(mon)) | 1e-11 |  |
 | [examples/xspice/see/seegen_cm1.cir](fixtures/examples/xspice/see/seegen_cm1.cir) | not-compared |  |  |  |  | no .tran card outside .control |
 | [examples/xspice/see/set1.cir](fixtures/examples/xspice/see/set1.cir) | not-compared |  |  |  |  | no .tran card outside .control |

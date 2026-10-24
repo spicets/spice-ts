@@ -72,6 +72,18 @@ describe('independent-source waveform grammar', () => {
     });
   });
 
+  it.each(['V1', 'I1'])('defaults only five-argument PULSE width to zero for %s (#1706)', (name) => {
+    for (const [args, width] of [
+      [['0', '1'], Infinity],
+      [['0', '1', '2n', '1n'], Infinity],
+      [['0', '1', '2n', '1n', '1n'], 0],
+      [['0', '1', '2n', '1n', '1n', '3n'], 3.0000000000000004e-9],
+    ] as const) {
+      expect(parseSourceWaveform([name, '1', '0', 'PULSE', '(', ...args, ')'], 3))
+        .toMatchObject({ type: 'pulse', width, period: Infinity });
+    }
+  });
+
   it('preserves standalone DC, PULSE, and PWL semantics', () => {
     expect(parseSourceWaveform(['V1', '1', '0', 'DC', '5'], 3)).toEqual({ type: 'dc', value: 5 });
     expect(parseSourceWaveform(

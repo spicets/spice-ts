@@ -206,7 +206,7 @@ describe('browser protocol-v1 worker facade', () => {
           || wasmDc.voltagesV.out.join(',') !== '0,0.25,0.5') throw new Error('wrong WASM DC result');
         const unsupported = await wasm.simulate({
           apiVersion: '1',
-          input: { format: 'spice', source: 'V1 in 0 1\\nL1 in 0 1u\\n.op' },
+          input: { format: 'spice', source: 'V1 in 0 1\\nC1 in 0 1u\\n.op' },
         }, { requestId: 'browser-wasm-unsupported' });
         if (unsupported.ok || unsupported.error.code !== 'UNSUPPORTED_FEATURE') throw new Error('WASM fallback was not rejected');
         await wasm.close();
