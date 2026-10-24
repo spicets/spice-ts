@@ -127,11 +127,13 @@ export interface DistortionAnalysis {
 export type TransferFunctionAnalysis = VoltageTransferFunctionAnalysis
   | CurrentTransferFunctionAnalysis;
 
-/** Single-node voltage-output transfer function (`.tf v(node) source`). */
+/** Voltage-output transfer function (`.tf v(node[,reference]) source`). */
 export interface VoltageTransferFunctionAnalysis {
   type: 'tf';
-  /** Single output node whose small-signal voltage is measured. */
+  /** Positive output node whose small-signal voltage is measured. */
   outputNode: string;
+  /** Negative output node; omitted means ground. */
+  outputReferenceNode?: string;
   /** Independent voltage or current source used as the small-signal input. */
   inputSource: string;
 }

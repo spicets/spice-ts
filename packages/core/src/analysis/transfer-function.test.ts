@@ -53,6 +53,75 @@ R2 out 0 1k
     }]);
   });
 
+  const differentialFixture = `
+    Vin in 0 1
+    R1 in out 1k
+    R2 out 0 1k
+    R3 in ref 2k
+    R4 ref 0 1k
+    .tf v(out,ref) vin
+  `;
+
+  it('parses a differential voltage output', () => {
+    expect(parse(differentialFixture).analyses).toEqual([{
+      type: 'tf', outputNode: 'out', outputReferenceNode: 'ref', inputSource: 'vin',
+    }]);
+  });
+
+  it('solves the differential bridge gain and both port resistances', async () => {
+    const { transferFunction: result } = await simulate(differentialFixture);
+    expect(result).toBeInstanceOf(TransferFunctionResult);
+    expect(result).toMatchObject({ outputNode: 'out,ref', inputSource: 'vin' });
+    expect(relativeError(result!.transfer, 1 / 6)).toBeLessThan(1e-9);
+    expect(relativeError(result!.inputResistance, 1200)).toBeLessThan(1e-9);
+    expect(relativeError(result!.outputResistance, 3500 / 3)).toBeLessThan(1e-9);
+  });
+
+  it('preserves the differential port through netlist serialization', async () => {
+    const serialized = parse(differentialFixture).toNetlist();
+    expect(serialized).toContain('.tf v(out,ref) vin');
+    const { transferFunction: result } = await simulate(serialized);
+    expect(relativeError(result!.transfer, 1 / 6)).toBeLessThan(1e-9);
+    expect(relativeError(result!.outputResistance, 3500 / 3)).toBeLessThan(1e-9);
+  });
+
+  it.each([
+    ['ref,out', -1 / 6, 3500 / 3],
+    ['out,0', 1 / 2, 500],
+    ['0,out', -1 / 2, 500],
+    ['out,out', 0, 0],
+    ['0,0', 0, 0],
+    ['OUT,REF', 1 / 6, 3500 / 3],
+  ])('measures signed voltage and resistance across v(%s)', async (nodes, gain, resistance) => {
+    const { transferFunction: result } = await simulate(
+      differentialFixture.replace('v(out,ref)', `v(${nodes})`),
+    );
+    expect(result!.outputNode).toBe(nodes);
+    expect(Math.abs(result!.transfer - gain)).toBeLessThan(1e-9);
+    expect(Math.abs(result!.outputResistance - resistance)).toBeLessThan(1e-6);
+    expect(relativeError(result!.inputResistance, 1200)).toBeLessThan(1e-9);
+  });
+
+  it.each([
+    '.tf V(out,ref,extra) Vin',
+    '.tf V(out,ref)',
+    '.tf V(,ref) Vin',
+    '.tf V(out,) Vin',
+    '.tf V(out,,ref) Vin',
+    '.tf V() Vin',
+  ])('reports a structured malformed-voltage error: %s', directive => {
+    try {
+      parse(directive);
+      expect.fail('Expected a ParseError');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ParseError);
+      expect(error).toMatchObject({
+        code: 'PARSE_ERROR',
+        line: 1,
+      });
+    }
+  });
+
   it('matches ngspice 47 voltage gain and port resistances', async () => {
     const result = await simulate(voltageGainFixture);
 
@@ -132,7 +201,7 @@ R2 out 0 1k
   });
 
   it.each([
-    '.tf V(out,ref) V1',
+    '.tf V(out,ref,extra) V1',
     '.tf I(V(out)) V1',
     '.tf V(out)',
   ])('rejects .tf forms outside the bounded slice: %s', netlist => {
@@ -195,7 +264,7 @@ R2 out 0 1k
   });
 
   it.each([
-    ['.tf V(out,ref) V1', ".tf differential voltage output is not supported; expected '.tf v(node) source'"],
+    ['.tf V(out,ref,extra) V1', "Unsupported .tf voltage output; expected '.tf v(node[,reference]) source'"],
     ['.tf I(V(out)) V1', ".tf nested current output is not supported; expected '.tf i(source) input'"],
   ])('reports stable bounded-form errors: %s', (directive, message) => {
     expect(() => parse(directive)).toThrow(message);

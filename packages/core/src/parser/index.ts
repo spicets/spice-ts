@@ -663,25 +663,24 @@ function parseDotCommand(
         });
         break;
       }
-      if (tokens[1]?.toUpperCase() === 'V' && tokens.length > 6) {
-        throw new ParseError(
-          ".tf differential voltage output is not supported; expected '.tf v(node) source'",
-          lineNumber, tokens.join(' '),
-        );
-      }
-      const isSingleNodeVoltageForm = tokens.length === 6
-        && tokens[1].toUpperCase() === 'V'
+      // Commas are discarded by the tokenizer; retain empty-component validation.
+      const voltageNodes = context.match(/^\s*\.tf\s+v\s*\(([^()]*)\)/i)?.[1];
+      const hasEmptyComponent = voltageNodes?.split(',').some(node => node.trim() === '') ?? false;
+      const isVoltageForm = !hasEmptyComponent && (tokens.length === 6 || tokens.length === 7)
+        && tokens[1]?.toUpperCase() === 'V'
         && tokens[2] === '('
-        && tokens[4] === ')';
-      if (!isSingleNodeVoltageForm) {
+        && tokens[tokens.length - 2] === ')'
+        && tokens.slice(3, -2).every(token => token !== '(' && token !== ')');
+      if (!isVoltageForm) {
         throw new ParseError(
-          "Unsupported .tf form; expected '.tf v(node) source'",
+          "Unsupported .tf voltage output; expected '.tf v(node[,reference]) source'",
           lineNumber, tokens.join(' '),
         );
       }
       circuit.addAnalysis('tf', {
         outputNode: tokens[3],
-        inputSource: tokens[5],
+        ...(tokens.length === 7 ? { outputReferenceNode: tokens[4] } : {}),
+        inputSource: tokens[tokens.length - 1],
       });
       break;
     }
