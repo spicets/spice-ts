@@ -62,7 +62,7 @@ describe('bounded MOS1 WASM DC sweeps', () => {
     } finally { await wasm.close(); }
   });
 
-  it.each(['LEVEL=2', 'CGSO=1p', 'TOX=10n', 'RD=10', 'TNOM=27'])(
+  it.each(['LEVEL=2', 'CGSO=1p', 'TOX=10n', 'RSH=10', 'TNOM=27'])(
     'rejects unsupported DC model option %s', async parameter => {
       const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {
