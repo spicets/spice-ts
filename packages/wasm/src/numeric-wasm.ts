@@ -744,7 +744,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
       const parameters = (model[2] ?? model[3] ?? '').trim();
-      const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS'
+      const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS|RSH'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
       const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV';
       // The core device supplies the charge Jacobian and accepted/rejected-step
@@ -781,7 +781,8 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (tokens.length !== 5) unsupported('bjt-form', 'BJTs must use name collector base emitter model');
     } else if (type === 'M') {
       const instance = /^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+(.*)$/.exec(card);
-      const instanceNames = analysis === 'tran' || analysis === 'ac' ? 'W|L|AD|AS|PD|PS' : 'W|L';
+      const instanceNames = 'W|L|NRD|NRS'
+        + (analysis === 'tran' || analysis === 'ac' ? '|AD|AS|PD|PS' : '');
       const dimensions = new RegExp(`(?:${instanceNames})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
       if (!instance || instance[1]!.trim().replace(dimensions, '').trim()) {
         unsupported('mosfet-form', `MOSFETs must use name drain gate source bulk model with optional numeric ${instanceNames.replaceAll('|', ', ')} only`);

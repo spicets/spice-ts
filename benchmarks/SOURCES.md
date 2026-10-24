@@ -2729,6 +2729,14 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 
 - Losses: at 29 matched frequencies per fixture against ngspice-47, forward-bias maximum complex relative error remains `2.8587191588933306e-5` (output voltage). Reverse-bias source-current maximum error is unchanged for WASM (`1.1135200312921988e-9`) and worsens for JS from `1.9322872245381283e-10` to `1.1059995372775657e-9`. Closer backend agreement is not improved oracle accuracy; no tolerances are relaxed.
 
+## WASM MOS1 constant RSH and NRD/NRS backend parity (#1712)
+
+- Source: original project-authored MIT common-source decks in `packages/wasm/src/numeric-wasm-mos1-rsh.test.ts`; no third-party model cards or adaptations.
+- URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/numeric-wasm-mos1-rsh.test.ts
+- Licence: repository MIT (`LICENSE`).
+- Reproduce after `pnpm build`: `pnpm -C packages/wasm exec vitest run src/numeric-wasm-mos1-rsh.test.ts`.
+- Identical netlist bytes and default options compare WASM against core TypeScript for NMOS/PMOS drain/source/both sheets, RD/RS precedence, given RD=0 (open terminal per core #757, not fallback), default squares and zero squares across OP/DC/tran/AC (64 fixtures). Every node and source current uses `max(1e-12, 1e-9 * abs(reference))`; AC magnitude and phase use `1e-9` relative only. Accepted transient time grids must be identical. The test prints maximum absolute differences and point counts and checks the 64/65-unknown boundary. Before this slice all 64 parity fixtures returned structured `UNSUPPORTED_FEATURE`; this is bounded backend parity evidence, not an ngspice accuracy or speed claim.
+
 ## WASM MOS1 constant RD/RS backend parity (#1708)
 
 - Source: original project-authored MIT common-source decks in `packages/wasm/src/numeric-wasm-mos1-series.test.ts`; no third-party model cards or adaptations.
