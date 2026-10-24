@@ -1236,14 +1236,92 @@ describe('bounded numeric WebAssembly backend', () => {
     }
   });
 
+  it.each([
+    { name: 'RC TSTART', devices: 'R1 in out 1k\nC1 out 0 1u', tran: '.tran 1u 1m 0.2m', start: 0.0002, cap: 1e-6 },
+    { name: 'RC diode TMAX', devices: 'R1 in out 1k\nC1 out 0 1u\nD1 out 0 junction\n.model junction D(IS=1e-14 N=1)', tran: '.tran 1u 1m 0 2u', start: 0, cap: 2e-6 },
+    { name: 'RC option below TSTEP', devices: 'R1 in out 1k\nC1 out 0 1u', tran: '.tran 10u 100u', start: 0, cap: 2e-6, options: { maxTimestep: 2e-6 } },
+    { name: 'RC UIC TSTART TMAX', devices: 'R1 in out 1k\nC1 out 0 1u IC=0.5', tran: '.tran 10u 100u 20u 2u UIC', start: 20e-6, cap: 2e-6 },
+    { name: 'coupled inductors TMAX', devices: 'R1 in a 100\nL1 a 0 10m\nL2 out 0 10m\nR2 out 0 100\nK1 L1 L2 0.5', tran: '.tran 10u 100u 20u 2u', start: 20e-6, cap: 2e-6 },
+    { name: 'RLC TMAX below TSTEP', devices: 'R1 in a 100\nL1 a out 10m\nC1 out 0 1u', tran: '.tran 10u 100u 0 2u', start: 0, cap: 2e-6 },
+    { name: 'TMAX overrides option', devices: 'R1 in out 1k\nC1 out 0 1u', tran: '.tran 10u 100u 0 2u', start: 0, cap: 2e-6, options: { maxTimestep: 5e-7 } },
+    { name: 'controlled sources', devices: 'R1 in 0 1k\nG1 g 0 in 0 1m\nR2 g 0 1k\nE1 e 0 in 0 2\nR3 e 0 1k\nF1 f 0 V1 2\nR4 f 0 1k\nH1 h 0 V1 1k\nR5 h 0 1k\nC1 g 0 1n', tran: '.tran 10u 100u 20u 2u', start: 20e-6, cap: 2e-6 },
+    { name: 'BJT', devices: 'R1 in c 1k\nVb b 0 0.6\nQ1 c b 0 bipolar\n.model bipolar NPN(IS=1e-15 BF=100)', tran: '.tran 10u 100u 20u 2u', start: 20e-6, cap: 2e-6 },
+    { name: 'MOS', devices: 'R1 in d 1k\nVg g 0 2\nM1 d g 0 0 mos W=10u L=1u\n.model mos NMOS(LEVEL=1 VTO=1 KP=100u)', tran: '.tran 10u 100u 20u 2u', start: 20e-6, cap: 2e-6 },
+    { name: 'current SIN', devices: 'I1 0 out SIN(0 1m 1k)\nR1 out 0 1k\nC1 out 0 1n', tran: '.tran 10u 100u 0 2u', start: 0, cap: 2e-6 },
+    { name: 'PWL', devices: 'R1 in out 1k\nC1 out 0 1u', tran: '.tran 10u 100u 0 2u', start: 0, cap: 2e-6, drive: 'V1 in 0 PWL(0 0 20u 1 100u 0)' },
+  ])('supports transient controls with all-signal JS parity: $name', async fixture => {
+    const wasm = await engine('spice-ts-wasm');
+    const js = await engine('spice-ts-js');
+    try {
+      const input = request([fixture.drive ?? 'V1 in 0 PULSE(0 1 0 10u 10u 2m 4m)', fixture.devices, fixture.tran].join('\n'), fixture.options);
+      const actual = await wasm.simulate(input, { requestId: 'controls-wasm' });
+      expect(actual, JSON.stringify(actual)).toMatchObject({ ok: true, metadata: { backend: 'spice-ts-wasm' } });
+      if (!actual.ok) return;
+      const reference = await js.simulate(input, { requestId: 'controls-js' });
+      expect(reference.ok).toBe(true);
+      if (!reference.ok) return;
+      const a = actual.data.analyses[0];
+      const b = reference.data.analyses[0];
+      if (a?.type !== 'tran' || b?.type !== 'tran') throw new Error('Expected transient');
+      expect(a.timeS.length).toBeGreaterThan(1);
+      expect(a.timeS).toHaveLength(b.timeS.length);
+      a.timeS.forEach((time, i) => expect(Math.abs(time - b.timeS[i]!)).toBeLessThanOrEqual(1e-12));
+      expect(a.timeS.every(time => time >= fixture.start)).toBe(true);
+      expect(a.timeS.at(-1)).toBeCloseTo(fixture.tran.includes('1m') ? 0.001 : 0.0001, 14);
+      a.timeS.forEach((time, i) => {
+        if (i) expect(time - a.timeS[i - 1]!).toBeLessThanOrEqual(fixture.cap * (1 + 1e-10));
+      });
+      if (fixture.name === 'TMAX overrides option') {
+        expect(a.timeS.some((time, i) => i > 0 && time - a.timeS[i - 1]! > 5e-7)).toBe(true);
+      }
+      for (const field of ['voltagesV', 'currentsA'] as const) {
+        expect(Object.keys(a[field]).sort()).toEqual(Object.keys(b[field]).sort());
+        for (const [name, values] of Object.entries(a[field])) {
+          expect(values).toHaveLength(a.timeS.length);
+          values.forEach((value, i) => {
+            const expected = b[field][name]![i]!;
+            expect(Number.isFinite(value)).toBe(true);
+            expect(Math.abs(value - expected), `${field}.${name}[${i}]`).toBeLessThanOrEqual(Math.max(1e-12, Math.abs(expected) * 1e-6));
+          });
+        }
+      }
+    } finally { await wasm.close(); await js.close(); }
+  });
+
+  it.each([
+    '.tran 1u 1m 1m', '.tran 1u 1m 2m', '.tran 1u 1m -1u',
+    '.tran 1u 1m 0 0', '.tran 1u 1m 0 -1u',
+    '.tran 1u 1m 1e999', '.tran 1u 1m 0 1e999',
+    '.tran 1e999 1m', '.tran 1u 1e999',
+  ])('rejects invalid transient numeric controls: %s', async tran => {
+    const wasm = await engine('spice-ts-wasm');
+    try {
+      const input = request(`V1 in 0 1\nR1 in 0 1k\n${tran}`);
+      expect(await wasm.validate(input, { requestId: 'invalid-control-validation' })).toMatchObject({
+        ok: false, error: { code: 'INVALID_CIRCUIT' },
+      });
+      expect(await wasm.simulate(input, { requestId: 'invalid-control-simulation' })).toMatchObject({
+        ok: false, error: { code: 'INVALID_CIRCUIT' },
+      });
+    } finally { await wasm.close(); }
+  });
+
+  it.each([0, -1, Infinity, NaN])('rejects invalid maxTimestep option: %s', async maxTimestep => {
+    const wasm = await engine('spice-ts-wasm');
+    try {
+      const result = await wasm.simulate(request(transientCircuit, { maxTimestep }), { requestId: 'invalid-option' });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(['INVALID_CIRCUIT', 'INVALID_REQUEST']).toContain(result.error.code);
+    } finally { await wasm.close(); }
+  });
+
   it('returns exact diagnostics for unsupported transient controls', async () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       for (const [source, feature, message] of [
-        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m 1u', 'tran-start-time', 'Transient start time is not supported'],
-        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m 0 100n', 'tran-max-timestep', 'Transient maximum timestep is not supported'],
-        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m 1u uic', 'tran-start-time', 'Transient start time is not supported'],
-        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m 0 100n uic', 'tran-max-timestep', 'Transient maximum timestep is not supported'],
+        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m 0 2u extra', 'tran-max-timestep', 'Transient maximum timestep is not supported'],
+        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m extra', 'tran-start-time', 'Transient start time is not supported'],
+        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m extra uic', 'tran-start-time', 'Transient start time is not supported'],
       ] as const) {
         const result = await wasm.simulate(request(source), { requestId: feature });
         expect(result).toMatchObject({
