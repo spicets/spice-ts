@@ -51,7 +51,7 @@ describe('bounded MOS1 WASM operating point', () => {
     } finally { await wasm.close(); }
   });
 
-  it.each(['LEVEL=2', 'LEVEL=1.1', 'LEVEL=1 LEVEL=2', 'CGSO=1p', 'TOX=10n', 'RSH=10', 'TNOM=27'])(
+  it.each(['LEVEL=2', 'LEVEL=1.1', 'LEVEL=1 LEVEL=2', 'CGSO=1p', 'TOX=10n', 'RSH={10}', 'TNOM=27'])(
     'rejects unsupported model option %s', async parameter => {
       const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {

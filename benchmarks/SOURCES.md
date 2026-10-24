@@ -2736,6 +2736,15 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Semantic sources (BSD-3-Clause): [ngspice-47 vsrcload.c](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/vsrc/vsrcload.c#L97-L132) and [isrcload.c](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/isrc/isrcload.c): exactly five PULSE arguments select PW=0, not an infinite plateau. This is a shared source grammar fix, not digital event tuning.
 - Verification: `pnpm -C packages/core exec vitest run src/devices/xspice/xspice-digital-models-current.test.ts src/parser/waveform-parser.test.ts`. The unchanged-deck current is checked in both grid directions against the uniform 1%-of-peak criterion. Corpus triage goes from 67/71 candidate/reference points and error 1.0 to 71/71 and aligned error 0 for both voltage and current. No general speed or XSPICE parity claim.
 
+## WASM MOS1 constant RSH and NRD/NRS backend parity (#1712)
+
+- Source: original project-authored MIT common-source decks in `packages/wasm/src/numeric-wasm-mos1-rsh.test.ts`; no third-party model cards or adaptations.
+- URL: https://github.com/spicets/spice-ts/blob/main/packages/wasm/src/numeric-wasm-mos1-rsh.test.ts
+- Licence: repository MIT (`LICENSE`).
+- Reproduce after `pnpm build`: `pnpm -C packages/wasm exec vitest run src/numeric-wasm-mos1-rsh.test.ts`.
+- Identical netlist bytes and default options compare WASM against core TypeScript for NMOS/PMOS drain/source/both sheets, RD/RS precedence, given RD=0 (open terminal per core #757, not fallback), default squares and zero squares across OP/DC/tran/AC (64 fixtures). Every node and source current uses `max(1e-12, 1e-9 * abs(reference))`; AC magnitude and phase use `1e-9` relative only. Accepted transient time grids must be identical. The test prints maximum absolute differences and point counts and checks the 64/65-unknown boundary. Before this slice all 64 parity fixtures returned structured `UNSUPPORTED_FEATURE`; this is bounded backend parity evidence, not an ngspice accuracy or speed claim.
+
+
 ## WASM MOS1 constant RD/RS backend parity (#1708)
 
 - Source: original project-authored MIT common-source decks in `packages/wasm/src/numeric-wasm-mos1-series.test.ts`; no third-party model cards or adaptations.
