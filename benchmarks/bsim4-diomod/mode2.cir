@@ -1,0 +1,18 @@
+Self-authored BSIM4 DIOMOD=2 NMOS and PMOS junction laws (MIT)
+.model N NMOS LEVEL=54 VERSION=4.8 DIOMOD=2 JSS=0.01 JSD=0.02 BVS=0.6 BVD=0.7 XJBVS=2 XJBVD=3 IJTHSFWD=1u IJTHDFWD=2u IJTHSREV=1u IJTHDREV=2u
+.model P PMOS LEVEL=54 VERSION=4.8 DIOMOD=2 JSS=0.01 JSD=0.02 BVS=0.6 BVD=0.7 XJBVS=2 XJBVD=3 IJTHSFWD=1u IJTHDFWD=2u IJTHSREV=1u IJTHDREV=2u
+Vbias bias 0 0.4
+Enb nb 0 bias 0 1
+Epb pb 0 bias 0 -1
+Vnd nd 0 0
+Vns ns 0 0
+Vpd pd 0 0
+Vps ps 0 0
+Mn nd 0 ns nb N L=1u W=10u AD=2p AS=3p PD=0 PS=0
+Mp pd 0 ps pb P L=1u W=10u AD=2p AS=3p PD=0 PS=0
+.temp 27
+.options reltol=1e-10 abstol=1e-18 vntol=1e-12
+.save v(bias) v(nb) v(pb) i(Vbias) i(Vnd) i(Vns) i(Vpd) i(Vps)
+.op
+.dc Vbias -1.3 0.9 0.05
+.end

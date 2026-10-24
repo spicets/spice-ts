@@ -85,7 +85,7 @@ describe('BSIM4 instance defaults and baseline nodes', () => {
 describe('BSIM4 fail-closed setup', () => {
   it('reuses existing typed error', () => { expect(UnsupportedModel).toBe(UnsupportedModelParameterError); });
   it.each([
-    ['mobmod', 1], ['capmod', 0], ['diomod', 0], ['diomod', 2], ['rdsmod', 1],
+    ['mobmod', 1], ['capmod', 0], ['diomod', -1], ['diomod', 3], ['rdsmod', 1],
     ['rbodymod', 2], ['rgatemod', 4], ['geomod', 1], ['permod', 0], ['tempmod', 1],
     ['igcmod', 2], ['igbmod', 2], ['mtrlmod', 1], ['mtrlcompatmod', 1], ['cvchargemod', 1],
     ['gidlmod', 1], ['wpemod', 1], ['tnoimod', 1], ['fnoimod', 0],
