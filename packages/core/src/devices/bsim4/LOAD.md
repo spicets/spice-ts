@@ -1,5 +1,24 @@
 # BSIM4 stage-3 static load and integration
 
+## Default transient fringe capacitance repair (#1367)
+
+This supersedes the historical transient-CF compatibility restrictions below.
+All transient gate/body modes now use the same native charge preprocessing as
+AC. Static OP/DC preprocessing is unchanged; explicit CF, including CF=0, is
+preserved. The pinned ngspice source below computes omitted CF in
+`b4temp.c:173-175`, adds it to CGDO/CGSO at `1301-1304`, and uses those overlaps
+in `b4ld.c:4149-4177,4422-4424` before `NIintegrate` at `4629-4635`.
+The AC counterpart is `b4acld.c:248-250`. Previously the legacy transient
+adapter omitted CF: this was missing physical gate charge, not a Gear error.
+
+The authored MIT grounded-channel deck and pinned ngspice-47 reference in
+`__fixtures__/grounded-channel/` reproduce the gate-drive current error without
+copying the corpus fixture. Regenerate with its `generate-transient.py` script.
+The unchanged corpus-g FD deck now passes all six compared signals under the
+unchanged 1% gate (worst 0.0558 -> 1.41e-12). The former inverter-output and
+RGATEMOD=1 intrinsic-gate expected failures also pass their unchanged bounds.
+No claim is made for unmeasured circuits or unsupported device modes.
+
 ## RBODYMOD=1 OP/DC and quasi-static AC extension (#1386)
 
 This section supersedes the historical AC/body-network restrictions below.

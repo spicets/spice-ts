@@ -1,0 +1,31 @@
+# corpus-p provenance (#1722)
+
+- https://github.com/nik1106/MNA-MAT at `a77a4eb409aba1eb7f04919aa3990a60b0233cce`, SPDX **MIT**. Original notice: [LICENSE](licenses/mna-mat/LICENSE), SHA256 `c5f531687db432e27ad36e97b97fbc45ff2bfd645cb22b696c4828b192be18a2`.
+- https://github.com/NyanCAD/NetlistParse.rs at `94386c7fcf669ce9e930686815d94e11050307f6`, SPDX **MIT**. Original notice: [LICENSE](licenses/netlistparse/LICENSE), SHA256 `6579dde3b6f5140f53457e7d72d661afe9188b19a24d2798f9434f600f4675ed`.
+
+All 12 top-level MNA-MAT examples; NetlistParse standalone RLC and all three ext_* device/circuit decks. ext_nodeset.sp is directive-only, not a circuit. Static selection before any engine runs; no success filter. No model libraries redistributed.
+
+MNA-MAT: prepend title; MNA-MAT and NetlistParse rlc.sp: append newline + .op + .end. All original bytes preserved between wrappers. Other decks verbatim. Both engines receive identical adapted bytes.
+
+The OP wrappers are uniform, not transient/AC coverage. No element, value, model or original whitespace is changed. Original bytes are recovered by stripping the documented prefix/suffix; offline tests verify both hashes. No vendor model files are redistributed. Each original URL and full revision is also in manifest.json. Both sources are new to benchmarks/SOURCES.md; original/adapted hashes were checked against all earlier corpus manifests with no collisions.
+
+| ID | Upstream path (source and revision above) | Committed fixture SHA256 | Original SHA256 |
+|---|---|---|---|
+| p-1 | [mna-mat/example1.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example1.cir) | `47b2b32d4742d1f1ba3d725932367527768885ef125ee0c9553f4691766ae0cf` | `73b1b5edd08b17549721ee03d03553c3466214405aaa381fa71917045c69f7ef` |
+| p-2 | [mna-mat/example2.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example2.cir) | `32f14fa6fd0d86ebbde54f50d909fd02292d319124b1ce16bdd521eb9d6c7a66` | `9e5f82f3ec2399052643f09fbe812b8b81304569f676141b2ab4ad0a6c5cb8ad` |
+| p-3 | [mna-mat/example3.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example3.cir) | `e18350455268ab9a887a4ec320b7e7cbd53b66bcd13fc3d655b77a4de9d91478` | `5f8f23c8c51e48bc50c565f2f084e68f7fceaf12897b0ec3ca1121a2b8bb5491` |
+| p-4 | [mna-mat/example4.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example4.cir) | `e8d98bbcac0ab3ba11464642692611651c52011ea7a83c859e2a52a88504f2f2` | `8792d87c6f736ba7534cfe3fed05bdfa3c02c25538bb64b31eea2243821faed6` |
+| p-5 | [mna-mat/example5.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example5.cir) | `4c4b5aad4920c5893959c48dcb59ec435687b8b5e6720a1e5199cb68adfb0103` | `6e0f7812f5c830979f21eae37b8a35a37e822ee958ca351b2de6f252444f4018` |
+| p-6 | [mna-mat/example6.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example6.cir) | `fcc29f63864ebb0da42055075b92120cac2c833c425d5816bf3d6d980029adea` | `3733e266617fdb735c265201f9dc1bf98e94e9d68ffde830cdfe4694e32f5e72` |
+| p-7 | [mna-mat/example7.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example7.cir) | `a36fd7dcdec8b56935c3b2f27d5773f72f6340ec1c6d58e825a95f179bfcdc56` | `295fd8116ae0eb7067e7d7b887d351a1e6c685c615df809e35d6598b7689937f` |
+| p-8 | [mna-mat/example8.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example8.cir) | `4d62a07298edb867bfd4a8111e866e919f7a1aed5243542a0bf0c7d9aeb9622e` | `878a6d0c2539e0b0a088611ff01009ba483c861b4cc717597afe5a2a5da2045e` |
+| p-9 | [mna-mat/example9.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example9.cir) | `7b3eed51214ade8de2f5b1c78c172e694f5fe1b1294b67e92eef5dee24c6d6fd` | `9600d2bb190b49075447f89dc5159bf69b2e57f418f9f21c5e3a138f3f08f8ae` |
+| p-10 | [mna-mat/example10.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example10.cir) | `a78c5a9eaa7af0b6a02b7b003402e09e47531b12030fb2cb79a61ff9c4a9e0dc` | `f615f34b76a1843f0a323ead2e1a4d9d1aafea9d0c7f4460030b025986763d2c` |
+| p-11 | [mna-mat/example11.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example11.cir) | `3dd5aba941f33165b49fdf4d3d34c585622c1f5022168b63476b1d49ffdbac46` | `3a440556d6aa833adae701a0bc4c567d11b5c1ab92bc9c7fe9cdeb384c8c1bc0` |
+| p-12 | [mna-mat/example12.cir](https://github.com/nik1106/MNA-MAT/blob/a77a4eb409aba1eb7f04919aa3990a60b0233cce/example12.cir) | `64ccef64c20f218de4af224e9f11b95a31b70575335abdb30fbed9e5e16062c0` | `52bc84cf3e6f161723b568fe6d15b764b743098e0208ca8c932e8936878c353a` |
+| p-13 | [netlistparse/tests/corpus/rlc.sp](https://github.com/NyanCAD/NetlistParse.rs/blob/94386c7fcf669ce9e930686815d94e11050307f6/tests/corpus/rlc.sp) | `3e6649a7828302c861b0bca97516c3151f3419b816c64b9c920bfac65cb0b24f` | `f8e6ed94b8760048983602307dde4da8a598f25d0de344dd63c63cbae99a3a26` |
+| p-14 | [netlistparse/tests/corpus/ext_devices.sp](https://github.com/NyanCAD/NetlistParse.rs/blob/94386c7fcf669ce9e930686815d94e11050307f6/tests/corpus/ext_devices.sp) | `1af1489e088f233780214406776d95e1cf3407f5f2e1389880f8354b6853358f` | `1af1489e088f233780214406776d95e1cf3407f5f2e1389880f8354b6853358f` |
+| p-15 | [netlistparse/tests/corpus/ext_xyce_cmds.sp](https://github.com/NyanCAD/NetlistParse.rs/blob/94386c7fcf669ce9e930686815d94e11050307f6/tests/corpus/ext_xyce_cmds.sp) | `c5a5e72ad2cbce59ac014c3a59fb73bd9994e0d668a5c64b2b2a95002c87ce67` | `c5a5e72ad2cbce59ac014c3a59fb73bd9994e0d668a5c64b2b2a95002c87ce67` |
+| p-16 | [netlistparse/tests/corpus/ext_xyce_y.sp](https://github.com/NyanCAD/NetlistParse.rs/blob/94386c7fcf669ce9e930686815d94e11050307f6/tests/corpus/ext_xyce_y.sp) | `938a3fdef8d38e42d101369710f4eae4a8debdfbdb573bf4f7bef3584c4721d3` | `938a3fdef8d38e42d101369710f4eae4a8debdfbdb573bf4f7bef3584c4721d3` |
+
+Reproduce ingestion: `pnpm exec tsx benchmarks/corpus/corpus-p/ingest.ts`. Run: `spice-heavy pnpm exec tsx benchmarks/corpus/corpus-p/parity.ts --jobs 1`. All outcomes, including reference rejections and spice-ts unsupported decks, are retained in outcomes.json. No tolerance changes or engine-success filtering.

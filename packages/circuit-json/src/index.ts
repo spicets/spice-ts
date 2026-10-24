@@ -85,8 +85,17 @@ const COMPONENT_MAPPING: Record<string, {
   },
   simple_voltage_source: {
     type: 'V',
-    fields: ['voltage'],
-    params: element => ({ waveform: 'dc', dc: element.voltage as number }),
+    fields: ['voltage', 'wave_shape'],
+    params: (element): Record<string, number | string | boolean> => {
+      if (element.wave_shape === 'sinewave') {
+        return {
+          waveform: 'sin', offset: element.voltage as number,
+          amplitude: (element.peak_to_peak_voltage as number) / 2,
+          frequency: element.frequency as number, phase: (element.phase as number | undefined) ?? 0,
+        };
+      }
+      return { waveform: 'dc', dc: element.voltage as number };
+    },
   },
   simple_current_source: {
     type: 'I',
@@ -199,6 +208,23 @@ function validateComponentFields(
   diagnostics: ConversionDiagnosticV1[],
 ): void {
   const allowed = new Set([...COMPONENT_FIELDS, ...COMPONENT_MAPPING[ftype].fields]);
+  if (ftype === 'simple_voltage_source') {
+    if (element.wave_shape === 'sinewave') {
+      for (const key of ['frequency', 'peak_to_peak_voltage', 'phase']) {
+        allowed.add(key);
+        if ((key === 'phase' && element[key] === undefined) || isFiniteNumber(element[key])) continue;
+        diagnostics.push(importDiagnostic(
+          'UNSUPPORTED_PARAMETER', `Sine parameter ${key} must be a finite number`,
+          `/${index}/${key}`, element,
+        ));
+      }
+    } else if (element.wave_shape !== undefined && element.wave_shape !== 'dc') {
+      diagnostics.push(importDiagnostic(
+        'UNSUPPORTED_PARAMETER', 'Only DC and sinewave voltage sources are supported',
+        `/${index}/wave_shape`, element,
+      ));
+    }
+  }
   for (const key of Object.keys(element)) {
     if (allowed.has(key)) continue;
     diagnostics.push(importDiagnostic(
@@ -584,6 +610,27 @@ function mapExportComponent(
     case 'V':
     case 'I':
       ftype = component.type === 'V' ? 'simple_voltage_source' : 'simple_current_source';
+      if (component.type === 'V' && component.params.waveform === 'sin') {
+        allowedParams = ['waveform', 'offset', 'amplitude', 'frequency', 'phase', 'delay', 'damping'];
+        const params = component.params;
+        for (const key of ['offset', 'amplitude', 'frequency', 'phase', 'delay', 'damping']) {
+          const value = params[key] ?? (['phase', 'delay', 'damping'].includes(key) ? 0 : undefined);
+          if (isFiniteNumber(value) && (!['delay', 'damping'].includes(key) || value === 0)) continue;
+          diagnostics.push(exportDiagnostic(
+            `SIN parameter ${key} on ${component.id} cannot be represented in circuit-json`,
+            `/components/${index}/params/${key}`, component,
+          ));
+        }
+        const peakToPeak = (params.amplitude as number) * 2;
+        if (!Number.isFinite(peakToPeak) && isFiniteNumber(params.amplitude)) {
+          diagnostics.push(exportDiagnostic(
+            `SIN amplitude on ${component.id} overflows peak-to-peak voltage`,
+            `/components/${index}/params/amplitude`, component,
+          ));
+        }
+        fields = { voltage: params.offset, wave_shape: 'sinewave', peak_to_peak_voltage: peakToPeak, frequency: params.frequency, phase: params.phase ?? 0 };
+        break;
+      }
       fields = component.type === 'V' ? { voltage: component.params.dc } : { current: component.params.dc, wave_shape: 'dc' };
       allowedParams = ['waveform', 'dc'];
       if (component.params.waveform !== 'dc' || !isFiniteNumber(component.params.dc)) {

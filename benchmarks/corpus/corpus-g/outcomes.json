@@ -49,8 +49,8 @@
       "unsupported": 2
     },
     "outcomes": {
-      "matched": 109,
-      "mismatch": 14,
+      "matched": 110,
+      "mismatch": 13,
       "not-compared": 2,
       "spice-ts-loss": 3,
       "ngspice-failed": 0,
@@ -4126,9 +4126,9 @@
       },
       "comparedAnalyses": 1,
       "comparedSignals": 6,
-      "worstNormalizedError": 0.0558,
+      "worstNormalizedError": 1.41e-12,
       "worstSignal": "tran i(vin1_w)",
-      "outcome": "mismatch",
+      "outcome": "matched",
       "gapBucket": null,
       "fineReference": {
         "status": "compared",
@@ -4136,12 +4136,12 @@
           "2e-13"
         ],
         "headline": {
-          "worst": 0.0558,
+          "worst": 1.41e-12,
           "signal": "i(vin1_w)"
         },
         "spiceTsVsFine": {
-          "worst": 0.0584,
-          "signal": "i(vin1)"
+          "worst": 0.00314,
+          "signal": "i(vin1_w)"
         },
         "ngspiceDefaultVsFine": {
           "worst": 0.00314,
@@ -4921,5 +4921,5 @@
       "gapBucket": null
     }
   ],
-  "outcomeSha256": "20b52f0bd425f61120378bcbd703b488535c48755b29e7461359b65fd06d632f"
+  "outcomeSha256": "8e5027db17915426e94e4aa545eba5d1773cf3f96a420b3aa341934dcc166d5d"
 }
