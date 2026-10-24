@@ -35,7 +35,7 @@ describe('bounded MOS1 WASM AC', () => {
     } finally { await wasm.close(); await js.close(); }
   });
 
-  it.each(['LEVEL=2', 'LEVEL=3', 'LEVEL=14', 'LEVEL=2 LEVEL=1', 'RD=10', 'TNOM=27'])(
+  it.each(['LEVEL=2', 'LEVEL=3', 'LEVEL=14', 'LEVEL=2 LEVEL=1', 'RSH=10', 'TNOM=27'])(
     'keeps structured rejection for unsupported %s', async parameter => {
       const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {
