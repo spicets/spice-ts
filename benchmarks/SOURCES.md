@@ -1076,6 +1076,8 @@ the same pinned ECL-2.0 `b4check.c:797-806` source recorded above.
 
 ## Controlled E/G TABLE probes (#917)
 
+- `packages/core/src/parser/controlled-table-1737.cir` is an original project-authored MIT fixture (repository `LICENSE`), public source https://github.com/spicets/spice-ts/blob/main/packages/core/src/parser/controlled-table-1737.cir. It exercises both E/G sources in OP, 161-point DC, AC and ramp transient on identical bytes against ngspice-47. The test `controlled-table-1737.test.ts` checks quadratic smoothing and clamped endpoints; the implementation PR linked from issue #1737 publishes direct reference errors (including transient interpolation loss). No third-party deck is redistributed.
+
 - `benchmarks/controlled-table-917/{e,g-subckt,ac}.cir` are original project-authored MIT netlists (repository `LICENSE`), not vendor extracts. Issue https://github.com/mfiumara/spice-ts/issues/917. Both engines receive identical bytes, with ngspice-47 `ngbehavior=ltps`; all 81 DC rows retain endpoint clamping and smoothed corners, and the one-row AC probe verifies the smoothed derivative. Receipts publish native values and max/RMS errors where available, and unsupported/failed outcomes with null metrics otherwise.
 - `vendor.py` reuses the fetch-only pinned attachment/hash/path-relocation policy of `benchmarks/vendor-expanded-node-917/run.py` for https://sourceforge.net/p/ngspice/bugs/784/. No vendor deck, model, expanded expression or raw log is redistributed. New before/after scalar receipts preserve identical relocated bytes and include hashes; both native runs remain non-completing while ngspice completes 141 AC rows per original. Existing #939 receipts are unchanged.
 
