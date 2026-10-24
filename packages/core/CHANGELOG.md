@@ -1,5 +1,56 @@
 # @spice-ts/core
 
+## 0.5.0
+
+### Minor Changes
+
+- e0f45ac: Support BSIM4 IGBMOD=1 gate-to-body accumulation and inversion tunneling in DC/OP, with native analytic derivatives and ngspice-47 oracle sweeps.
+
+  Allow the UI peer dependency to consume the next compatible core minor without a peer-only UI major release.
+
+- 0cb1c52: Support seeded sunif/sgauss real and complex control vectors and attached dollar comments without breaking variable substitutions.
+- b7f1fbe: Support EKV 2.6 intrinsic device temperature scaling of threshold voltage, mobility, critical field, surface potential, impact-ionization coefficient and thermal voltage using the EPFL equations. Preserve nominal current/charges and reject explicit off-nominal junction terms with named UNSUPPORTED_TEMPERATURE errors. Impact-ionization current remains unsupported; default compatibility diffusion leakage remains nominal and is reported in model warnings.
+- 729b2b8: Move the standalone protocol package into `@spice-ts/core/protocol`, preserving protocol v1 types, schemas, conformance checks and canonical JSON utilities. JSON documents are available at `@spice-ts/core/protocol/schemas/*` and `@spice-ts/core/protocol/fixtures/*`. MCP now consumes this subpath instead of `@spice-ts/protocol`. The existing npm protocol package remains available and will be deprecated by the owner after release.
+- d5d9097: Allow each transient simulation to supply a sparse solver factory for DC initialization, convergence recovery, transient steps and resets. Export the SparseSolver type for custom backends and propagate factory failures without falling back to the default solver.
+- 515714e: Support small-signal AC analysis of G=0 LTRA lossy transmission lines for RLC, RC and LC models using ngspice's frequency-dependent wave equations. RC transient and LTRA noise analyses remain unsupported.
+- 541c28c: Expose nominal parameter values in native sensitivity results and add the bounded DC spice_sensitivity MCP tool with signed derivatives, normalised ranking, top limits and explicit units.
+- 97b38ba: Add the bounded spice_fourier MCP tool for transient harmonics, signed DC and THD, reusing the newly exported ngspiceFourier core calculation.
+- 2fd13a3: Add `spice_noise_metrics` for integrated output/input noise and bounded spot-density interpolation from an unstepped SPICE `.noise` sweep. Expose a bounded core noise executor without changing the protocol-v1 simulation result or stream schema. Native JSON noise directives remain unsupported.
+- f0d4cac: Support XSPICE mlin microstrip OP and AC with Hammerstad-Jensen geometry, Kirschning-Jansen dispersion (disp=0), and conductor/dielectric loss. Transient remains explicitly unsupported.
+- df514a5: Support XSPICE msopen microstrip open ends in OP and AC for model=0, disp=0 and msopen_model=0/1/2. Reject transient and unsupported selectors with UNSUPPORTED_XSPICE_MSOPEN.
+- 59165fe: Support XSPICE multi_input_pwl and/or min/max gates with clamped linear tables, differential ports, and DC/transient Jacobians. Reject malformed tables and unsupported gate modes explicitly; retain ngspice-47's zero AC response.
+- c85c586: Expose `TransientSim.peekInitialStep()` in the public TypeScript API so resumable simulations can include the t=0 snapshot without advancing or solving the operating point again.
+- f0a876e: Support seeded numparam agauss, gauss, aunif, unif and two-argument limit, plus bounded control setseed and mc_source parameter redraws. Use the existing ngspice RNG with BSD/macOS seed initialization; retain the three-argument compatibility limit clamp.
+- f9c3e11: Expose documented readonly machine-readable codes on every SpiceError, preserving existing subclass codes, messages and inheritance. MCP errors now retain the thrown core code across worker and in-process execution instead of replacing specific codes with broad protocol categories. The protocol-v1 schema and its error mapping are unchanged.
+- a49ecad: Support EKV 2.6 quasi-static AC analysis using the analytic intrinsic and overlap terminal-charge Jacobian. NQS, junction charges and noise remain unsupported.
+- fadec73: Support BSIM4 RGATEMOD=3 small-signal AC with intrinsic GP capacitances and midgate overlap capacitances. Retain explicit rejection of RGATEMOD=3 transient analysis.
+- 4cc5d7d: Support the ngspice XSPICE potentiometer model with linear/logarithmic taper, three conductance ports, and OP/DC/transient/AC stamping.
+- 7f2255c: Support time-dependent resistor expressions, including parenthesized nested ternaries with brace parameters, by lowering them to behavioral current sources evaluated at each transient step.
+
+### Patch Changes
+
+- c01ece9: Read device input parameters through case-insensitive subcircuit-qualified control expressions such as `@R.X1.R4[resistance]`, including instance-local `alter` values. Expose independent-source SIN coefficients and AC phase alongside existing parameter readouts.
+- 386bee0: Accept ngspice's built-in `endif` alias in control blocks, including nested `if not` conditions. Support `!` as a condition-only convenience alias for `not`/`~` (an extension to ngspice-47, which rejects this spelling in vector expressions).
+- 954519c: Execute control-language `eprint` and `edisplay` for digital event nodes. Capture the latest transient's merged event history, including initial DCOP values and drive strengths, and list event node types and counts independently of the selected analog plot.
+- d8b0f1c: Reduce VBIC junction-diode evaluation allocations by fusing derivative operations while preserving floating-point operation order and stamps.
+- 7915db5: Add the bounded spice_pz_metrics MCP tool and native pole-zero protocol helper, returning finite roots, conjugate-pair frequency/damping/Q, dominant pole and strict left-half-plane stability with structured errors.
+- 3b085d4: Integrate EKV26 quasi-static intrinsic terminal charges and linear CGSO/CGDO/CGBO overlap charges in transient analysis. Use charge-conserving EPFL EKV 2.6 equations with analytic voltage derivatives and accepted-step charge history. Junction charges, AC/NQS, noise and off-nominal temperature remain unsupported.
+- d1258e5: Evaluate maximum() and minimum() in control expressions, including ngspice-compatible independent extrema for complex components.
+- b690771: Evaluate `fft()` vector expressions with ngspice-compatible real/complex output lengths, normalization, window settings and named frequency scales. Support complex `ifft()` expressions needed by FFT leakage scripts, sharing the existing FFT command's arbitrary-length kernels.
+- 1afb711: Execute control-language pz commands through the existing pole-zero solver and expose complex pole(n)/zero(n) vectors in pz plots for subsequent control expressions.
+- 9b8b4e4: Treat absent AC source magnitude as zero in AC sensitivity analysis, retaining its nonzero magnitude derivative. Allow nonlinear devices in the zero-excitation source-transfer calculation without claiming model/instance parameter sensitivity coverage. Retain explicit zero-magnitude source derivatives as well.
+- 5664ee8: Use a preallocated scalar VBIC evaluator with explicit analytic branch Jacobians for isothermal models without excess phase, retaining the Dual reference for excess-phase and noise analysis.
+- d4bd0b2: Reuse unchanged VDMOS temperature states, channel evaluations, voltage reads and thermal current buffers during self-heating loads, avoiding redundant calculations and allocations without changing simulation results.
+- 6104e97: Define control-language `$inputdir` when a source path is supplied and export two-port S vectors with `wrs2p` in Touchstone v1 RI format. Output is retained in `control.files` and may be persisted through a caller-owned `writeControlFile` sink without granting the core filesystem access.
+- 3370848: Use ratio-based complex division in sparse AC factorization, pivot reuse and substitution to avoid squaring finite pivots. This fixes reverse-biased diode JS/WASM phase disagreement on the bounded diode RC regression and handles large finite pivots without modulus-squared overflow. This does not establish universal ngspice parity.
+- 02a6d97: Execute control-language label/goto jumps within the current or enclosing block, with structured unknown-label errors and an iteration guard.
+- 8396811: Support MOS2, MOS3 and MOS9 channel thermal and KF/AF flicker noise, including compiler-expanded drain/source resistance noise. Match ngspice-47 MOS2/MOS3 NLEV=0/1/2 and MOS9's legacy flicker formula. Keep unported MOS2/MOS3 NLEV=3 as an explicit circuit error.
+- 30a73c3: Reduce temporary derivative arrays in VBIC residual and charge accumulation while preserving binary64 operation order and stamp output.
+- 8e14842: Reduce VBIC automatic-differentiation overhead with indexed number-array loops, preserving each derivative's arithmetic order.
+- 223162e: Accept ngspice let vector names containing punctuation, including v(/22) and v(+22), and resolve their voltage-probe lookups across control plots. Reject reserved all, device-parameter names, and numeric-prefixed let targets with structured errors.
+- afefa01: Reuse VBIC's static-load charge evaluation during transient stamping without changing numerical results.
+- 931cd22: Clamp explicitly supplied nonnegative VBIC resistances below 0.01 ohm to the ngspice minimum while preserving omitted model defaults.
+
 ## 0.4.0
 
 ### Minor Changes

@@ -1,5 +1,51 @@
 # @spice-ts/circuit-json
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [e0f45ac]
+- Updated dependencies [c01ece9]
+- Updated dependencies [386bee0]
+- Updated dependencies [0cb1c52]
+- Updated dependencies [b7f1fbe]
+- Updated dependencies [954519c]
+- Updated dependencies [729b2b8]
+- Updated dependencies [d5d9097]
+- Updated dependencies [d8b0f1c]
+- Updated dependencies [515714e]
+- Updated dependencies [541c28c]
+- Updated dependencies [97b38ba]
+- Updated dependencies [2fd13a3]
+- Updated dependencies [7915db5]
+- Updated dependencies [f0d4cac]
+- Updated dependencies [df514a5]
+- Updated dependencies [59165fe]
+- Updated dependencies [c85c586]
+- Updated dependencies [3b085d4]
+- Updated dependencies [d1258e5]
+- Updated dependencies [b690771]
+- Updated dependencies [1afb711]
+- Updated dependencies [9b8b4e4]
+- Updated dependencies [5664ee8]
+- Updated dependencies [d4bd0b2]
+- Updated dependencies [f0a876e]
+- Updated dependencies [6104e97]
+- Updated dependencies [3370848]
+- Updated dependencies [f9c3e11]
+- Updated dependencies [a49ecad]
+- Updated dependencies [fadec73]
+- Updated dependencies [02a6d97]
+- Updated dependencies [8396811]
+- Updated dependencies [4cc5d7d]
+- Updated dependencies [30a73c3]
+- Updated dependencies [8e14842]
+- Updated dependencies [223162e]
+- Updated dependencies [7f2255c]
+- Updated dependencies [afefa01]
+- Updated dependencies [931cd22]
+  - @spice-ts/core@0.5.0
+
 ## 0.3.1
 
 ### Patch Changes
