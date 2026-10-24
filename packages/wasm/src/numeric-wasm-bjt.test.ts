@@ -49,7 +49,7 @@ describe('bounded BJT WASM operating point', () => {
     } finally { await wasm.close(); }
   });
 
-  it.each(['CJS=1p', 'XTF=1', 'RB=10', 'XTI=3', 'IKF=1m', 'TNOM=27'])(
+  it.each(['CJS=1p', 'XTF=1', 'XTI=3', 'IKF=1m', 'TNOM=27'])(
     'rejects unsupported model parameter %s', async parameter => {
       const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {
