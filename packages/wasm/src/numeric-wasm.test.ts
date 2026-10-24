@@ -1108,10 +1108,6 @@ describe('bounded numeric WebAssembly backend', () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       for (const [name, source, feature, message] of [
-        ['coupled', 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m\nL2 b 0 1m\nR2 b 0 1\nK1 L1 L2 0.5\n.tran 1u 10u',
-          'inductor-coupling', 'Coupled inductors (K) are not supported'],
-        ['coupled-ac', 'V1 in 0 AC 1\nR1 in a 1\nL1 a 0 1m\nL2 b 0 1m\nR2 b 0 1\nk1 L1 L2 0.5\n.ac lin 1 1k 1k',
-          'inductor-coupling', 'Coupled inductors (K) are not supported'],
         ['initial-condition', 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m IC=1m\n.tran 1u 10u',
           'inductor-initial-condition', 'Inductor initial conditions (IC=) are not supported'],
         ['initial-condition-spaced', 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m ic = 1m\n.tran 1u 10u',
@@ -1267,7 +1263,6 @@ describe('bounded numeric WebAssembly backend', () => {
       for (const [name, source] of Object.entries({
         capacitor: 'V1 in 0 1\nC1 in 0 1u\n.op',
         waveform: 'V1 in 0 PULSE(0 1 0 1n 1n 1m 2m)\nR1 in 0 1k\n.op',
-        coupledInductorTransient: 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m\nL2 b 0 1m\nR2 b 0 1\nK1 L1 L2 0.5\n.tran 1u 1m',
         unsupportedDiodeParameterTransient: 'V1 in 0 1\nD1 in 0 D\n.model D D(CJSW=1p)\n.tran 1u 1m',
       })) {
         const result = await wasm.simulate(request(source), { requestId: `unsupported-${name}` });

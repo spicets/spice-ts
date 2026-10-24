@@ -54,7 +54,7 @@ describe('spice_sensitivity', () => {
   it.each([
     { output: 'v(missing)' }, { output: 'v(out)\n.tran 1 2' }, { output: 'i(R1)' },
     { output: 'garbage' }, { netlist: 'not a circuit\nR1 out 0 invalid\n.end' },
-    { top: 0 }, { top: 1.5 }, { top: 10001 }, { analysis: 'ac' }, { surprise: true },
+    { top: 0 }, { top: 1.5 }, { top: 10001 }, { analysis: 'tran' }, { surprise: true },
   ])('returns the standard structured error for invalid input %j', async extra => {
     const response = await executeTool('spice_sensitivity', { netlist: divider, output: 'v(out)', ...extra });
     expect(response.isError).toBe(true);
@@ -62,9 +62,9 @@ describe('spice_sensitivity', () => {
     expect(JSON.parse((response.content[0] as { text: string }).text)).toEqual(response.structuredContent);
   });
 
-  it('advertises the tool and its DC-only analysis in capabilities', async () => {
+  it('advertises the tool and its DC/AC analyses in capabilities', async () => {
     const response = await executeTool('spice_capabilities', {});
-    expect(response.structuredContent).toMatchObject({ sensitivity: { tool: 'spice_sensitivity', analyses: ['dc'] } });
+    expect(response.structuredContent).toMatchObject({ sensitivity: { tool: 'spice_sensitivity', analyses: ['dc', 'ac'] } });
   });
 
   it('rejects stepped/control decks and replaces other deck analyses without executing them', async () => {
