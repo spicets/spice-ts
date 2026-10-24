@@ -81,7 +81,8 @@ export async function simulateLinearOpWasmV1(
   if (prepared.analysis === 'op') return simulateOp(prepared, request, exports);
   if (prepared.analysis === 'dc') return simulateDc(prepared, request, exports);
   if (prepared.analysis === 'tran') {
-    if (prepared.compiled.devices.some(device => {
+    if (prepared.transient.startTime !== undefined || prepared.transient.maxTimestep !== undefined
+      || request.options?.maxTimestep !== undefined || prepared.compiled.devices.some(device => {
       const waveform = (device as unknown as Partial<SweepableSource>).waveform;
       return ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? '')
         || waveform?.type === 'sin' || waveform?.type === 'pwl';
@@ -389,7 +390,7 @@ function simulateTransient(
 
 /** Shared adaptive driver and device models; every DC/Newton solve stays in WASM. */
 async function simulateAdaptiveTransient(
-  { compiled }: PreparedPassiveTran,
+  { compiled, transient }: PreparedPassiveTran,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
   maxPoints: number,
@@ -399,7 +400,7 @@ async function simulateAdaptiveTransient(
   const sim = await createTransientSim(parseTitleless(request.input.source), {
     abstol: options?.abstol, vntol: options?.vntol, reltol: options?.reltol,
     maxIterations: options?.maxIterations, maxTransientIterations: options?.maxTransientIterations,
-    gmin: options?.gmin, trtol: options?.trtol,
+    gmin: options?.gmin, trtol: options?.trtol, maxTimestep: options?.maxTimestep,
     solverFactory: (): SparseSolver => {
       let analyzed = false;
       let matrix = new Float64Array(0);
@@ -425,6 +426,7 @@ async function simulateAdaptiveTransient(
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
   const resultLimit = options?.limits?.maxResultPoints ?? Infinity;
   const append = (step: TransientStep): void => {
+    if (step.time < (transient.startTime ?? 0)) return;
     const observed = timeS.length + 1;
     if (observed > resultLimit) throw resourceLimit('maxResultPoints', resultLimit, observed);
     if (observed > maxPoints) throw resourceLimit('maxPoints', maxPoints, observed);
@@ -718,6 +720,16 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   }
   if (analysis === 'tran') {
     if (compiledAnalysis?.type !== 'tran') unsupported('analysis', 'Exactly one .tran analysis is supported');
+    const { timestep, stopTime, startTime = 0, maxTimestep } = compiledAnalysis;
+    const optionMaxTimestep = request.options?.maxTimestep;
+    if (![timestep, stopTime, startTime].every(Number.isFinite)
+      || timestep <= 0 || stopTime <= 0 || startTime < 0 || startTime >= stopTime
+      || (maxTimestep !== undefined && (!Number.isFinite(maxTimestep) || maxTimestep <= 0))
+      || (optionMaxTimestep !== undefined && (!Number.isFinite(optionMaxTimestep) || optionMaxTimestep <= 0))) {
+      throw numericError('INVALID_CIRCUIT', 'Transient controls must be finite, with positive TSTEP/TSTOP/TMAX and 0 <= TSTART < TSTOP', 'validation', {
+        backend: 'spice-ts-wasm', feature: 'tran-controls',
+      });
+    }
     return { analysis, compiled, order, transient: compiledAnalysis };
   }
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
@@ -916,14 +928,16 @@ function validateTransientControls(card: string, request: SimulationRequestV1): 
   if (tokens.some(token => token.toUpperCase() === 'UIC')) {
     unsupported('tran-uic', 'Transient UIC is not supported');
   }
-  if (tokens.length >= 4) unsupported('tran-max-timestep', 'Transient maximum timestep is not supported');
-  if (tokens.length >= 3) unsupported('tran-start-time', 'Transient start time is not supported');
+  if (tokens.length > 4 || (tokens.length === 4 && !SPICE_NUMBER.test(tokens[3]!))) {
+    unsupported('tran-max-timestep', 'Transient maximum timestep is not supported');
+  }
+  if (tokens.length >= 3 && !SPICE_NUMBER.test(tokens[2]!)) {
+    unsupported('tran-start-time', 'Transient start time is not supported');
+  }
   if (request.options?.integrationMethod && request.options.integrationMethod !== 'trapezoidal') {
     unsupported('integration-method', 'Only trapezoidal transient integration is supported');
   }
-  if (request.options?.maxTimestep !== undefined) {
-    unsupported('max-timestep', 'Transient maximum timestep is not supported');
-  }
+
   if (request.options?.trtol !== undefined) {
     unsupported('trtol', 'Transient LTE controls are not supported');
   }
