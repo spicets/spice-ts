@@ -223,7 +223,9 @@ function parseBaseSourceWaveform(cardTokens: string[], startIdx: number): Source
       // ngspice vsrcload.c: an omitted TR/TF defaults like an explicit 0, to
       // TSTEP in transient analysis (see effectivePulse).
       delay: args[2] ?? 0, rise: args[3] ?? 0, fall: args[4] ?? 0,
-      width: args[5] ?? Infinity, period: args[6] ?? Infinity,
+      // ngspice-47 vsrcload.c/isrcload.c: exactly five arguments (through TF)
+      // mean a triangular pulse (PW=0); fewer arguments retain the long pulse.
+      width: args[5] ?? (args.length === 5 ? 0 : Infinity), period: args[6] ?? Infinity,
       ...(args[7] !== undefined ? { pulses: args[7] } : {}),
     } satisfies PulseSource;
   }

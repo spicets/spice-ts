@@ -1104,18 +1104,49 @@ describe('bounded numeric WebAssembly backend', () => {
     }
   });
 
+  it.each([
+    ['RC', 'V1 in 0 0\nR1 in out 1k\nC1 out 0 1u IC=1\n.tran 1u 100u uic'],
+    ['RL', 'V1 in 0 0\nR1 in out 1k\nL1 out 0 1 IC=1m\n.tran 1u 100u uic'],
+    ['RL spaced IC without UIC', 'V1 in 0 1\nR1 in out 1k\nL1 out 0 1 ic = 1m\n.tran 1u 100u'],
+    ['RC spaced negative IC', 'V1 in 0 2\nR1 in out 1k\nC1 out 0 1u ic = -1\n.tran 1u 100u UIC'],
+    ['RC IC ignored without UIC', 'V1 in 0 2\nR1 in out 1k\nC1 out 0 1u IC=-1\n.tran 1u 100u'],
+    ['RC zero seed', 'V1 in 0 2\nR1 in out 1k\nC1 out 0 1u\n.tran 1u 100u uic'],
+    ['RLC combined IC', 'V1 in 0 2\nR1 in a 10\nL1 a out 1m IC=-1m\nC1 out 0 1u IC=1\n.tran 1u 100u uic'],
+    ['floating capacitor IC', 'V1 in 0 2\nR1 in a 1k\nR2 b 0 2k\nC1 a b 1u IC=1\n.tran 1u 100u uic'],
+  ])('matches every core transient sample for %s initial conditions', async (name, source) => {
+    const wasm = await engine('spice-ts-wasm');
+    const js = await engine('spice-ts-js');
+    try {
+      const actual = await wasm.simulate(request(source), { requestId: `${name}-uic-wasm` });
+      const reference = await js.simulate(request(source), { requestId: `${name}-uic-js` });
+      expect(actual, JSON.stringify(actual)).toMatchObject({ ok: true, metadata: { backend: 'spice-ts-wasm' } });
+      expect(reference.ok).toBe(true);
+      if (!actual.ok || !reference.ok) throw new Error('missing UIC results');
+      const result = actual.data.analyses[0];
+      const expected = reference.data.analyses[0];
+      if (result?.type !== 'tran' || expected?.type !== 'tran') throw new Error('missing transient analysis');
+      expect(result.timeS).toEqual(expected.timeS);
+      if (/\buic\b/i.test(source)) expect(result.timeS[0]).toBeGreaterThan(0);
+      for (const group of ['voltagesV', 'currentsA'] as const) {
+        expect(Object.keys(result[group]).sort()).toEqual(Object.keys(expected[group]).sort());
+        for (const [signal, values] of Object.entries(expected[group])) {
+          expect(result[group][signal]).toHaveLength(values.length);
+          const maximum = Math.max(...values.map((value, index) =>
+            Math.abs(result[group][signal]![index]! - value) / Math.max(Math.abs(value), 1e-12)));
+          expect(maximum, `${name} ${group} ${signal}`).toBeLessThanOrEqual(1e-6);
+        }
+      }
+    } finally {
+      await wasm.close();
+      await js.close();
+    }
+  });
+
   it('rejects unsupported inductor forms with deterministic structured errors', async () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       for (const [name, source, feature, message] of [
-        ['coupled', 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m\nL2 b 0 1m\nR2 b 0 1\nK1 L1 L2 0.5\n.tran 1u 10u',
-          'inductor-coupling', 'Coupled inductors (K) are not supported'],
-        ['coupled-ac', 'V1 in 0 AC 1\nR1 in a 1\nL1 a 0 1m\nL2 b 0 1m\nR2 b 0 1\nk1 L1 L2 0.5\n.ac lin 1 1k 1k',
-          'inductor-coupling', 'Coupled inductors (K) are not supported'],
-        ['initial-condition', 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m IC=1m\n.tran 1u 10u',
-          'inductor-initial-condition', 'Inductor initial conditions (IC=) are not supported'],
-        ['initial-condition-spaced', 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m ic = 1m\n.tran 1u 10u',
-          'inductor-initial-condition', 'Inductor initial conditions (IC=) are not supported'],
+
         ['model', 'V1 in 0 1\nR1 in a 1\nL1 a 0 lmod 1m\n.tran 1u 10u',
           'inductor-form', 'Inductors must use name positive negative constant-inductance'],
         ['instance-parameter', 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m m=2\n.tran 1u 10u',
@@ -1209,6 +1240,8 @@ describe('bounded numeric WebAssembly backend', () => {
     { name: 'RC TSTART', devices: 'R1 in out 1k\nC1 out 0 1u', tran: '.tran 1u 1m 0.2m', start: 0.0002, cap: 1e-6 },
     { name: 'RC diode TMAX', devices: 'R1 in out 1k\nC1 out 0 1u\nD1 out 0 junction\n.model junction D(IS=1e-14 N=1)', tran: '.tran 1u 1m 0 2u', start: 0, cap: 2e-6 },
     { name: 'RC option below TSTEP', devices: 'R1 in out 1k\nC1 out 0 1u', tran: '.tran 10u 100u', start: 0, cap: 2e-6, options: { maxTimestep: 2e-6 } },
+    { name: 'RC UIC TSTART TMAX', devices: 'R1 in out 1k\nC1 out 0 1u IC=0.5', tran: '.tran 10u 100u 20u 2u UIC', start: 20e-6, cap: 2e-6 },
+    { name: 'coupled inductors TMAX', devices: 'R1 in a 100\nL1 a 0 10m\nL2 out 0 10m\nR2 out 0 100\nK1 L1 L2 0.5', tran: '.tran 10u 100u 20u 2u', start: 20e-6, cap: 2e-6 },
     { name: 'RLC TMAX below TSTEP', devices: 'R1 in a 100\nL1 a out 10m\nC1 out 0 1u', tran: '.tran 10u 100u 0 2u', start: 0, cap: 2e-6 },
     { name: 'TMAX overrides option', devices: 'R1 in out 1k\nC1 out 0 1u', tran: '.tran 10u 100u 0 2u', start: 0, cap: 2e-6, options: { maxTimestep: 5e-7 } },
     { name: 'controlled sources', devices: 'R1 in 0 1k\nG1 g 0 in 0 1m\nR2 g 0 1k\nE1 e 0 in 0 2\nR3 e 0 1k\nF1 f 0 V1 2\nR4 f 0 1k\nH1 h 0 V1 1k\nR5 h 0 1k\nC1 g 0 1n', tran: '.tran 10u 100u 20u 2u', start: 20e-6, cap: 2e-6 },
@@ -1286,10 +1319,9 @@ describe('bounded numeric WebAssembly backend', () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       for (const [source, feature, message] of [
-        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m uic', 'tran-uic', 'Transient UIC is not supported'],
-        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m 0 2u uic', 'tran-uic', 'Transient UIC is not supported'],
         ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m 0 2u extra', 'tran-max-timestep', 'Transient maximum timestep is not supported'],
         ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m extra', 'tran-start-time', 'Transient start time is not supported'],
+        ['V1 in 0 1\nR1 in 0 1k\n.tran 1u 1m extra uic', 'tran-start-time', 'Transient start time is not supported'],
       ] as const) {
         const result = await wasm.simulate(request(source), { requestId: feature });
         expect(result).toMatchObject({
@@ -1345,7 +1377,6 @@ describe('bounded numeric WebAssembly backend', () => {
       for (const [name, source] of Object.entries({
         capacitor: 'V1 in 0 1\nC1 in 0 1u\n.op',
         waveform: 'V1 in 0 PULSE(0 1 0 1n 1n 1m 2m)\nR1 in 0 1k\n.op',
-        coupledInductorTransient: 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m\nL2 b 0 1m\nR2 b 0 1\nK1 L1 L2 0.5\n.tran 1u 1m',
         unsupportedDiodeParameterTransient: 'V1 in 0 1\nD1 in 0 D\n.model D D(CJSW=1p)\n.tran 1u 1m',
       })) {
         const result = await wasm.simulate(request(source), { requestId: `unsupported-${name}` });

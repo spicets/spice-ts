@@ -7,6 +7,7 @@ export interface DcAnalysisV1 { type: 'dc'; source: string; start: number; stop:
 export interface TransientAnalysisV1 { type: 'tran'; timestep: number; stopTime: number; startTime?: number; maxTimestep?: number }
 export interface AcAnalysisV1 { type: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
 export type AnalysisV1 = OperatingPointAnalysisV1 | DcAnalysisV1 | TransientAnalysisV1 | AcAnalysisV1;
+export type { PoleZeroAnalysisV1 } from './wire/types.js';
 
 export interface CircuitPortV1 { name: string; net: string }
 export interface CircuitComponentV1 {
@@ -30,6 +31,7 @@ export interface SpiceTsCircuitDocumentV1 {
   schemaVersion: '1.0';
   circuit: { components: CircuitComponentV1[]; nets: string[] };
   analyses: AnalysisV1[];
+  poleZeroAnalyses?: import('./wire/types.js').PoleZeroAnalysisV1[];
   models: CircuitModelV1[];
   subcircuits: SubcircuitV1[];
 }
@@ -37,7 +39,7 @@ export interface SpiceTsCircuitDocumentV1 {
 export type SimulationInputV1 =
   | { format: 'spice'; source: string; virtualFiles?: Record<string, string> }
   | { format: 'spice-ts'; document: SpiceTsCircuitDocumentV1 }
-  | { format: 'circuit-json'; circuit: JsonValue[]; analyses: AnalysisV1[] };
+  | { format: 'circuit-json'; circuit: JsonValue[]; analyses: AnalysisV1[]; poleZeroAnalyses?: import('./wire/types.js').PoleZeroAnalysisV1[] };
 
 export interface ResourceLimitsV1 {
   maxSourceBytes?: number;

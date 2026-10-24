@@ -16,6 +16,7 @@ import type {
   SuccessEnvelopeV1,
 } from '@spice-ts/core/protocol';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
 import { createRequire } from 'node:module';
 import { Worker } from 'node:worker_threads';
 import { estimatedResultPoints, requestPlan, resolvedOptions } from './request-plan.js';
@@ -161,7 +162,7 @@ const capabilitiesOutputSchema = {
     inputFormats: { type: 'array', items: { enum: ['spice', 'spice-ts', 'circuit-json'] } },
     tools: { type: 'array', items: { type: 'string' } },
     sensitivity: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
-      properties: { tool: { const: 'spice_sensitivity' }, analyses: { type: 'array', items: { const: 'dc' } } } },
+      properties: { tool: { const: 'spice_sensitivity' }, analyses: { type: 'array', items: { enum: ['dc', 'ac'] } } } },
     tf: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
       properties: { tool: { const: 'spice_tf' }, analyses: { type: 'array', items: { const: 'tf' } } } },
     impedance: { type: 'object', required: ['tool', 'analyses'], additionalProperties: false,
@@ -283,7 +284,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_sensitivity',
-    description: 'Run native DC sensitivity for v(node), v(a,b) or i(vsrc). Return signed absolute derivatives and value*dOut/dParam, ranked by descending absolute normalised sensitivity, with optional top. Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected. AC is not supported.',
+    description: 'Run native DC or AC sensitivity for v(node), v(a,b) or i(vsrc). Return absolute derivatives and value*dOut/dParam, ranked by descending normalised magnitude, with optional top per frequency for AC. AC requires a dec/oct/lin sweep and returns complex derivatives. Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected.',
     inputSchema: sensitivityInputSchema,
     outputSchema: { type: 'object', oneOf: [sensitivityOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
@@ -411,7 +412,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_pz_metrics',
-    description: 'Run exactly one unstepped .pz (mode pol or pz) from SPICE text. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Other analyses are not executed.',
+    description: 'Run exactly one unstepped pole-zero analysis (mode pol or pz) from SPICE text, spice-ts JSON or circuit-json. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Other analyses are not executed.',
     inputSchema: requestInputSchema,
     outputSchema: {
       type: 'object', oneOf: [pzMetricsOutputSchema, toolFailureOutputSchema],
@@ -513,7 +514,7 @@ const capabilities = Object.freeze({
   analyses: Object.freeze(['op', 'dc', 'tran', 'ac']),
   inputFormats: Object.freeze(['spice', 'spice-ts', 'circuit-json']),
   tools: Object.freeze(MCP_TOOLS.map(tool => tool.name)),
-  sensitivity: Object.freeze({ tool: 'spice_sensitivity', analyses: Object.freeze(['dc']) }),
+  sensitivity: Object.freeze({ tool: 'spice_sensitivity', analyses: Object.freeze(['dc', 'ac']) }),
   tf: Object.freeze({ tool: 'spice_tf', analyses: Object.freeze(['tf']) }),
   impedance: Object.freeze({ tool: 'spice_impedance', analyses: Object.freeze(['ac']) }),
   parameterOverrides,
@@ -620,8 +621,10 @@ async function executeToolWithStore(
       try {
         const raw = await runInWorker<SensitivityResult>('sensitivity', {
           apiVersion: '1', input: { format: 'spice', source: selectors.netlist },
-        }, limits.maxWallTimeMs, options, selectors.output);
-        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.entries.length, 'transport');
+        }, limits.maxWallTimeMs, options, selectors.sweep
+          ? `${selectors.output} ac ${selectors.sweep.type} ${selectors.sweep.points} ${selectors.sweep.fstart} ${selectors.sweep.fstop}`
+          : selectors.output);
+        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.entries.length * Math.max(1, raw.frequencies?.length ?? 0), 'transport');
         const result = sensitivityReport(raw, selectors);
         enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
         return success(result);
@@ -749,11 +752,11 @@ async function executeToolWithStore(
     const dcInput = name === 'spice_dc_metrics' ? dcMetricsInput(args) : undefined;
     let original = toolRequest(args);
     if (distoSelector && original.input.format !== 'spice') unsupportedDisto();
-    if (name === 'spice_pz_metrics' && original.input.format !== 'spice') {
-      throw apiError('UNSUPPORTED_FEATURE', 'Pole-zero metrics require SPICE text input', 'validation', {});
-    }
     const effective = effectiveLimits(original, limits);
     enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
+    if (name === 'spice_pz_metrics' && original.input.format !== 'spice' && !validatePoleZeroInput(original.input).valid) {
+      throw apiError('INVALID_REQUEST', 'Invalid pole-zero JSON input', 'validation', {});
+    }
     if ((name === 'spice_simulate' || name === 'spice_simulation_start') && isRecord(args) && args.params !== undefined) {
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
       original = overrideParameters(original, args.params);
@@ -1389,6 +1392,10 @@ function effectiveLimits(request: SimulationRequestV1, configured: McpLimits): M
   };
 }
 
+const validatePoleZeroInput = new AjvJsonSchemaValidator().getValidator({
+  ...commonSchemaV1.$defs.simulationInput, $defs: commonSchemaV1.$defs,
+});
+
 function toolRequest(args: unknown): SimulationRequestV1 {
   if (!isRecord(args) || !isRecord(args.request)) {
     throw apiError('INVALID_REQUEST', "Expected an object containing 'request'", 'validation', {});
@@ -1450,7 +1457,13 @@ function convertTool(args: unknown, limits: McpLimits, signal?: AbortSignal): Ca
       const port = (name: string) => component.ports.find(port => port.name === name)!.net;
       if (component.type === 'R') circuit.addResistor(component.name, port('p'), port('n'), component.params.resistance as number);
       else if (component.type === 'C') circuit.addCapacitor(component.name, port('p'), port('n'), component.params.capacitance as number);
-      else circuit.addVoltageSource(component.name, port('p'), port('n'), { dc: component.params.dc as number });
+      else if (component.params.waveform === 'sin') {
+        circuit.addVoltageSource(component.name, port('p'), port('n'), {
+          type: 'sin', offset: component.params.offset as number,
+          amplitude: component.params.amplitude as number, frequency: component.params.frequency as number,
+          delay: 0, damping: 0, phase: component.params.phase as number,
+        });
+      } else circuit.addVoltageSource(component.name, port('p'), port('n'), { dc: component.params.dc as number });
     }
     output = { netlist: circuit.toNetlist(), diagnostics: converted.diagnostics, lossy: false };
   }
@@ -1485,6 +1498,7 @@ function convertRequest(request: SimulationRequestV1): {
         document: {
           format: 'spice-ts', schemaVersion: '1.0', circuit: converted.value!,
           analyses: request.input.analyses, models: [], subcircuits: [],
+          ...(request.input.poleZeroAnalyses !== undefined ? { poleZeroAnalyses: request.input.poleZeroAnalyses } : {}),
         },
       },
     },

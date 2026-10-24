@@ -164,6 +164,49 @@
         }
       ]
     },
+    "poleZeroAnalysis": {
+      "type": "object",
+      "required": [
+        "type",
+        "inputPositive",
+        "inputNegative",
+        "outputPositive",
+        "outputNegative",
+        "inputType",
+        "mode"
+      ],
+      "properties": {
+        "type": {
+          "const": "pz"
+        },
+        "inputPositive": {
+          "type": "string"
+        },
+        "inputNegative": {
+          "type": "string"
+        },
+        "outputPositive": {
+          "type": "string"
+        },
+        "outputNegative": {
+          "type": "string"
+        },
+        "inputType": {
+          "enum": [
+            "cur",
+            "vol"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "pol",
+            "zer",
+            "pz"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "port": {
       "type": "object",
       "required": [
@@ -340,6 +383,12 @@
           "items": {
             "$ref": "#/$defs/subcircuit"
           }
+        },
+        "poleZeroAnalyses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/poleZeroAnalysis"
+          }
         }
       },
       "additionalProperties": false
@@ -409,6 +458,12 @@
               "type": "array",
               "items": {
                 "$ref": "#/$defs/analysis"
+              }
+            },
+            "poleZeroAnalyses": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/poleZeroAnalysis"
               }
             }
           },

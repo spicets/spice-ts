@@ -50,7 +50,8 @@
     "sensitivity": {
       "tool": "spice_sensitivity",
       "analyses": [
-        "dc"
+        "dc",
+        "ac"
       ]
     },
     "tf": {

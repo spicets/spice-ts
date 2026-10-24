@@ -4,22 +4,36 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 
 ## Tools
 
-### DC sensitivity
+### DC and AC sensitivity
 
 Call `spice_sensitivity` with `{ netlist, output: "v(out)", analysis: "dc", top: 5 }`.
 `netlist` is a title-less SPICE fragment (a leading `*` comment is fine), like
-the protocol tools. `analysis` defaults to `dc`; AC is not supported by this tool.
+the protocol tools. `analysis` defaults to `dc`.
 `output` accepts `v(node)`, `v(a,b)` and `i(vsrc)` (independent voltage sources only).
 Existing analysis directives are replaced, not executed; `.step`, `.control` and
 `.pz` decks are rejected. Includes must be inlined before calling this tool.
 
-The response contains `output`, `analysis`, `outputUnit` (`V` or `A`) and `entries`.
+The DC response contains `output`, `analysis`, `outputUnit` (`V` or `A`) and `entries`.
 Each entry contains `device`, `parameter`, nominal `value`, signed `absolute`
 (`dOut/dParam`), signed `normalised` (`value*dOut/dParam`), `parameterUnit` and
 `absoluteUnit`. Normalised sensitivity has the output unit; it is not divided by
 the nominal output. Entries sort by descending `abs(normalised)`, then by device
 and parameter code-point order for exact ties. `top` is optional (1–10000); omitting
 it returns all supported parameters, including instance multiplier and scale.
+For AC, call with `analysis: "ac"` and a required
+`sweep: { type: "dec", points: 10, fstart: 10, fstop: 100000 }`.
+Sweep types are `dec`, `oct` and `lin`; `points` is an integer from 1 through
+10000, `fstart` is finite and positive, and `fstop` is finite and at least
+`fstart` (frequencies in Hz). Extra sweep fields and sweeps on DC requests are rejected.
+The AC response is `{ schemaVersion: "1", output, analysis: "ac", outputUnit,
+points: [{ frequency, entries }] }`. Entries have the same metadata as DC, but
+`absolute` and `normalised` are complex `{ real, imaginary }` objects:
+`absolute` is the core complex derivative and `normalised` is nominal parameter
+value times that derivative, not divided by the output. Each frequency is ranked
+independently by descending complex norm of `normalised`, with the same lexical
+tie-breaks and optional `top` per frequency. The result-point ceiling counts all
+computed parameter entries times the frequency count, before applying `top`.
+
 Core's bounded `.sens` device/parameter coverage applies; this is not a claim of
 full ngspice model-parameter sensitivity support. Errors use the usual `{ error }`
 structured result. Worker time, document size, concurrency and result ceilings apply.
@@ -40,7 +54,7 @@ S-parameter keys use `Sij` when both one-based indices are single digits (for ex
 - `spice_dc_metrics`: return DC transfer gain, switching threshold, unity-gain points and noise margins without raw vectors.
 - `spice_op_report`: return operating-point node voltages, terminal currents, device powers and top dissipators.
 - `spice_power_metrics`: summarize transient average power, RMS current, peak power/time and optional efficiency without returning vectors. Accepts `{ netlist, elements?: ["V1", "Rload"], window?: [tStart, tStop], input?: ["V1"], output?: ["Rload"] }`. Times are seconds; names are case-insensitive. Returns `window`, `elements` (`name`, `averagePowerW`, `rmsCurrentA`, `peakPowerW`, `peakTimeS`) and `efficiency` (ratio, not percent). Power is signed absorption: negative source power means delivery. Efficiency is total designated output absorption divided by total designated input delivery, or `null` when undesignated or input delivery is nonpositive. Input/output lists must both be provided, be disjoint, and refer to selected elements. Defaults to all IR elements (at most 128); supports two-terminal R/C/L/V/I/D/H/F elements. Other selected device types return `INVALID_REQUEST`. Requires exactly one transient in a flat, unstepped SPICE deck without includes/subcircuits/control blocks. No transient returns `NOT_TRANSIENT`; unknown elements and invalid windows return `INVALID_REQUEST`. Uses native V/L branch currents and zero-volt series current probes for other devices; averages power and squared current trapezoidally over accepted timepoints. Window boundaries linearly interpolate sampled power and squared current; no extrapolation. Peak is the maximum signed sampled/interpolated power (not maximum absolute power), with the earliest time on ties. Resource/solver errors propagate unchanged. Example: `V1 in 0 10\nRs in out 1k\nRload out 0 3k\n.tran 10u 1m` with input V1/output Rload returns efficiency 0.75.
-- `spice_sensitivity`: DC `.sens` derivatives for voltage/differential voltage or independent voltage-source current, ranked by absolute normalised sensitivity.
+- `spice_sensitivity`: DC or complex AC `.sens` derivatives for voltage/differential voltage or independent voltage-source current, ranked by normalised magnitude (per frequency for AC).
 - `spice_tf`: native small-signal gain and input/output resistances. Accepts `{ netlist, output: "v(out)", input_source: "V1", params?: { name: number } }` with single-node voltage or `i(vsrc)` output and an independent voltage/current input source. Returns exact selector names, `transfer_function`, `input_resistance`, `output_resistance`, and `units` (V/V, V/A, A/V or A/A; resistances in ohm). Uses shared case-insensitive top-level parameter overrides. A matching `.tf` is allowed; conflicting analyses, steps, and control blocks return structured errors. Differential voltage output is not supported by core `.tf`.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
 - `spice_corners`: run SPICE text across up to 64 uniquely named deterministic corners with `{ request, corners: [{ name, params?, temp? }], measurement }`. `params` contains finite numeric top-level `.param` overrides; `temp` is Celsius above absolute zero and overrides earlier temperature cards. Uses one `spice_measure` selector. Returns ordered `{ name, status, value, unit }` or `{ name, status: 'failed', error }` entries and `summary: { min: { name, value }, max: { name, value }, spread, unit }` over successful corners only (null if none succeed, first corner wins ties). Shares the existing worker quota, response cap and one wall-time budget. Unlike a single-parameter sweep or random sampling, corners are explicit heterogeneous cases.
@@ -248,7 +262,9 @@ connectivity and component values, not analysis directives, solver options, or m
 cards. Reattach analyses (for example `.op`) when simulating the returned netlist.
 SPICE export currently supports passive resistors and capacitors. M/Q import cannot
 produce a runnable SPICE model from circuit-json alone and is rejected rather than
-inventing model parameters. Independent sources are unsupported in either direction.
+inventing model parameters. The adapter supports DC V/I sources in both directions
+and sinewave voltage sources with zero delay/damping. `spice_convert` emits DC and
+sinewave V sources as SPICE; current-source SPICE serialization remains unsupported.
 Lossy exports are rejected. Fatal errors use the usual `isError` and
 `error.details.diagnostics` shape, including `UNSUPPORTED_ELEMENT` for unsupported
 components and `UNSUPPORTED_PARAMETER` diagnostics for unrepresentable parameters
@@ -353,6 +369,36 @@ semantics are changed by this tool.
 ## Pole-zero metrics
 
 Call `spice_pz_metrics` with `{ request: { apiVersion: "1", input: { format: "spice", source: "R1 in 0 1k\nC1 in 0 1u\n.pz in 0 in 0 cur pz" } } }`.
+
+JSON inputs use optional `poleZeroAnalyses`, separate from the ordinary `analyses`
+and result/stream unions. The equivalent RC lowpass request is:
+
+```json
+{
+  "request": {
+    "apiVersion": "1",
+    "input": {
+      "format": "spice-ts",
+      "document": {
+        "format": "spice-ts", "schemaVersion": "1.0",
+        "circuit": {
+          "nets": ["in"],
+          "components": [
+            { "type": "R", "id": "R1", "name": "R1", "ports": [{ "name": "p", "net": "in" }, { "name": "n", "net": "0" }], "params": { "resistance": 1000 } },
+            { "type": "C", "id": "C1", "name": "C1", "ports": [{ "name": "p", "net": "in" }, { "name": "n", "net": "0" }], "params": { "capacitance": 0.000001 } }
+          ]
+        },
+        "analyses": [], "models": [], "subcircuits": [],
+        "poleZeroAnalyses": [{ "type": "pz", "inputPositive": "in", "inputNegative": "0", "outputPositive": "in", "outputNegative": "0", "inputType": "cur", "mode": "pz" }]
+      }
+    }
+  }
+}
+```
+
+For `format: "circuit-json"`, supply `circuit`, `analyses: []`, and the same
+`poleZeroAnalyses` array directly on `input`. Conversion preserves the analysis;
+unsupported simulation elements return structured conversion diagnostics.
 Use titleless SPICE text (a leading `*` comment is fine), with exactly one
 `.pz in+ in- out+ out- {cur|vol} {pol|pz}` directive. Other analyses are not
 executed. Includes, netlist options/temperature, request option overrides,

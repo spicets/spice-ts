@@ -97,10 +97,6 @@ export async function validateProtocolV1(
 export async function simulatePoleZeroProtocolV1(request: SimulationRequestV1) {
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
-  if (request.input.format !== 'spice') throw new ProtocolExecutionError({
-    code: 'UNSUPPORTED_FEATURE', message: 'Pole-zero metrics require SPICE text input',
-    phase: 'validation', retryable: false, details: {},
-  });
   const circuit = await requestCircuit(request, guard);
   guard.maximum('maxAnalyses', circuit.analyses.length + circuit.poleZeroAnalyses.length, 'validation');
   if (circuit.poleZeroAnalyses.length !== 1 || circuit.poleZeroAnalyses[0].mode === 'zer') {
@@ -472,6 +468,15 @@ function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit {
   for (const subcircuit of document.subcircuits) circuit.addSubcircuit(coreSubcircuit(subcircuit));
   for (const component of document.circuit.components) addComponent(circuit, component);
   for (const analysis of document.analyses) addAnalysis(circuit, analysis);
+  if (document.poleZeroAnalyses !== undefined) {
+    const analyses = document.poleZeroAnalyses;
+    if (!Array.isArray(analyses) || analyses.some(a => !a || a.type !== 'pz'
+      || !['inputPositive', 'inputNegative', 'outputPositive', 'outputNegative'].every(key => typeof a[key as keyof typeof a] === 'string')
+      || !['cur', 'vol'].includes(a.inputType) || !['pol', 'zer', 'pz'].includes(a.mode))) {
+      throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', message: 'Invalid poleZeroAnalyses', phase: 'validation', retryable: false, details: {} });
+    }
+    for (const analysis of analyses) circuit.addAnalysis('pz', analysis);
+  }
   return circuit;
 }
 

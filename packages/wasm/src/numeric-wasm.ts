@@ -53,7 +53,9 @@ interface PreparedPassiveAc extends PreparedNumericBase {
 
 interface PreparedPassiveTran extends PreparedNumericBase {
   analysis: 'tran';
+  hierarchical: boolean;
   transient: Extract<CompiledCircuit['analyses'][number], { type: 'tran' }>;
+  normalizedSource: string;
 }
 
 type PreparedNumeric = PreparedLinearOp | PreparedLinearDc | PreparedPassiveAc | PreparedPassiveTran;
@@ -82,9 +84,12 @@ export async function simulateLinearOpWasmV1(
   if (prepared.analysis === 'dc') return simulateDc(prepared, request, exports);
   if (prepared.analysis === 'tran') {
     if (prepared.transient.startTime !== undefined || prepared.transient.maxTimestep !== undefined
-      || request.options?.maxTimestep !== undefined || prepared.compiled.devices.some(device => {
+      || request.options?.maxTimestep !== undefined || prepared.transient.useInitialConditions
+      || prepared.hierarchical || prepared.compiled.devices.some(device => {
       const waveform = (device as unknown as Partial<SweepableSource>).waveform;
-      return ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? '')
+      return ['D', 'Q', 'M', 'K'].includes(deviceType(device.name) ?? '')
+        || (['C', 'L'].includes(deviceType(device.name) ?? '')
+          && (device as { ic?: number }).ic !== undefined)
         || waveform?.type === 'sin' || waveform?.type === 'pwl';
     })) {
       return simulateAdaptiveTransient(prepared, request, exports, maxPoints);
@@ -103,7 +108,7 @@ function simulateDc(
   const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
   const originalWaveform = source.waveform;
-  const nonlinear = compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''));
+  const nonlinear = compiled.devices.some(device => ['D', 'Q', 'M'].includes(deviceType(device.name) ?? ''));
   let previous: Float64Array | undefined;
   try {
     for (let point = 0; point < pointCount; point++) {
@@ -146,7 +151,7 @@ function simulateDc(
     status: 'complete',
     analyses: [{
       type: 'dc', analysisIndex: 0,
-      axis: { name: source.name, unit: source.name[0]?.toUpperCase() === 'I' ? 'A' : 'V', values },
+      axis: { name: source.name, unit: deviceType(source.name) === 'I' ? 'A' : 'V', values },
       voltagesV, currentsA,
     }],
   };
@@ -159,7 +164,7 @@ function simulateOp(
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
-  if (compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''))) {
+  if (compiled.devices.some(device => ['D', 'Q', 'M'].includes(deviceType(device.name) ?? ''))) {
     return opResult(compiled, solveNonlinearOp(compiled, order, request, exports), request);
   }
   const matrix = new Float64Array(order * order);
@@ -305,8 +310,8 @@ function solveNonlinearOp(
     if ((initial !== undefined || iteration >= 2) && converged) return solution;
     previous = solution;
   }
-  const deviceKind = compiled.devices.some(device => device.name[0]?.toUpperCase() === 'M') ? 'MOS1'
-    : compiled.devices.some(device => device.name[0]?.toUpperCase() === 'Q') ? 'BJT' : 'diode';
+  const deviceKind = compiled.devices.some(device => deviceType(device.name) === 'M') ? 'MOS1'
+    : compiled.devices.some(device => deviceType(device.name) === 'Q') ? 'BJT' : 'diode';
   throw numericError('CONVERGENCE_FAILED', `The bounded WebAssembly ${deviceKind} operating point did not converge`, 'solve', {
     maxIterations,
   });
@@ -390,14 +395,14 @@ function simulateTransient(
 
 /** Shared adaptive driver and device models; every DC/Newton solve stays in WASM. */
 async function simulateAdaptiveTransient(
-  { compiled, transient }: PreparedPassiveTran,
+  { compiled, transient, normalizedSource }: PreparedPassiveTran,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
   maxPoints: number,
 ): Promise<SimulationResultV1> {
   const options = request.options;
   if (request.input.format !== 'spice') unsupported('input-format', 'SPICE text is required');
-  const sim = await createTransientSim(parseTitleless(request.input.source), {
+  const sim = await createTransientSim(parseTitleless(normalizedSource), {
     abstol: options?.abstol, vntol: options?.vntol, reltol: options?.reltol,
     maxIterations: options?.maxIterations, maxTransientIterations: options?.maxTransientIterations,
     gmin: options?.gmin, trtol: options?.trtol, maxTimestep: options?.maxTimestep,
@@ -435,7 +440,8 @@ async function simulateAdaptiveTransient(
     for (const [name, value] of step.currents) currentsA[name]!.push(value);
   };
   try {
-    append(sim.peekInitialStep());
+    // UIC's t=0 state is an IC seed, not a solved output point (#856).
+    if (!transient.useInitialConditions) append(sim.peekInitialStep());
     while (!sim.isDone) append(sim.advance());
   } finally { sim.dispose(); }
   const result: SimulationResultV1 = { status: 'complete', analyses: [{ type: 'tran', analysisIndex: 0, timeS, voltagesV, currentsA }] };
@@ -517,7 +523,7 @@ function simulateAc(
   const dynamic = new Float64Array(order * order);
   const rhsReal = new Float64Array(order);
   const rhsImaginary = new Float64Array(order);
-  const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M'].includes(device.name[0]?.toUpperCase() ?? ''))
+  const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M'].includes(deviceType(device.name) ?? ''))
     ? solveNonlinearOp(compiled, order, request, exports)
     : new Float64Array(order);
   const context: StampContext = {
@@ -670,18 +676,26 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 
   if (analysis === 'dc') validateDcControls(analyses[0]!);
   if (analysis === 'tran') validateTransientControls(analyses[0]!, request);
-  validateCards(cards, analysis);
-  const normalizedCards = normalizeAndValidateCurrentControlledSources(cards);
-  const circuit = parseTitleless(normalizedCards.join('\n'));
-  const compiled = circuit.compile();
+  const normalizedCards = validateHierarchyCards(cards, analysis);
+  let compiled: CompiledCircuit;
+  try {
+    // Core owns expansion, lexical model scope and hierarchical node/branch names.
+    // Only compilation is shared: numeric solves continue to use the WASM kernel.
+    compiled = parseTitleless(normalizedCards.join('\n')).compile();
+  } catch (error) {
+    throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
+  }
+  if (compiled.devices.length > componentLimit) {
+    throw resourceLimit('maxComponents', componentLimit, compiled.devices.length);
+  }
   if (compiled.steps.length > 0 || compiled.poleZeroAnalyses.length > 0
     || compiled.analyses.length !== 1 || compiled.analyses[0]?.type !== analysis) {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
   const devices = analysis === 'op' || analysis === 'dc'
-    ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : ['R', 'C', 'L', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
-  if (compiled.devices.some(device => !devices.includes(device.name[0]?.toUpperCase() ?? ''))) {
+    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
+  if (compiled.devices.some(device => !devices.includes(deviceType(device.name) ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
   }
   validateControlledSourceValues(compiled);
@@ -706,7 +720,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     const sources = compiled.devices.filter(device => {
       const candidate = device as unknown as Partial<SweepableSource>;
       return candidate.name?.toUpperCase() === normalized && candidate.waveform !== undefined
-        && ['V', 'I'].includes(candidate.name[0]?.toUpperCase() ?? '');
+        && ['V', 'I'].includes(deviceType(candidate.name) ?? '');
     }) as unknown as SweepableSource[];
     if (sources.length !== 1) {
       throw numericError('INVALID_CIRCUIT', `DC sweep source '${compiledAnalysis.source}' must identify one independent source`, 'validation', {
@@ -730,7 +744,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
         backend: 'spice-ts-wasm', feature: 'tran-controls',
       });
     }
-    return { analysis, compiled, order, transient: compiledAnalysis };
+    return { analysis, compiled, order, transient: compiledAnalysis, normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
   }
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
   const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
@@ -744,10 +758,43 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   return { analysis, compiled, order, frequenciesHz: frequencyGrid(compiledAnalysis, reltol, 'ac') };
 }
 
+/** Validate raw device/model forms before core expands parameter-free hierarchy. */
+function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): string[] {
+  const normalized = [...cards];
+  const scopes: number[][] = [[]];
+  const stack = [scopes[0]!];
+  for (const [index, card] of cards.entries()) {
+    const definition = /^\.subckt\b/i.test(card);
+    const instance = /^X/i.test(card);
+    if (((definition || instance) && /params\s*:|=/i.test(card))
+      || (stack.length > 1 && /^\.param\b/i.test(card))) {
+      unsupported('subcircuit-parameters', 'Subcircuit parameters are not supported');
+    }
+    if (definition) {
+      const scope: number[] = [];
+      scopes.push(scope);
+      stack.push(scope);
+    } else if (/^\.ends\b/i.test(card)) {
+      if (stack.length === 1) throw numericError('INVALID_CIRCUIT', 'Unmatched .ends', 'validation');
+      stack.pop();
+    } else if (!instance) {
+      stack[stack.length - 1]!.push(index);
+    }
+  }
+  if (stack.length !== 1) throw numericError('INVALID_CIRCUIT', 'Unclosed .subckt definition', 'validation');
+  for (const indices of scopes) {
+    const scopeCards = indices.map(index => cards[index]!);
+    validateCards(scopeCards, analysis);
+    const scoped = normalizeAndValidateCurrentControlledSources(scopeCards);
+    indices.forEach((index, offset) => { normalized[index] = scoped[offset]!; });
+  }
+  return normalized;
+}
+
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
   const allowedDevices = analysis === 'op' || analysis === 'dc'
-    ? ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
-    : ['R', 'C', 'L', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
+    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M']
+    : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M'];
   for (const card of cards) {
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
@@ -756,12 +803,12 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
       const parameters = (model[2] ?? model[3] ?? '').trim();
-      const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS'
+      const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS|RSH'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
       const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV';
       // The core device supplies the charge Jacobian and accepted/rejected-step
       // history; the nonlinear transient and AC paths solve it through WASM.
-      const bjtNames = 'IS|BF|BR|NF|NR|VAF|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR';
+      const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR';
       const names = mos ? mosNames : bjt ? bjtNames : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
       if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
@@ -781,8 +828,11 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
     }
     const tokens = card.split(/\s+/);
     const type = tokens[0]?.[0]?.toUpperCase() ?? '';
-    if (type === 'K' && allowedDevices.includes('L')) {
-      unsupported('inductor-coupling', 'Coupled inductors (K) are not supported');
+    if (type === 'K') {
+      if (tokens.length !== 4 || !SPICE_NUMBER.test(tokens[3]!)) {
+        unsupported('inductor-coupling', 'Couplings must use name inductor1 inductor2 constant-k');
+      }
+      continue;
     }
     if (!allowedDevices.includes(type)) {
       unsupported('device-or-directive', `Unsupported linear .${analysis} card '${tokens[0] ?? ''}'`);
@@ -793,20 +843,22 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (tokens.length !== 5) unsupported('bjt-form', 'BJTs must use name collector base emitter model');
     } else if (type === 'M') {
       const instance = /^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+(.*)$/.exec(card);
-      const instanceNames = analysis === 'tran' || analysis === 'ac' ? 'W|L|AD|AS|PD|PS' : 'W|L';
+      const instanceNames = 'W|L|NRD|NRS'
+        + (analysis === 'tran' || analysis === 'ac' ? '|AD|AS|PD|PS' : '');
       const dimensions = new RegExp(`(?:${instanceNames})\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
       if (!instance || instance[1]!.trim().replace(dimensions, '').trim()) {
         unsupported('mosfet-form', `MOSFETs must use name drain gate source bulk model with optional numeric ${instanceNames.replaceAll('|', ', ')} only`);
       }
     } else if (type === 'L') {
-      if (/\bIC\s*=/i.test(card)) {
-        unsupported('inductor-initial-condition', 'Inductor initial conditions (IC=) are not supported');
-      }
-      if (tokens.length !== 4 || !SPICE_NUMBER.test(tokens[3]!)) {
+      const withoutIC = card.replace(new RegExp(`\\s+IC\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i'), '').split(/\s+/);
+      if (withoutIC.length !== 4 || !SPICE_NUMBER.test(withoutIC[3]!)) {
         unsupported('inductor-form', 'Inductors must use name positive negative constant-inductance');
       }
     } else if (type === 'R' || type === 'C') {
-      if (tokens.length !== 4) {
+      const withoutIC = type === 'C'
+        ? card.replace(new RegExp(`\\s+IC\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i'), '').split(/\s+/)
+        : tokens;
+      if (withoutIC.length !== 4) {
         unsupported('passive-form', 'Passive devices must use name positive negative value');
       }
     } else if (type === 'G') {
@@ -868,6 +920,18 @@ function normalizeAndValidateCurrentControlledSources(cards: string[]): string[]
     });
 
   for (const device of devices) {
+    if (device.type === 'K') {
+      const references = device.tokens.slice(1, 3).map(name => devices.filter(candidate =>
+        candidate.normalizedName === name.toUpperCase() && candidate.type === 'L'));
+      if (references.some(matches => matches.length !== 1 || matches[0]!.cardIndex >= device.cardIndex)
+        || device.tokens[1]!.toUpperCase() === device.tokens[2]!.toUpperCase()) {
+        throw numericError('INVALID_CIRCUIT', 'Couplings require two distinct previously declared inductors', 'validation', { feature: 'inductor-coupling' });
+      }
+      device.tokens[1] = references[0]![0]!.name;
+      device.tokens[2] = references[1]![0]!.name;
+      normalizedCards[device.cardIndex] = device.tokens.join(' ');
+      continue;
+    }
     if (device.type !== 'F' && device.type !== 'H') continue;
     const controllingVoltageSource = devices.find(candidate =>
       candidate.normalizedName === device.normalizedControlSource && candidate.type === 'V');
@@ -925,15 +989,14 @@ function dcPointCount(start: number, stop: number, step: number): number {
 
 function validateTransientControls(card: string, request: SimulationRequestV1): void {
   const tokens = card.trim().split(/\s+/).slice(1);
-  if (tokens.some(token => token.toUpperCase() === 'UIC')) {
-    unsupported('tran-uic', 'Transient UIC is not supported');
-  }
+  if (tokens.at(-1)?.toUpperCase() === 'UIC') tokens.pop();
   if (tokens.length > 4 || (tokens.length === 4 && !SPICE_NUMBER.test(tokens[3]!))) {
     unsupported('tran-max-timestep', 'Transient maximum timestep is not supported');
   }
   if (tokens.length >= 3 && !SPICE_NUMBER.test(tokens[2]!)) {
     unsupported('tran-start-time', 'Transient start time is not supported');
   }
+
   if (request.options?.integrationMethod && request.options.integrationMethod !== 'trapezoidal') {
     unsupported('integration-method', 'Only trapezoidal transient integration is supported');
   }
@@ -970,9 +1033,14 @@ function validateControlledSourceValues(compiled: CompiledCircuit): void {
   }
 }
 
+// Core prefixes expanded device names with their X-instance path.
+function deviceType(name: string): string | undefined {
+  return name.replace(/^(?:X[^.]*\.)+/i, '')[0]?.toUpperCase();
+}
+
 function validatePassiveValues(compiled: CompiledCircuit): void {
   for (const device of compiled.devices) {
-    const type = device.name[0]?.toUpperCase();
+    const type = deviceType(device.name);
     const passive = device as unknown as {
       resistance?: number;
       capacitance?: number;
