@@ -107,6 +107,11 @@ export class TransientChargeState {
       : this.acceptedCharge[index];
   }
 
+  /** Branch voltage stored with the last accepted charge, never a trial iterate. */
+  acceptedBranchVoltage(index: number): number {
+    return this.acceptedVoltage[index];
+  }
+
   /** Charge current accepted at the last committed timepoint. */
   acceptedChargeCurrent(index: number): number {
     return this.acceptedCurrent[index];
