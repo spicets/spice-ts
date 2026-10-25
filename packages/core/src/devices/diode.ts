@@ -358,9 +358,9 @@ export class Diode implements DeviceModel {
     }
     this.modelWarnings = warnings;
     this.suppliedParams = params;
-    if (instanceParams.THERMAL && nodes.length === 3 && params.RTH0 !== undefined
+    if (instanceParams.THERMAL && nodes.length === 3 && params.RTH0 !== undefined && (params.RS ?? 0) > 0
       && ((params.CJO ?? 0) !== 0 || (params.CJSW ?? 0) !== 0 || (params.TT ?? 0) !== 0)) {
-      throw new InvalidCircuitError('Self-heating diode junction charge is not implemented');
+      throw new InvalidCircuitError('Self-heating diode RS with junction charge is not implemented');
     }
     const effectiveArea = (instanceParams.AREA ?? 1) * (instanceParams.M ?? 1);
     const effectivePerimeter = (instanceParams.PJ ?? 0) * (instanceParams.M ?? 1);
@@ -735,9 +735,22 @@ export class Diode implements DeviceModel {
       && this.suppliedParams.RTH0 !== undefined;
   }
 
+  /** Thermal fluctuation sources and their electro-thermal correlations are not modeled. */
+  get supportsNoise(): boolean {
+    return !this.selfHeating;
+  }
+
   stampSmallSignal(ctx: StampContext): void {
-    if (this.selfHeating) throw new InvalidCircuitError('Self-heating diode AC/noise is not implemented');
+    // stampThermal evaluates dI/dT and the power derivatives at the converged
+    // hot operating point.
     this.stamp(ctx);
+    if (this.selfHeating) {
+      // ngspice-47 dioacld uses state[DIOcqth]*omega, but dioload does not
+      // initialize DIOcqth to CTH0 in MODEINITSMSIG. Thus intrinsic CTH0 is
+      // absent in AC (unlike transient). Cancel only the compiled intrinsic
+      // capacitor; explicit external thermal capacitors remain active.
+      ctx.stampC(this.nodes[2], this.nodes[2], -(this.suppliedParams.CTH0 ?? 1e-5));
+    }
   }
 
   stamp(ctx: StampContext): void {
@@ -886,6 +899,9 @@ export class Diode implements DeviceModel {
    * nonlinear swing (#403).
    */
   stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {
+    if (this.selfHeating) {
+      throw new InvalidCircuitError('Self-heating diode transient junction charge is not implemented');
+    }
     const voltage = this.stampedJunctionVoltage;
     const { charge, capacitance } = this.junctionCharge(voltage, ctx.gmin ?? DEVICE_GMIN);
     const { current, conductance } = this.integrateCharge(charge, capacitance, integration);
