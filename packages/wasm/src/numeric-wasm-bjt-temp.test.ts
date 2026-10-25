@@ -129,7 +129,7 @@ describe('WASM BJT circuit TEMP/TNOM', () => {
         }
       } else throw new Error('Expected matching AC/TRAN results');
       expect(samples).toBeGreaterThan(0);
-      console.info(`BJT dynamic temperature parity ${name} samples=${samples} maxAbsoluteError=${maxAbsoluteError}`);
+      process.stdout.write(`BJT dynamic temperature parity ${name} samples=${samples} maxAbsoluteError=${maxAbsoluteError}\n`);
     } finally { await engine.close(); }
   });
 });
