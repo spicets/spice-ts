@@ -43,7 +43,7 @@ import type { OperatingPointReport } from '@spice-ts/core';
 import type { SensitivityResult } from '@spice-ts/core';
 import type { TransferFunctionResult } from '@spice-ts/core';
 import { tfArgs, tfReport, tfInputSchema, tfOutputSchema } from './tf.js';
-import { sparamsArgs, sparamsReport, sparamsInputSchema, sparamsOutputSchema } from './sparams.js';
+import { sparamsArgs, sparamsReport, sparamsInputSchema, sparamsOutputSchema, prepareSparamsRequest, mapSparamsPorts, sparamsRequestDefs, validateSparamsPorts } from './sparams.js';
 import type { SparamsArgs } from './sparams.js';
 import type { SParameterResult } from '@spice-ts/core';
 import { impedanceArgs, impedanceInvalid, impedancePlan, impedanceReport, impedanceProperties, impedanceOutputSchema, impedanceFailureSchema, impedanceErrorCodes } from './impedance.js';
@@ -266,8 +266,8 @@ const streamToolOutputSchema = {
 export const MCP_TOOLS = Object.freeze([
   {
     name: 'spice_sparams',
-    description: 'Run one unstepped .sp sweep. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json); successful RF sweeps currently require SPICE because native schemas lack .sp and RF port metadata. Return S-parameter magnitudes, dB, phase degrees, reflection return loss/VSWR and transmission insertion loss. Optional one-based portPair [output,input] and explicit frequenciesHz. Infinite/undefined metrics are null. Reject conflicting analyses and control blocks.',
-    inputSchema: { ...requestInputSchema, required: [],
+    description: 'Run one unstepped .sp sweep. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). RF ports use numeric portnum and optional z0 on native V params or circuit-json simple_voltage_source records (DC sources suffice). Return S-parameter magnitudes, dB, phase degrees, reflection return loss/VSWR and transmission insertion loss. Optional one-based portPair [output,input] and explicit frequenciesHz. Infinite/undefined metrics are null. Reject conflicting analyses and control blocks.',
+    inputSchema: { ...requestInputSchema, $defs: sparamsRequestDefs, required: [],
       properties: { ...requestInputSchema.properties, ...sparamsInputSchema.properties },
       oneOf: [{ required: ['netlist'], not: { required: ['request'] } },
         { required: ['request'], not: { required: ['netlist'] } }] },
@@ -587,13 +587,16 @@ async function executeToolWithStore(
       const original = toolRequest('netlist' in args ? {
         request: { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } },
       } : { request: rawRequest });
-      if (!validateMetricsRequest(original).valid) {
+      validateSparamsPorts(original);
+      if (!validateSparamsRequest(original).valid) {
         throw apiError('INVALID_REQUEST', 'Invalid S-parameter request', 'validation', {});
       }
       const effective = effectiveLimits(original, limits);
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
       throwIfCancelled(options.signal);
-      const { request, diagnostics } = convertRequest(original);
+      const converted = convertRequest(prepareSparamsRequest(original));
+      const request = mapSparamsPorts(original, converted.request);
+      const { diagnostics } = converted;
       await boundedRequestPlan(request, effective);
       enforceMaximum('maxAnalyses', effective.maxAnalyses, 1, 'validation');
       const release = streamStore.acquireOneShotSlot();
@@ -1486,6 +1489,9 @@ const validatePoleZeroInput = new AjvJsonSchemaValidator().getValidator({
 });
 const validateMetricsRequest = new AjvJsonSchemaValidator().getValidator({
   ...commonSchemaV1.$defs.simulationRequest, $defs: commonSchemaV1.$defs,
+});
+const validateSparamsRequest = new AjvJsonSchemaValidator().getValidator({
+  ...commonSchemaV1.$defs.simulationRequest, $defs: sparamsRequestDefs,
 });
 
 function toolRequest(args: unknown): SimulationRequestV1 {
