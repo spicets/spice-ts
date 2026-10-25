@@ -182,7 +182,7 @@ describe('bounded numeric WebAssembly backend', () => {
     expect(WebAssembly.Module.imports(module)).toEqual([]);
     expect(WebAssembly.Module.exports(module).map(entry => entry.name)).toEqual(expect.arrayContaining([
       'memory', '__heap_base', 'abi_version', 'max_order', 'stamp_vccs_f64', 'stamp_cccs_f64', 'stamp_vcvs_f64',
-      'stamp_ccvs_f64', 'solve_f64', 'solve_complex_f64',
+      'stamp_ccvs_f64', 'solve_f64', 'solve_dc_f64', 'solve_complex_f64',
     ]));
     await expect(validateNumericWasmModule(module)).resolves.toBeUndefined();
     const instance = await WebAssembly.instantiate(module);

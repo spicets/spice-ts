@@ -179,8 +179,7 @@ int stamp_ccvs_f64(
   return 0;
 }
 
-__attribute__((export_name("solve_f64")))
-int solve_f64(int order, double *matrix, double *rhs) {
+static int solve_real(int order, double *matrix, double *rhs, int singleton_first) {
   if (order < 1 || order > MAX_ORDER || matrix == 0 || rhs == 0) return 3;
 
   for (int index = 0; index < order * order; index++) {
@@ -190,7 +189,32 @@ int solve_f64(int order, double *matrix, double *rhs) {
     if (!finite(rhs[index])) return 2;
   }
 
+  int columns[MAX_ORDER];
+  for (int column = 0; column < order; column++) columns[column] = column;
+
   for (int column = 0; column < order; column++) {
+    /* Structural column singletons first, like core's sparse LU. Voltage
+     * source branches are singletons in MNA. Eliminating nodes first can
+     * lose leakage currents to cancellation between large RHS terms.
+     * This rule does not depend on device type, temperature or magnitudes. */
+    int selected = column;
+    for (int candidate = column; singleton_first && candidate < order; candidate++) {
+      int nonzero = 0;
+      for (int row = column; row < order; row++) {
+        if (matrix[row * order + candidate] != 0) nonzero++;
+      }
+      if (nonzero == 1) { selected = candidate; break; }
+    }
+    if (selected != column) {
+      for (int row = 0; row < order; row++) {
+        double temporary = matrix[row * order + column];
+        matrix[row * order + column] = matrix[row * order + selected];
+        matrix[row * order + selected] = temporary;
+      }
+      int temporary = columns[column];
+      columns[column] = columns[selected];
+      columns[selected] = temporary;
+    }
     int pivot = column;
     double largest = magnitude(matrix[column * order + column]);
     for (int row = column + 1; row < order; row++) {
@@ -226,15 +250,43 @@ int solve_f64(int order, double *matrix, double *rhs) {
     }
   }
 
-  for (int row = order - 1; row >= 0; row--) {
-    double value = rhs[row];
-    for (int column = row + 1; column < order; column++) {
-      value -= matrix[row * order + column] * rhs[column];
+  if (!singleton_first) {
+    /* Preserve the established transient/AC-bias accumulation order: rounding
+     * changes here feed back into adaptive transient step selection. */
+    for (int row = order - 1; row >= 0; row--) {
+      double value = rhs[row];
+      for (int column = row + 1; column < order; column++) {
+        value -= matrix[row * order + column] * rhs[column];
+      }
+      rhs[row] = value / matrix[row * order + row];
+      if (!finite(rhs[row])) return 2;
     }
-    rhs[row] = value / matrix[row * order + row];
-    if (!finite(rhs[row])) return 2;
+    return 0;
   }
+
+  double solution[MAX_ORDER];
+  /* Column-oriented substitution preserves the sparse solver's accumulation
+   * order when a source current is the difference of large node terms. */
+  for (int column = order - 1; column >= 0; column--) {
+    double value = rhs[column] / matrix[column * order + column];
+    if (!finite(value)) return 2;
+    solution[columns[column]] = value;
+    for (int row = 0; row < column; row++) {
+      rhs[row] -= matrix[row * order + column] * value;
+    }
+  }
+  for (int row = 0; row < order; row++) rhs[row] = solution[row];
   return 0;
+}
+
+__attribute__((export_name("solve_f64")))
+int solve_f64(int order, double *matrix, double *rhs) {
+  return solve_real(order, matrix, rhs, 0);
+}
+
+__attribute__((export_name("solve_dc_f64")))
+int solve_dc_f64(int order, double *matrix, double *rhs) {
+  return solve_real(order, matrix, rhs, 1);
 }
 
 static int complex_divide(
