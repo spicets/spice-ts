@@ -267,6 +267,8 @@ function simulateOp(
 function solveNonlinearOp(
   compiled: CompiledCircuit, order: number, request: SimulationRequestV1, exports: NumericWasmExports,
   initial?: Float64Array,
+  // OP/DC avoids leakage cancellation; AC bias keeps its established rounding.
+  dcOrdering = true,
 ): Float64Array {
   let previous: Float64Array = initial ?? new Float64Array(order);
   const matrix = new Float64Array(order * order);
@@ -289,7 +291,7 @@ function solveNonlinearOp(
     for (const device of compiled.devices) device.stamp(context);
     addGmin(matrix, compiled.nodeCount, order, request.options?.gmin ?? 0);
     if (!matrix.every(Number.isFinite) || !rhs.every(Number.isFinite)) break;
-    const solution = solveReal(exports, order, matrix, rhs);
+    const solution = solveReal(exports, order, matrix, rhs, dcOrdering);
     let stepScale = 1;
     for (const device of compiled.devices) {
       stepScale = Math.min(stepScale, device.limitNewtonStep?.(previous, solution) ?? 1);
@@ -493,6 +495,7 @@ function solveReal(
   order: number,
   matrix: Float64Array,
   rhs: Float64Array,
+  dcOrdering = false,
 ): Float64Array {
   const matrixPointer = align8(Number(exports.__heap_base.value));
   const rhsPointer = matrixPointer + matrix.byteLength;
@@ -501,7 +504,9 @@ function solveReal(
   }
   new Float64Array(exports.memory.buffer, matrixPointer, matrix.length).set(matrix);
   new Float64Array(exports.memory.buffer, rhsPointer, rhs.length).set(rhs);
-  const status = exports.solve_f64(order, matrixPointer, rhsPointer);
+  const status = dcOrdering
+    ? exports.solve_dc_f64(order, matrixPointer, rhsPointer)
+    : exports.solve_f64(order, matrixPointer, rhsPointer);
   if (status === 1) {
     throw numericError('SINGULAR_MATRIX', 'The bounded WebAssembly matrix is singular', 'solve', { order });
   }
@@ -525,7 +530,7 @@ function simulateAc(
   const rhsReal = new Float64Array(order);
   const rhsImaginary = new Float64Array(order);
   const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''))
-    ? solveNonlinearOp(compiled, order, request, exports)
+    ? solveNonlinearOp(compiled, order, request, exports, undefined, false)
     : new Float64Array(order);
   const context: StampContext = {
     stampG(row, column, value) { conductance[row * order + column] += value; },
