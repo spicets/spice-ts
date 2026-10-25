@@ -72,14 +72,14 @@ describe('WASM resistor/diode TEMP/TNOM transient and AC', () => {
   });
 
   it.each([
-    'J1 out in 0 device\n.model device NJF(VTO=-2 BETA=1m)',
-  ])('keeps JFET temperature rejected for %s', async device => {
+    'J1 out in 0 device\n.model device NJF(VTO=-2 BETA=1m B=1)',
+  ])('keeps unsupported JFET model parameters rejected with temperature for %s', async device => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
       for (const control of ['.tran 1u 10u', '.ac lin 2 1 10']) {
         const source = `V1 in 0 ${control.startsWith('.ac') ? 'DC 1 AC 1' : '1'}\nR1 out 0 1k\n${device}\n.options TEMP=75 TNOM=27\n${control}`;
         expect(await engine.simulate(request(source), { requestId: 'temperature-guard' })).toMatchObject({
-          ok: false, error: { code: 'UNSUPPORTED_FEATURE', phase: 'validation', details: { feature: 'circuit-temperature' } },
+          ok: false, error: { code: 'UNSUPPORTED_FEATURE', phase: 'validation', details: { feature: 'jfet-model-parameter' } },
         });
       }
     } finally { await engine.close(); }
