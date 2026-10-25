@@ -9,6 +9,9 @@ export interface AcAnalysisV1 { type: 'ac'; variation: 'dec' | 'oct' | 'lin'; po
 export type AnalysisV1 = OperatingPointAnalysisV1 | DcAnalysisV1 | TransientAnalysisV1 | AcAnalysisV1;
 export type { PoleZeroAnalysisV1 } from './wire/types.js';
 
+export interface SParameterAnalysisV1 { type: 'sp'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
+export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1;
+
 export interface CircuitPortV1 { name: string; net: string }
 export interface CircuitComponentV1 {
   type: string;
@@ -30,7 +33,7 @@ export interface SpiceTsCircuitDocumentV1 {
   format: 'spice-ts';
   schemaVersion: '1.0';
   circuit: { components: CircuitComponentV1[]; nets: string[] };
-  analyses: AnalysisV1[];
+  analyses: NativeAnalysisV1[];
   poleZeroAnalyses?: import('./wire/types.js').PoleZeroAnalysisV1[];
   models: CircuitModelV1[];
   subcircuits: SubcircuitV1[];
