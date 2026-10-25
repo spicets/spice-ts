@@ -697,8 +697,8 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     // Check parsed, effective options before compile: core may reject these
     // models itself, but the numeric facade must return a structured feature.
     if ((temperature !== 27 || nominalTemperature !== 27)
-      && normalizedCards.some(card => /^[MJ]/i.test(card))) {
-      unsupported('circuit-temperature', 'Nonnominal TEMP/TNOM is supported only for diodes, resistors and BJTs');
+      && normalizedCards.some(card => /^J/i.test(card))) {
+      unsupported('circuit-temperature', 'Nonnominal TEMP/TNOM is supported only for diodes, resistors, BJTs and MOS1');
     }
     compiled = circuit.compile();
   } catch (error) {
