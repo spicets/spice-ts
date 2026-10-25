@@ -535,7 +535,6 @@ const capabilities = Object.freeze({
   inputFormats: Object.freeze(['spice', 'spice-ts', 'circuit-json']),
   tools: Object.freeze(MCP_TOOLS.map(tool => tool.name)),
   sensitivity: Object.freeze({ tool: 'spice_sensitivity', analyses: Object.freeze(['dc', 'ac']) }),
-  corners: Object.freeze({ tool: 'spice_corners', inputFormats: Object.freeze(['spice', 'spice-ts', 'circuit-json']), overridesInputFormats: Object.freeze(['spice']) }),
   tf: Object.freeze({ tool: 'spice_tf', analyses: Object.freeze(['tf']) }),
   impedance: Object.freeze({ tool: 'spice_impedance', analyses: Object.freeze(['ac']) }),
   parameterOverrides,

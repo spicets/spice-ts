@@ -35,9 +35,10 @@ const dividerArgs = { corners: [{ name: 'nominal' }, { name: 'repeat' }], measur
 
 describe('spice_corners protocol-v1', () => {
   it('advertises accepted formats and SPICE-only overrides', async () => {
-    expect(await executeTool('spice_capabilities', {})).toMatchObject({ structuredContent: { corners: {
-      tool: 'spice_corners', inputFormats: ['spice', 'spice-ts', 'circuit-json'], overridesInputFormats: ['spice'],
-    } } });
+    expect(await executeTool('spice_capabilities', {})).toMatchObject({ structuredContent: {
+      inputFormats: ['spice', 'spice-ts', 'circuit-json'], tools: expect.arrayContaining(['spice_corners']),
+    } });
+    expect(MCP_TOOLS.find(tool => tool.name === 'spice_corners')!.description).toContain('JSON overrides return per-corner INVALID_REQUEST');
   });
 
   it.each(protocolInputs)('returns identical divider results for $format without mutation', async input => {
