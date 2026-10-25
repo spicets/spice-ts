@@ -2233,10 +2233,11 @@ export class Circuit {
           && passiveParams.TNOM === undefined
           && ((passiveParams.TC1 ?? 0) !== 0 || (passiveParams.TC2 ?? 0) !== 0
             || (passiveParams.TCE ?? 0) !== 0);
-        if (unsupportedPassive || !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type)) {
+        const boundedBjt = desc.type === 'Q' && !isVBICLevel(passiveParams.LEVEL);
+        if (unsupportedPassive || (!boundedBjt && !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type))) {
           throw new InvalidCircuitError(
             `.options TNOM=${this._nominalTemperature} is unsupported for ${desc.type} '${desc.name}': `
-            + 'circuit TNOM currently supports only JFETs, diodes, R/C/L and independent or behavioral sources',
+            + 'circuit TNOM currently supports only BJTs, JFETs, diodes, R/C/L and independent or behavioral sources',
           );
         }
       }
@@ -2590,7 +2591,9 @@ export class Circuit {
           const model = this._models.get(modelName);
           if (!model && modelName !== '0') this.requireModel('BJT', desc);
           if (!model) {
-            devices.push(new BJT(desc.name, nodeIndices, { polarity: 1 }, desc.params));
+            devices.push(new BJT(desc.name, nodeIndices, {
+              polarity: 1, TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
+            }, desc.params));
             break;
           }
           if (model.type !== 'NPN' && model.type !== 'PNP') {
@@ -2612,7 +2615,9 @@ export class Circuit {
             devices.push(new VBIC(desc.name, nodeIndices, modelParams, polarity, bjtInstanceScale(desc.params), desc.params?.M ?? 1,
               desc.vbicTerminals?.map(resolveNode)));
           } else {
-            devices.push(new BJT(desc.name, nodeIndices, { ...modelParams, polarity }, desc.params,
+            devices.push(new BJT(desc.name, nodeIndices, {
+              TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C, ...modelParams, polarity,
+            }, desc.params,
               desc.bjtICTerminals?.map(resolveNode)));
           }
           break;
