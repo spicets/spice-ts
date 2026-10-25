@@ -85,6 +85,7 @@ D1 in 0 tj DM thermal
     expect(Math.abs(final / (100 * (1 - Math.exp(-2))) - 1)).toBeLessThan(0.001);
   });
 
+
   it('runs pulsed junction and diffusion charge with thermal capacitance (#1801)', async () => {
     const { readFileSync } = await import('node:fs');
     const reference = JSON.parse(readFileSync(new URL('./fixtures/diode-selfheat-1801.json', import.meta.url), 'utf8')) as number[][];
@@ -107,8 +108,7 @@ D1 in 0 tj DM thermal
     }
   });
 
-  it('rejects unimplemented thermal small-signal and reduced-RS charge paths', async () => {
-    await expect(simulate(deck.replace('.op', '.ac lin 1 1 1'))).rejects.toThrow('AC/noise');
+  it('rejects the unimplemented thermal RS plus junction-charge path', async () => {
     await expect(simulate(deck.replace('RTH0=100', 'RTH0=100 CJO=1p'))).rejects.toThrow('junction charge');
   });
 });

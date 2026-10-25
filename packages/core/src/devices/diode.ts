@@ -739,9 +739,22 @@ export class Diode implements DeviceModel {
       && this.suppliedParams.RTH0 !== undefined;
   }
 
+  /** Thermal fluctuation sources and their electro-thermal correlations are not modeled. */
+  get supportsNoise(): boolean {
+    return !this.selfHeating;
+  }
+
   stampSmallSignal(ctx: StampContext): void {
-    if (this.selfHeating) throw new InvalidCircuitError('Self-heating diode AC/noise is not implemented');
+    // stampThermal evaluates dI/dT and the power derivatives at the converged
+    // hot operating point.
     this.stamp(ctx);
+    if (this.selfHeating) {
+      // ngspice-47 dioacld uses state[DIOcqth]*omega, but dioload does not
+      // initialize DIOcqth to CTH0 in MODEINITSMSIG. Thus intrinsic CTH0 is
+      // absent in AC (unlike transient). Cancel only the compiled intrinsic
+      // capacitor; explicit external thermal capacitors remain active.
+      ctx.stampC(this.nodes[2], this.nodes[2], -(this.suppliedParams.CTH0 ?? 1e-5));
+    }
   }
 
   stamp(ctx: StampContext): void {

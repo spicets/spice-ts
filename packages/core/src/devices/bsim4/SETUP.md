@@ -59,9 +59,10 @@ All guards reuse `UnsupportedModelParameterError`, exported here as
 - Instance TRNQSMOD/ACNQSMOD/RBODYMOD/GEOMOD/RGEOMOD/WNFLAG
   must be zero (RBODYMOD=1 is also supported). RGATEMOD accepts 0/1/2/3 and overrides the model selector.
   SA/SB/SD/SCA/SCB/SCC/SC must match their resolved defaults.
-- Positive RSH plus explicitly given positive NRD or NRS rejects, because
-  `b4set.c:2434-2515` then needs an unported source/drain node. Positive RSH alone
-  does not create those nodes with baseline RGEOMOD and absent squares.
+- Positive RSH plus explicitly given positive NRD or NRS enables the corresponding
+  prime node for OP/DC. Positive RSH alone does not create nodes with baseline
+  RGEOMOD and absent squares, despite their resolved default of 1.
+  See the series-resistance contract in LOAD.md; AC/TRAN remain guarded when enabled.
 - Unsupported version families, LEVEL values, unknown/internal keys, duplicate
   canonical aliases and unparsed instance IC vectors reject. Invalid finite,
   integer, polarity, temperature, dimension or node inputs use InvalidCircuitError.

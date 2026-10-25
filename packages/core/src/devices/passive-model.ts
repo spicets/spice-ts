@@ -59,9 +59,13 @@ function parallelScale(params: Record<string, number>): number {
   return value === 0 ? 1 : value;
 }
 
-function temperatureFactor(params: Record<string, number>): number {
-  const tnom = params.TNOM ?? DEFAULT_TEMP_C;
-  const temp = params.TEMP ?? (DEFAULT_TEMP_C + (params.DTEMP ?? 0));
+function temperatureFactor(
+  params: Record<string, number>,
+  temperature: number,
+  nominalTemperature: number,
+): number {
+  const tnom = params.TNOM ?? nominalTemperature;
+  const temp = params.TEMP ?? (temperature + (params.DTEMP ?? 0));
   const delta = temp - tnom;
   const tc1 = params.TC1 ?? 0;
   const tc2 = params.TC2 ?? 0;
@@ -186,6 +190,8 @@ export function resolveCapacitorModel(
   instanceValue: number | undefined,
   model: ModelParams | undefined,
   instanceParams?: Record<string, number>,
+  temperature = DEFAULT_TEMP_C,
+  nominalTemperature = DEFAULT_TEMP_C,
 ): ResolvedCapacitorModel {
   if (!modelTypeMatches(model, 'C')) {
     throw new Error(`Model '${model!.name}' has type '${model!.type}', expected C for capacitor`);
@@ -217,7 +223,7 @@ export function resolveCapacitorModel(
     ) * s;
   }
 
-  const factor = temperatureFactor(params);
+  const factor = temperatureFactor(params, temperature, nominalTemperature);
   const capacitance = cUnit * m * factor;
   return {
     value: capacitance,
@@ -236,8 +242,10 @@ export function resolveCapacitance(
   instanceValue: number | undefined,
   model: ModelParams | undefined,
   instanceParams?: Record<string, number>,
+  temperature = DEFAULT_TEMP_C,
+  nominalTemperature = DEFAULT_TEMP_C,
 ): ResolvedPassiveValue {
-  const resolved = resolveCapacitorModel(instanceValue, model, instanceParams);
+  const resolved = resolveCapacitorModel(instanceValue, model, instanceParams, temperature, nominalTemperature);
   return {
     value: resolved.capacitance,
     unitValue: resolved.unitValue,
@@ -251,6 +259,8 @@ export function resolveInductorModel(
   instanceValue: number | undefined,
   model: ModelParams | undefined,
   instanceParams?: Record<string, number>,
+  temperature = DEFAULT_TEMP_C,
+  nominalTemperature = DEFAULT_TEMP_C,
 ): ResolvedInductorModel {
   if (!modelTypeMatches(model, 'L')) {
     throw new Error(`Model '${model!.name}' has type '${model!.type}', expected L for inductor`);
@@ -285,7 +295,7 @@ export function resolveInductorModel(
     lUnit = 0;
   }
 
-  const factor = temperatureFactor(params);
+  const factor = temperatureFactor(params, temperature, nominalTemperature);
   const inductance = lUnit / divisor * factor;
   return {
     value: inductance,
@@ -304,8 +314,10 @@ export function resolveInductance(
   instanceValue: number | undefined,
   model: ModelParams | undefined,
   instanceParams?: Record<string, number>,
+  temperature = DEFAULT_TEMP_C,
+  nominalTemperature = DEFAULT_TEMP_C,
 ): ResolvedPassiveValue {
-  const resolved = resolveInductorModel(instanceValue, model, instanceParams);
+  const resolved = resolveInductorModel(instanceValue, model, instanceParams, temperature, nominalTemperature);
   return {
     value: resolved.inductance,
     unitValue: resolved.unitValue,

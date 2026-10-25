@@ -164,6 +164,48 @@
         }
       ]
     },
+    "nativeAnalysis": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/analysis"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "variation",
+            "points",
+            "startFreq",
+            "stopFreq"
+          ],
+          "properties": {
+            "type": {
+              "const": "sp"
+            },
+            "variation": {
+              "enum": [
+                "dec",
+                "oct",
+                "lin"
+              ]
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "startFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "stopFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "poleZeroAnalysis": {
       "type": "object",
       "required": [
@@ -263,7 +305,41 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "V",
+                  "v"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "properties": {
+                  "portnum": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "z0": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "model": {
       "type": "object",
@@ -369,7 +445,7 @@
         "analyses": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/analysis"
+            "$ref": "#/$defs/nativeAnalysis"
           }
         },
         "models": {

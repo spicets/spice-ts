@@ -117,10 +117,10 @@ describe('BSIM4 fail-closed setup', () => {
     expect(() => setupBsim4Model({ saref: 1e-6, lodk2: 1, ku0: 0, web: 0 })).not.toThrow();
     expect(() => setupBsim4Instance(setupBsim4Model(), { sa: 0, sca: 0 }, nodes)).not.toThrow();
   });
-  it('rejects networks only when node creation is needed', () => {
+  it('accepts series squares while preserving their given flags', () => {
     const model = setupBsim4Model({ rsh: 20 });
-    expect(() => setupBsim4Instance(model, { nrd: 1 }, nodes)).toThrow(UnsupportedModel);
-    expect(() => setupBsim4Instance(model, { nrs: 1 }, nodes)).toThrow(UnsupportedModel);
+    expect(setupBsim4Instance(model, { nrd: 1 }, nodes).given.has('nrd')).toBe(true);
+    expect(setupBsim4Instance(model, { nrs: 1 }, nodes).given.has('nrs')).toBe(true);
     expect(() => setupBsim4Instance(model, {}, nodes)).not.toThrow();
     expect(() => setupBsim4Instance(model, { nrd: 0, nrs: 0 }, nodes)).not.toThrow();
   });

@@ -1,0 +1,39 @@
+this circuit test a mos level 1 model cmos inverter
+* This test tests the use of "options parser scale" 
+*
+* The point of this test is to make sure that if agauss (without any sampling commands)
+* is applied to a scaled parameter, that it does the right 
+* thing, and doesn't apply scaling the wrong number of times.   
+* Prior to fixing issue 239, this would not be handled correctly.
+*
+* If sampling is not invoked (as it the case here), then the agauss operator 
+* should just return the mean.  However, as of this writing its presence 
+* forces extra processParam calls.
+*
+.tran 20ns 6us
+.print tran {v(vout)+1.0} {v(in)+1.0} v(1)
+vdddev 	vdd	0	5v
+rin	in	1	1k
+vin1  1	0  5v pulse (5v 0v 1.5us 5ns 5ns 1.5us 3us)
+r1    vout  0  10k  
+c2    vout  0  0.1p 
+mn1   vout  in 0 0 cd4012_nmos l=5 w=175 
+mp1   vout in vdd vdd cd4012_pmos l='agauss(5,0.5,1)' w=270 
+
+.options parser scale=1.0e-6
+
+**************************************************************************
+.model cd4012_pmos pmos (
++ level = 1  uo = 310  vto = -1.6  tox = 6e-08  nsub = 5.701e+15 
++ nss =1e-10   rs = 5.359  rd = 93.66  rsh =2e-10  is = 1e-14  
++ ld = 3e-08  kp = 1.711e-05 l=5u w=270u lambda=0.02 gamma=0.37 phi=0.65
++ cbd=0.1p cbs=0.1p pb=0.81 cgso=2p cgbo=4p cgdo=2p cj=2e-4 mj=0.5 cjsw=1e-9
++ mjsw=0.5 js=1e-8 tpg=0 kf=1e-25 af=1 fc=0.5 tnom=27)
+**************************************************************************
+.model cd4012_nmos nmos (
++ level = 1 uo = 190   vto = 1.679  tox = 6e-08   nsub = 8.601e+15
++ nss = 0     rs = 13.21   rd = 11.59   rsh = 0   is = 1e-14
++ ld = 8.6e-07   kp = 2.161e-05  l=5u w=175u lambda=0.02 gamma=0.37 phi=0.65
++ cbd=0.1p cbs=0.1p pb=0.81 cgso=2p cgbo=4p cgdo=2p cj=2e-4 mj=0.5 cjsw=1e-9
++ mjsw=0.5 js=1e-8 tpg=0 kf=1e-25 af=1 fc=0.5 tnom=27)
+.end

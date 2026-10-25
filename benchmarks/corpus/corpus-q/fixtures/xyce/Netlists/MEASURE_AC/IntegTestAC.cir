@@ -1,0 +1,44 @@
+* Test AC mode support for the INTEG / INTEGRAL measure.
+* To be conservative, there are subtests for each
+* valid operator (V, VR, VI, VP, VM and VDB) for
+* each measure type.  Expressions are also tested.
+* One current operator (IM) is tested for a branch current.
+*
+* See SON Bug 1282 for more details.
+*****************************************************
+
+* Trivial high-pass filter (V-C-R) circuit
+R1 b 0 2
+C1 a b 1m
+V1 a 0 DC 0V AC 1
+
+.print AC vr(b) vi(b) vm(b) vp(b) vdb(b) im(v1)
+.ac dec 5 1Hz 1e3
+
+* integ
+.MEASURE AC integvb integ v(b)
+.MEASURE AC integvmb integral vm(b)
+.MEASURE AC integvrb integ vr(b)
+.MEASURE AC integvib integ vi(b)
+.MEASURE AC integvdbb integ vdb(b)
+
+* Use expression with vp(), since VP(b) is much larger
+* the other values
+.MEASURE AC integvpbExp integ {vp(b)/100}
+
+* add FROM-TO
+.MEASURE AC integvmbFromTo integ vm(b) FROM=1e1 TO=1e2
+
+* branch current
+.MEASURE AC integimv1 integ im(v1)
+
+* FROM=TO value yields a value of 0, by definition
+* for INTEG measure.
+.MEASURE AC integvmbFromTo1Pt integ vm(b) FROM=1e2 TO=1e2
+
+* Tests should fail since the FROM-T0 windows
+* have various problems.
+.measure ac integFail1 integ v(b) FROM=1e4 TO=1e5
+.measure ac integFail2 integ vr(b) FROM=1e3 TO=1e0
+
+.end

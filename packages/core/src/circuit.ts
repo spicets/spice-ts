@@ -936,7 +936,7 @@ export class Circuit {
     return this._nominalTemperature;
   }
 
-  /** Set the default model TNOM. Non-default values currently support only JFET circuits. */
+  /** Set the default model TNOM for supported semiconductor and R/C/L temperature models. */
   setNominalTemperature(celsius: number): void {
     if (!Number.isFinite(celsius) || celsius <= -CELSIUS_TO_KELVIN) {
       throw new InvalidCircuitError(`Invalid circuit nominal temperature: ${celsius} C`);
@@ -2224,19 +2224,18 @@ export class Circuit {
       return { ...desc, params };
     });
     this.assertDeviceModelTypes(flatDescriptors);
-    // ngspice a80f6e3 cktsopt.c sets the default model TNOM; currently only
-    // JFET construction consumes it. Fail closed for other device families.
+    // ngspice a80f6e3 cktsopt.c sets the default model TNOM; bounded BJT,
+    // MOS1, JFET, diode and R/C/L construction consume it.
     if (this._nominalTemperature !== undefined && this._nominalTemperature !== NOMINAL_TEMPERATURE_C) {
       for (const desc of flatDescriptors) {
         const passiveParams = { ...this._models.get(desc.modelName ?? '')?.params, ...desc.params };
-        const unsupportedPassive = ['R', 'C', 'L'].includes(desc.type)
-          && passiveParams.TNOM === undefined
-          && ((passiveParams.TC1 ?? 0) !== 0 || (passiveParams.TC2 ?? 0) !== 0
-            || (passiveParams.TCE ?? 0) !== 0);
-        if (unsupportedPassive || !['J', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type)) {
+        const boundedBjt = desc.type === 'Q' && !isVBICLevel(passiveParams.LEVEL);
+        const boundedMos1 = desc.type === 'M' && (passiveParams.LEVEL ?? 1) === 1
+          && !isVdmosModelType(this._models.get(desc.modelName ?? '')?.type ?? '');
+        if (!boundedBjt && !boundedMos1 && !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type)) {
           throw new InvalidCircuitError(
             `.options TNOM=${this._nominalTemperature} is unsupported for ${desc.type} '${desc.name}': `
-            + 'circuit TNOM currently supports only JFETs, R/C/L and independent or behavioral sources',
+            + 'circuit TNOM currently supports only BJTs, MOS1, JFETs, diodes, R/C/L and independent or behavioral sources',
           );
         }
       }
@@ -2449,7 +2448,10 @@ export class Circuit {
       switch (desc.type) {
         case 'R': {
           const model = desc.modelName ? this.requireModel('Resistor', desc) : undefined;
-          const resolved = resolveResistor(desc.name, desc.value, model, desc.params);
+          const resolved = resolveResistor(desc.name, desc.value, model, {
+            TNOM: desc.params?.TNOM ?? model?.params.TNOM ?? this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
+            ...desc.params,
+          });
           // A zero-ohm resistor is an ideal voltage constraint, not infinite
           // conductance. Give it an MNA branch so its equation and current are
           // represented exactly. Stepped resistors also use branch form because
@@ -2479,7 +2481,9 @@ export class Circuit {
           if (desc.modelName && !model) {
             throw new InvalidCircuitError(`Capacitor '${desc.name}' references unknown model '${desc.modelName}'`);
           }
-          const { value, unitValue, multiplier, scale } = resolveCapacitance(desc.value, model, desc.params);
+          const { value, unitValue, multiplier, scale } = resolveCapacitance(
+            desc.value, model, desc.params, this._temperature, this._nominalTemperature,
+          );
           devices.push(new Capacitor(desc.name, nodeIndices, value, desc.ic, unitValue, multiplier, scale));
           break;
         }
@@ -2488,7 +2492,9 @@ export class Circuit {
           if (desc.modelName && !model) {
             throw new InvalidCircuitError(`Inductor '${desc.name}' references unknown model '${desc.modelName}'`);
           }
-          const { value, unitValue, multiplier, scale } = resolveInductance(desc.value, model, desc.params);
+          const { value, unitValue, multiplier, scale } = resolveInductance(
+            desc.value, model, desc.params, this._temperature, this._nominalTemperature,
+          );
           const bi = branchIndex++;
           branchNames.push(desc.name);
           devices.push(new Inductor(desc.name, nodeIndices, bi, value, desc.ic, unitValue, multiplier, scale));
@@ -2556,8 +2562,10 @@ export class Circuit {
           break;
         }
         case 'D': {
-          const modelParams = desc.diodeModelParams
+          const rawModelParams = desc.diodeModelParams
             ?? (desc.modelName ? this.requireModel('Diode', desc).params : {});
+          const modelParams = this._nominalTemperature === undefined ? rawModelParams
+            : { TNOM: rawModelParams.TREF ?? this._nominalTemperature, ...rawModelParams };
           if (desc.params?.THERMAL && nodeIndices.length === 3 && modelParams.RTH0 !== undefined) {
             if (!(modelParams.RTH0 > 0) || (modelParams.CTH0 ?? 1e-5) < 0) {
               throw new InvalidCircuitError('Diode RTH0 must be positive and CTH0 non-negative');
@@ -2585,7 +2593,9 @@ export class Circuit {
           const model = this._models.get(modelName);
           if (!model && modelName !== '0') this.requireModel('BJT', desc);
           if (!model) {
-            devices.push(new BJT(desc.name, nodeIndices, { polarity: 1 }, desc.params));
+            devices.push(new BJT(desc.name, nodeIndices, {
+              polarity: 1, TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
+            }, desc.params));
             break;
           }
           if (model.type !== 'NPN' && model.type !== 'PNP') {
@@ -2607,7 +2617,9 @@ export class Circuit {
             devices.push(new VBIC(desc.name, nodeIndices, modelParams, polarity, bjtInstanceScale(desc.params), desc.params?.M ?? 1,
               desc.vbicTerminals?.map(resolveNode)));
           } else {
-            devices.push(new BJT(desc.name, nodeIndices, { ...modelParams, polarity }, desc.params,
+            devices.push(new BJT(desc.name, nodeIndices, {
+              TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C, ...modelParams, polarity,
+            }, desc.params,
               desc.bjtICTerminals?.map(resolveNode)));
           }
           break;
@@ -2758,7 +2770,10 @@ export class Circuit {
               resolveNode(desc.nodes[2]),
               resolveNode(bulkNode),
             ];
-            devices.push(new MOSFET(desc.name, nodeIdxs, { ...modelParams, ...desc.params, polarity }));
+            devices.push(new MOSFET(desc.name, nodeIdxs, {
+              TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
+              ...modelParams, ...desc.params, polarity,
+            }));
           } else {
             // #530: never evaluate an unimplemented level (MOS3, BSIM1/2, ...) with Level-1 equations.
             throw new UnsupportedModelLevelError(desc.name, desc.modelName, level, SUPPORTED_MOSFET_LEVELS);
@@ -2919,7 +2934,7 @@ export class Circuit {
   /**
    * Evaluate the compiled devices at a non-nominal `.options TEMP` like ngspice.
    * Only devices whose temperature model follows ngspice-47 are accepted:
-   * resistors (TC1/TC2 around TNOM), the bounded VBIC (vbictemp.c mapping),
+   * resistors (TC1/TC2 around TNOM), C/L (resolved during construction), the bounded VBIC (vbictemp.c mapping),
    * B sources (asrctemp.c tc1/tc2 and `temper`), diodes (diotemp.c), the
    * Gummel-Poon BJT (bjttemp.c), MOS levels 1/2/3 (mos1temp.c/mos2temp.c/mos3temp.c) and BSIM3 (b3temp.c,
    * b3v32temp.c). Every other temperature-dependent element is rejected instead of silently
@@ -2937,13 +2952,6 @@ export class Circuit {
     for (const desc of descriptors) {
       if (desc.type === 'R' && (desc.params?.TEMP !== undefined || desc.params?.DTEMP !== undefined)) {
         throw unsupported(`resistor '${desc.name}' with an instance TEMP/DTEMP`);
-      }
-      if (desc.type === 'C' || desc.type === 'L') {
-        const model = desc.modelName ? this._models.get(desc.modelName) : undefined;
-        const params = { ...model?.params, ...desc.params };
-        if (params.TEMP === undefined && ((params.TC1 ?? 0) !== 0 || (params.TC2 ?? 0) !== 0)) {
-          throw unsupported(`temperature-coefficient ${desc.type === 'C' ? 'capacitor' : 'inductor'} '${desc.name}'`);
-        }
       }
     }
 
@@ -3067,7 +3075,9 @@ export class Circuit {
         if (desc.modelName && !model) {
           throw new InvalidCircuitError(`Capacitor '${desc.name}' references unknown model '${desc.modelName}'`);
         }
-        const resolved = resolveCapacitorModel(desc.value, model, desc.params);
+        const resolved = resolveCapacitorModel(
+          desc.value, model, desc.params, this._temperature, this._nominalTemperature,
+        );
         if (hasCapacitorParasitics(resolved)) {
           result.push(...this.expandCapacitorDescriptor(desc, resolved));
         } else {
@@ -3081,7 +3091,9 @@ export class Circuit {
         if (desc.modelName && !model) {
           throw new InvalidCircuitError(`Inductor '${desc.name}' references unknown model '${desc.modelName}'`);
         }
-        const resolved = resolveInductorModel(desc.value, model, desc.params);
+        const resolved = resolveInductorModel(
+          desc.value, model, desc.params, this._temperature, this._nominalTemperature,
+        );
         if (hasInductorParasitics(resolved)) {
           result.push(...this.expandInductorDescriptor(desc, resolved));
         } else {
@@ -3359,6 +3371,12 @@ export class Circuit {
           // b4set.c:2534-2570: body junctions and intrinsic bulk are distinct.
           if ((desc.params?.RBODYMOD ?? model.params.RBODYMOD ?? 0) === 1) {
             nodes.push(...['dbody', 'body', 'sbody'].map(suffix => internalNodeName(desc.name, suffix)));
+          }
+          // b4set.c:2434-2515: omitted squares do not create prime nodes.
+          // Append after gate/body nodes so their established offsets stay fixed.
+          if ((model.params.RSH ?? 0) > 0) {
+            if ((desc.params?.NRD ?? 0) > 0) nodes.push(internalNodeName(desc.name, 'drain'));
+            if ((desc.params?.NRS ?? 0) > 0) nodes.push(internalNodeName(desc.name, 'source'));
           }
           result.push({ ...desc, nodes });
           continue;

@@ -1,0 +1,50 @@
+* Test AC mode support for the AVG measure.
+* To be conservative, there are subtests for each
+* valid operator (V, VR, VI, VP, VM and VDB) for
+* each measure type.  Expressions are also tested.
+* One current operator (IM) is tested for a branch current.
+*
+* This also tests that a .FFT line is ignored for a
+* .AC analysis.
+
+* See SON Bugs 1267 and 1327 for more details.
+*****************************************************
+
+* Trivial high-pass filter (V-C-R) circuit
+R1 b 0 2
+C1 a b 1u
+V1 a 0 DC 0V AC 1
+
+.print AC vr(b) vi(b) vm(b) vp(b) vdb(b) im(v1) avgvmb
+.ac dec 5 100Hz 1e6
+
+* This line should not actually produce any .FFT output
+.FFT V(a) NP=8
+
+* avg
+.MEASURE AC avgvb avg v(b)
+.MEASURE AC avgvmb avg vm(b)
+.MEASURE AC avgvrb avg vr(b)
+.MEASURE AC avgvib avg vi(b)
+.MEASURE AC avgvpb avg vp(b)
+.MEASURE AC avgvdbb avg vdb(b)
+
+* Use expression
+.MEASURE AC avgvrbExp avg {1+vr(b)}
+
+* add FROM-TO
+.MEASURE AC avgvmbFromTo avg vm(b) FROM=1e3 TO=1e5
+
+* branch current
+.MEASURE AC avgimv1 avg im(v1)
+
+* FROM=TO value is a failed measure, by definition
+* for AVG measure.
+.MEASURE AC avgvmbFromTo1Pt avg vm(b) FROM=1e3 TO=1e3
+
+* Tests should fail since the FROM-T0 windows
+* have various problems.
+.measure ac avgFail1 avg v(b) FROM=1e7 TO=1e8
+.measure ac avgFail2 avg vr(b) FROM=1e6 TO=1e2
+
+.end

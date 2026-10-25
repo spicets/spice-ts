@@ -111,7 +111,7 @@ describe('bounded numeric WebAssembly backend', () => {
       for (const [name, source, code, details] of [
         ['zero-step', 'V1 in 0 0\nR1 in 0 1k\n.dc V1 0 1 0', 'INVALID_CIRCUIT', { feature: 'dc-grid' }],
         ['wrong-direction', 'V1 in 0 0\nR1 in 0 1k\n.dc V1 0 1 -1', 'INVALID_CIRCUIT', { feature: 'dc-grid' }],
-        ['nested', 'V1 in 0 0\nR1 in 0 1k\n.dc V1 0 1 1 V2 0 1 1', 'UNSUPPORTED_FEATURE', { feature: 'dc-nested-sweep' }],
+        ['three-source', 'V1 in 0 0\nR1 in 0 1k\n.dc V1 0 1 1 V2 0 1 1 V3 0 1 1', 'UNSUPPORTED_FEATURE', { feature: 'dc-nested-sweep' }],
         ['nonlinear-source', 'V1 in 0 PULSE(0 1 0 1n 1n 1m 2m)\nR1 in 0 1k\n.dc V1 0 1 1', 'UNSUPPORTED_FEATURE', { feature: 'source-waveform' }],
         ['unsupported-mos-level', 'V1 in 0 0\nM1 in in 0 0 mos\n.model mos NMOS(LEVEL=2)\n.dc V1 0 1 1', 'UNSUPPORTED_FEATURE', { feature: 'mosfet-model-parameter' }],
       ] as const) {
@@ -182,7 +182,7 @@ describe('bounded numeric WebAssembly backend', () => {
     expect(WebAssembly.Module.imports(module)).toEqual([]);
     expect(WebAssembly.Module.exports(module).map(entry => entry.name)).toEqual(expect.arrayContaining([
       'memory', '__heap_base', 'abi_version', 'max_order', 'stamp_vccs_f64', 'stamp_cccs_f64', 'stamp_vcvs_f64',
-      'stamp_ccvs_f64', 'solve_f64', 'solve_complex_f64',
+      'stamp_ccvs_f64', 'solve_f64', 'solve_dc_f64', 'solve_complex_f64',
     ]));
     await expect(validateNumericWasmModule(module)).resolves.toBeUndefined();
     const instance = await WebAssembly.instantiate(module);

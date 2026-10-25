@@ -33,12 +33,15 @@ import { resolveSTransfer, STransferDevice } from './s-xfer.js';
 import { xfer } from './xfer.js';
 import { multiInputPwl } from './multi-input-pwl.js';
 import { tableModel } from './table.js';
+import { fileSource } from './file-source.js';
 import { XSPICE_CODE_MODEL_SPECS, type XspiceParamValue } from './spec.js';
 import { XspiceDevice, type XspiceInputPort, type XspiceOutputPort } from './xspice-device.js';
 
 /** Every implemented code model behavior keyed by lower-case ngspice Spice_Model_Name. */
 const BEHAVIORS: ReadonlyMap<string, BehaviorFactory> = new Map<string, BehaviorFactory>([
   ['astate', astate],
+  ['filesource', fileSource],
+  ['file_source', fileSource],
   ['xfer', xfer],
   ['table2d', params => tableModel(2, params)],
   ['table3d', params => tableModel(3, params)],

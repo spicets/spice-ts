@@ -1,0 +1,82 @@
+* Test DC mode support for MAX, MIN and PP Measures
+*
+* This bug covers:
+*   1) the case of one variable in the .DC line, 
+*      without a .STEP statement.
+*
+*   2) An ascending sweep variable.
+*
+*   3) The use of OUTPUT=SV (and output=sv to check
+*      that there is no case sensitivity).  OUTPUT=SV
+*      will output the value of the first variable in
+*      the DC sweep vector at which the max/min occurs.
+*
+* Also test that .MEAS is a synonym for .MEASURE
+*
+* See SON Bug 884 for more details.
+********************************************************
+
+.PARAM P1=1.0
+.PARAM P2=3.0
+
+vsrc1   1a 0 1
+rload1a 1a 1b 0.1
+rload1b 1b 0 1
+
+.DC vsrc1 1 5 1
+
+* Note: vsrc1:DCV0 is the syntax for printing the DC value of vsrc1,
+* at it is swept. 
+.print dc vsrc1:DCV0 v(1a) v(1b)
+.PREPROCESS REPLACEGROUND TRUE
+
+* MAX measure
+.meas dc maxv1b   max v(1b)
+.measure dc maxv1bgnd max v(1b,GND)
+.measure dc maxFrom max v(1b) FROM=4
+.measure dc maxTo max v(1b) TO=4
+
+* these measures should get the same answer
+.measure dc maxv1bFT max v(1b) FROM=4 TO=2
+.measure dc maxv1bTF max v(1b) FROM=2 TO=4
+
+.measure dc maxv1bsv max v(1b) OUTPUT=SV
+
+* MIN measure
+.MEAS dc minv1b   min v(1b)
+.measure dc minFrom min v(1b) FROM=4
+.measure dc minTo min v(1b) TO=4
+
+* these measures should get the same answer
+.MEASURE dc minv1bFT min v(1b) FROM=4 TO=2
+.MEASURE dc minv1bTF min v(1b) FROM=2 TO=4
+
+.measure dc minv1bsv min v(1b) output=sv
+
+* PP measure
+.measure dc ppv1b   pp v(1b)
+.measure dc ppFrom pp v(1b) FROM=4
+.measure dc ppTo pp v(1b) TO=4
+
+* these measures should get the same answer
+.measure dc ppv1bFT pp v(1b) FROM=4 TO=2
+.measure dc ppv1bTF pp v(1b) FROM=2 TO=4
+
+* FROM and TO as expressions
+.measure dc ppv1bFTExp pp v(1b) FROM={1.0+P2} TO={1.0+P1}
+.measure dc ppv1bTFExp pp v(1b) FROM={1.0+P1} TO={1.0+P2}
+.measure dc maxFromExp max v(1b) FROM={1.0+P2}
+.measure dc maxToExp max v(1b) TO={1.0+P2}
+
+* Tests should fail since the FROM-T0 windows do not overlap
+* with the stepped values for VSRC1:DCV0
+.measure dc maxFail1 max v(1b) FROM=-4 TO=-2
+.measure dc maxFail2 max v(1b) FROM=-2 TO=-4
+.measure dc minFail1 min v(1b) FROM=6 TO=8
+.measure dc minFail2 min v(1b) FROM=8 TO=6
+.measure dc ppFail1 pp v(1b) FROM=-4 TO=-2
+.measure dc ppFail2 pp v(1b) FROM=-4 TO=-2
+
+.end
+
+

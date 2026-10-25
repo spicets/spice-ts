@@ -2790,6 +2790,15 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 
 
 
+## XSPICE filesource / file_source (#1758)
+
+- Original project-authored decks, table, generator and test-consumed ngspice vectors in [xspice-file-source/](xspice-file-source/), **MIT** under repository LICENSE. No third-party netlists or data copied.
+- Numerical contract consulted: [ngspice-47 file_source source](https://github.com/imr/ngspice/tree/ngspice-47/src/xspice/icm/analog/file_source), BSD-3-Clause, Thomas Sailer. Implementation is independently expressed; no source text redistributed.
+- Reproduce: `node benchmarks/xspice-file-source/generate.mjs`; internally `ngspice -b oracle.cir` sources the unchanged committed deck as `input.cir` and writes all timepoints with 17-digit precision. Version, command and platform are in `reference.json`.
+- Upstream calls the model **filesource**, not file_source. spice-ts supports both names. ngspice-47 rejects omitted amplitude vectors at its parameter loader, despite identity handling in cfunc; defaults/step reference decks therefore explicitly supply identity `amploffset=[0] amplscale=[1]`. spice-ts additionally allows omission. The aliases and omitted vectors are not claimed as identical-deck ngspice parity.
+- Before: unsupported model. After: 88 ngspice timepoints in each of defaults, all-four-transforms, and step cases; maximum normalized absolute errors respectively `4.448008912761045e-16`, `6.467004657784513e-16`, and `0` (limit `1e-6`, normalization by max(1, peak reference magnitude)). No speed claim.
+- Verification: `pnpm -C packages/core exec vitest run src/devices/xspice/file-source.test.ts`. Tests first execute identical full decks and check all spice-ts samples, then repeat the same circuit with transient stop at each oracle time to avoid interpolating across step discontinuities. Two-output/relative-time behavior and structured missing/malformed-file errors are also tested. Coverage is bounded to these fixtures, not arbitrary file contents or general ngspice parity; past EOF spice-ts safely holds the final row.
+
 ## BSIM4 DIOMOD=0/2 junction laws (#1703)
 
 - Sources: original project-authored `benchmarks/bsim4-diomod/mode0.cir` and `mode2.cir`, MIT under repository `LICENSE`. Public source directory: https://github.com/spicets/spice-ts/tree/main/benchmarks/bsim4-diomod.
@@ -2798,12 +2807,27 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Regenerate test-consumed oracle: `spice-heavy python3 benchmarks/bsim4-diomod/generate.py`. ngspice receives the committed deck bytes unchanged; the reference records their SHA-256. Verify using `pnpm -C packages/core exec vitest run src/devices/bsim4/junction-modes.test.ts`.
 - The test prints per-signal max absolute, max relative and RMS relative errors for OP/DC. It retains the existing BSIM4 gate-current criterion `abs <= 1e-15 || rel <= 1e-6`, with no tuning. Before: both decks rejected DIOMOD. After: all saved voltages and source currents pass; maximum relative error is `6.332090677047784e-15`. This is bounded static-junction evidence, not general BSIM4 parity or a speed claim.
 
+
 ## Self-heating diode transient charge (#1801)
 
 - `circuits/diode-selfheat-tran-1801.cir` is an original spice-ts regression deck, MIT (repository licence). Pulsed resistive drive, CJO, TT, temperature coefficients, RTH0 and CTH0 exercise electrical and thermal storage together. Both engines receive the identical committed netlist, without model or tolerance adaptations.
 - Equation reference: ngspice-47 `src/spicelib/devices/dio/dioload.c` and `diotemp.c`, https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/dio (BSD-style ngspice licence). No source code copied. Charge uses junction temperature; the thermal power includes integrated junction charge current, as in dioload.c.
 - Reproduce all-point peak-normalized max and RMS waveform errors with `spice-heavy pnpm exec tsx benchmarks/diode-selfheat-parity.ts`. Add `--write-reference` to regenerate the test-consumed `packages/core/src/devices/fixtures/diode-selfheat-1801.json` (every 16th ngspice adaptive point plus the endpoint, columns time, v(anode), i(V1), v(tj)). The benchmark checks every ngspice timepoint using linear interpolation of spice-ts output, with the same 1% threshold for all vectors.
 - Scope: zero internal RS; a physical external resistor drives the junction. Self-heating internal RS with junction storage still requires an internal electrical node and is explicitly rejected, not approximated. This is waveform parity evidence, not a speed superiority claim. CTH0 already compiles to a thermal capacitor; this regression verifies its coupled behavior.
+
+## C/L circuit-temperature regression decks (#1798)
+
+- Original project-authored `packages/core/src/fixtures/cl-temperature-1798/{rc-hot,rl-cold}.cir`, MIT under repository `LICENSE`. No third-party circuit/model cards copied.
+- Equation and precedence sources: ngspice-47 `src/spicelib/devices/cap/captemp.c` and `src/spicelib/devices/ind/indtemp.c`, https://github.com/ngspice/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices. Instance TC1/TC2 override each model coefficient independently; model TNOM overrides circuit TNOM; instance TEMP overrides circuit TEMP plus DTEMP.
+- Identical deck bytes go to both engines. Exact `SPICE_ASCIIRAWFILE=1 ngspice -b -r ...` commands and test-consumed reference values are in `packages/core/src/cl-temperature-1798.test.ts`. RC at 100 C covers AC near -3 dB and a TRAN step at 1 ms; RL at -40 C covers AC. Both use relative tolerance 1e-6. This is bounded correctness coverage, not a speed claim or aggregate-corpus addition.
+
+## BSIM4 RSH/NRD/NRS static series resistance (#1792)
+
+- Original MIT single-device decks and generator in `packages/core/src/devices/bsim4/__fixtures__/series-resistance/`; no third-party model cards. Nine OP cases and 45 Vds sweep points cover both polarities, reverse mode, single-side networks, neutral controls, multiplicity and gate/body composition.
+- Equation source: ngspice-47 commit `a80f6e3e95d51534905b1f23410a951802666656`, `b4set.c:2434-2515`, `b4temp.c:2041-2101` and `b4ld.c`, ECL-2.0. Pinned links and exact regeneration command are in the fixture README. Oracle JSON is consumed by `series-resistance.test.ts` and binds identical netlists by SHA-256.
+- Before: positive RSH with given positive squares rejected. After: OP/DC maximum Id relative error `6.659e-13`, nonzero internal-voltage relative error `6.669e-13`. Numerical-zero currents use the existing `1e-12` absolute floor. Enabled-series AC and transient remain explicitly unsupported. No speed or general BSIM4 parity claim.
+
+
 
 ## corpus-p: new public MNA-MAT and NetlistParse sources (#1722)
 
@@ -2813,3 +2837,43 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Mechanical adaptation only: title prefix for the 12 title-less MNA-MAT files; append `\n.op\n.end\n` to those and the RLC parser example. Original element/value/whitespace bytes stay unchanged inside reversible wrappers, verified by offline tests. Three extension stress decks are verbatim. Both engines receive identical committed bytes, no runtime adaptation or per-circuit tuning. This adds DC/OP coverage, not a transient/speed claim.
 - [Committed receipt](corpus/corpus-p/outcomes.json): **16 fixtures, 13 matched, 0 mismatch, 0 spice-ts failed, 2 spice-ts unsupported**. The two unsupported decks fail or are unsupported in both engines; one more deck is ngspice-failed/spice-ts-success. All three exclusions remain published, never counted as matches. All 13 ngspice-success decks match, so there is no ngspice-success gap requiring an issue. Reference rejection does not validate spice-ts extension semantics.
 - Reproduce: `pnpm exec tsx benchmarks/corpus/corpus-p/ingest.ts`; `spice-heavy pnpm exec tsx benchmarks/corpus/corpus-p/parity.ts --jobs 1`; verify with `pnpm exec tsx --test benchmarks/corpus/corpus-p/corpus-p.test.ts`. Unchanged existing corpus-f/h runner and global 1% metric; no aggregate/tolerance changes. Aggregate refresh deferred to nightly.
+
+## Self-heating diode AC (#1787)
+
+- Source: seven original project-authored decks, MIT under the repository `LICENSE`, at `packages/core/src/devices/__fixtures__/diode-self-heating-ac/`. No third-party fixture bytes copied. Model reference: ngspice-47 `dioacld.c` / `dioload.c`, https://github.com/imr/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/dio.
+- Regenerate SHA-256-pinned, test-consumed complex references with `spice-heavy python3 packages/core/src/devices/__fixtures__/diode-self-heating-ac/generate.py`. Requires ngspice-47; adds output control only, with identical electrical decks, options and `.ac dec 10 1 1e6` in both simulators.
+- Each deck checks 61 frequencies for `v(tj)`, `v(anode)` and `i(vsrc)`. Includes zero, explicit positive and default CTH0, zero/positive CJO, RS/TRS1 without charge, and an explicit external thermal capacitor. Existing diode depletion tolerances: relative magnitude < `1e-4`, phase < `1e-4` radians. Before: all seven AC decks rejected. After: maximum complex absolute error `1.309074039574171e-10` (mixed V/K/A units), relative magnitude error `6.141254171865285e-11`, phase error `7.657945388928056e-10` degrees. No speed claim.
+- Important reference limitation: ngspice-47 intrinsic CTH0 is absent in AC because `dioacld` reads `DIOcqth`, which `dioload` does not initialize to CTH0 in small-signal initialization. Positive/default intrinsic CTH0 references are identical to CTH0=0; spice-ts deliberately matches this behavior. An explicit `Cthermal tj 0 ...` still creates the thermal pole in both engines. Transient CTH0 remains active. This is version-specific parity, not validation of physical intrinsic thermal AC dynamics.
+- Thermal noise, thermal RSW, thermal RS plus junction charge, and transient thermal junction charge remain typed unsupported paths. Run `pnpm -C packages/core exec vitest run src/devices/diode-self-heating-ac.test.ts` for parity numbers and exclusions.
+
+## corpus-q: Xyce AC/DC measurements and transient sources (#1763)
+
+15 verbatim decks at Xyce_Regression revision `7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2`, licensed GPL-3.0-or-later by the pinned [repository README](https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/README.md). Original grant and full GPL text are retained under `benchmarks/corpus/corpus-q/licenses/xyce/`. These are independent benchmark data, not package code; no vendor libraries.
+
+Six AC, six DC and three transient decks selected statically with no engine-success filter; identical original bytes in both simulators. Pinned per-file source URLs, original/committed SHA256, licence hashes and selection are in [corpus-q/SOURCES.md](corpus/corpus-q/SOURCES.md) and [manifest.json](corpus/corpus-q/manifest.json). Deduplication checks all earlier corpus manifests by revision-independent URLs and original/committed/content hashes.
+
+ngspice-47 baseline: 3 matched (one DC, two transient), 0 mismatch, 0 not-compared, 0 spice-ts-loss, 0 ngspice-failed, 12 both-failed. All AC decks fail in both engines; this is not successful AC parity evidence. Fine-step reference is compared for q-15; q-14 is unavailable under the shared million-step budget. All failures and full metrics remain in [outcomes.json](corpus/corpus-q/outcomes.json). No speed or superiority claim. No aggregate refresh.
+
+## corpus-r: semiconductor transients, DC device sweeps and noise (#1777)
+
+13 verbatim Xyce_Regression decks, statically selected before either engine ran. Source repository https://github.com/Xyce/Xyce_Regression, pinned commit **7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2** for every row below. Repository-wide **GPL-3.0-or-later** grant and full GPL text retained under [corpus-r/licenses/xyce](corpus/corpus-r/licenses/xyce/). Independent benchmark data, not simulator package code; no vendor libraries.
+
+Seven transient decks, five DC device sweeps and one noise deck. Selected by device/analysis family, novelty and include closure, not engine success. Intentional invalid-input regressions and Xyce dialect rejections remain published. Both engines receive identical original bytes; no tolerance, metric or runner changes. Waveform comparisons do not certify ignored model parameters, printed operators or diagnostics. No AC/TF coverage or speed claim.
+
+| ID | Upstream path at pinned commit above | Licence |
+|---|---|---|
+| r-1 | Netlists/BJT_EXTNODE/npn_rb_rc_re_3.cir | GPL-3.0-or-later |
+| r-2 | Netlists/BJT_EXTNODE/npn_rc_re_3.cir | GPL-3.0-or-later |
+| r-3 | Netlists/Certification_Tests/BUG_647_SON/bjt.cir | GPL-3.0-or-later |
+| r-4 | Netlists/Certification_Tests/BUG_647_SON/bjt_ambient.cir | GPL-3.0-or-later |
+| r-5 | Netlists/DIODE/diode_with_sidewall_temp.cir | GPL-3.0-or-later |
+| r-6 | Netlists/NOISE/unsupported_analysis_mode.cir | GPL-3.0-or-later |
+| r-7 | Netlists/NOISE/unsupported_device_source.cir | GPL-3.0-or-later |
+| r-8 | Netlists/Certification_Tests/BUG_983_SON/jfet.cir | GPL-3.0-or-later |
+| r-9 | Netlists/Certification_Tests/BUG_647_SON/mos1.cir | GPL-3.0-or-later |
+| r-10 | Netlists/Certification_Tests/BUG_647_SON/mos1_modpar.cir | GPL-3.0-or-later |
+| r-11 | Netlists/Certification_Tests/ISSUE_239/mos1_test1.cir | GPL-3.0-or-later |
+| r-12 | Netlists/Certification_Tests/ISSUE_239/mos1_test2.cir | GPL-3.0-or-later |
+| r-13 | Netlists/Certification_Tests/ISSUE_239/mos1_test3.cir | GPL-3.0-or-later |
+
+Pinned per-file URLs, original/committed SHA256, licence hashes and static selection are in [corpus-r/SOURCES.md](corpus/corpus-r/SOURCES.md) and [manifest.json](corpus/corpus-r/manifest.json). Every outcome and full metrics are published in [README.md](corpus/corpus-r/README.md) and [outcomes.json](corpus/corpus-r/outcomes.json). The original 100-fixture aggregate is unchanged, as requested in #1777.

@@ -49,6 +49,7 @@ export interface NumericWasmExports extends WebAssembly.Exports {
     transresistance: number,
   ): number;
   solve_f64(order: number, matrixPointer: number, rhsPointer: number): number;
+  solve_dc_f64(order: number, matrixPointer: number, rhsPointer: number): number;
   solve_complex_f64(
     order: number,
     matrixRealPointer: number,
@@ -85,6 +86,7 @@ export function assertNumericWasmAbi(exports: NumericWasmExports): void {
     || typeof exports.stamp_vcvs_f64 !== 'function'
     || typeof exports.stamp_ccvs_f64 !== 'function'
     || typeof exports.solve_f64 !== 'function'
+    || typeof exports.solve_dc_f64 !== 'function'
     || typeof exports.solve_complex_f64 !== 'function'
     || exports.memory.buffer.byteLength !== NUMERIC_WASM_LIMITS.memoryPages * 65_536) {
     throw new Error('The numeric WebAssembly module ABI is incompatible');

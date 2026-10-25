@@ -46,13 +46,14 @@ export async function runCorners(
       || (c.temp !== undefined && (typeof c.temp !== 'number' || !Number.isFinite(c.temp) || c.temp <= -273.15))) invalid('Invalid or duplicate corner name or temperature');
     names.add(c.name);
   }
-  if (request.input.format !== 'spice' || typeof request.input.source !== 'string') invalid('Corners require SPICE text input');
+  if (request.input.format === 'spice' && typeof request.input.source !== 'string') invalid('Corners require SPICE text input');
   const result: CornersResult = { corners: [], summary: null };
   for (const corner of args.corners as Corner[]) {
     check(result);
     let entry: CornerResult;
     try {
       let changed = overrideParameters(request, corner.params);
+      if (corner.temp !== undefined && changed.input.format !== 'spice') invalid('Temperature overrides require SPICE text input');
       if (corner.temp !== undefined && changed.input.format === 'spice') {
         const source = changed.input.source;
         const index = /^\s*\.end\s*(?:[;$].*)?$/im.exec(source)?.index ?? source.length;
