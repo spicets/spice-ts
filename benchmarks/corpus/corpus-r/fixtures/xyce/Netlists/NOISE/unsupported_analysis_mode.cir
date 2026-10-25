@@ -1,0 +1,15 @@
+************************************************
+* Test error messages when noise operators are
+* used with a .TRAN analysis.
+*
+*
+* See SON Bug 855 for more details.
+************************************************
+
+V1 1 0 SIN(0 1 1)
+R1 1 0 1
+
+.TRAN 0 1
+.PRINT TRAN V(1) INOISE ONOISE DNO(R1) DNI(r1)
+
+.END

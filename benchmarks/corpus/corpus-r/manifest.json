@@ -1,0 +1,281 @@
+{
+  "schemaVersion": 1,
+  "issue": "https://github.com/spicets/spice-ts/issues/1777",
+  "sources": [
+    {
+      "key": "xyce",
+      "repository": "https://github.com/Xyce/Xyce_Regression",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "license": "GPL-3.0-or-later",
+      "licensePath": "benchmarks/corpus/corpus-r/licenses/xyce/README.md",
+      "licenseSha256": "82ff6df7bddcdf639483d261949a02a5f43da85d579f1242b05c3aa0c430f7cb",
+      "licenseUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/README.md",
+      "licenseTextPath": "benchmarks/corpus/corpus-r/licenses/xyce/COPYING",
+      "licenseTextSha256": "12ac5047f2af0522f06798b1589ffc4599bc29c91f954d7874e0320634e777c0"
+    }
+  ],
+  "selection": "Fixed explicit list of 13 standalone decks: BJT external-node DC sweeps, BJT temperature transients, diode sidewall temperature DC sweep, noise invalid-input regressions, JFET level-2 transient, MOS1 temperature/geometry DC sweeps and three MOS1 transient regressions. Seven tran, five dc and one noise; no AC or TF coverage claimed. Chosen by analysis/device family, absence from earlier manifests and no include dependencies before either engine ran. No success filtering, adaptations or tolerance changes. Xyce dialect rejections and deliberately invalid inputs are retained.",
+  "mechanicalAdaptation": "none",
+  "circuits": [
+    {
+      "id": "r-1",
+      "source": "xyce",
+      "upstreamPath": "Netlists/BJT_EXTNODE/npn_rb_rc_re_3.cir",
+      "sourcePath": "xyce/Netlists/BJT_EXTNODE/npn_rb_rc_re_3.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/BJT_EXTNODE/npn_rb_rc_re_3.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/BJT_EXTNODE/npn_rb_rc_re_3.cir",
+      "sha256": "3b66d2324ffe2d10f23b13c933da8005e78a35242d45105c665be827b73ea940",
+      "upstreamSha256": "3b66d2324ffe2d10f23b13c933da8005e78a35242d45105c665be827b73ea940",
+      "bytes": 1182,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-2",
+      "source": "xyce",
+      "upstreamPath": "Netlists/BJT_EXTNODE/npn_rc_re_3.cir",
+      "sourcePath": "xyce/Netlists/BJT_EXTNODE/npn_rc_re_3.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/BJT_EXTNODE/npn_rc_re_3.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/BJT_EXTNODE/npn_rc_re_3.cir",
+      "sha256": "353fdff6a19b2b432460ab99d0ace357636e66b8917974cef69fab473ef56a03",
+      "upstreamSha256": "353fdff6a19b2b432460ab99d0ace357636e66b8917974cef69fab473ef56a03",
+      "bytes": 1022,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-3",
+      "source": "xyce",
+      "upstreamPath": "Netlists/Certification_Tests/BUG_647_SON/bjt.cir",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_647_SON/bjt.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/Certification_Tests/BUG_647_SON/bjt.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/Certification_Tests/BUG_647_SON/bjt.cir",
+      "sha256": "8864d3f0ab48a6fb301f707998c00a706b713c355b2d1bb59d4f4f3cbad79ed0",
+      "upstreamSha256": "8864d3f0ab48a6fb301f707998c00a706b713c355b2d1bb59d4f4f3cbad79ed0",
+      "bytes": 503,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-4",
+      "source": "xyce",
+      "upstreamPath": "Netlists/Certification_Tests/BUG_647_SON/bjt_ambient.cir",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_647_SON/bjt_ambient.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/Certification_Tests/BUG_647_SON/bjt_ambient.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/Certification_Tests/BUG_647_SON/bjt_ambient.cir",
+      "sha256": "6e4c6a92d2ecd6732a8d23f8ce2725736bbeddf61064ec9b06782848738cf5b1",
+      "upstreamSha256": "6e4c6a92d2ecd6732a8d23f8ce2725736bbeddf61064ec9b06782848738cf5b1",
+      "bytes": 491,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-5",
+      "source": "xyce",
+      "upstreamPath": "Netlists/DIODE/diode_with_sidewall_temp.cir",
+      "sourcePath": "xyce/Netlists/DIODE/diode_with_sidewall_temp.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/DIODE/diode_with_sidewall_temp.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/DIODE/diode_with_sidewall_temp.cir",
+      "sha256": "fc7398f74d7726637ec379138a8893d8ca05b764c7fdac947934a81db414f907",
+      "upstreamSha256": "fc7398f74d7726637ec379138a8893d8ca05b764c7fdac947934a81db414f907",
+      "bytes": 251,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-6",
+      "source": "xyce",
+      "upstreamPath": "Netlists/NOISE/unsupported_analysis_mode.cir",
+      "sourcePath": "xyce/Netlists/NOISE/unsupported_analysis_mode.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/NOISE/unsupported_analysis_mode.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/NOISE/unsupported_analysis_mode.cir",
+      "sha256": "646915368df7cd2307ebc33b859de29b822c7842bc61286a73b2b690f42cdbc4",
+      "upstreamSha256": "646915368df7cd2307ebc33b859de29b822c7842bc61286a73b2b690f42cdbc4",
+      "bytes": 307,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-7",
+      "source": "xyce",
+      "upstreamPath": "Netlists/NOISE/unsupported_device_source.cir",
+      "sourcePath": "xyce/Netlists/NOISE/unsupported_device_source.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/NOISE/unsupported_device_source.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/NOISE/unsupported_device_source.cir",
+      "sha256": "484be57f1f991c281e4cecb61461822dc09ae79f191be5da0cb96de8c671e677",
+      "upstreamSha256": "484be57f1f991c281e4cecb61461822dc09ae79f191be5da0cb96de8c671e677",
+      "bytes": 1072,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-8",
+      "source": "xyce",
+      "upstreamPath": "Netlists/Certification_Tests/BUG_983_SON/jfet.cir",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_983_SON/jfet.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/Certification_Tests/BUG_983_SON/jfet.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/Certification_Tests/BUG_983_SON/jfet.cir",
+      "sha256": "30c750a61966530dda12862343a0a2315c674b9569be0004537caff01a54428a",
+      "upstreamSha256": "30c750a61966530dda12862343a0a2315c674b9569be0004537caff01a54428a",
+      "bytes": 924,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-9",
+      "source": "xyce",
+      "upstreamPath": "Netlists/Certification_Tests/BUG_647_SON/mos1.cir",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_647_SON/mos1.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/Certification_Tests/BUG_647_SON/mos1.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/Certification_Tests/BUG_647_SON/mos1.cir",
+      "sha256": "b648314bff405f9df771ffd3eadb1e0302dc0baf0e8d3fcd5673ce39b06f7746",
+      "upstreamSha256": "b648314bff405f9df771ffd3eadb1e0302dc0baf0e8d3fcd5673ce39b06f7746",
+      "bytes": 880,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-10",
+      "source": "xyce",
+      "upstreamPath": "Netlists/Certification_Tests/BUG_647_SON/mos1_modpar.cir",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_647_SON/mos1_modpar.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/Certification_Tests/BUG_647_SON/mos1_modpar.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/Certification_Tests/BUG_647_SON/mos1_modpar.cir",
+      "sha256": "b1a21088d68301a71f44d96a2548de39008c30f07c3e2edcddfd32216ab8839d",
+      "upstreamSha256": "b1a21088d68301a71f44d96a2548de39008c30f07c3e2edcddfd32216ab8839d",
+      "bytes": 866,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-11",
+      "source": "xyce",
+      "upstreamPath": "Netlists/Certification_Tests/ISSUE_239/mos1_test1.cir",
+      "sourcePath": "xyce/Netlists/Certification_Tests/ISSUE_239/mos1_test1.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/Certification_Tests/ISSUE_239/mos1_test1.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/Certification_Tests/ISSUE_239/mos1_test1.cir",
+      "sha256": "d07de4b3259eacaeb7853701e3dcdb9f4a5940a1d72f68053ad41bbeec9b82e4",
+      "upstreamSha256": "d07de4b3259eacaeb7853701e3dcdb9f4a5940a1d72f68053ad41bbeec9b82e4",
+      "bytes": 1549,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-12",
+      "source": "xyce",
+      "upstreamPath": "Netlists/Certification_Tests/ISSUE_239/mos1_test2.cir",
+      "sourcePath": "xyce/Netlists/Certification_Tests/ISSUE_239/mos1_test2.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/Certification_Tests/ISSUE_239/mos1_test2.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/Certification_Tests/ISSUE_239/mos1_test2.cir",
+      "sha256": "c0c2c3e556207b17c862ea7d8999f9acf9ee8b10327d57d55825b6089f32b300",
+      "upstreamSha256": "c0c2c3e556207b17c862ea7d8999f9acf9ee8b10327d57d55825b6089f32b300",
+      "bytes": 1771,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "r-13",
+      "source": "xyce",
+      "upstreamPath": "Netlists/Certification_Tests/ISSUE_239/mos1_test3.cir",
+      "sourcePath": "xyce/Netlists/Certification_Tests/ISSUE_239/mos1_test3.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/Certification_Tests/ISSUE_239/mos1_test3.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-r/fixtures/xyce/Netlists/Certification_Tests/ISSUE_239/mos1_test3.cir",
+      "sha256": "b929ff7e4758749b11796b6a3f5d9ccf4c23359dc21e573fd86167cdbd4c5edb",
+      "upstreamSha256": "b929ff7e4758749b11796b6a3f5d9ccf4c23359dc21e573fd86167cdbd4c5edb",
+      "bytes": 1612,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    }
+  ]
+}
