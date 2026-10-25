@@ -2807,6 +2807,14 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Regenerate test-consumed oracle: `spice-heavy python3 benchmarks/bsim4-diomod/generate.py`. ngspice receives the committed deck bytes unchanged; the reference records their SHA-256. Verify using `pnpm -C packages/core exec vitest run src/devices/bsim4/junction-modes.test.ts`.
 - The test prints per-signal max absolute, max relative and RMS relative errors for OP/DC. It retains the existing BSIM4 gate-current criterion `abs <= 1e-15 || rel <= 1e-6`, with no tuning. Before: both decks rejected DIOMOD. After: all saved voltages and source currents pass; maximum relative error is `6.332090677047784e-15`. This is bounded static-junction evidence, not general BSIM4 parity or a speed claim.
 
+
+## Self-heating diode transient charge (#1801)
+
+- `circuits/diode-selfheat-tran-1801.cir` is an original spice-ts regression deck, MIT (repository licence). Pulsed resistive drive, CJO, TT, temperature coefficients, RTH0 and CTH0 exercise electrical and thermal storage together. Both engines receive the identical committed netlist, without model or tolerance adaptations.
+- Equation reference: ngspice-47 `src/spicelib/devices/dio/dioload.c` and `diotemp.c`, https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/dio (BSD-style ngspice licence). No source code copied. Charge uses junction temperature; the thermal power includes integrated junction charge current, as in dioload.c.
+- Reproduce all-point peak-normalized max and RMS waveform errors with `spice-heavy pnpm exec tsx benchmarks/diode-selfheat-parity.ts`. Add `--write-reference` to regenerate the test-consumed `packages/core/src/devices/fixtures/diode-selfheat-1801.json` (every 16th ngspice adaptive point plus the endpoint, columns time, v(anode), i(V1), v(tj)). The benchmark checks every ngspice timepoint using linear interpolation of spice-ts output, with the same 1% threshold for all vectors.
+- Scope: zero internal RS; a physical external resistor drives the junction. Self-heating internal RS with junction storage still requires an internal electrical node and is explicitly rejected, not approximated. This is waveform parity evidence, not a speed superiority claim. CTH0 already compiles to a thermal capacitor; this regression verifies its coupled behavior.
+
 ## C/L circuit-temperature regression decks (#1798)
 
 - Original project-authored `packages/core/src/fixtures/cl-temperature-1798/{rc-hot,rl-cold}.cir`, MIT under repository `LICENSE`. No third-party circuit/model cards copied.
@@ -2818,6 +2826,7 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Original MIT single-device decks and generator in `packages/core/src/devices/bsim4/__fixtures__/series-resistance/`; no third-party model cards. Nine OP cases and 45 Vds sweep points cover both polarities, reverse mode, single-side networks, neutral controls, multiplicity and gate/body composition.
 - Equation source: ngspice-47 commit `a80f6e3e95d51534905b1f23410a951802666656`, `b4set.c:2434-2515`, `b4temp.c:2041-2101` and `b4ld.c`, ECL-2.0. Pinned links and exact regeneration command are in the fixture README. Oracle JSON is consumed by `series-resistance.test.ts` and binds identical netlists by SHA-256.
 - Before: positive RSH with given positive squares rejected. After: OP/DC maximum Id relative error `6.659e-13`, nonzero internal-voltage relative error `6.669e-13`. Numerical-zero currents use the existing `1e-12` absolute floor. Enabled-series AC and transient remain explicitly unsupported. No speed or general BSIM4 parity claim.
+
 
 
 ## corpus-p: new public MNA-MAT and NetlistParse sources (#1722)

@@ -49,12 +49,11 @@ describe('self-heating diode AC parity with ngspice-47 (#1787)', () => {
       .rejects.toThrow('Self-heating diode noise');
   });
 
-  it('keeps transient thermal junction charge a typed error', async () => {
+  it('runs transient thermal junction charge (#1801)', async () => {
     const deck = readFileSync(new URL('junction-cap.cir', fixtures), 'utf8');
-    await expect(simulate(deck.replace('.ac dec 10 1 1e6', '.tran 1u 2u')))
-      .rejects.toBeInstanceOf(InvalidCircuitError);
-    await expect(simulate(deck.replace('.ac dec 10 1 1e6', '.tran 1u 2u')))
-      .rejects.toThrow('transient junction charge');
+    const result = await simulate(deck.replace('.ac dec 10 1 1e6', '.tran 1u 2u'));
+    expect(result.transient!.time.at(-1)).toBeCloseTo(2e-6, 12);
+    expect(result.transient!.voltage('anode').every(Number.isFinite)).toBe(true);
   });
 
   it('reproduces ngspice-47 intrinsic CTH0 AC initialization, not a physical thermal pole', () => {
