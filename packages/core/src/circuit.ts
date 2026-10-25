@@ -936,7 +936,7 @@ export class Circuit {
     return this._nominalTemperature;
   }
 
-  /** Set the default model TNOM for supported JFET, diode and resistor circuits. */
+  /** Set the default model TNOM for supported semiconductor and R/C/L temperature models. */
   setNominalTemperature(celsius: number): void {
     if (!Number.isFinite(celsius) || celsius <= -CELSIUS_TO_KELVIN) {
       throw new InvalidCircuitError(`Invalid circuit nominal temperature: ${celsius} C`);
@@ -2224,19 +2224,15 @@ export class Circuit {
       return { ...desc, params };
     });
     this.assertDeviceModelTypes(flatDescriptors);
-    // ngspice a80f6e3 cktsopt.c sets the default model TNOM; currently only
-    // bounded BJT, MOS1, JFET, diode and resistor construction consume it.
+    // ngspice a80f6e3 cktsopt.c sets the default model TNOM; bounded BJT,
+    // MOS1, JFET, diode and R/C/L construction consume it.
     if (this._nominalTemperature !== undefined && this._nominalTemperature !== NOMINAL_TEMPERATURE_C) {
       for (const desc of flatDescriptors) {
         const passiveParams = { ...this._models.get(desc.modelName ?? '')?.params, ...desc.params };
-        const unsupportedPassive = ['C', 'L'].includes(desc.type)
-          && passiveParams.TNOM === undefined
-          && ((passiveParams.TC1 ?? 0) !== 0 || (passiveParams.TC2 ?? 0) !== 0
-            || (passiveParams.TCE ?? 0) !== 0);
         const boundedBjt = desc.type === 'Q' && !isVBICLevel(passiveParams.LEVEL);
         const boundedMos1 = desc.type === 'M' && (passiveParams.LEVEL ?? 1) === 1
           && !isVdmosModelType(this._models.get(desc.modelName ?? '')?.type ?? '');
-        if (unsupportedPassive || (!boundedBjt && !boundedMos1 && !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type))) {
+        if (!boundedBjt && !boundedMos1 && !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type)) {
           throw new InvalidCircuitError(
             `.options TNOM=${this._nominalTemperature} is unsupported for ${desc.type} '${desc.name}': `
             + 'circuit TNOM currently supports only BJTs, MOS1, JFETs, diodes, R/C/L and independent or behavioral sources',
@@ -2485,7 +2481,9 @@ export class Circuit {
           if (desc.modelName && !model) {
             throw new InvalidCircuitError(`Capacitor '${desc.name}' references unknown model '${desc.modelName}'`);
           }
-          const { value, unitValue, multiplier, scale } = resolveCapacitance(desc.value, model, desc.params);
+          const { value, unitValue, multiplier, scale } = resolveCapacitance(
+            desc.value, model, desc.params, this._temperature, this._nominalTemperature,
+          );
           devices.push(new Capacitor(desc.name, nodeIndices, value, desc.ic, unitValue, multiplier, scale));
           break;
         }
@@ -2494,7 +2492,9 @@ export class Circuit {
           if (desc.modelName && !model) {
             throw new InvalidCircuitError(`Inductor '${desc.name}' references unknown model '${desc.modelName}'`);
           }
-          const { value, unitValue, multiplier, scale } = resolveInductance(desc.value, model, desc.params);
+          const { value, unitValue, multiplier, scale } = resolveInductance(
+            desc.value, model, desc.params, this._temperature, this._nominalTemperature,
+          );
           const bi = branchIndex++;
           branchNames.push(desc.name);
           devices.push(new Inductor(desc.name, nodeIndices, bi, value, desc.ic, unitValue, multiplier, scale));
@@ -2934,7 +2934,7 @@ export class Circuit {
   /**
    * Evaluate the compiled devices at a non-nominal `.options TEMP` like ngspice.
    * Only devices whose temperature model follows ngspice-47 are accepted:
-   * resistors (TC1/TC2 around TNOM), the bounded VBIC (vbictemp.c mapping),
+   * resistors (TC1/TC2 around TNOM), C/L (resolved during construction), the bounded VBIC (vbictemp.c mapping),
    * B sources (asrctemp.c tc1/tc2 and `temper`), diodes (diotemp.c), the
    * Gummel-Poon BJT (bjttemp.c), MOS levels 1/2/3 (mos1temp.c/mos2temp.c/mos3temp.c) and BSIM3 (b3temp.c,
    * b3v32temp.c). Every other temperature-dependent element is rejected instead of silently
@@ -2952,13 +2952,6 @@ export class Circuit {
     for (const desc of descriptors) {
       if (desc.type === 'R' && (desc.params?.TEMP !== undefined || desc.params?.DTEMP !== undefined)) {
         throw unsupported(`resistor '${desc.name}' with an instance TEMP/DTEMP`);
-      }
-      if (desc.type === 'C' || desc.type === 'L') {
-        const model = desc.modelName ? this._models.get(desc.modelName) : undefined;
-        const params = { ...model?.params, ...desc.params };
-        if (params.TEMP === undefined && ((params.TC1 ?? 0) !== 0 || (params.TC2 ?? 0) !== 0)) {
-          throw unsupported(`temperature-coefficient ${desc.type === 'C' ? 'capacitor' : 'inductor'} '${desc.name}'`);
-        }
       }
     }
 
@@ -3082,7 +3075,9 @@ export class Circuit {
         if (desc.modelName && !model) {
           throw new InvalidCircuitError(`Capacitor '${desc.name}' references unknown model '${desc.modelName}'`);
         }
-        const resolved = resolveCapacitorModel(desc.value, model, desc.params);
+        const resolved = resolveCapacitorModel(
+          desc.value, model, desc.params, this._temperature, this._nominalTemperature,
+        );
         if (hasCapacitorParasitics(resolved)) {
           result.push(...this.expandCapacitorDescriptor(desc, resolved));
         } else {
@@ -3096,7 +3091,9 @@ export class Circuit {
         if (desc.modelName && !model) {
           throw new InvalidCircuitError(`Inductor '${desc.name}' references unknown model '${desc.modelName}'`);
         }
-        const resolved = resolveInductorModel(desc.value, model, desc.params);
+        const resolved = resolveInductorModel(
+          desc.value, model, desc.params, this._temperature, this._nominalTemperature,
+        );
         if (hasInductorParasitics(resolved)) {
           result.push(...this.expandInductorDescriptor(desc, resolved));
         } else {
