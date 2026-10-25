@@ -7,6 +7,11 @@ A bounded stdio MCP server exposing the existing spice-ts protocol-v1 adapter. I
 ### DC and AC sensitivity
 
 Call `spice_sensitivity` with `{ netlist, output: "v(out)", analysis: "dc", top: 5 }`.
+Instead of `netlist`, pass `request: { apiVersion: "1", input: ... }` for SPICE,
+spice-ts JSON, or circuit-json input. Supply exactly one of `netlist` or `request`.
+DC and AC use the same selectors and ranked result format. The circuit-json
+converter does not currently represent AC source magnitudes; use SPICE or spice-ts
+JSON for driven AC sensitivity.
 `netlist` is a title-less SPICE fragment (a leading `*` comment is fine), like
 the protocol tools. `analysis` defaults to `dc`.
 `output` accepts `v(node)`, `v(a,b)` and `i(vsrc)` (independent voltage sources only).

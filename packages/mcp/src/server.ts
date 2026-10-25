@@ -286,8 +286,11 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_sensitivity',
-    description: 'Run native DC or AC sensitivity for v(node), v(a,b) or i(vsrc). Return absolute derivatives and value*dOut/dParam, ranked by descending normalised magnitude, with optional top per frequency for AC. AC requires a dec/oct/lin sweep and returns complex derivatives. Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected.',
-    inputSchema: sensitivityInputSchema,
+    description: 'Run native DC or AC sensitivity for v(node), v(a,b) or i(vsrc). Return absolute derivatives and value*dOut/dParam, ranked by descending normalised magnitude, with optional top per frequency for AC. AC requires a dec/oct/lin sweep and returns complex derivatives. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected.',
+    inputSchema: { ...requestInputSchema, required: ['output'],
+      properties: { ...requestInputSchema.properties, ...sensitivityInputSchema.properties },
+      oneOf: [{ required: ['netlist'] }, { required: ['request'] }],
+      allOf: [{ oneOf: sensitivityInputSchema.oneOf }] },
     outputSchema: { type: 'object', oneOf: [sensitivityOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
   {
@@ -634,20 +637,32 @@ async function executeToolWithStore(
       } finally { release(); }
     }
     if (name === 'spice_sensitivity') {
-      const selectors = sensitivityArgs(args);
       enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
-      enforceMaximum('maxAnalyses', limits.maxAnalyses, 1, 'validation');
+      if (!isRecord(args) || ('netlist' in args) === ('request' in args)) {
+        throw apiError('INVALID_REQUEST', 'Expected exactly one of netlist or request', 'validation', {});
+      }
+      const { request: rawRequest, ...selectorArgs } = args;
+      const selectors = sensitivityArgs('netlist' in args ? selectorArgs : { ...selectorArgs, netlist: 'protocol request' });
+      const original = toolRequest('netlist' in args ? {
+        request: { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } },
+      } : { request: rawRequest });
+      if (!validateMetricsRequest(original).valid) {
+        throw apiError('INVALID_REQUEST', 'Invalid sensitivity request', 'validation', {});
+      }
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      throwIfCancelled(options.signal);
+      const { request, diagnostics } = convertRequest(original);
+      enforceMaximum('maxAnalyses', effective.maxAnalyses, 1, 'validation');
       const release = streamStore.acquireOneShotSlot();
       try {
-        const raw = await runInWorker<SensitivityResult>('sensitivity', {
-          apiVersion: '1', input: { format: 'spice', source: selectors.netlist },
-        }, limits.maxWallTimeMs, options, selectors.sweep
+        const raw = await runInWorker<SensitivityResult>('sensitivity', boundedRequest(request, effective), effective.maxWallTimeMs, options, selectors.sweep
           ? `${selectors.output} ac ${selectors.sweep.type} ${selectors.sweep.points} ${selectors.sweep.fstart} ${selectors.sweep.fstop}`
           : selectors.output);
-        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.entries.length * Math.max(1, raw.frequencies?.length ?? 0), 'transport');
+        enforceMaximum('maxResultPoints', effective.maxResultPoints, raw.entries.length * Math.max(1, raw.frequencies?.length ?? 0), 'transport');
         const result = sensitivityReport(raw, selectors);
-        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
-        return success(result);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        return success(result, diagnostics);
       } finally { release(); }
     }
     if (name === 'spice_power_metrics') {
@@ -1882,15 +1897,22 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
       return;
     }
     if (operation === 'sensitivity') {
-      const circuit = core.parseTitleless(request.input.source);
+      const circuit = request.input.format === 'spice'
+        ? core.parseTitleless(request.input.source) : core.circuitFromDocument(request.input.document);
       const compiled = circuit.compile();
       if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript
-        || /(^|\n)\s*\.control\b/i.test(request.input.source)) {
+        || (request.input.format === 'spice' && /(^|\n)\s*\.control\b/i.test(request.input.source))) {
         throw new core.InvalidCircuitError('Sensitivity requires an unstepped deck without control blocks or .pz');
       }
       const analysis = core.parseTitleless('.sens ' + sensitivityOutput).analyses[0];
       circuit.analyses.splice(0, circuit.analyses.length, analysis);
-      const result = (await core.simulate(circuit)).sensitivity;
+      // Preflight component/expansion limits without executing discarded deck analyses.
+      // Native protocol documents support OP preflight, not the dedicated sensitivity envelope.
+      const preflightInput = request.input.format === 'spice'
+        ? { format: 'spice', source: circuit.toNetlist() }
+        : { ...request.input, document: { ...request.input.document, analyses: [{ type: 'op' }] } };
+      await core.validateProtocolV1({ ...request, input: preflightInput });
+      const result = (await core.simulate(circuit, request.options)).sensitivity;
       parentPort.postMessage({ type: 'result', result });
       return;
     }
