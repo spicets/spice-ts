@@ -86,17 +86,12 @@ describe('WASM circuit temperature OP/DC', () => {
 
   it.each([
     'J1 out in 0 model\n.model model NJF(VTO=-2 BETA=1m)',
-  ])('rejects nonnominal transistor temperature: %s', async device => {
-    const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
-    try {
-      for (const temperature of ['.temp -40', '.options TEMP=127', '.options TNOM=50']) {
-        for (const control of ['.op', '.dc V1 1 2 0.5']) {
-          expect(await engine.simulate(request(`V1 in 0 1\nR1 out 0 1k\n${device}\n${temperature}\n${control}`), { requestId: 'guard' })).toMatchObject({
-            ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'circuit-temperature' } },
-          });
-        }
+  ])('matches nonnominal JFET temperature: %s', async device => {
+    for (const temperature of ['.temp -40', '.options TEMP=127', '.options TNOM=50']) {
+      for (const control of ['.op', '.dc V1 1 2 0.5']) {
+        await parity(`V1 in 0 1\nR1 out 0 1k\n${device}\n${temperature}\n${control}`);
       }
-    } finally { await engine.close(); }
+    }
   });
 
   it.each(['.ac lin 2 1 10', '.tran 1u 10u'])('rejects temperature outside OP/DC: %s', async control => {
