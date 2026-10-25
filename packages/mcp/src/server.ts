@@ -1894,6 +1894,13 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
       }
       const analysis = circuit.analyses[0];
       const ports = compiled.devices.filter(d => d.port !== undefined);
+      if (request.input.format === 'spice-ts') {
+        const numbers = ports.map(d => d.port.number).sort((a, b) => a - b);
+        if (numbers.length < 2 || numbers.some((number, index) => number !== index + 1)) {
+          throw { code: 'INVALID_REQUEST', message: 'S-parameters require at least two contiguous RF ports starting at 1',
+            phase: 'validation', retryable: false, details: { path: '/input/document/circuit/components' } };
+        }
+      }
       if (sparamsSelector.portPair && sparamsSelector.portPair.some(p => p > ports.length)) invalid('Port index exceeds the number of RF ports');
       const frequencies = sparamsSelector.frequenciesHz;
       const count = frequencies ? frequencies.length

@@ -45,6 +45,10 @@ export function validateSparamsPorts(request: SimulationRequestV1): void {
       ports.push({ number: metadata.portnum, path: `${path}/portnum` });
     }
   });
+  // Native instances may contain additional ports. Check the aggregate in the
+  // bounded worker after compilation rather than expanding an untrusted graph here.
+  if (native && components.some(component => isObject(component) && typeof component.type === 'string'
+    && component.type.toUpperCase() === 'X')) return;
   if (ports.length < 2) sparamsInvalid('S-parameters require at least two RF ports', base);
   ports.sort((a, b) => a.number - b.number).forEach((port, index) => {
     if (port.number !== index + 1) sparamsInvalid('RF port numbers must be contiguous starting at 1', port.path);

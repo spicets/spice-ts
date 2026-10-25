@@ -66,6 +66,24 @@ describe('spice_sparams protocol-v1 requests', () => {
     process.stdout.write(`S-parameter JSON parity max relative magnitude/phase deviation: ${maxDeviation}\n`);
   });
 
+  it('counts RF ports in reachable native subcircuits, not unused definitions', async () => {
+    const nested = { ...document,
+      circuit: { ...document.circuit, components: [{ type: 'X', id: 'X1', name: 'X1',
+        ports: [{ name: 'p', net: 'in' }, { name: 'n', net: 'out' }], params: {}, subcircuit: 'rf' }] },
+      subcircuits: [
+        { name: 'rf', ports: ['in', 'out'], components: document.circuit.components },
+        { name: 'unused', ports: [], components: document.circuit.components },
+      ],
+    };
+    const result = await executeTool('spice_sparams', { request: request({ format: 'spice-ts', document: nested }) });
+    const baseline = await executeTool('spice_sparams', { netlist: pad });
+    expect(result.isError, JSON.stringify(result.structuredContent)).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      points: baseline.structuredContent!.points,
+      referenceImpedancesOhm: [50, 75],
+    });
+  });
+
   it('advertises exactly one legacy netlist or protocol request', () => {
     const schema = MCP_TOOLS.find(tool => tool.name === 'spice_sparams')!.inputSchema;
     const validate = new AjvJsonSchemaValidator().getValidator(schema);
