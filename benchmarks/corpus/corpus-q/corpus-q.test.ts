@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { test } from 'node:test';
+import { renderMarkdown } from './parity.js';
 import { PATHS } from './ingest.js';
 import { outcomeDigest } from '../corpus-f/outcomes.js';
 
@@ -109,4 +110,13 @@ test('corpus-q has no URL or content duplicates in earlier manifests', async () 
     assert.ok(!hashes.has(c.sha256), c.id);
     assert.ok(!hashes.has(hash((await readFile(c.localPath, 'utf8')).replace(/\r?\n$/, ''))), c.id);
   }
+});
+
+test('corpus-q renders reproducible fine-reference rows with fixture labels', async () => {
+  const receipt = JSON.parse(await readFile(`${ROOT}/outcomes.json`, 'utf8'));
+  const markdown = renderMarkdown(receipt);
+  assert.equal(markdown, await readFile(`${ROOT}/README.md`, 'utf8'));
+  const fine = markdown.slice(markdown.indexOf('## Transient fine-step reference'));
+  assert.ok(fine.includes('\n| q-14 |'), 'fine-reference rows have fixture labels and real newlines');
+  assert.ok(!fine.includes('undefined'));
 });

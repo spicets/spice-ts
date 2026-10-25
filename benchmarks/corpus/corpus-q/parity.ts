@@ -44,7 +44,7 @@ All three ngspice-success rows match (one DC, two transient); there are no ngspi
 
 ${Object.entries(r.gapLinks).map(([id, url]) => `- ${id}: ${url}`).join('\n')}
 
-${fineReferenceSection(r.fixtures)}
+${fineReferenceSection(r.fixtures.map(f => ({ label: f.id, status: f.outcome, fineReference: f.fineReference }))).join('\n')}
 
 Verify: \`pnpm exec tsx --test ${ROOT}/corpus-q.test.ts\`. Rerun with \`spice-heavy pnpm exec tsx ${ROOT}/parity.ts --check --jobs 1\`. Aggregate refresh is deferred to the nightly job; no aggregate policy or tolerance changed.
 `;
