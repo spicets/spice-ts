@@ -363,6 +363,9 @@ export function solveNoise(
   const diodeSources = devices
     .filter((device): device is Diode => device instanceof Diode)
     .flatMap(diode => {
+      if (!diode.supportsNoise) {
+        throw new InvalidCircuitError('Self-heating diode noise is not implemented');
+      }
       const operatingPoint = diode.noiseOperatingPoint(dcSolution, options.deviceGmin);
       const current = Math.abs(operatingPoint.current);
       const sources: Array<{
