@@ -94,11 +94,11 @@ describe('WASM circuit temperature OP/DC', () => {
     }
   });
 
-  it.each(['.ac lin 2 1 10', '.tran 1u 10u'])('rejects transistor temperature outside OP/DC: %s', async control => {
+  it.each(['.ac lin 2 1 10', '.tran 1u 10u'])('rejects MOSFET temperature outside OP/DC: %s', async control => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
       for (const temperature of ['.temp 127', '.options TEMP=27 TNOM=27']) {
-        expect(await engine.simulate(request(`V1 in 0 1\nR1 out 0 1k\nQ1 out in 0 qmod\n.model qmod NPN(IS=1e-15 BF=100)\n${temperature}\n${control}`), { requestId: 'guard' })).toMatchObject({
+        expect(await engine.simulate(request(`V1 in 0 1\nR1 out 0 1k\nM1 out in 0 0 qmod\n.model qmod NMOS(LEVEL=1 VTO=0.7 KP=100u)\n${temperature}\n${control}`), { requestId: 'guard' })).toMatchObject({
           ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'circuit-temperature' } },
         });
       }
