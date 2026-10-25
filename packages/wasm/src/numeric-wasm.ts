@@ -688,17 +688,9 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     // Core owns expansion, lexical model scope and hierarchical node/branch names.
     // Only compilation is shared: numeric solves continue to use the WASM kernel.
     const circuit = parseTitleless(normalizedCards.join('\n'));
-    const temperature = circuit.temperature ?? 27;
-    const nominalTemperature = circuit.nominalTemperature ?? 27;
     const temperatureRequested = circuit.temperature !== undefined || circuit.nominalTemperature !== undefined;
     if (temperatureRequested && analysis !== 'op' && analysis !== 'dc') {
       unsupported('circuit-temperature', 'Circuit temperature is supported only for OP/DC');
-    }
-    // Check parsed, effective options before compile: core may reject these
-    // models itself, but the numeric facade must return a structured feature.
-    if ((temperature !== 27 || nominalTemperature !== 27)
-      && normalizedCards.some(card => /^J/i.test(card))) {
-      unsupported('circuit-temperature', 'Nonnominal TEMP/TNOM is supported only for diodes, resistors, BJTs and MOS1');
     }
     compiled = circuit.compile();
   } catch (error) {
@@ -846,7 +838,8 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       // history; the nonlinear transient and AC paths solve it through WASM.
       const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR'
         + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|XTI|EG|XTB' : '');
-      const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS|CGS|CGD|PB|FC';
+      const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS|CGS|CGD|PB|FC'
+        + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|TNOM|EG|XTI|TCV|VTOTC|BEX|BETATCE' : '');
       const resistor = /^(R|RES)$/i.test(model[1]!);
       const names = resistor ? 'TC1|TC2|TNOM' : jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
