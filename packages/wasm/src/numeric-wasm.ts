@@ -699,12 +699,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     // Core owns expansion, lexical model scope and hierarchical node/branch names.
     // Only compilation is shared: numeric solves continue to use the WASM kernel.
     const circuit = parseTitleless(normalizedCards.join('\n'));
-    const temperatureRequested = circuit.temperature !== undefined || circuit.nominalTemperature !== undefined;
     compiled = circuit.compile();
-    if (temperatureRequested && (analysis === 'tran' || analysis === 'ac')
-      && compiled.devices.some(device => deviceType(device.name) === 'J')) {
-      unsupported('circuit-temperature', 'JFET circuit temperature is supported only for OP/DC');
-    }
   } catch (error) {
     if (error instanceof NumericBackendError) throw error;
     throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
@@ -863,7 +858,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR'
         + (temperatureEnabled ? '|XTI|EG|XTB' : '');
       const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS|CGS|CGD|PB|FC'
-        + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|TNOM|EG|XTI|TCV|VTOTC|BEX|BETATCE' : '');
+        + (temperatureEnabled ? '|TNOM|EG|XTI|TCV|VTOTC|BEX|BETATCE' : '');
       const resistor = /^(R|RES)$/i.test(model[1]!);
       const names = resistor ? 'TC1|TC2|TNOM' : jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.

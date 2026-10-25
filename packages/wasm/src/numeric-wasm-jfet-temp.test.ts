@@ -69,17 +69,4 @@ describe('WASM JFET circuit TEMP/TNOM OP/DC', () => {
       process.stdout.write(`JFET temperature parity maxAbsoluteError=${maxAbsoluteError}\n`);
     } finally { await engine.close(); }
   });
-
-  it.each(['NJF', 'PJF'].flatMap(polarity => ['.ac lin 2 1 10', '.tran 1u 10u'].map(control => ({ polarity, control }))))(
-    'rejects circuit temperature for $polarity $control', async ({ polarity, control }) => {
-      const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
-      try {
-        for (const temperature of temperatures) {
-          expect(await engine.simulate(request(`${circuit(polarity)}\n${temperature}\n${control}`), { requestId: 'jfet-temperature-guard' })).toMatchObject({
-            ok: false, error: { code: 'UNSUPPORTED_FEATURE', phase: 'validation', retryable: false, details: { feature: 'circuit-temperature' } },
-          });
-        }
-      } finally { await engine.close(); }
-    },
-  );
 });
