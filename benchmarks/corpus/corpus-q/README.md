@@ -36,7 +36,7 @@ Provenance, licences, upstream/adapted SHA256 and selection are in [SOURCES.md](
 
 Unchanged corpus-f runner, corpus-h owned-child orchestration, 1% normalized peak threshold and existing signal floors. Full matched-point max/RMS absolute/relative metrics, environment, tool versions and per-fixture timings are in [outcomes.json](outcomes.json). Null is not zero error. Runtime includes child startup, parsing, solving and export on a shared host; no speed comparison is claimed.
 
-All three ngspice-success rows match (one DC, two transient); there are no ngspice-success gaps to file. The six AC decks all fail in both engines, so this batch adds no successful AC parity evidence. Reference rejections and both-failed rows remain visible; null is not zero error.
+ngspice-success rows: 3; matched: 3; gaps requiring issues: 0. Failed AC rows do not provide successful AC parity evidence. Reference rejections and both-failed rows remain visible; null is not zero error.
 
 
 

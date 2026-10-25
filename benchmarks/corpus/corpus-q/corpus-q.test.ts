@@ -120,3 +120,11 @@ test('corpus-q renders reproducible fine-reference rows with fixture labels', as
   assert.ok(fine.includes('\n| q-14 |'), 'fine-reference rows have fixture labels and real newlines');
   assert.ok(!fine.includes('undefined'));
 });
+
+test('corpus-q gap summary reflects a changed receipt instead of fixed claims', async () => {
+  const receipt = JSON.parse(await readFile(`${ROOT}/outcomes.json`, 'utf8'));
+  receipt.fixtures.find((f: { id: string }) => f.id === 'q-10').outcome = 'mismatch';
+  const markdown = renderMarkdown(receipt);
+  assert.ok(markdown.includes('ngspice-success rows: 3; matched: 2; gaps requiring issues: 1.'));
+  assert.ok(!markdown.includes('no ngspice-success gaps'));
+});
