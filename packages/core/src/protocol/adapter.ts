@@ -2,6 +2,7 @@ import type {
   AcResultV1,
   AnalysisResultV1,
   AnalysisV1,
+  NativeAnalysisV1,
   CircuitComponentV1,
   CircuitModelV1,
   ComplexPolarV1,
@@ -477,8 +478,27 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
   const circuit = new Circuit();
   for (const model of document.models) circuit.addModel(coreModel(model));
   for (const subcircuit of document.subcircuits) circuit.addSubcircuit(coreSubcircuit(subcircuit));
-  for (const component of document.circuit.components) addComponent(circuit, component);
-  for (const analysis of document.analyses) addAnalysis(circuit, analysis);
+  for (const [index, component] of document.circuit.components.entries()) {
+    if (component.type.toUpperCase() === 'V') {
+      for (const field of ['portnum', 'z0']) {
+        const value = component.params[field];
+        if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+          || field === 'portnum' && !Number.isInteger(value))) invalidNativeField(`/input/document/circuit/components/${index}/params/${field}`);
+      }
+    }
+    addComponent(circuit, component);
+  }
+  for (const [index, analysis] of document.analyses.entries()) {
+    if (analysis.type === 'sp') {
+      for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
+        const value = analysis[field];
+        if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+          || field === 'points' && !Number.isInteger(value)) invalidNativeField(`/input/document/analyses/${index}/${field}`);
+      }
+      if (!['dec', 'oct', 'lin'].includes(analysis.variation)) invalidNativeField(`/input/document/analyses/${index}/variation`);
+    }
+    addAnalysis(circuit, analysis);
+  }
   if (document.poleZeroAnalyses !== undefined) {
     const analyses = document.poleZeroAnalyses;
     if (!Array.isArray(analyses) || analyses.some(a => !a || a.type !== 'pz'
@@ -507,12 +527,17 @@ function coreSubcircuit(subcircuit: SubcircuitV1): { name: string; ports: string
   };
 }
 
-function addAnalysis(circuit: Circuit, analysis: AnalysisV1): void {
+function invalidNativeField(path: string): never {
+  throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', message: `Invalid native field at ${path}`, phase: 'validation', retryable: false, details: { path } });
+}
+
+function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
   switch (analysis.type) {
     case 'op': circuit.addAnalysis('op'); break;
     case 'dc': circuit.addAnalysis('dc', analysis); break;
     case 'tran': circuit.addAnalysis('tran', analysis); break;
     case 'ac': circuit.addAnalysis('ac', analysis); break;
+    case 'sp': circuit.addAnalysis('sp', analysis); break;
   }
 }
 
@@ -528,7 +553,8 @@ function addComponent(circuit: Circuit, component: CircuitComponentV1): void {
     case 'V':
       // ngspice-47 vsrc has no `m` ("unknown parameter (m)"), as in the SPICE parser.
       if (p.m !== undefined) throw new InvalidCircuitError(VOLTAGE_SOURCE_MULTIPLIER_ERROR);
-      circuit.addVoltageSource(component.name, named('p', 0), named('n', 1), waveform(p));
+      circuit.addVoltageSource(component.name, named('p', 0), named('n', 1), waveform(p),
+        p.portnum === undefined ? undefined : { number: numberParam(p, 'portnum'), z0: optionalNumber(p, 'z0') ?? 50 });
       break;
     case 'I': circuit.addCurrentSource(component.name, named('p', 0), named('n', 1), waveform(p), optionalNumber(p, 'm')); break;
     case 'D': circuit.addDiode(component.name, named('anode', 0), named('cathode', 1), model); break;

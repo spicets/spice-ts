@@ -164,6 +164,150 @@
         }
       ]
     },
+    "nativeAnalysis": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "op"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "source",
+            "start",
+            "stop",
+            "step"
+          ],
+          "properties": {
+            "type": {
+              "const": "dc"
+            },
+            "source": {
+              "type": "string"
+            },
+            "start": {
+              "type": "number"
+            },
+            "stop": {
+              "type": "number"
+            },
+            "step": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "timestep",
+            "stopTime"
+          ],
+          "properties": {
+            "type": {
+              "const": "tran"
+            },
+            "timestep": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "stopTime": {
+              "type": "number",
+              "minimum": 0
+            },
+            "startTime": {
+              "type": "number",
+              "minimum": 0
+            },
+            "maxTimestep": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "variation",
+            "points",
+            "startFreq",
+            "stopFreq"
+          ],
+          "properties": {
+            "type": {
+              "const": "ac"
+            },
+            "variation": {
+              "enum": [
+                "dec",
+                "oct",
+                "lin"
+              ]
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "startFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "stopFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "variation",
+            "points",
+            "startFreq",
+            "stopFreq"
+          ],
+          "properties": {
+            "type": {
+              "const": "sp"
+            },
+            "variation": {
+              "enum": [
+                "dec",
+                "oct",
+                "lin"
+              ]
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "startFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "stopFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "poleZeroAnalysis": {
       "type": "object",
       "required": [
@@ -263,7 +407,41 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "V",
+                  "v"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "properties": {
+                  "portnum": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "z0": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "model": {
       "type": "object",
@@ -369,7 +547,7 @@
         "analyses": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/analysis"
+            "$ref": "#/$defs/nativeAnalysis"
           }
         },
         "models": {
