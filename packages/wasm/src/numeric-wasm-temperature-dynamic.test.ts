@@ -29,7 +29,6 @@ describe('WASM resistor/diode TEMP/TNOM transient and AC', () => {
       const actual = response.data.analyses[0];
       const reference = (await simulateProtocolV1(input)).analyses[0];
       let maximum = 0;
-      let maximumPointwise = 0;
       let maximumAbsolute = 0;
       let samples = 0;
       if (actual?.type === 'tran' && reference?.type === 'tran') {
@@ -41,7 +40,8 @@ describe('WASM resistor/diode TEMP/TNOM transient and AC', () => {
             values.forEach((value, i) => {
               const observed = actual[field][signal]![i]!;
               const delta = Math.abs(observed - value);
-              maximumPointwise = Math.max(maximumPointwise, relativeError(observed, value));
+              // Uniform per-sample WASM parity contract, including zero crossings.
+              expect(delta).toBeLessThanOrEqual(Math.max(1e-12, 1e-9 * Math.abs(value)));
               maximumAbsolute = Math.max(maximumAbsolute, delta);
               maximum = Math.max(maximum, relativeError(observed, value));
               samples++;
@@ -65,9 +65,9 @@ describe('WASM resistor/diode TEMP/TNOM transient and AC', () => {
           }
         }
       } else throw new Error('Expected matching transient or AC analyses');
-      process.stdout.write(`${name} TEMP=${temperature}: samples=${samples} maxRelativeError=${maximum} maxPointwiseRelativeError=${actual.type === 'tran' ? maximumPointwise : maximum} maxAbsoluteError=${maximumAbsolute}\n`);
+      process.stdout.write(`${name} TEMP=${temperature}: samples=${samples} maxPointwiseRelativeError=${maximum} maxAbsoluteError=${maximumAbsolute}\n`);
       expect(samples).toBeGreaterThan(0);
-      expect(maximum).toBeLessThanOrEqual(1e-9);
+      if (actual.type === 'ac') expect(maximum).toBeLessThanOrEqual(1e-9);
     } finally { await engine.close(); }
   });
 
