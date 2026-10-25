@@ -697,8 +697,8 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     // Check parsed, effective options before compile: core may reject these
     // models itself, but the numeric facade must return a structured feature.
     if ((temperature !== 27 || nominalTemperature !== 27)
-      && normalizedCards.some(card => /^[QMJ]/i.test(card))) {
-      unsupported('circuit-temperature', 'Nonnominal TEMP/TNOM is supported only for diodes and resistors');
+      && normalizedCards.some(card => /^[MJ]/i.test(card))) {
+      unsupported('circuit-temperature', 'Nonnominal TEMP/TNOM is supported only for diodes, resistors and BJTs');
     }
     compiled = circuit.compile();
   } catch (error) {
@@ -844,7 +844,8 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
         + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|EG|XTI|TNOM|TBV1' : '');
       // The core device supplies the charge Jacobian and accepted/rejected-step
       // history; the nonlinear transient and AC paths solve it through WASM.
-      const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR';
+      const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR'
+        + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|XTI|EG|XTB' : '');
       const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS|CGS|CGD|PB|FC';
       const resistor = /^(R|RES)$/i.test(model[1]!);
       const names = resistor ? 'TC1|TC2|TNOM' : jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
