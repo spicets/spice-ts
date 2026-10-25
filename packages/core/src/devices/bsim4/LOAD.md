@@ -289,10 +289,23 @@ output voltage and gate/supply currents, and FD input currents, remain above
 the shared 1% corpus threshold. See #1367 for every signal and runtime; the
 remaining waveform/current parity work is not solved by charge integration alone.
 
+## Constant sheet-resistance series nodes (#1792)
+
+For OP/DC, positive RSH and explicitly given positive NRD/NRS enable physical
+D-DP/S-SP resistors with conductance `M * MULT_I / (RSH * squares)`.
+Omitted squares, explicit zero squares, and zero RSH do not create nodes.
+External D/G/S/B and existing gate/body offsets are preserved; enabled DP then
+SP are appended, and intrinsic current/junction stamps use these prime nodes.
+RDSMOD/RGEOMOD remain unsupported, as do AC/TRAN with enabled series nodes.
+The authored MIT identical-deck ngspice-47 oracle, pinned source citations,
+regeneration command, and nine OP/45 DC reference points are in
+[`__fixtures__/series-resistance/README.md`](__fixtures__/series-resistance/README.md).
+
 Other unsupported selectors and model paths:
 
-- TRNQSMOD/ACNQSMOD != 0; RDSMOD != 0, RBODYMOD outside 0/1,
-  and positive RSH with given positive NRD/NRS.
+- TRNQSMOD/ACNQSMOD != 0; RDSMOD != 0, RBODYMOD outside 0/1.
+- Positive RSH with given positive NRD/NRS supports OP/DC only; AC/TRAN with
+  these series nodes remain structured unsupported until independently validated.
 - Nonbaseline MOBMOD, CAPMOD, DIOMOD, GEOMOD, PERMOD, TEMPMOD, MTRLMOD,
   MTRLCOMPATMOD, CVCHARGEMOD, GIDLMOD, WPEMOD, FNOIMOD or TNOIMOD selectors.
   Baselines are recorded in SETUP.md; static acceptance is not noise/CV support.

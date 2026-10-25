@@ -2807,6 +2807,12 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Regenerate test-consumed oracle: `spice-heavy python3 benchmarks/bsim4-diomod/generate.py`. ngspice receives the committed deck bytes unchanged; the reference records their SHA-256. Verify using `pnpm -C packages/core exec vitest run src/devices/bsim4/junction-modes.test.ts`.
 - The test prints per-signal max absolute, max relative and RMS relative errors for OP/DC. It retains the existing BSIM4 gate-current criterion `abs <= 1e-15 || rel <= 1e-6`, with no tuning. Before: both decks rejected DIOMOD. After: all saved voltages and source currents pass; maximum relative error is `6.332090677047784e-15`. This is bounded static-junction evidence, not general BSIM4 parity or a speed claim.
 
+## BSIM4 RSH/NRD/NRS static series resistance (#1792)
+
+- Original MIT single-device decks and generator in `packages/core/src/devices/bsim4/__fixtures__/series-resistance/`; no third-party model cards. Nine OP cases and 45 Vds sweep points cover both polarities, reverse mode, single-side networks, neutral controls, multiplicity and gate/body composition.
+- Equation source: ngspice-47 commit `a80f6e3e95d51534905b1f23410a951802666656`, `b4set.c:2434-2515`, `b4temp.c:2041-2101` and `b4ld.c`, ECL-2.0. Pinned links and exact regeneration command are in the fixture README. Oracle JSON is consumed by `series-resistance.test.ts` and binds identical netlists by SHA-256.
+- Before: positive RSH with given positive squares rejected. After: OP/DC maximum Id relative error `6.659e-13`, nonzero internal-voltage relative error `6.669e-13`. Numerical-zero currents use the existing `1e-12` absolute floor. Enabled-series AC and transient remain explicitly unsupported. No speed or general BSIM4 parity claim.
+
 ## corpus-p: new public MNA-MAT and NetlistParse sources (#1722)
 
 - https://github.com/nik1106/MNA-MAT pinned to `a77a4eb409aba1eb7f04919aa3990a60b0233cce`, SPDX **MIT**, copyright Nikhil Chhabria. All 12 original top-level circuit examples.

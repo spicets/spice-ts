@@ -1,0 +1,11 @@
+Authored BSIM4 series resistance OP/DC regression (MIT)
+.model DUT NMOS LEVEL=54 VERSION=4.8.3 RSH=10
+Vd d 0 0.7
+Vg g 0 1.4
+Vs s 0 0
+Vb b 0 -0.2
+M1 d g s b DUT L=1u W=10u NRD=2 NRS=2 M=3 MULT_I=2 NF=2
+.options abstol=1e-15 reltol=1e-10 vntol=1e-12
+.op
+.dc Vd 0.2 1.0 0.2
+.end
