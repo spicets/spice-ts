@@ -25,7 +25,7 @@ const analysis: Schema = { oneOf: [
 ] };
 
 const nativeAnalysis: Schema = { oneOf: [
-  ...(analysis.oneOf as Schema[]),
+  ref('analysis'),
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'sp' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
 
