@@ -1,0 +1,7 @@
+{
+  "version": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n******",
+  "command": "ngspice -b oracle.cir",
+  "regenerate": "node benchmarks/xspice-file-source/generate.mjs",
+  "machine": "darwin arm64",
+  "description": "oracle.cir sources an identical copy of each committed deck as input.cir, alongside table.txt; wrdata records all ngspice transient timepoints. ngspice canonical name is filesource, not file_source."
+}

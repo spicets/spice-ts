@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { simulate } from '../index.js';
-import { parse } from './index.js';
-import { UnsupportedCodeModelError } from './xspice-parser.js';
+
 
 describe('subcircuit-local XSPICE meters (#1434)', () => {
   // ngspice-47 xtradev/{cmeter,lmeter}/{cfunc.mod,ifspec.ifs}:
@@ -25,11 +24,12 @@ describe('subcircuit-local XSPICE meters (#1434)', () => {
     expect(dc.voltage('lout')).toBeCloseTo(2, 10);
   });
 
-  it('keeps unsupported scoped code models rejected after expression expansion', () => {
-    expect(() => parse([
-      'MIT unsupported scoped model', '.subckt bad a b g=1',
-      'A1 a b m', '.model m filesource(amplscale=[{g}])', '.ends bad',
-      'X1 in out bad', 'V1 in 0 0', 'R1 out 0 1k', '.op', '.end',
-    ].join('\n')).compile()).toThrow(UnsupportedCodeModelError);
+  it('resolves scoped filesource data after expression expansion', async () => {
+    const dc = (await simulate([
+      'MIT scoped file source', '.subckt source b g=2',
+      'A1 [b] m', '.model m filesource(amplscale=[{g}])', '.ends source',
+      'X1 out source', 'R1 out 0 1k', '.op', '.end',
+    ].join('\n'), { resolveInclude: async () => '0 3\n1 4\n' })).dc!;
+    expect(dc.voltage('out')).toBeCloseTo(6, 12);
   });
 });

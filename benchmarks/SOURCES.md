@@ -2790,6 +2790,15 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 
 
 
+## XSPICE filesource / file_source (#1758)
+
+- Original project-authored decks, table, generator and test-consumed ngspice vectors in [xspice-file-source/](xspice-file-source/), **MIT** under repository LICENSE. No third-party netlists or data copied.
+- Numerical contract consulted: [ngspice-47 file_source source](https://github.com/imr/ngspice/tree/ngspice-47/src/xspice/icm/analog/file_source), BSD-3-Clause, Thomas Sailer. Implementation is independently expressed; no source text redistributed.
+- Reproduce: `node benchmarks/xspice-file-source/generate.mjs`; internally `ngspice -b oracle.cir` sources the unchanged committed deck as `input.cir` and writes all timepoints with 17-digit precision. Version, command and platform are in `reference.json`.
+- Upstream calls the model **filesource**, not file_source. spice-ts supports both names. ngspice-47 rejects omitted amplitude vectors at its parameter loader, despite identity handling in cfunc; defaults/step reference decks therefore explicitly supply identity `amploffset=[0] amplscale=[1]`. spice-ts additionally allows omission. The aliases and omitted vectors are not claimed as identical-deck ngspice parity.
+- Before: unsupported model. After: 88 ngspice timepoints in each of defaults, all-four-transforms, and step cases; maximum normalized absolute errors respectively `4.448008912761045e-16`, `6.467004657784513e-16`, and `0` (limit `1e-6`, normalization by max(1, peak reference magnitude)). No speed claim.
+- Verification: `pnpm -C packages/core exec vitest run src/devices/xspice/file-source.test.ts`. Tests first execute identical full decks and check all spice-ts samples, then repeat the same circuit with transient stop at each oracle time to avoid interpolating across step discontinuities. Two-output/relative-time behavior and structured missing/malformed-file errors are also tested. Coverage is bounded to these fixtures, not arbitrary file contents or general ngspice parity; past EOF spice-ts safely holds the final row.
+
 ## BSIM4 DIOMOD=0/2 junction laws (#1703)
 
 - Sources: original project-authored `benchmarks/bsim4-diomod/mode0.cir` and `mode2.cir`, MIT under repository `LICENSE`. Public source directory: https://github.com/spicets/spice-ts/tree/main/benchmarks/bsim4-diomod.
