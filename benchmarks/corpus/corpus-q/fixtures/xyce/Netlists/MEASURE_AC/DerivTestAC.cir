@@ -1,0 +1,79 @@
+* Test AC mode support for the DERIV / DERIVATIVE measure.
+* To be conservative, there are subtests for each
+* valid operator (V, VR, VI, VP, VM and VDB) for
+* each measure type.  Expressions are also tested.
+* One current operator (IM) is tested for a branch current.
+*
+* See SON Bug 1282 for more details.
+*****************************************************
+
+* Trivial high-pass filter (V-C-R) circuit
+R1 b 0 2
+C1 a b 1m
+V1 a 0 DC 0V AC 1
+
+.print AC vr(b) vi(b) vm(b) vp(b) vdb(b) im(v1)
+.ac dec 5 1Hz 1e3
+
+* AT syntaxes
+.MEASURE AC DERIVVMBAT100 DERIV VM(b) AT=100
+.MEASURE AC DERIVVMBAT50 DERIVATIVE VM(b) AT=50
+
+.MEASURE AC DERIVVRBAT50 DERIV VR(b) AT=50
+.MEASURE AC DERIVVIBAT50 DERIV VI(b) AT=50
+.MEASURE AC DERIVVPBAT50 DERIV VP(b) AT=50
+.MEASURE AC DERIVVDBBAT50 DERIV VDB(b) AT=50
+
+* Test AT value at start of sweep. The WHEN and
+* WHENFT measures will fail since vm(a) is constant.
+.MEASURE AC DERIVVMBAT1 DERIV VM(b) AT=1
+.MEASURE AC ATFT DERIV vm(b) AT=1  FROM=1 TO=1
+.MEASURE AC WHEN DERIV vm(b) WHEN vm(a)=1.0  
+.MEASURE AC WHENFT DERIV vm(b) WHEN vm(a)=1.0  FROM=1 TO=1
+
+* Various constant signals.  The CONSTANT-WHEN2 measure will
+* fail because VM(a) is a constant.
+.MEASURE AC CONSTANT-AT DERIV V(a) AT=5
+.MEASURE AC CONSTANT-WHEN1 DERIV V(a) WHEN VM(b)=0.5
+.MEASURE AC CONSTANT-WHEN2 DERIV VM(b) WHEN VM(a)=1
+
+* WHEN syntaxes
+.MEASURE AC DERIVWHENVMB0.5 DERIV VM(b) WHEN VM(b)=0.5
+
+* Expressions in WHEN clause
+.MEASURE AC derivExp1 DERIV VM(b) when vr(b)=vi(b)
+.MEASURE AC derivExp2 DERIV VM(b) when {vm(b)+0.1}=0.5
+.MEASURE AC derivExp3 DERIV VM(b) when vm(b)={0.3+0.2}
+.MEASURE AC derivExp4 DERIV VM(b) when vr(b)={vi(b)+0.3}
+
+* Expression in DERIV clause
+.MEASURE AC derivExp5 DERIV {VR(b)+VI(b)} when vm(b)=0.5
+
+* FROM and TO
+.MEASURE AC derivvibfrom100 DERIV VI(b) when vi(b)=0.2 FROM=100
+
+* Test that the interpolated WHEN time is within the measure window.
+* So, the first and third measures should find the first time vi(b)=0.1.
+* The second one should find the second time.
+.MEASURE AC derivvibfrom8 DERIV VI(b) when vi(b)=0.1 FROM=8
+.MEASURE AC derivvibfrom9 DERIV VI(b) when vi(b)=0.1 FROM=9
+.MEASURE AC derivvibft DERIV VI(b) when vi(b)=0.1 FROM=7 TO=9
+
+* The second measure should fail.
+.MEASURE AC derivvrbto250 DERIV VR(b) when vr(b)=0.87 TO=250
+.MEASURE AC derivvrbto200 DERIV VR(b) when vr(b)=0.87 TO=200
+
+* branch current
+.MEASURE AC derivimv1at50 deriv im(v1) AT=50
+
+* Tests fail because AT is outside the measurement window, 
+* and vm(b) is never equal to 2.
+.measure ac derivATfail deriv v(b) AT=1e4
+.measure ac derivWhenFail deriv vm(b) when vm(b)=2
+
+* FROM and TO qualifiers take precedence over AT.
+* So, these are failed measures.
+.MEASURE AC atFailFrom DERIV VI(b) AT=8 FROM=10
+.MEASURE AC atFailTo DERIV VI(b) AT=8 TO=5
+
+.end

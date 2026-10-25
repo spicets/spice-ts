@@ -1,0 +1,49 @@
+* Test AC mode support for the EQN measure.
+* To be conservative, there are subtests for each
+* valid operator (V, VR, VI, VP, VM and VDB) for
+* each measure type.  One current operator (IM) is
+* tested for a branch current.
+*
+* See SON Bug 1140 for more details
+*****************************************************
+
+* Trivial high-pass filter (V-C-R) circuit
+R1 b 0 2
+C1 a b 1u
+V1 a 0 DC 0V AC 1
+
+.print AC EQNFREQ EQNHERTZ vr(b) vi(b) vm(b) vp(b) vdb(b) im(V1)
+.ac dec 5 100Hz 1e6
+
+* EQN
+.MEASURE AC eqnvb eqn {1+v(b)}
+.MEASURE AC eqnvmb eqn {1+vm(b)}
+.MEASURE AC eqnvrb eqn {1+vr(b)}
+.MEASURE AC eqnvib eqn {1+vi(b)}
+.MEASURE AC eqnvpb eqn {1+vp(b)}
+.MEASURE AC eqnvdbb eqn {1+vdb(b)}
+
+* PARAM is a synonym for EQN in Xyce
+.MEASURE AC paramvb param={1+v(b)}
+.MEASURE AC paramvmb param={1+vm(b)}
+.MEASURE AC paramvrb param={1+vr(b)}
+.MEASURE AC paramvib param={1+vi(b)}
+.MEASURE AC paramvpb param={1+vp(b)}
+.MEASURE AC paramvdbb param={1+vdb(b)}
+
+* add FROM-TO
+.MEASURE AC eqnvmbFromTo eqn {1+vm(b)} FROM=1e3 TO=1e5
+
+* branch current
+.MEASURE AC eqnimv1 eqn {1+im(v1)}
+
+* use of FREQ and HERTZ special variables
+.MEASURE AC EQNFREQ EQN {FREQ}
+.MEASURE AC EQNHERTZ EQN {HERTZ}
+
+* Test should fail since the FROM-T0 windows has various problems
+.measure ac eqnFail1 eqn v(b) FROM=1e7 TO=1e8
+.measure ac eqnFail2 eqn v(b) FROM=1e6 TO=1e2
+
+.end
+

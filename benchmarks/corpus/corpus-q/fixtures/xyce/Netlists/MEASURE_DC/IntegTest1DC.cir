@@ -1,0 +1,43 @@
+* Test DC mode support for INTEG / INTEGRAL Measures
+*
+* This bug covers:
+*   1) the case of one variable in the .DC line,
+*      without a .STEP statement. where the swept
+*      variable is increasing.
+*
+*   2) An ascending sweep variable.
+*
+* See SON Bug 1282 for more details.
+********************************************************
+
+vsrc1   1a 0 1
+rload1a 1a 1b 1
+rload1b 1b 0 1
+
+.DC vsrc1 1 5 1
+
+* Note: vsrc1:DCV0 is the syntax for printing the DC value of vsrc1,
+* at it is swept.
+.print dc vsrc1:DCV0 v(1a) v(1b)
+
+* These should give the same answer, but with opposite signs.
+.meas dc integv1b integ v(1b)
+.measure dc integralgnd1b integral v(0,1b)
+
+* FROM or TO
+.measure dc integ1bFrom integ v(1b) FROM=3
+.measure dc integ1bTo integ v(1b) TO=3
+
+* These should give the same answer, but with opposite signs.
+.measure dc integ1bFT1 integ v(1b) FROM=4 TO=2
+.measure dc integ1bFT2 integ v(1b) FROM=2 TO=4
+
+* FROM=TO value yields an integral value of 0, by definition
+.measure dc integ1bFT1PT integ v(1b) FROM=4 TO=4
+
+* Tests should fail since the FROM-T0 windows
+* do not overlap with the stepped values for VSRC1:DCV0
+.measure dc integFail1 integ v(1b) FROM=-4 TO=-2
+.measure dc integFail2 integ v(1b) FROM=-2 TO=-4
+
+.end
