@@ -358,7 +358,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_corners',
-    description: 'Run SPICE text across up to 64 uniquely named deterministic corners with optional top-level .param overrides and/or temp in Celsius. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
+    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Optional top-level .param overrides and/or temp in Celsius require SPICE text; JSON overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'corners', 'measurement'],
       properties: { ...requestInputSchema.properties, ...cornersProperties },
@@ -736,7 +736,12 @@ async function executeToolWithStore(
       const effective = effectiveLimits(original, limits);
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
       const deadline = Date.now() + effective.maxWallTimeMs;
-      const result = await runCorners(args, original, (request, measurements) => executeToolWithStore(
+      if (original.input.format !== 'spice' && !validateMetricsRequest(original).valid) {
+        throw apiError('INVALID_REQUEST', 'Invalid corners request', 'validation', {});
+      }
+      throwIfCancelled(options.signal);
+      const { request } = convertRequest(original);
+      const result = await runCorners(args, request, (request, measurements) => executeToolWithStore(
         'spice_measure', { request, measurements },
         { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
       ), result => {
