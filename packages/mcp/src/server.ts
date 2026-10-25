@@ -37,7 +37,7 @@ import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } 
 import { noiseMetrics, noiseMetricsArgs, noiseMetricsOutputSchema, noiseMetricsProperties } from './noise-metrics.js';
 import type { NoiseResult, PoleZeroResult } from '@spice-ts/core';
 import { pzMetrics, pzMetricsOutputSchema } from './pz-metrics.js';
-import { distoMetrics, distoOutput, distoMetricsOutputSchema, distoUnsupportedSchema, unsupportedDisto } from './disto-metrics.js';
+import { distoMetrics, distoOutput, distoMetricsOutputSchema, distoUnsupportedSchema, unsupportedDisto, validateDistoJsonInput } from './disto-metrics.js';
 import type { DistoSpectrum } from './disto-metrics.js';
 import type { OperatingPointReport } from '@spice-ts/core';
 import type { SensitivityResult } from '@spice-ts/core';
@@ -413,8 +413,17 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_disto_metrics',
-    description: 'Run exactly one unstepped .disto from SPICE text for output v(node). Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
-    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+\\)$' } } },
+    description: 'Run exactly one unstepped .disto from SPICE text for output v(node). JSON requests (spice-ts and circuit-json) return UNSUPPORTED_FEATURE naming missing DISTOF1/DISTOF2 source fields; their adapters cannot represent these excitations. Use SPICE text, not AC amplitude inference. Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
+    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+\\)$' } },
+      // Tool-local recognition for actionable errors, not a protocol-wide analysis extension.
+      $defs: { ...commonSchemaV1.$defs, analysis: { anyOf: [
+        commonSchemaV1.$defs.analysis,
+        { type: 'object', required: ['type', 'variation', 'points', 'startFreq', 'stopFreq'], additionalProperties: false,
+          properties: { type: { const: 'disto' }, variation: { const: 'dec' }, points: { type: 'integer', minimum: 1 },
+            startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 },
+            f2OverF1: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 1 } } },
+      ] } },
+    },
     outputSchema: { type: 'object', oneOf: [distoMetricsOutputSchema, toolFailureOutputSchema, distoUnsupportedSchema], $defs: commonSchemaV1.$defs },
   },
   {
@@ -795,9 +804,9 @@ async function executeToolWithStore(
     if (name === 'spice_measure') enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(measurements)), 'validation');
     const dcInput = name === 'spice_dc_metrics' ? dcMetricsInput(args) : undefined;
     let original = toolRequest(args);
-    if (distoSelector && original.input.format !== 'spice') unsupportedDisto();
     const effective = effectiveLimits(original, limits);
     enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
+    if (distoSelector) validateDistoJsonInput(original.input);
     if (name === 'spice_pz_metrics' && original.input.format !== 'spice' && !validatePoleZeroInput(original.input).valid) {
       throw apiError('INVALID_REQUEST', 'Invalid pole-zero JSON input', 'validation', {});
     }

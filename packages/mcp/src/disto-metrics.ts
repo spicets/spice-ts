@@ -39,6 +39,27 @@ export const distoUnsupportedSchema = {
 export function unsupportedDisto(): never {
   throw { code: 'UNSUPPORTED_ANALYSIS', message: 'Distortion metrics require exactly one unstepped .disto without control blocks or .pz', phase: 'validation', retryable: false, details: {} };
 }
+/** JSON adapters do not carry source DISTOF1/DISTOF2 excitations. Never infer them from AC. */
+export function validateDistoJsonInput(input: unknown): void {
+  const record = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (!record(input) || input.format === 'spice') return;
+  const document = input.format === 'spice-ts' ? input.document : input;
+  if (!record(document) || !Array.isArray(document.analyses)) {
+    throw { code: 'INVALID_REQUEST', message: 'Expected JSON document with analyses array', phase: 'validation', retryable: false, details: {} };
+  }
+  const analyses = document.analyses;
+  if (analyses.length !== 1 || !record(analyses[0]) || analyses[0].type !== 'disto'
+    || ['steps', 'step', 'poleZeroAnalyses'].some(key => document[key] !== undefined
+      && (!Array.isArray(document[key]) || document[key].length > 0))
+    || document.controlScript !== undefined) unsupportedDisto();
+  throw {
+    code: 'UNSUPPORTED_FEATURE',
+    message: `${String(input.format)} cannot represent source DISTOF1/DISTOF2 amplitudes and phases; use SPICE text with DISTOF1 [and DISTOF2]`,
+    phase: 'validation', retryable: false,
+    details: { missingFields: ['DISTOF1', 'DISTOF2'] },
+  };
+}
 export function distoOutput(args: unknown): string {
   const a = args as Record<string, unknown> | null;
   if (!a || typeof a !== 'object' || Array.isArray(a)
