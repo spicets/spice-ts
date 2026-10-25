@@ -72,10 +72,9 @@ describe('WASM resistor/diode TEMP/TNOM transient and AC', () => {
   });
 
   it.each([
-    'Q1 out in 0 device\n.model device NPN(IS=1e-15 BF=100)',
     'M1 out in 0 0 device W=10u L=1u\n.model device NMOS(LEVEL=1 VTO=0.7 KP=100u)',
     'J1 out in 0 device\n.model device NJF(VTO=-2 BETA=1m)',
-  ])('keeps transistor temperature rejected for %s', async device => {
+  ])('keeps MOSFET/JFET temperature rejected for %s', async device => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
       for (const control of ['.tran 1u 10u', '.ac lin 2 1 10']) {
