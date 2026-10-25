@@ -2823,3 +2823,27 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 Six AC, six DC and three transient decks selected statically with no engine-success filter; identical original bytes in both simulators. Pinned per-file source URLs, original/committed SHA256, licence hashes and selection are in [corpus-q/SOURCES.md](corpus/corpus-q/SOURCES.md) and [manifest.json](corpus/corpus-q/manifest.json). Deduplication checks all earlier corpus manifests by revision-independent URLs and original/committed/content hashes.
 
 ngspice-47 baseline: 3 matched (one DC, two transient), 0 mismatch, 0 not-compared, 0 spice-ts-loss, 0 ngspice-failed, 12 both-failed. All AC decks fail in both engines; this is not successful AC parity evidence. Fine-step reference is compared for q-15; q-14 is unavailable under the shared million-step budget. All failures and full metrics remain in [outcomes.json](corpus/corpus-q/outcomes.json). No speed or superiority claim. No aggregate refresh.
+
+## corpus-r: semiconductor transients, DC device sweeps and noise (#1777)
+
+13 verbatim Xyce_Regression decks, statically selected before either engine ran. Source repository https://github.com/Xyce/Xyce_Regression, pinned commit **7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2** for every row below. Repository-wide **GPL-3.0-or-later** grant and full GPL text retained under [corpus-r/licenses/xyce](corpus/corpus-r/licenses/xyce/). Independent benchmark data, not simulator package code; no vendor libraries.
+
+Seven transient decks, five DC device sweeps and one noise deck. Selected by device/analysis family, novelty and include closure, not engine success. Intentional invalid-input regressions and Xyce dialect rejections remain published. Both engines receive identical original bytes; no tolerance, metric or runner changes. Waveform comparisons do not certify ignored model parameters, printed operators or diagnostics. No AC/TF coverage or speed claim.
+
+| ID | Upstream path at pinned commit above | Licence |
+|---|---|---|
+| r-1 | Netlists/BJT_EXTNODE/npn_rb_rc_re_3.cir | GPL-3.0-or-later |
+| r-2 | Netlists/BJT_EXTNODE/npn_rc_re_3.cir | GPL-3.0-or-later |
+| r-3 | Netlists/Certification_Tests/BUG_647_SON/bjt.cir | GPL-3.0-or-later |
+| r-4 | Netlists/Certification_Tests/BUG_647_SON/bjt_ambient.cir | GPL-3.0-or-later |
+| r-5 | Netlists/DIODE/diode_with_sidewall_temp.cir | GPL-3.0-or-later |
+| r-6 | Netlists/NOISE/unsupported_analysis_mode.cir | GPL-3.0-or-later |
+| r-7 | Netlists/NOISE/unsupported_device_source.cir | GPL-3.0-or-later |
+| r-8 | Netlists/Certification_Tests/BUG_983_SON/jfet.cir | GPL-3.0-or-later |
+| r-9 | Netlists/Certification_Tests/BUG_647_SON/mos1.cir | GPL-3.0-or-later |
+| r-10 | Netlists/Certification_Tests/BUG_647_SON/mos1_modpar.cir | GPL-3.0-or-later |
+| r-11 | Netlists/Certification_Tests/ISSUE_239/mos1_test1.cir | GPL-3.0-or-later |
+| r-12 | Netlists/Certification_Tests/ISSUE_239/mos1_test2.cir | GPL-3.0-or-later |
+| r-13 | Netlists/Certification_Tests/ISSUE_239/mos1_test3.cir | GPL-3.0-or-later |
+
+Pinned per-file URLs, original/committed SHA256, licence hashes and static selection are in [corpus-r/SOURCES.md](corpus/corpus-r/SOURCES.md) and [manifest.json](corpus/corpus-r/manifest.json). Every outcome and full metrics are published in [README.md](corpus/corpus-r/README.md) and [outcomes.json](corpus/corpus-r/outcomes.json). The original 100-fixture aggregate is unchanged, as requested in #1777.
