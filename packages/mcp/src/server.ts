@@ -266,8 +266,11 @@ const streamToolOutputSchema = {
 export const MCP_TOOLS = Object.freeze([
   {
     name: 'spice_sparams',
-    description: 'Run one unstepped .sp sweep. Return S-parameter magnitudes, dB, phase degrees, reflection return loss/VSWR and transmission insertion loss. Optional one-based portPair [output,input] and explicit frequenciesHz. Infinite/undefined metrics are null. Reject conflicting analyses and control blocks.',
-    inputSchema: sparamsInputSchema,
+    description: 'Run one unstepped .sp sweep. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json); successful RF sweeps currently require SPICE because native schemas lack .sp and RF port metadata. Return S-parameter magnitudes, dB, phase degrees, reflection return loss/VSWR and transmission insertion loss. Optional one-based portPair [output,input] and explicit frequenciesHz. Infinite/undefined metrics are null. Reject conflicting analyses and control blocks.',
+    inputSchema: { ...requestInputSchema, required: [],
+      properties: { ...requestInputSchema.properties, ...sparamsInputSchema.properties },
+      oneOf: [{ required: ['netlist'], not: { required: ['request'] } },
+        { required: ['request'], not: { required: ['netlist'] } }] },
     outputSchema: { type: 'object', oneOf: [sparamsOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
   {
@@ -564,18 +567,31 @@ async function executeToolWithStore(
   try {
     if (name === 'spice_capabilities') return success(streamStore.capabilities());
     if (name === 'spice_sparams') {
-      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
-      const selectors = sparamsArgs(args);
-      enforceMaximum('maxAnalyses', limits.maxAnalyses, 1, 'validation');
+      if (!isRecord(args) || (('netlist' in args) === ('request' in args))) {
+        throw apiError('INVALID_REQUEST', 'Expected exactly one of netlist or request', 'validation', {});
+      }
+      const { request: rawRequest, ...rawSelectors } = args;
+      const selectors = sparamsArgs('netlist' in args ? rawSelectors : { ...rawSelectors, netlist: 'pending' });
+      const original = toolRequest('netlist' in args ? {
+        request: { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } },
+      } : { request: rawRequest });
+      if (!validateMetricsRequest(original).valid) {
+        throw apiError('INVALID_REQUEST', 'Invalid S-parameter request', 'validation', {});
+      }
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      throwIfCancelled(options.signal);
+      const { request, diagnostics } = convertRequest(original);
+      await boundedRequestPlan(request, effective);
+      enforceMaximum('maxAnalyses', effective.maxAnalyses, 1, 'validation');
       const release = streamStore.acquireOneShotSlot();
       try {
-        const request: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } };
-        const raw = await runInWorker<SParameterResult[]>('sparams', boundedRequest(request, limits), limits.maxWallTimeMs,
+        const raw = await runInWorker<SParameterResult[]>('sparams', boundedRequest(request, effective), effective.maxWallTimeMs,
           options, undefined, undefined, undefined, selectors);
-        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.reduce((n, r) => n + r.frequencies.length * r.ports.length ** 2, 0), 'transport');
+        enforceMaximum('maxResultPoints', effective.maxResultPoints, raw.reduce((n, r) => n + r.frequencies.length * r.ports.length ** 2, 0), 'transport');
         const result = sparamsReport(raw, selectors);
-        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
-        return success(result);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        return success(result, diagnostics);
       } finally { release(); }
     }
     if (name === 'spice_impedance') {
@@ -1828,10 +1844,16 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
     }
     if (operation === 'sparams') {
       const invalid = message => { throw { code: 'INVALID_REQUEST', message, phase: 'validation', retryable: false, details: {} }; };
-      const circuit = core.parseTitleless(request.input.source);
+      const circuit = request.input.format === 'spice'
+        ? core.parseTitleless(request.input.source) : core.circuitFromDocument(request.input.document);
       const compiled = circuit.compile();
+      const componentMaximum = request.options.limits.maxComponents;
+      if (compiled.devices.length > componentMaximum) {
+        throw { code: 'RESOURCE_LIMIT', message: 'S-parameter component limit exceeded', phase: 'validation', retryable: false,
+          details: { limit: 'maxComponents', maximum: componentMaximum, actual: compiled.devices.length } };
+      }
       if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript
-        || /(^|\n)\s*\.control\b/i.test(request.input.source)
+        || (request.input.format === 'spice' && /(^|\n)\s*\.control\b/i.test(request.input.source))
         || circuit.analyses.length !== 1 || circuit.analyses[0].type !== 'sp') {
         invalid('S-parameters require exactly one .sp analysis without steps, control blocks or conflicting analyses');
       }
