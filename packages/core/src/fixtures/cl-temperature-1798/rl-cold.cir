@@ -1,0 +1,8 @@
+RL temperature coefficient at -40 C
+V1 in 0 AC 1
+R1 in out 100
+L1 out 0 100m TC1=1e-3
+.options TEMP=-40
+.ac lin 1 170.583729279 170.583729279
+.save v(in) v(out) i(v1)
+.end

@@ -2798,6 +2798,12 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Regenerate test-consumed oracle: `spice-heavy python3 benchmarks/bsim4-diomod/generate.py`. ngspice receives the committed deck bytes unchanged; the reference records their SHA-256. Verify using `pnpm -C packages/core exec vitest run src/devices/bsim4/junction-modes.test.ts`.
 - The test prints per-signal max absolute, max relative and RMS relative errors for OP/DC. It retains the existing BSIM4 gate-current criterion `abs <= 1e-15 || rel <= 1e-6`, with no tuning. Before: both decks rejected DIOMOD. After: all saved voltages and source currents pass; maximum relative error is `6.332090677047784e-15`. This is bounded static-junction evidence, not general BSIM4 parity or a speed claim.
 
+## C/L circuit-temperature regression decks (#1798)
+
+- Original project-authored `packages/core/src/fixtures/cl-temperature-1798/{rc-hot,rl-cold}.cir`, MIT under repository `LICENSE`. No third-party circuit/model cards copied.
+- Equation and precedence sources: ngspice-47 `src/spicelib/devices/cap/captemp.c` and `src/spicelib/devices/ind/indtemp.c`, https://github.com/ngspice/ngspice/tree/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices. Instance TC1/TC2 override each model coefficient independently; model TNOM overrides circuit TNOM; instance TEMP overrides circuit TEMP plus DTEMP.
+- Identical deck bytes go to both engines. Exact `SPICE_ASCIIRAWFILE=1 ngspice -b -r ...` commands and test-consumed reference values are in `packages/core/src/cl-temperature-1798.test.ts`. RC at 100 C covers AC near -3 dB and a TRAN step at 1 ms; RL at -40 C covers AC. Both use relative tolerance 1e-6. This is bounded correctness coverage, not a speed claim or aggregate-corpus addition.
+
 ## corpus-p: new public MNA-MAT and NetlistParse sources (#1722)
 
 - https://github.com/nik1106/MNA-MAT pinned to `a77a4eb409aba1eb7f04919aa3990a60b0233cce`, SPDX **MIT**, copyright Nikhil Chhabria. All 12 original top-level circuit examples.
