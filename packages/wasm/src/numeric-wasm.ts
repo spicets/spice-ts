@@ -43,6 +43,8 @@ interface PreparedLinearDc extends PreparedNumericBase {
   analysis: 'dc';
   sweep: Extract<CompiledCircuit['analyses'][number], { type: 'dc' }>;
   source: SweepableSource;
+  secondarySource?: SweepableSource;
+  innerPointCount: number;
   pointCount: number;
 }
 
@@ -101,7 +103,7 @@ export async function simulateLinearOpWasmV1(
 }
 
 function simulateDc(
-  { compiled, order, sweep, source, pointCount }: PreparedLinearDc,
+  { compiled, order, sweep, source, secondarySource, innerPointCount, pointCount }: PreparedLinearDc,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
@@ -109,13 +111,21 @@ function simulateDc(
   const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
   const originalWaveform = source.waveform;
+  const originalSecondaryWaveform = secondarySource?.waveform;
   const nonlinear = compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''));
   let previous: Float64Array | undefined;
+  let value = sweep.start;
+  let outerValue = sweep.secondary?.start ?? 0;
   try {
     for (let point = 0; point < pointCount; point++) {
-      const value = sweep.start + point * sweep.step;
+      if (point % innerPointCount === 0) {
+        value = sweep.start;
+        if (point > 0) outerValue += sweep.secondary!.step;
+        if (secondarySource) secondarySource.waveform = { type: 'dc', value: outerValue };
+      }
       values.push(value);
       source.waveform = { type: 'dc', value };
+      value += sweep.step;
       if (nonlinear) {
         const solution = solveNonlinearOp(compiled, order, request, exports, previous);
         previous = solution;
@@ -146,6 +156,7 @@ function simulateDc(
     }
   } finally {
     source.waveform = originalWaveform;
+    if (secondarySource && originalSecondaryWaveform) secondarySource.waveform = originalSecondaryWaveform;
   }
 
   const result: SimulationResultV1 = {
@@ -267,6 +278,8 @@ function simulateOp(
 function solveNonlinearOp(
   compiled: CompiledCircuit, order: number, request: SimulationRequestV1, exports: NumericWasmExports,
   initial?: Float64Array,
+  // OP/DC avoids leakage cancellation; AC bias keeps its established rounding.
+  dcOrdering = true,
 ): Float64Array {
   let previous: Float64Array = initial ?? new Float64Array(order);
   const matrix = new Float64Array(order * order);
@@ -289,7 +302,7 @@ function solveNonlinearOp(
     for (const device of compiled.devices) device.stamp(context);
     addGmin(matrix, compiled.nodeCount, order, request.options?.gmin ?? 0);
     if (!matrix.every(Number.isFinite) || !rhs.every(Number.isFinite)) break;
-    const solution = solveReal(exports, order, matrix, rhs);
+    const solution = solveReal(exports, order, matrix, rhs, dcOrdering);
     let stepScale = 1;
     for (const device of compiled.devices) {
       stepScale = Math.min(stepScale, device.limitNewtonStep?.(previous, solution) ?? 1);
@@ -493,6 +506,7 @@ function solveReal(
   order: number,
   matrix: Float64Array,
   rhs: Float64Array,
+  dcOrdering = false,
 ): Float64Array {
   const matrixPointer = align8(Number(exports.__heap_base.value));
   const rhsPointer = matrixPointer + matrix.byteLength;
@@ -501,7 +515,9 @@ function solveReal(
   }
   new Float64Array(exports.memory.buffer, matrixPointer, matrix.length).set(matrix);
   new Float64Array(exports.memory.buffer, rhsPointer, rhs.length).set(rhs);
-  const status = exports.solve_f64(order, matrixPointer, rhsPointer);
+  const status = dcOrdering
+    ? exports.solve_dc_f64(order, matrixPointer, rhsPointer)
+    : exports.solve_f64(order, matrixPointer, rhsPointer);
   if (status === 1) {
     throw numericError('SINGULAR_MATRIX', 'The bounded WebAssembly matrix is singular', 'solve', { order });
   }
@@ -525,7 +541,7 @@ function simulateAc(
   const rhsReal = new Float64Array(order);
   const rhsImaginary = new Float64Array(order);
   const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''))
-    ? solveNonlinearOp(compiled, order, request, exports)
+    ? solveNonlinearOp(compiled, order, request, exports, undefined, false)
     : new Float64Array(order);
   const context: StampContext = {
     stampG(row, column, value) { conductance[row * order + column] += value; },
@@ -682,8 +698,15 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   try {
     // Core owns expansion, lexical model scope and hierarchical node/branch names.
     // Only compilation is shared: numeric solves continue to use the WASM kernel.
-    compiled = parseTitleless(normalizedCards.join('\n')).compile();
+    const circuit = parseTitleless(normalizedCards.join('\n'));
+    const temperatureRequested = circuit.temperature !== undefined || circuit.nominalTemperature !== undefined;
+    compiled = circuit.compile();
+    if (temperatureRequested && (analysis === 'tran' || analysis === 'ac')
+      && compiled.devices.some(device => deviceType(device.name) === 'J')) {
+      unsupported('circuit-temperature', 'JFET circuit temperature is supported only for OP/DC');
+    }
   } catch (error) {
+    if (error instanceof NumericBackendError) throw error;
     throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
   }
   if (compiled.devices.length > componentLimit) {
@@ -711,27 +734,38 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   const compiledAnalysis = compiled.analyses[0];
   if (analysis === 'dc') {
     if (compiledAnalysis?.type !== 'dc') unsupported('analysis', 'Exactly one .dc analysis is supported');
-    const pointCount = dcPointCount(compiledAnalysis.start, compiledAnalysis.stop, compiledAnalysis.step);
+    const innerPointCount = dcPointCount(compiledAnalysis.start, compiledAnalysis.stop, compiledAnalysis.step);
+    const secondary = compiledAnalysis.secondary;
+    const pointCount = innerPointCount * (secondary ? dcPointCount(secondary.start, secondary.stop, secondary.step) : 1);
     const pointLimit = Math.min(
       NUMERIC_WASM_LIMITS.maxResultPoints,
       request.options?.limits?.maxResultPoints ?? Infinity,
     );
     if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
-    const normalized = compiledAnalysis.source.toUpperCase();
-    const sources = compiled.devices.filter(device => {
-      const candidate = device as unknown as Partial<SweepableSource>;
-      return candidate.name?.toUpperCase() === normalized && candidate.waveform !== undefined
-        && ['V', 'I'].includes(deviceType(candidate.name) ?? '');
-    }) as unknown as SweepableSource[];
-    if (sources.length !== 1) {
-      throw numericError('INVALID_CIRCUIT', `DC sweep source '${compiledAnalysis.source}' must identify one independent source`, 'validation', {
-        feature: 'dc-source', source: compiledAnalysis.source, matches: sources.length,
-      });
+    const resolveSource = (name: string): SweepableSource => {
+      const normalized = name.toUpperCase();
+      const sources = compiled.devices.filter(device => {
+        const candidate = device as unknown as Partial<SweepableSource>;
+        return candidate.name?.toUpperCase() === normalized && candidate.waveform !== undefined
+          && ['V', 'I'].includes(deviceType(candidate.name) ?? '');
+      }) as unknown as SweepableSource[];
+      if (sources.length !== 1) {
+        throw numericError('INVALID_CIRCUIT', `DC sweep source '${name}' must identify one independent source`, 'validation', {
+          feature: 'dc-source', source: name, matches: sources.length,
+        });
+      }
+      if (!['dc', 'ac'].includes(sources[0]!.waveform.type)) {
+        unsupported('source-waveform', 'DC sweep sources must use a constant or DC value');
+      }
+      return sources[0]!;
+    };
+    if (secondary?.source.toUpperCase() === compiledAnalysis.source.toUpperCase()) {
+      throw numericError('INVALID_CIRCUIT', 'DC sweep sources must be distinct', 'validation', { feature: 'dc-source' });
     }
-    if (!['dc', 'ac'].includes(sources[0]!.waveform.type)) {
-      unsupported('source-waveform', 'DC sweep sources must use a constant or DC value');
-    }
-    return { analysis, compiled, order, sweep: compiledAnalysis, source: sources[0]!, pointCount };
+    return {
+      analysis, compiled, order, sweep: compiledAnalysis, source: resolveSource(compiledAnalysis.source),
+      secondarySource: secondary ? resolveSource(secondary.source) : undefined, innerPointCount, pointCount,
+    };
   }
   if (analysis === 'tran') {
     if (compiledAnalysis?.type !== 'tran') unsupported('analysis', 'Exactly one .tran analysis is supported');
@@ -784,22 +818,36 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
   if (stack.length !== 1) throw numericError('INVALID_CIRCUIT', 'Unclosed .subckt definition', 'validation');
   for (const indices of scopes) {
     const scopeCards = indices.map(index => cards[index]!);
-    validateCards(scopeCards, analysis);
+    validateCards(scopeCards, analysis, cards.some(card => /^\.(?:temp|options)\b/i.test(card)));
     const scoped = normalizeAndValidateCurrentControlledSources(scopeCards);
     indices.forEach((index, offset) => { normalized[index] = scoped[offset]!; });
   }
   return normalized;
 }
 
-function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): void {
+function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', temperatureEnabled: boolean): void {
   const allowedDevices = analysis === 'op' || analysis === 'dc'
     ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J'];
   for (const card of cards) {
+    if (/^\.options\b/i.test(card)) {
+      const options = card.replace(/^\.options\s*/i, '');
+      const option = new RegExp(`\\b(?:TEMP|TNOM)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
+      if (!options || options.replace(option, '').trim()) {
+        unsupported('circuit-temperature', 'Only numeric .options TEMP/TNOM are supported');
+      }
+      continue;
+    }
+    if (/^\.temp\b/i.test(card)) {
+      if (!new RegExp(`^\\.temp\\s+${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i').test(card)) {
+        unsupported('circuit-temperature', 'Only one numeric circuit temperature is supported');
+      }
+      continue;
+    }
     if (/^\.param\b/i.test(card)) continue;
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
-      const model = /^\.model\s+\S+\s+(D|NPN|PNP|NMOS|PMOS|NJF|PJF)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
+      const model = /^\.model\s+\S+\s+(D|R|RES|NPN|PNP|NMOS|PMOS|NJF|PJF)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT, MOS1 and JFET models are supported');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
@@ -807,12 +855,17 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       const parameters = (model[2] ?? model[3] ?? '').trim();
       const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS|RSH'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
-      const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV';
+      const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV'
+        + (temperatureEnabled ? '|EG|XTI|TNOM|TBV1' : '');
       // The core device supplies the charge Jacobian and accepted/rejected-step
-      // history; the nonlinear transient and AC paths solve it through WASM.
-      const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR';
-      const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS|CGS|CGD|PB|FC';
-      const names = jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
+      // history, including temperature-adjusted junction capacitances/potentials;
+      // the nonlinear transient and AC paths solve it through WASM.
+      const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR'
+        + (temperatureEnabled ? '|XTI|EG|XTB' : '');
+      const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS|CGS|CGD|PB|FC'
+        + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|TNOM|EG|XTI|TCV|VTOTC|BEX|BETATCE' : '');
+      const resistor = /^(R|RES)$/i.test(model[1]!);
+      const names = resistor ? 'TC1|TC2|TNOM' : jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
       if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
         unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
@@ -824,6 +877,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
 
       const remaining = parameters.replace(parameter, '').trim();
       if (remaining) {
+        if (resistor) unsupported('resistor-model-parameter', 'Only resistor TC1, TC2 and TNOM are supported');
         if (jfet) unsupported('jfet-model-parameter', `Only JFET model parameters ${jfetNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
         if (mos) unsupported('mosfet-model-parameter', `Only MOS1 model parameters ${mosNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
         if (bjt) unsupported('bjt-model-parameter', `Only BJT model parameters ${bjtNames.replaceAll('|', ', ')} are supported`);
@@ -867,7 +921,21 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac'): 
       if (withoutIC.length !== 4 || !SPICE_NUMBER.test(withoutIC[3]!)) {
         unsupported('inductor-form', 'Inductors must use name positive negative constant-inductance');
       }
-    } else if (type === 'R' || type === 'C') {
+    } else if (type === 'R') {
+      // Preserve the existing four-token expression/parameter form unchanged.
+      if (tokens.length === 4) continue;
+      const instance = /^\S+\s+\S+\s+\S+\s+(\S+)(?:\s+([^=\s]+))?(.*)$/.exec(card);
+      const number = SPICE_NUMBER.source.slice(1, -1);
+      const parameters = new RegExp(`\\b(?:TC1|TC2|TNOM)\\s*=\\s*${number}(?:\\s+|$)`, 'gi');
+      // A model may precede an explicit resistance, as in core's resistor parser.
+      const tail = card.split(/\s+/).slice(4).join(' ');
+      const numericValue = SPICE_NUMBER.test(tokens[3] ?? '');
+      const remainder = numericValue ? tail : tail.replace(new RegExp(`^${number}(?:\\s+|$)`, 'i'), '');
+      if (!instance || (!numericValue && !SPICE_NUMBER.test(tokens[4] ?? ''))
+        || remainder.replace(parameters, '').trim()) {
+        unsupported('passive-form', 'Resistors require a resistance, optional model, and numeric TC1/TC2/TNOM only');
+      }
+    } else if (type === 'C') {
       const withoutIC = type === 'C'
         ? card.replace(new RegExp(`\\s+IC\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i'), '').split(/\s+/)
         : tokens;
@@ -982,8 +1050,11 @@ function normalizeAndValidateCurrentControlledSources(cards: string[]): string[]
 
 function validateDcControls(card: string): void {
   const tokens = card.trim().split(/\s+/);
-  if (tokens.length > 5) unsupported('dc-nested-sweep', 'Nested or stepped DC sweeps are not supported');
-  if (tokens.length !== 5) {
+  if (tokens.length > 5 && (tokens.length !== 9 || !/^[VI]/i.test(tokens[5]!)
+    || tokens.slice(6).some(token => !SPICE_NUMBER.test(token)))) {
+    unsupported('dc-nested-sweep', 'Only two independent-source linear DC sweeps are supported');
+  }
+  if (tokens.length !== 5 && tokens.length !== 9) {
     throw numericError('INVALID_CIRCUIT', 'DC sweep must use .dc source start stop step', 'validation', {
       feature: 'dc-grid',
     });
@@ -997,9 +1068,17 @@ function dcPointCount(start: number, stop: number, step: number): number {
       feature: 'dc-grid', start, stop, step,
     });
   }
-  const intervals = Math.abs((stop - start) / step);
-  const tolerance = Number.EPSILON * Math.max(1, intervals) * 4;
-  return Math.floor(intervals + tolerance) + 1;
+  // Mirror core/ngspice's accumulated DC grid, including its absolute endpoint
+  // tolerance. Stop counting once rejection is inevitable; never allocate a grid.
+  let count = 0;
+  for (let value = start; Math.sign(step) * (value - stop) <= Number.EPSILON * 1e3;) {
+    count++;
+    if (count > NUMERIC_WASM_LIMITS.maxResultPoints) return count;
+    const next = value + step;
+    if (next === value) break;
+    value = next;
+  }
+  return count;
 }
 
 function validateTransientControls(card: string, request: SimulationRequestV1): void {

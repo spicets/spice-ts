@@ -1,0 +1,32 @@
+Test of SPICE source functions and expression equivalents
+* Tests both independent sources functionality and equivalent
+* expression based functions.  Output should be:
+*   v(1) = 1mv
+*   v(2) = 1mv
+*   v(3) = 1mv
+*   v(4) = 1mv
+
+.param V1=1.1 V2=2 TD=0.5ns TR=3ns TF=4ns PW=10ns PER=30ns
+.param V0=-0.5 VA=2 FREQUENCY=3.4e+7 Theta=0.1
+.param TD1=2ns TAU1=15ns TD2=5ns TAU2=30ns
+.param FC=100meg MDI=0.3 FS=2.1meg
+
+
+V1  1s  0  pulse({v1} {v2} {td} {tr} {tf} {pw} {per})
+V2  2s  0  sin({v0} {va} {frequency} {td} {theta})
+V3  3s  0  exp({v1} {v2} {td1} {tau1} {td2} {tau2})
+V4  4s  0  sffm({v0} {va} {fc} {mdi} {fs})
+B1  1s  1  v={spice_pulse(v1,v2,td,tr,tf,pw,per)-1mv}
+B2  2s  2  v={spice_sin(v0,va,frequency,td,theta)-2mv}
+B3  3s  3  v={spice_exp(v1,v2,td1,tau1,td2,tau2)-3mv}
+B4  4s  4  v={spice_sffm(v0,va,fc,mdi,fs)-4mv}
+r1  1   0  1k
+r2  2   0  2k
+r3  3   0  3k
+r4  4   0  4k
+
+.tran 0.1ns 100ns
+.options timeint reltol=1e-3 
+*.options timeint reltol=1e-4 abstol=1e-4
+.print tran v(1s) v(1) v(2s) v(2) v(3s) v(3) v(4s) v(4)
+.end

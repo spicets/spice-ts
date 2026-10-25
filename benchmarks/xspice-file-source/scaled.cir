@@ -1,0 +1,6 @@
+filesource scaled (self-authored MIT)
+a1 %v([out]) src
+.model src filesource(file="table.txt" amplscale=[2] amploffset=[-0.5] timeoffset=-50u timescale=1.5)
+r1 out 0 1k
+.tran 10u 800u
+.end

@@ -1,0 +1,10 @@
+Test of diode with basic sidewall parameters and temperature sweep
+VIN 1 0 1
+VMON 1 2 0
+D1 2 0 DMOD PJ=0.5
+.MODEL DMOD D (IS=1e-15 CJO=1e-15 RS=1 JSW=1e-15 CJSW=1e-15)
+.DC VIN -2 1 .05
+.step TEMP -25 100 25
+.PRINT DC V(1) TEMP I(VMON) N(D1:Cd)
+*
+.END

@@ -1,10 +1,81 @@
 import { describe, expect, it } from 'vitest';
-import { createToolExecutor, DEFAULT_MCP_LIMITS, executeTool } from './server.js';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
+import { createToolExecutor, DEFAULT_MCP_LIMITS, executeTool, MCP_TOOLS } from './server.js';
 
 const source = '* Original MIT RC corner fixture\n.param rval=1k\nV1 in 0 DC 0 AC 1\nR1 in out {rval}\nC1 out 0 1u\n.ac dec 200 1 100k\n.end';
 const request = { apiVersion: '1', input: { format: 'spice', source } };
 const measurement = { kind: 'cross', signal: 'db(v(out))', analysis: 0, value: -10 * Math.log10(2), edge: 'falling' };
 const corners = [{ name: 'slow', params: { rval: 1200 } }, { name: 'fast', params: { rval: 800 } }, { name: 'hot', temp: 125 }];
+
+// Original MIT divider, represented identically in all three protocol formats.
+const components = [
+  { type: 'V', id: 'V1', name: 'V1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { waveform: 'dc', dc: 1 } },
+  { type: 'R', id: 'R1', name: 'R1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: 'out' }], params: { resistance: 1000 } },
+  { type: 'R', id: 'R2', name: 'R2', ports: [{ name: 'p', net: 'out' }, { name: 'n', net: '0' }], params: { resistance: 3000 } },
+];
+const analyses = [{ type: 'op' }];
+const document = { format: 'spice-ts', schemaVersion: '1.0', circuit: { components, nets: ['in', 'out'] }, analyses, models: [], subcircuits: [] };
+const circuit = [
+  ...['in', 'out', '0'].map(name => ({ type: 'source_net', source_net_id: name, name })),
+  ...components.flatMap((component, i) => [
+    { type: 'source_component', source_component_id: component.id, name: component.name,
+      ...[{ ftype: 'simple_voltage_source', voltage: 1 }, { ftype: 'simple_resistor', resistance: 1000 }, { ftype: 'simple_resistor', resistance: 3000 }][i] },
+    ...component.ports.flatMap((port, j) => [
+      { type: 'source_port', source_port_id: `${component.id}-${j}`, source_component_id: component.id, name: port.name },
+      { type: 'source_trace', source_trace_id: `${component.id}-${j}`, connected_source_port_ids: [`${component.id}-${j}`], connected_source_net_ids: [port.net] },
+    ]),
+  ]),
+];
+const protocolInputs = [
+  { format: 'spice', source: '* Original MIT divider\nV1 in 0 1\nR1 in out 1k\nR2 out 0 3k\n.op\n.end' },
+  { format: 'spice-ts', document },
+  { format: 'circuit-json', circuit, analyses },
+];
+const dividerArgs = { corners: [{ name: 'nominal' }, { name: 'repeat' }], measurement: { kind: 'max', signal: 'v(out)', analysis: 0 } };
+
+describe('spice_corners protocol-v1', () => {
+  it('advertises accepted formats and SPICE-only overrides', async () => {
+    expect(await executeTool('spice_capabilities', {})).toMatchObject({ structuredContent: {
+      inputFormats: ['spice', 'spice-ts', 'circuit-json'], tools: expect.arrayContaining(['spice_corners']),
+    } });
+    expect(MCP_TOOLS.find(tool => tool.name === 'spice_corners')!.description).toContain('JSON overrides return per-corner INVALID_REQUEST');
+  });
+
+  it.each(protocolInputs)('returns identical divider results for $format without mutation', async input => {
+    const args = { ...dividerArgs, request: { apiVersion: '1', input, options: { reltol: 1e-8 } } };
+    const before = JSON.stringify(args);
+    const tool = MCP_TOOLS.find(tool => tool.name === 'spice_corners')!;
+    expect(new AjvJsonSchemaValidator().getValidator(tool.inputSchema)(args).valid).toBe(true);
+    const baseline = await executeTool('spice_corners', { ...args, request: { ...args.request, input: protocolInputs[0] } });
+    expect(baseline.isError).not.toBe(true);
+    const response = await executeTool('spice_corners', args);
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    expect(response.structuredContent).toEqual(baseline.structuredContent);
+    expect(response).toMatchObject({ structuredContent: { corners: [{ value: 0.75 }, { value: 0.75 }], summary: { spread: 0 } } });
+    expect(JSON.stringify(args)).toBe(before);
+  });
+
+  it.each(protocolInputs.slice(1))('isolates unsupported overrides for $format', async input => {
+    const response = await executeTool('spice_corners', {
+      ...dividerArgs, request: { apiVersion: '1', input },
+      corners: [{ name: 'params', params: {} }, { name: 'temp', temp: 125 }, { name: 'nominal' }],
+    });
+    expect(response).toMatchObject({ structuredContent: { corners: [
+      { name: 'params', status: 'failed', error: { code: 'INVALID_REQUEST' } },
+      { name: 'temp', status: 'failed', error: { code: 'INVALID_REQUEST' } },
+      { name: 'nominal', status: 'complete', value: 0.75 },
+    ] } });
+  });
+
+  it.each([
+    { format: 'spice-ts', document: '{broken' },
+    { format: 'spice-ts', document: {} },
+    { format: 'circuit-json', circuit: {}, analyses },
+  ])('returns a stable structured error for malformed $format input', async input => {
+    await expect(executeTool('spice_corners', { ...dividerArgs, request: { apiVersion: '1', input } }))
+      .resolves.toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST' } } });
+  });
+});
 
 describe('spice_corners', () => {
   it('returns RC cutoffs within 1e-3 relative error and named extrema without mutation', async () => {

@@ -1,0 +1,39 @@
+Test DC mode support for EQN Measure 
+**********************************************************************
+*
+* This bug covers:
+*   1) the case of one variable in the .DC line, 
+*      without a .STEP statement.
+*
+*   2) An ascending sweep variable.
+*
+* See SON Bug 884 for more details.
+************************************************************
+vsrc1   1a 0 1
+rload1a 1a 1b 0.1
+rload1b 1b 0 1
+.DC vsrc1 1 5 1
+
+* Note: vsrc1:DCV0 is the syntax for printing the DC value of vsrc1,
+* at it is swept. 
+.print dc vsrc1:DCV0 v(1a) v(1b) VV1 VV2 vv2from vv2to vv2ft vv2tf dif
+
+* PARAM is a synonym for EQN in Xyce 
+.measure dc vv1 PARAM {v(1b)+1.0} 
+.measure dc vv2 EQN {v(1b)+12.0}
+.measure dc vv2from EQN {v(1b)+12.0} FROM=4
+.measure dc vv2to EQN {v(1b)+12.0} TO=4
+
+* these should get the same answer
+.measure dc vv2ft EQN {v(1b)+12.0} FROM=2 TO=4
+.measure dc vv2tf EQN {v(1b)+12.0} FROM=4 TO=2
+
+.measure dc dif EQN {vv1-vv2} 
+
+* Tests should fail since the FROM-T0 windows 
+* do not overlap with the stepped values for VSRC1:DCV0
+.measure dc eqnFail1 EQN {v(1b)+1.0} FROM=-4 TO=-2
+.measure dc eqnFail2 EQN {v(1b)+1.0} FROM=8 TO=6 DEFAULT_VAL=-100
+
+.END
+

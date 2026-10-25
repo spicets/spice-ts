@@ -1,0 +1,5 @@
+* Time and output voltage (MIT, self-authored)
+0 1
+200u 3
+400u -1
+2m 2

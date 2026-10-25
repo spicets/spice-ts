@@ -518,6 +518,18 @@ const REAL_SPECS: readonly XspiceCodeModelSpec[] = [
 /** Implemented code models keyed by lower-case ngspice Spice_Model_Name. */
 export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> = new Map(
   [
+    // ngspice-47 analog/file_source/ifspec.ifs calls the model "filesource".
+    // Keep file_source as a convenience alias for the source directory name.
+    ...['filesource', 'file_source'].map(name => ({
+      name,
+      connections: [{ ...output('out'), vector: true, vectorBounds: [1, undefined] as const }],
+      params: [real('timeoffset', 0), real('timescale', 1), boolean('timerelative', false), boolean('amplstep', false),
+        // cfunc's PARAM_NULL identity transforms; also support omission even
+        // where ngspice's MIF parameter loader requires explicit vectors.
+        real('amploffset', 0, { vector: true, vectorBounds: [1, undefined] }),
+        real('amplscale', 1, { vector: true, vectorBounds: [1, undefined] }),
+        { ...string('file'), defaultValue: ['filesource.txt'] }],
+    })),
     {
       name: 'mlin',
       connections: ['port1', 'port2', 'v1sens', 'v2sens'].map((name, i) => ({
@@ -693,7 +705,7 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
  */
 export const NGSPICE_XSPICE_CODE_MODELS: ReadonlySet<string> = new Set([
   // analog
-  'astate', 'climit', 'd_dt', 'delay', 'divide', 'filesource', 'gain', 'hyst', 'ilimit', 'int',
+  'astate', 'climit', 'd_dt', 'delay', 'divide', 'filesource', 'file_source', 'gain', 'hyst', 'ilimit', 'int',
   'limit', 'mult', 'multi_input_pwl', 'oneshot', 'ota', 'pwl', 'pwlts', 's_xfer', 'sine', 'slew',
   'square', 'summer', 'triangle', 'xfer',
   // digital

@@ -1,0 +1,47 @@
+* Test DC mode support for AVG Measures
+*
+* This bug covers:
+*   1) the case of one variable in the .DC line,
+*      without a .STEP statement.
+*
+*   2) An ascending sweep variable.
+*
+* This also tests that a .FFT line is ignored during a
+* normal and -remeasure run for a .DC analysis.
+*
+* See SON Bugs 1267 and 1327 for more details.
+********************************************************
+
+vsrc1   1a 0 1
+rload1a 1a 1b 0.1
+rload1b 1b 0 1
+
+.DC vsrc1 1 5 1
+
+* This line should not actually produce any .FFT output
+.FFT V(1a) NP=8
+
+* Note: vsrc1:DCV0 is the syntax for printing the DC value of vsrc1,
+* at it is swept.
+.print dc vsrc1:DCV0 v(1a) v(1b) avgv1b
+.PREPROCESS REPLACEGROUND TRUE
+
+.meas dc avgv1b  avg v(1b)
+.measure dc avg1bgnd avg v(gnd,1b)
+.meas dc avgv1bFrom  avg v(1b) FROM=3
+.meas dc avgv1bTo    avg v(1b) TO=4
+
+* These should get the same answer
+.measure dc avgv1bFT avg v(1b) FROM=3 TO=1
+.measure dc avgv1bTF avg v(1b) FROM=1 TO=3
+
+* FROM=TO value is a failed measure by definition
+* for AVG measure.
+.measure dc avg1bFT1PT avg v(1b) FROM=4 TO=4
+
+* Tests should fail since the FROM-T0 windows
+* do not overlap with the stepped values for VSRC1:DCV0
+.measure dc avgFail1 avg v(1b) FROM=-4 TO=-2
+.measure dc avgFail2 avg v(1b) FROM=-2 TO=-4
+
+.end

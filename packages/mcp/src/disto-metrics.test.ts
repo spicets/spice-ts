@@ -23,6 +23,41 @@ async function run(source = diode, output = 'v(out)') {
 }
 
 describe('spice_disto_metrics', () => {
+  const analysis = { type: 'disto', variation: 'dec', points: 5, startFreq: 1e3, stopFreq: 1e5 };
+  const ir = parseTitleless(diode).toIR();
+  const document = { format: 'spice-ts', schemaVersion: '1.0', circuit: { ...ir, components: ir.components.map(({ displayValue: _displayValue, ...component }) => component) }, models: [{ name: 'DM', type: 'D', params: { IS: 1e-14, TT: 1e-9, CJO: 5e-12 } }], subcircuits: [], analyses: [analysis] };
+  const jsonInputs = [
+    { format: 'spice-ts', document },
+    { format: 'circuit-json', circuit: [], analyses: [analysis] },
+  ];
+  it.each(jsonInputs)('recognizes a single disto in the $format input schema for actionable errors', input => {
+    const tool = MCP_TOOLS.find(t => t.name === 'spice_disto_metrics')!;
+    expect(validator.getValidator(tool.inputSchema)({ request: { apiVersion: '1', input }, output: 'v(out)' }).valid).toBe(true);
+  });
+  it.each(jsonInputs)('names unavailable DISTOF source fields for $format instead of rejecting the analysis', async input => {
+    const spice = await run();
+    expect(spice.isError).not.toBe(true);
+    const response = await executeTool('spice_disto_metrics', { request: { apiVersion: '1', input }, output: 'v(out)' });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: {
+      code: 'UNSUPPORTED_FEATURE', phase: 'validation', retryable: false,
+      details: { missingFields: ['DISTOF1', 'DISTOF2'] },
+    } } });
+    expect(JSON.stringify(response.structuredContent)).toContain('DISTOF1');
+    expect(validator.getValidator(MCP_TOOLS.find(t => t.name === 'spice_disto_metrics')!.outputSchema!)(response.structuredContent).valid).toBe(true);
+  });
+  it.each(jsonInputs)('preserves structured analysis errors for stepped or multiple $format analyses', async input => {
+    for (const invalid of [
+      { analyses: [analysis, { type: 'op' }] },
+      { analyses: [analysis], steps: [{ parameter: 'R1', values: [100, 200] }] },
+      { analyses: [] },
+      { analyses: [{ type: 'op' }] },
+      { analyses: [analysis], poleZeroAnalyses: [{}] },
+    ]) {
+      const changed = input.format === 'spice-ts' ? { ...input, document: { ...document, ...invalid } } : { ...input, ...invalid };
+      expect(await executeTool('spice_disto_metrics', { request: { apiVersion: '1', input: changed }, output: 'v(out)' }))
+        .toMatchObject({ isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ANALYSIS', retryable: false } } });
+    }
+  });
   it('matches ngspice-47 on identical bytes at all 22 HD2/HD3 points within core distortion tolerance', async () => {
     const reference = JSON.parse(readFileSync(new URL('../fixtures/disto-ngspice47.json', import.meta.url), 'utf8')) as Record<string, number[][]>;
     const response = await run();
