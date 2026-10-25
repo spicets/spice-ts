@@ -85,7 +85,6 @@ describe('WASM circuit temperature OP/DC', () => {
   });
 
   it.each([
-    'M1 out in 0 0 model W=10u L=1u\n.model model NMOS(LEVEL=1 VTO=0.7 KP=100u)',
     'J1 out in 0 model\n.model model NJF(VTO=-2 BETA=1m)',
   ])('rejects nonnominal transistor temperature: %s', async device => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });

@@ -2225,7 +2225,7 @@ export class Circuit {
     });
     this.assertDeviceModelTypes(flatDescriptors);
     // ngspice a80f6e3 cktsopt.c sets the default model TNOM; currently only
-    // JFET, diode and resistor construction consume it. Fail closed for other families.
+    // bounded BJT, MOS1, JFET, diode and resistor construction consume it.
     if (this._nominalTemperature !== undefined && this._nominalTemperature !== NOMINAL_TEMPERATURE_C) {
       for (const desc of flatDescriptors) {
         const passiveParams = { ...this._models.get(desc.modelName ?? '')?.params, ...desc.params };
@@ -2234,10 +2234,12 @@ export class Circuit {
           && ((passiveParams.TC1 ?? 0) !== 0 || (passiveParams.TC2 ?? 0) !== 0
             || (passiveParams.TCE ?? 0) !== 0);
         const boundedBjt = desc.type === 'Q' && !isVBICLevel(passiveParams.LEVEL);
-        if (unsupportedPassive || (!boundedBjt && !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type))) {
+        const boundedMos1 = desc.type === 'M' && (passiveParams.LEVEL ?? 1) === 1
+          && !isVdmosModelType(this._models.get(desc.modelName ?? '')?.type ?? '');
+        if (unsupportedPassive || (!boundedBjt && !boundedMos1 && !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type))) {
           throw new InvalidCircuitError(
             `.options TNOM=${this._nominalTemperature} is unsupported for ${desc.type} '${desc.name}': `
-            + 'circuit TNOM currently supports only BJTs, JFETs, diodes, R/C/L and independent or behavioral sources',
+            + 'circuit TNOM currently supports only BJTs, MOS1, JFETs, diodes, R/C/L and independent or behavioral sources',
           );
         }
       }
@@ -2768,7 +2770,10 @@ export class Circuit {
               resolveNode(desc.nodes[2]),
               resolveNode(bulkNode),
             ];
-            devices.push(new MOSFET(desc.name, nodeIdxs, { ...modelParams, ...desc.params, polarity }));
+            devices.push(new MOSFET(desc.name, nodeIdxs, {
+              TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
+              ...modelParams, ...desc.params, polarity,
+            }));
           } else {
             // #530: never evaluate an unimplemented level (MOS3, BSIM1/2, ...) with Level-1 equations.
             throw new UnsupportedModelLevelError(desc.name, desc.modelName, level, SUPPORTED_MOSFET_LEVELS);

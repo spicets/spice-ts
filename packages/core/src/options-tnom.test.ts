@@ -41,12 +41,12 @@ describe('bounded circuit TNOM', () => {
   });
 
   it('checks unsupported devices inside expanded subcircuits', () => {
-    const circuit = parse('nested\nV1 d 0 1\nX1 d mos\n.subckt mos a\nM1 a a 0 0 MM\n.model MM NMOS\n.ends\n.options TNOM=40\n.op');
+    const circuit = parse('nested\nV1 d 0 1\nX1 d mos\n.subckt mos a\nM1 a a 0 0 MM\n.model MM NMOS LEVEL=2\n.ends\n.options TNOM=40\n.op');
     expect(() => circuit.compile()).toThrow(/TNOM=40/);
   });
 
   it.each([
-    'M1 d d 0 0 MM\n.model MM NMOS',
+    'M1 d d 0 0 MM\n.model MM NMOS LEVEL=2',
   ])('rejects unsupported devices at compile time: %s', cards => {
     const circuit = parse(`unsupported nominal\nV1 d 0 1\n${cards}\n.options TNOM=40\n.op`);
     expect(() => circuit.compile()).toThrow(InvalidCircuitError);
