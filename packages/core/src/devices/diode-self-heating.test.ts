@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { simulate } from '../simulate.js';
 import { parse } from '../parser/index.js';
 
+
 // ngspice-47, identical deck, `op; print v(tj) i(v1)` at numdgt=15.
 const deck = `Self heating diode reference
 V1 in 0 0.7
@@ -84,7 +85,29 @@ D1 in 0 tj DM thermal
     expect(Math.abs(final / (100 * (1 - Math.exp(-2))) - 1)).toBeLessThan(0.001);
   });
 
-  it('rejects unimplemented thermal small-signal and junction-charge paths', async () => {
+  it('runs pulsed junction and diffusion charge with thermal capacitance (#1801)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const reference = JSON.parse(readFileSync(new URL('./fixtures/diode-selfheat-1801.json', import.meta.url), 'utf8')) as number[][];
+    const netlist = readFileSync(new URL('../../../../benchmarks/circuits/diode-selfheat-tran-1801.cir', import.meta.url), 'utf8');
+    const result = await simulate(netlist);
+    expect(result.transient!.time.at(-1)).toBeCloseTo(40e-6, 12);
+    expect(Math.max(...result.transient!.voltage('tj'))).toBeGreaterThan(1);
+    expect(result.transient!.voltage('anode').every(Number.isFinite)).toBe(true);
+    const transient = result.transient!;
+    const vectors = [transient.voltage('anode'), transient.current('V1'), transient.voltage('tj')];
+    for (const [column, values] of vectors.entries()) {
+      const peak = Math.max(...reference.map(row => Math.abs(row[column + 1])));
+      let index = 1;
+      for (const row of reference) {
+        while (index < transient.time.length - 1 && transient.time[index] < row[0]) index++;
+        const weight = (row[0] - transient.time[index - 1]) / (transient.time[index] - transient.time[index - 1]);
+        const actual = values[index - 1] + weight * (values[index] - values[index - 1]);
+        expect(Math.abs(actual - row[column + 1]) / peak).toBeLessThan(0.01);
+      }
+    }
+  });
+
+  it('rejects unimplemented thermal small-signal and reduced-RS charge paths', async () => {
     await expect(simulate(deck.replace('.op', '.ac lin 1 1 1'))).rejects.toThrow('AC/noise');
     await expect(simulate(deck.replace('RTH0=100', 'RTH0=100 CJO=1p'))).rejects.toThrow('junction charge');
   });

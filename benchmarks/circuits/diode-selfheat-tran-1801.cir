@@ -1,0 +1,8 @@
+Self-heating diode transient charge regression (issue 1801)
+V1 source 0 PULSE(0.2 1.2 1u 1u 1u 8u 20u)
+R1 source anode 10
+D1 anode 0 tj DM thermal
+.model DM D (IS=1e-14 CJO=10n TT=200n RTH0=1000 CTH0=10n TNOM=27 TLEVC=1 CTA=0.002 TPB=0.001 TTT1=0.003)
+.options reltol=1e-6 abstol=1e-12 vntol=1e-9
+.tran 20n 40u 0 20n
+.end

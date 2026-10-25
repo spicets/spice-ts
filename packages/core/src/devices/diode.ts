@@ -358,9 +358,9 @@ export class Diode implements DeviceModel {
     }
     this.modelWarnings = warnings;
     this.suppliedParams = params;
-    if (instanceParams.THERMAL && nodes.length === 3 && params.RTH0 !== undefined
+    if (instanceParams.THERMAL && nodes.length === 3 && params.RTH0 !== undefined && (params.RS ?? 0) > 0
       && ((params.CJO ?? 0) !== 0 || (params.CJSW ?? 0) !== 0 || (params.TT ?? 0) !== 0)) {
-      throw new InvalidCircuitError('Self-heating diode junction charge is not implemented');
+      throw new InvalidCircuitError('Self-heating diode reduced-RS junction charge requires an internal junction node');
     }
     const effectiveArea = (instanceParams.AREA ?? 1) * (instanceParams.M ?? 1);
     const effectivePerimeter = (instanceParams.PJ ?? 0) * (instanceParams.M ?? 1);
@@ -474,6 +474,10 @@ export class Diode implements DeviceModel {
   }
 
   acceptTransientStep(ctx: StampContext): void {
+    if (this.selfHeating) {
+      this.temperature = this.ambientTemperature + ctx.getVoltage(this.nodes[2]);
+      this.applyTemperature();
+    }
     const [nA, nK] = this.nodes;
     const voltage = (nA >= 0 ? ctx.getVoltage(nA) : 0) - (nK >= 0 ? ctx.getVoltage(nK) : 0);
     if (this.inTransientNewton) {
@@ -816,6 +820,7 @@ export class Diode implements DeviceModel {
     const plus = evaluate(temperature + delta).current;
     const minus = evaluate(temperature - delta).current;
     const point = evaluate(temperature);
+    this.stampedJunctionVoltage = voltage;
     const current = point.current;
     const conductance = point.conductance;
     const dIdT = (plus - minus) / (2 * delta);
@@ -887,12 +892,29 @@ export class Diode implements DeviceModel {
    */
   stampTransientCharge(ctx: StampContext, integration: ChargeIntegration): void {
     const voltage = this.stampedJunctionVoltage;
+    const thermalNode = this.selfHeating ? this.nodes[2] : -1;
+    const rise = thermalNode >= 0 ? ctx.getVoltage(thermalNode) : 0;
+    let temperatureCurrent = 0;
+    if (thermalNode >= 0) {
+      // Differentiate Q(V,T), including depletion and TT(T)*I(V,T), at fixed V.
+      // Only accepted charges enter the integration history, never trial temperatures.
+      const evaluate = (temperature: number) => {
+        this.temperature = temperature;
+        this.applyTemperature();
+        const point = this.junctionCharge(voltage, ctx.gmin ?? DEVICE_GMIN);
+        return this.integrateCharge(point.charge, point.capacitance, integration).current;
+      };
+      const temperature = this.ambientTemperature + rise;
+      temperatureCurrent = (evaluate(temperature + 1e-3) - evaluate(temperature - 1e-3)) / 2e-3;
+      this.temperature = temperature;
+      this.applyTemperature();
+    }
     const { charge, capacitance } = this.junctionCharge(voltage, ctx.gmin ?? DEVICE_GMIN);
     const { current, conductance } = this.integrateCharge(charge, capacitance, integration);
     this.pendingIntegration = integration;
 
     const [nA, nK] = this.nodes;
-    const ieq = current - conductance * voltage;
+    const ieq = current - conductance * voltage - temperatureCurrent * rise;
     if (nA >= 0) ctx.stampG(nA, nA, conductance);
     if (nK >= 0) ctx.stampG(nK, nK, conductance);
     if (nA >= 0 && nK >= 0) {
@@ -901,12 +923,28 @@ export class Diode implements DeviceModel {
     }
     if (nA >= 0) ctx.stampB(nA, -ieq);
     if (nK >= 0) ctx.stampB(nK, ieq);
+    if (thermalNode >= 0) {
+      if (nA >= 0) ctx.stampG(nA, thermalNode, temperatureCurrent);
+      if (nK >= 0) ctx.stampG(nK, thermalNode, -temperatureCurrent);
+      // dioload.c evaluates Ith = vd*cd after adding integrated charge current.
+      const dPdV = current + voltage * conductance;
+      const dPdT = voltage * temperatureCurrent;
+      if (nA >= 0) ctx.stampG(thermalNode, nA, -dPdV);
+      if (nK >= 0) ctx.stampG(thermalNode, nK, dPdV);
+      ctx.stampG(thermalNode, thermalNode, -dPdT);
+      ctx.stampB(thermalNode, voltage * current - dPdV * voltage - dPdT * rise);
+    }
   }
 
   stampAcceptedChargeCurrent(ctx: StampContext): void {
+    // The accepted electrical current must also contribute junction power.
     const [nA, nK] = this.nodes;
     if (nA >= 0) ctx.stampB(nA, -this.acceptedChargeCurrent);
     if (nK >= 0) ctx.stampB(nK, this.acceptedChargeCurrent);
+    if (this.selfHeating) {
+      const voltage = (nA >= 0 ? ctx.getVoltage(nA) : 0) - (nK >= 0 ? ctx.getVoltage(nK) : 0);
+      ctx.stampB(this.nodes[2], voltage * this.acceptedChargeCurrent);
+    }
   }
 
   /** Commit the junction charge and its integrated current at an accepted timepoint. */
@@ -943,6 +981,10 @@ export class Diode implements DeviceModel {
    * other DIOtrunc charges, are not supported.
    */
   truncateTransientStep(ctx: StampContext, truncation: ChargeTruncation): number {
+    if (this.selfHeating) {
+      this.temperature = this.ambientTemperature + ctx.getVoltage(this.nodes[2]);
+      this.applyTemperature();
+    }
     const integration = this.pendingIntegration;
     const accepted = this.acceptedCharge;
     const previous = this.previousAcceptedCharge;
