@@ -1,0 +1,9 @@
+oracle
+.control
+set numdgt=17
+source input.cir
+run
+wrdata reference.txt v(out)
+quit
+.endc
+.end

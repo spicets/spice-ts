@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '../../parser/index.js';
 import { InvalidCircuitError } from '../../errors.js';
 import { simulate } from '../../simulate.js';
-import { UnsupportedCodeModelError } from '../../parser/xspice-parser.js';
 import { smoothDiscontinuity } from './limiter-models.js';
 
 /*
@@ -193,12 +192,9 @@ describe('XSPICE slice 2 parsing and typed rejections', () => {
     expect(dc.voltage('30')).toBeCloseTo(1 * 1000 / 1001, 9);
   });
 
-  it('keeps unimplemented filesource typed-unsupported', () => {
-    for (const card of [
-      '.model s1 filesource',
-    ]) {
-      expect(() => parse(['x', 'v1 1 0 1', card, '.op'].join('\n'))).toThrow(UnsupportedCodeModelError);
-    }
+  it('recognizes filesource and requires a host file resolver', () => {
+    expect(() => parse(['x', 'a1 [out] s1', '.model s1 filesource', '.op'].join('\n')).compile())
+      .toThrow(/file requires host-resolved file data/);
   });
 
   it('rejects port types a model does not allow', () => {
