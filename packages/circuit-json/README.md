@@ -6,13 +6,17 @@ Bidirectional conversion between tscircuit `circuit-json` documents and the spic
 import { fromCircuitJSON, toCircuitJSON } from '@spice-ts/circuit-json';
 ```
 
-`fromCircuitJSON` supports simple resistors, capacitors, inductors, diodes/LEDs, DC voltage/current sources, sinewave/square voltage sources, enhancement-mode MOSFETs, BJTs, source ports, source nets, and source traces. PCB, schematic, and CAD elements produce nonfatal `LAYOUT_ONLY` diagnostics. Unsupported simulation elements or parameters produce error diagnostics and no circuit value.
+`fromCircuitJSON` supports simple resistors, capacitors, inductors, diodes/LEDs, DC and sinewave/square voltage/current sources, enhancement-mode MOSFETs, BJTs, source ports, source nets, and source traces. PCB, schematic, and CAD elements produce nonfatal `LAYOUT_ONLY` diagnostics. Unsupported simulation elements or parameters produce error diagnostics and no circuit value.
 
 | circuit-json element | SPICE / IR mapping | Value |
 | --- | --- | --- |
 | `simple_current_source` | `I`, `{ waveform: 'dc', dc: current }` | `current` in amperes; `wave_shape: 'dc'` (default when omitted) |
+| `simple_current_source` (`sinewave`) | `I`, `SIN(offset amplitude frequency 0 0 phase)` | `current` offset and `peak_to_peak_current / 2` amplitude in amperes; frequency in Hz, phase in degrees (default `0`) |
+| `simple_current_source` (`square`) | `I`, `PULSE(v1 v2 delay rise fall width period)` | `current ± peak_to_peak_current / 2` levels in amperes; shared square timing rules below |
 
-`simple_current_source` uses the SPICE sign convention: positive current flows from the positive (`p`, first) terminal through the source to the negative (`n`, second) terminal. Thus `I1 0 n1 1m` with `R1 n1 0 1k` gives V(n1) = +1 V; reversing the source gives -1 V. Port order and connectivity are preserved. Export emits explicit `wave_shape: 'dc'`. Missing/nonfinite current and non-DC or extra waveform fields return `UNSUPPORTED_ELEMENT` with no circuit value. No current is inferred from display text, and a missing value never defaults to 0 A. Explicit finite zero and negative currents are supported.
+`simple_current_source` uses the SPICE sign convention: positive current flows from the positive (`p`, first) terminal through the source to the negative (`n`, second) terminal. Thus `I1 0 n1 1m` with `R1 n1 0 1k` gives V(n1) = +1 V; reversing the source gives -1 V. Port order and connectivity are preserved. DC export emits explicit `wave_shape: 'dc'`. For DC sources, missing/nonfinite current, unsupported shapes, or extra waveform fields retain `UNSUPPORTED_ELEMENT` diagnostics with no circuit value. Supported sinewave/square sources instead report invalid or missing fields as `UNSUPPORTED_PARAMETER` with field JSON pointers. No current is inferred from display text, and a missing value never defaults to 0 A. Explicit finite zero and negative currents and signed peak-to-peak currents are supported.
+
+Current waveforms use exactly the voltage-source mapping, validation, and lossless export rules, replacing `voltage`/`peak_to_peak_voltage` with `current`/`peak_to_peak_current` in amperes. Sine frequency must be finite (zero and negative values are preserved); square frequency must be positive, phase nonnegative, and duty cycle strictly between 0 and 1. Omitted phase defaults to `0`, and omitted square duty cycle to `0.5`. Square derived overflow/underflow is rejected. Both `I` and `V` retain the same exact representability checks and `LOSSY_EXPORT` diagnostics, including with `allowLossy`.
 
 The `circuit-json` 0.0.525 schema maps `simple_inductor.inductance` (henries) to `L.params.inductance` and DC `simple_voltage_source.voltage` (volts) to `V.params = { waveform: 'dc', dc: voltage }`. Inductor display/rating metadata does not alter simulation. Numeric simulation values must be finite.
 
@@ -22,7 +26,7 @@ For `simple_voltage_source` with `wave_shape: 'sinewave'`, import maps `voltage`
 
 The pinned schema's `simple_battery` has capacity but no voltage. It remains `UNSUPPORTED_ELEMENT`; use `simple_voltage_source` with an explicit voltage instead. No battery voltage is inferred from capacity or display text. `simulation_voltage_source` records remain unsupported.
 
-Export supports L, generic D, DC V/I and representable SIN/PULSE V as well as R/C/M/Q. Custom diode models, other AC/time-varying sources and extra simulation parameters produce `LOSSY_EXPORT`; no model or waveform is silently discarded by default.
+Export supports L, generic D, DC V/I and representable SIN/PULSE V/I as well as R/C/M/Q. Custom diode models, other AC/time-varying sources and extra simulation parameters produce `LOSSY_EXPORT`; no model or waveform is silently discarded by default.
 
 `toCircuitJSON` refuses any lossy conversion by default. Pass `{ allowLossy: true }` to receive the representable subset; the result remains marked `lossy` and retains the same ordered `LOSSY_EXPORT` diagnostics.
 
