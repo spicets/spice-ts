@@ -43,6 +43,8 @@ interface PreparedLinearDc extends PreparedNumericBase {
   analysis: 'dc';
   sweep: Extract<CompiledCircuit['analyses'][number], { type: 'dc' }>;
   source: SweepableSource;
+  secondarySource?: SweepableSource;
+  innerPointCount: number;
   pointCount: number;
 }
 
@@ -101,7 +103,7 @@ export async function simulateLinearOpWasmV1(
 }
 
 function simulateDc(
-  { compiled, order, sweep, source, pointCount }: PreparedLinearDc,
+  { compiled, order, sweep, source, secondarySource, innerPointCount, pointCount }: PreparedLinearDc,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
@@ -109,13 +111,21 @@ function simulateDc(
   const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
   const originalWaveform = source.waveform;
+  const originalSecondaryWaveform = secondarySource?.waveform;
   const nonlinear = compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''));
   let previous: Float64Array | undefined;
+  let value = sweep.start;
+  let outerValue = sweep.secondary?.start ?? 0;
   try {
     for (let point = 0; point < pointCount; point++) {
-      const value = sweep.start + point * sweep.step;
+      if (point % innerPointCount === 0) {
+        value = sweep.start;
+        if (point > 0) outerValue += sweep.secondary!.step;
+        if (secondarySource) secondarySource.waveform = { type: 'dc', value: outerValue };
+      }
       values.push(value);
       source.waveform = { type: 'dc', value };
+      value += sweep.step;
       if (nonlinear) {
         const solution = solveNonlinearOp(compiled, order, request, exports, previous);
         previous = solution;
@@ -146,6 +156,7 @@ function simulateDc(
     }
   } finally {
     source.waveform = originalWaveform;
+    if (secondarySource && originalSecondaryWaveform) secondarySource.waveform = originalSecondaryWaveform;
   }
 
   const result: SimulationResultV1 = {
@@ -711,27 +722,38 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   const compiledAnalysis = compiled.analyses[0];
   if (analysis === 'dc') {
     if (compiledAnalysis?.type !== 'dc') unsupported('analysis', 'Exactly one .dc analysis is supported');
-    const pointCount = dcPointCount(compiledAnalysis.start, compiledAnalysis.stop, compiledAnalysis.step);
+    const innerPointCount = dcPointCount(compiledAnalysis.start, compiledAnalysis.stop, compiledAnalysis.step);
+    const secondary = compiledAnalysis.secondary;
+    const pointCount = innerPointCount * (secondary ? dcPointCount(secondary.start, secondary.stop, secondary.step) : 1);
     const pointLimit = Math.min(
       NUMERIC_WASM_LIMITS.maxResultPoints,
       request.options?.limits?.maxResultPoints ?? Infinity,
     );
     if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
-    const normalized = compiledAnalysis.source.toUpperCase();
-    const sources = compiled.devices.filter(device => {
-      const candidate = device as unknown as Partial<SweepableSource>;
-      return candidate.name?.toUpperCase() === normalized && candidate.waveform !== undefined
-        && ['V', 'I'].includes(deviceType(candidate.name) ?? '');
-    }) as unknown as SweepableSource[];
-    if (sources.length !== 1) {
-      throw numericError('INVALID_CIRCUIT', `DC sweep source '${compiledAnalysis.source}' must identify one independent source`, 'validation', {
-        feature: 'dc-source', source: compiledAnalysis.source, matches: sources.length,
-      });
+    const resolveSource = (name: string): SweepableSource => {
+      const normalized = name.toUpperCase();
+      const sources = compiled.devices.filter(device => {
+        const candidate = device as unknown as Partial<SweepableSource>;
+        return candidate.name?.toUpperCase() === normalized && candidate.waveform !== undefined
+          && ['V', 'I'].includes(deviceType(candidate.name) ?? '');
+      }) as unknown as SweepableSource[];
+      if (sources.length !== 1) {
+        throw numericError('INVALID_CIRCUIT', `DC sweep source '${name}' must identify one independent source`, 'validation', {
+          feature: 'dc-source', source: name, matches: sources.length,
+        });
+      }
+      if (!['dc', 'ac'].includes(sources[0]!.waveform.type)) {
+        unsupported('source-waveform', 'DC sweep sources must use a constant or DC value');
+      }
+      return sources[0]!;
+    };
+    if (secondary?.source.toUpperCase() === compiledAnalysis.source.toUpperCase()) {
+      throw numericError('INVALID_CIRCUIT', 'DC sweep sources must be distinct', 'validation', { feature: 'dc-source' });
     }
-    if (!['dc', 'ac'].includes(sources[0]!.waveform.type)) {
-      unsupported('source-waveform', 'DC sweep sources must use a constant or DC value');
-    }
-    return { analysis, compiled, order, sweep: compiledAnalysis, source: sources[0]!, pointCount };
+    return {
+      analysis, compiled, order, sweep: compiledAnalysis, source: resolveSource(compiledAnalysis.source),
+      secondarySource: secondary ? resolveSource(secondary.source) : undefined, innerPointCount, pointCount,
+    };
   }
   if (analysis === 'tran') {
     if (compiledAnalysis?.type !== 'tran') unsupported('analysis', 'Exactly one .tran analysis is supported');
@@ -982,8 +1004,11 @@ function normalizeAndValidateCurrentControlledSources(cards: string[]): string[]
 
 function validateDcControls(card: string): void {
   const tokens = card.trim().split(/\s+/);
-  if (tokens.length > 5) unsupported('dc-nested-sweep', 'Nested or stepped DC sweeps are not supported');
-  if (tokens.length !== 5) {
+  if (tokens.length > 5 && (tokens.length !== 9 || !/^[VI]/i.test(tokens[5]!)
+    || tokens.slice(6).some(token => !SPICE_NUMBER.test(token)))) {
+    unsupported('dc-nested-sweep', 'Only two independent-source linear DC sweeps are supported');
+  }
+  if (tokens.length !== 5 && tokens.length !== 9) {
     throw numericError('INVALID_CIRCUIT', 'DC sweep must use .dc source start stop step', 'validation', {
       feature: 'dc-grid',
     });
@@ -997,9 +1022,17 @@ function dcPointCount(start: number, stop: number, step: number): number {
       feature: 'dc-grid', start, stop, step,
     });
   }
-  const intervals = Math.abs((stop - start) / step);
-  const tolerance = Number.EPSILON * Math.max(1, intervals) * 4;
-  return Math.floor(intervals + tolerance) + 1;
+  // Mirror core/ngspice's accumulated DC grid, including its absolute endpoint
+  // tolerance. Stop counting once rejection is inevitable; never allocate a grid.
+  let count = 0;
+  for (let value = start; Math.sign(step) * (value - stop) <= Number.EPSILON * 1e3;) {
+    count++;
+    if (count > NUMERIC_WASM_LIMITS.maxResultPoints) return count;
+    const next = value + step;
+    if (next === value) break;
+    value = next;
+  }
+  return count;
 }
 
 function validateTransientControls(card: string, request: SimulationRequestV1): void {
