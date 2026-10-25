@@ -689,10 +689,11 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     // Only compilation is shared: numeric solves continue to use the WASM kernel.
     const circuit = parseTitleless(normalizedCards.join('\n'));
     const temperatureRequested = circuit.temperature !== undefined || circuit.nominalTemperature !== undefined;
-    if (temperatureRequested && analysis !== 'op' && analysis !== 'dc') {
-      unsupported('circuit-temperature', 'Circuit temperature is supported only for OP/DC');
-    }
     compiled = circuit.compile();
+    if (temperatureRequested && (analysis === 'tran' || analysis === 'ac')
+      && compiled.devices.some(device => ['Q', 'M', 'J'].includes(deviceType(device.name) ?? ''))) {
+      unsupported('circuit-temperature', 'Transistor circuit temperature is supported only for OP/DC');
+    }
   } catch (error) {
     if (error instanceof NumericBackendError) throw error;
     throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
@@ -833,7 +834,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS|RSH'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
       const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV'
-        + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|EG|XTI|TNOM|TBV1' : '');
+        + (temperatureEnabled ? '|EG|XTI|TNOM|TBV1' : '');
       // The core device supplies the charge Jacobian and accepted/rejected-step
       // history; the nonlinear transient and AC paths solve it through WASM.
       const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR'

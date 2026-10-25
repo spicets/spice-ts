@@ -29,6 +29,8 @@ describe('WASM resistor/diode TEMP/TNOM transient and AC', () => {
       const actual = response.data.analyses[0];
       const reference = (await simulateProtocolV1(input)).analyses[0];
       let maximum = 0;
+      let maximumPointwise = 0;
+      let maximumAbsolute = 0;
       let samples = 0;
       if (actual?.type === 'tran' && reference?.type === 'tran') {
         expect(actual.timeS).toEqual(reference.timeS);
@@ -36,8 +38,15 @@ describe('WASM resistor/diode TEMP/TNOM transient and AC', () => {
           expect(Object.keys(actual[field])).toEqual(Object.keys(reference[field]));
           for (const [signal, values] of Object.entries(reference[field])) {
             expect(actual[field][signal]).toHaveLength(values.length);
+            const peak = Math.max(...values.map(Math.abs));
             values.forEach((value, i) => {
-              maximum = Math.max(maximum, relativeError(actual[field][signal]![i]!, value));
+              const observed = actual[field][signal]![i]!;
+              const delta = Math.abs(observed - value);
+              maximumPointwise = Math.max(maximumPointwise, relativeError(observed, value));
+              maximumAbsolute = Math.max(maximumAbsolute, delta);
+              // Dense/sparse rounding is amplified at zero crossings. Keep the
+              // raw pointwise loss visible; bound every sample by signal peak.
+              maximum = Math.max(maximum, peak === 0 ? relativeError(observed, value) : delta / peak);
               samples++;
             });
           }
@@ -50,14 +59,16 @@ describe('WASM resistor/diode TEMP/TNOM transient and AC', () => {
             expect(actual[field][signal]).toHaveLength(values.length);
             values.forEach((value, i) => {
               for (const key of ['magnitude', 'phaseDegrees'] as const) {
-                maximum = Math.max(maximum, relativeError(actual[field][signal]![i]![key], value[key]));
+                const observed = actual[field][signal]![i]![key];
+                maximum = Math.max(maximum, relativeError(observed, value[key]));
+                maximumAbsolute = Math.max(maximumAbsolute, Math.abs(observed - value[key]));
                 samples++;
               }
             });
           }
         }
       } else throw new Error('Expected matching transient or AC analyses');
-      console.log(`${name} TEMP=${temperature}: samples=${samples} maxRelativeError=${maximum}`);
+      process.stdout.write(`${name} TEMP=${temperature}: samples=${samples} maxRelativeError=${maximum} maxPointwiseRelativeError=${actual.type === 'tran' ? maximumPointwise : maximum} maxAbsoluteError=${maximumAbsolute}\n`);
       expect(samples).toBeGreaterThan(0);
       expect(maximum).toBeLessThanOrEqual(1e-9);
     } finally { await engine.close(); }
