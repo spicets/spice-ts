@@ -24,6 +24,9 @@ export interface PoleZeroAnalysisV1 {
   mode: 'pol' | 'zer' | 'pz';
 }
 
+export interface SParameterAnalysisV1 { type: 'sp'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
+export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1;
+
 export interface CircuitPortV1 { name: string; net: string }
 export interface CircuitComponentV1 {
   type: string;
@@ -45,7 +48,7 @@ export interface SpiceTsCircuitDocumentV1 {
   format: 'spice-ts';
   schemaVersion: '1.0';
   circuit: { components: CircuitComponentV1[]; nets: string[] };
-  analyses: AnalysisV1[];
+  analyses: NativeAnalysisV1[];
   poleZeroAnalyses?: PoleZeroAnalysisV1[];
   models: CircuitModelV1[];
   subcircuits: SubcircuitV1[];

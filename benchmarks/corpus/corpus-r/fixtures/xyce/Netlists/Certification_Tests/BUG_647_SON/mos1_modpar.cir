@@ -1,0 +1,46 @@
+N-Channel Mosfet Circuit 
+VDD 5 0 DC 18V
+VGG 3 0 DC 5V
+R1 5 1 47MEG
+R2 1 0 22MEG
+RD 5 4 2.2K
+RS 2 0 500
+M1 3 1 2 2 MOSNORM 
+.step lin TEMP 25 27 1
+.step lin MOSNORM:L .8e-4 1.2e-4 .2e-4
+.step lin MOSNORM:W .8e-4 1.2e-4 .2e-4
+
+.MODEL MOSNORM NMOS (
++      LEVEL = 1
++        VTO = 50
++         KP = .00002
++      GAMMA = 0
++        PHI = .6
++     LAMBDA = 0
++         RD = .05
++         RS = 0.005
++        CBD = 1pf
++        CBS = 1pf
++         IS = 1E-14
++         PB = .8
++       CGSO = 560pf
++       CGDO = 1pf
++       CGBO = 1pf
++        RSH = 0
++         CJ = 1pf
++         MJ = .5
++       CJSW = 1pf
++       MJSW = .33
++         JS = 0
++        TOX = 0.0000001
++         UO = 600
++         KF = 0
++         AF = 1
++         FC = .5
++          L = 1E-4
++          W = 1e-4
++ )
+
+.DC VGG 0 18 1 VDD 0 18 1
+.PRINT DC V(3) V(5) V(3,2) V(1,2) M1:TEMP M1:L M1:W
+.END

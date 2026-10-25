@@ -1,0 +1,52 @@
+* Test ID(*) IG(*) IS(*) for JFET.  The output should not have the
+* branch current for the V devices or any of the lead currents for
+* the R devices.
+
+Vds1 1 0 5V
+Vgs 2 0 pulse (0 1 1ns 1ns 1ns 1us 2us)
+.tran 1ns 10us
+.PRINT tran V(1) ID(*) IG(*) IS(*)
+
+JN1 1 2 3 SA2109
+*
+.MODEL SA2109 NJF
++ LEVEL=2
++ BETA= 0.0003790
++ VTO = -3.760
++ PB = 0.650
++ LAMBDA = 0.01240
++ DELTA = 0.370;
++ THETA = 0.01120;
++ RD = 0.0
++ RS = 104.5
++ FC = 0.5
++ IS = 1.393E-10
++ AF = 1.0
++ KF = 0.05
++ CGS= 1uf
++ CGD= 1uf
+*
+
+Vin 3 0 pulse(12 0 10n 5n 5n 1u 1m)
+Vds2 4 0 -15
+Rout 3 2 50
+Rterm 2 0 50
+Rload 4 1 500
+rsub  5 0 500
+*  drain gate source
+JP1 1 2 5 2N5114
+.MODEL 2N5114 PJF
++        VTO = -5.288
++       BETA = 2.1897M
++     LAMBDA = 9.946M
++         RD = 22.042
++         RS = 22.042
++        CGS = 14.6595P
++        CGD = 14.6595P
++         PB = 1.40863
++         IS = 39.24F
++         KF = 0
++         AF = 1
++         FC = 0.5
+
+.END

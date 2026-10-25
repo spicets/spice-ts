@@ -25,6 +25,24 @@ export interface CircuitJSONExportOptions {
 
 type ElementRecord = Record<string, unknown>;
 
+function sourceParams(element: ElementRecord, valueField: 'voltage' | 'current'): Record<string, number | string | boolean> {
+  const offset = element[valueField] as number;
+  const amplitude = (element[`peak_to_peak_${valueField}`] as number) / 2;
+  if (element.wave_shape === 'sinewave') {
+    return { waveform: 'sin', offset, amplitude, frequency: element.frequency as number, phase: (element.phase as number | undefined) ?? 0 };
+  }
+  if (element.wave_shape === 'square') {
+    const period = 1 / (element.frequency as number);
+    return {
+      waveform: 'pulse', v1: offset - amplitude, v2: offset + amplitude,
+      delay: ((element.phase as number | undefined) ?? 0) / 360 * period,
+      rise: period * 1e-6, fall: period * 1e-6,
+      width: ((element.duty_cycle as number | undefined) ?? 0.5) * period, period,
+    };
+  }
+  return { waveform: 'dc', dc: offset };
+}
+
 const COMPONENT_FIELDS = new Set([
   'type',
   'ftype',
@@ -86,34 +104,12 @@ const COMPONENT_MAPPING: Record<string, {
   simple_voltage_source: {
     type: 'V',
     fields: ['voltage', 'wave_shape'],
-    params: (element): Record<string, number | string | boolean> => {
-      if (element.wave_shape === 'sinewave') {
-        return {
-          waveform: 'sin', offset: element.voltage as number,
-          amplitude: (element.peak_to_peak_voltage as number) / 2,
-          frequency: element.frequency as number, phase: (element.phase as number | undefined) ?? 0,
-        };
-      }
-      if (element.wave_shape === 'square') {
-        const period = 1 / (element.frequency as number);
-        const amplitude = (element.peak_to_peak_voltage as number) / 2;
-        return {
-          waveform: 'pulse',
-          v1: (element.voltage as number) - amplitude,
-          v2: (element.voltage as number) + amplitude,
-          delay: ((element.phase as number | undefined) ?? 0) / 360 * period,
-          rise: period * 1e-6, fall: period * 1e-6,
-          width: ((element.duty_cycle as number | undefined) ?? 0.5) * period,
-          period,
-        };
-      }
-      return { waveform: 'dc', dc: element.voltage as number };
-    },
+    params: element => sourceParams(element, 'voltage'),
   },
   simple_current_source: {
     type: 'I',
     fields: ['current', 'wave_shape'],
-    params: element => ({ waveform: 'dc', dc: element.current as number }),
+    params: element => sourceParams(element, 'current'),
   },
   simple_mosfet: {
     type: 'M',
@@ -221,9 +217,11 @@ function validateComponentFields(
   diagnostics: ConversionDiagnosticV1[],
 ): void {
   const allowed = new Set([...COMPONENT_FIELDS, ...COMPONENT_MAPPING[ftype].fields]);
-  if (ftype === 'simple_voltage_source') {
+  if (ftype === 'simple_voltage_source' || ftype === 'simple_current_source') {
+    const valueField = ftype === 'simple_voltage_source' ? 'voltage' : 'current';
+    const peakField = `peak_to_peak_${valueField}`;
     if (element.wave_shape === 'sinewave') {
-      for (const key of ['frequency', 'peak_to_peak_voltage', 'phase']) {
+      for (const key of ['frequency', peakField, 'phase']) {
         allowed.add(key);
         if ((key === 'phase' && element[key] === undefined) || isFiniteNumber(element[key])) continue;
         diagnostics.push(importDiagnostic(
@@ -233,7 +231,7 @@ function validateComponentFields(
       }
     } else if (element.wave_shape === 'square') {
       const diagnosticCount = diagnostics.length;
-      for (const key of ['frequency', 'peak_to_peak_voltage', 'phase', 'duty_cycle']) {
+      for (const key of ['frequency', peakField, 'phase', 'duty_cycle']) {
         allowed.add(key);
         const value = element[key];
         if ((key === 'phase' || key === 'duty_cycle') && value === undefined) continue;
@@ -246,14 +244,14 @@ function validateComponentFields(
           `/${index}/${key}`, element,
         ));
       }
-      if (diagnostics.length === diagnosticCount && isFiniteNumber(element.voltage)) {
-        const params = COMPONENT_MAPPING.simple_voltage_source.params(element);
+      if (diagnostics.length === diagnosticCount && isFiniteNumber(element[valueField])) {
+        const params = sourceParams(element, valueField);
         const positiveFinite = (value: unknown): boolean => isFiniteNumber(value) && value > 0;
-        const amplitude = (element.peak_to_peak_voltage as number) / 2;
+        const amplitude = (element[peakField] as number) / 2;
         const checks: Array<[string, boolean]> = [
           ['frequency', positiveFinite(params.period) && positiveFinite(params.rise) && positiveFinite(params.fall)],
-          ['peak_to_peak_voltage', isFiniteNumber(params.v1) && isFiniteNumber(params.v2)
-            && (element.peak_to_peak_voltage === 0 || amplitude !== 0)],
+          [peakField, isFiniteNumber(params.v1) && isFiniteNumber(params.v2)
+            && (element[peakField] === 0 || amplitude !== 0)],
           ['duty_cycle', positiveFinite(params.width)],
           ['phase', isFiniteNumber(params.delay)
             && (((element.phase as number | undefined) ?? 0) === 0 || positiveFinite(params.delay))],
@@ -267,7 +265,7 @@ function validateComponentFields(
       }
     } else if (element.wave_shape !== undefined && element.wave_shape !== 'dc') {
       diagnostics.push(importDiagnostic(
-        'UNSUPPORTED_PARAMETER', 'Only DC, sinewave and square voltage sources are supported',
+        'UNSUPPORTED_PARAMETER', `Only DC, sinewave and square ${valueField} sources are supported`,
         `/${index}/wave_shape`, element,
       ));
     }
@@ -294,7 +292,7 @@ function validateComponentFields(
     : ftype === 'simple_capacitor' ? 'capacitance'
       : ftype === 'simple_inductor' ? 'inductance'
         : ftype === 'simple_voltage_source' ? 'voltage'
-          : undefined;
+          : ftype === 'simple_current_source' ? 'current' : undefined;
   if (numericField && element[numericField] !== undefined && !isFiniteNumber(element[numericField])) {
     diagnostics.push(importDiagnostic(
       'UNSUPPORTED_PARAMETER',
@@ -374,7 +372,7 @@ export function fromCircuitJSON(circuitJSON: CircuitJson): ConversionResultV1<Ci
     if (element.type === 'source_component') {
       const ftype = typeof element.ftype === 'string' ? element.ftype : '';
       const mapping = COMPONENT_MAPPING[ftype];
-      if (ftype === 'simple_current_source' && (
+      if (ftype === 'simple_current_source' && element.wave_shape !== 'sinewave' && element.wave_shape !== 'square' && (
         !isFiniteNumber(element.current)
         || (element.wave_shape !== undefined && element.wave_shape !== 'dc')
         || Object.keys(element).some(key => !COMPONENT_FIELDS.has(key) && !mapping.fields.includes(key))
@@ -655,22 +653,24 @@ function mapExportComponent(
       }
       break;
     case 'V':
-    case 'I':
+    case 'I': {
       ftype = component.type === 'V' ? 'simple_voltage_source' : 'simple_current_source';
-      if (component.type === 'V' && component.params.waveform === 'pulse') {
+      const valueField = component.type === 'V' ? 'voltage' : 'current';
+      const peakField = `peak_to_peak_${valueField}`;
+      if (component.params.waveform === 'pulse') {
         allowedParams = ['waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period'];
         const params = component.params;
         const period = params.period as number;
-        const voltage = (params.v1 as number) / 2 + (params.v2 as number) / 2;
+        const offset = (params.v1 as number) / 2 + (params.v2 as number) / 2;
         const peakToPeak = (params.v2 as number) - (params.v1 as number);
         fields = {
-          voltage, wave_shape: 'square', peak_to_peak_voltage: peakToPeak,
+          [valueField]: offset, wave_shape: 'square', [peakField]: peakToPeak,
           frequency: 1 / period, phase: (params.delay as number) / period * 360,
           duty_cycle: (params.width as number) / period,
         };
         // Re-import must reproduce every timing/level exactly. In particular,
         // equal but noncanonical edges cannot be represented by this schema.
-        const reconstructed = COMPONENT_MAPPING.simple_voltage_source.params(fields);
+        const reconstructed = sourceParams(fields, valueField);
         const diagnosticCount = diagnostics.length;
         for (const key of allowedParams.slice(1)) {
           if (isFiniteNumber(params[key]) && params[key] === reconstructed[key]
@@ -688,7 +688,7 @@ function mapExportComponent(
         if (diagnostics.length !== diagnosticCount) return undefined;
         break;
       }
-      if (component.type === 'V' && component.params.waveform === 'sin') {
+      if (component.params.waveform === 'sin') {
         allowedParams = ['waveform', 'offset', 'amplitude', 'frequency', 'phase', 'delay', 'damping'];
         const params = component.params;
         for (const key of ['offset', 'amplitude', 'frequency', 'phase', 'delay', 'damping']) {
@@ -702,11 +702,11 @@ function mapExportComponent(
         const peakToPeak = (params.amplitude as number) * 2;
         if (!Number.isFinite(peakToPeak) && isFiniteNumber(params.amplitude)) {
           diagnostics.push(exportDiagnostic(
-            `SIN amplitude on ${component.id} overflows peak-to-peak voltage`,
+            `SIN amplitude on ${component.id} overflows peak-to-peak ${valueField}`,
             `/components/${index}/params/amplitude`, component,
           ));
         }
-        fields = { voltage: params.offset, wave_shape: 'sinewave', peak_to_peak_voltage: peakToPeak, frequency: params.frequency, phase: params.phase ?? 0 };
+        fields = { [valueField]: params.offset, wave_shape: 'sinewave', [peakField]: peakToPeak, frequency: params.frequency, phase: params.phase ?? 0 };
         break;
       }
       fields = component.type === 'V' ? { voltage: component.params.dc } : { current: component.params.dc, wave_shape: 'dc' };
@@ -719,6 +719,7 @@ function mapExportComponent(
         return undefined;
       }
       break;
+    }
     case 'M':
       ftype = 'simple_mosfet';
       fields = {

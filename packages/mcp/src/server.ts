@@ -37,13 +37,13 @@ import { fourierMetrics, fourierArgs, fourierOutputSchemas, fourierProperties } 
 import { noiseMetrics, noiseMetricsArgs, noiseMetricsOutputSchema, noiseMetricsProperties } from './noise-metrics.js';
 import type { NoiseResult, PoleZeroResult } from '@spice-ts/core';
 import { pzMetrics, pzMetricsOutputSchema } from './pz-metrics.js';
-import { distoMetrics, distoOutput, distoMetricsOutputSchema, distoUnsupportedSchema, unsupportedDisto } from './disto-metrics.js';
+import { distoMetrics, distoOutput, distoMetricsOutputSchema, distoUnsupportedSchema, unsupportedDisto, validateDistoJsonInput } from './disto-metrics.js';
 import type { DistoSpectrum } from './disto-metrics.js';
 import type { OperatingPointReport } from '@spice-ts/core';
 import type { SensitivityResult } from '@spice-ts/core';
 import type { TransferFunctionResult } from '@spice-ts/core';
 import { tfArgs, tfReport, tfInputSchema, tfOutputSchema } from './tf.js';
-import { sparamsArgs, sparamsReport, sparamsInputSchema, sparamsOutputSchema } from './sparams.js';
+import { sparamsArgs, sparamsReport, sparamsInputSchema, sparamsOutputSchema, prepareSparamsRequest, mapSparamsPorts, sparamsRequestDefs, validateSparamsPorts } from './sparams.js';
 import type { SparamsArgs } from './sparams.js';
 import type { SParameterResult } from '@spice-ts/core';
 import { impedanceArgs, impedanceInvalid, impedancePlan, impedanceReport, impedanceProperties, impedanceOutputSchema, impedanceFailureSchema, impedanceErrorCodes } from './impedance.js';
@@ -266,8 +266,11 @@ const streamToolOutputSchema = {
 export const MCP_TOOLS = Object.freeze([
   {
     name: 'spice_sparams',
-    description: 'Run one unstepped .sp sweep. Return S-parameter magnitudes, dB, phase degrees, reflection return loss/VSWR and transmission insertion loss. Optional one-based portPair [output,input] and explicit frequenciesHz. Infinite/undefined metrics are null. Reject conflicting analyses and control blocks.',
-    inputSchema: sparamsInputSchema,
+    description: 'Run one unstepped .sp sweep. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). RF ports use numeric portnum and optional z0 on native V params or circuit-json simple_voltage_source records (DC sources suffice). Return S-parameter magnitudes, dB, phase degrees, reflection return loss/VSWR and transmission insertion loss. Optional one-based portPair [output,input] and explicit frequenciesHz. Infinite/undefined metrics are null. Reject conflicting analyses and control blocks.',
+    inputSchema: { ...requestInputSchema, $defs: sparamsRequestDefs, required: [],
+      properties: { ...requestInputSchema.properties, ...sparamsInputSchema.properties },
+      oneOf: [{ required: ['netlist'], not: { required: ['request'] } },
+        { required: ['request'], not: { required: ['netlist'] } }] },
     outputSchema: { type: 'object', oneOf: [sparamsOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
   {
@@ -286,8 +289,11 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_sensitivity',
-    description: 'Run native DC or AC sensitivity for v(node), v(a,b) or i(vsrc). Return absolute derivatives and value*dOut/dParam, ranked by descending normalised magnitude, with optional top per frequency for AC. AC requires a dec/oct/lin sweep and returns complex derivatives. Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected.',
-    inputSchema: sensitivityInputSchema,
+    description: 'Run native DC or AC sensitivity for v(node), v(a,b) or i(vsrc). Return absolute derivatives and value*dOut/dParam, ranked by descending normalised magnitude, with optional top per frequency for AC. AC requires a dec/oct/lin sweep and returns complex derivatives. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). Replaces deck analyses; steps, control blocks and pole-zero analyses are rejected.',
+    inputSchema: { ...requestInputSchema, required: ['output'],
+      properties: { ...requestInputSchema.properties, ...sensitivityInputSchema.properties },
+      oneOf: [{ required: ['netlist'] }, { required: ['request'] }],
+      allOf: [{ oneOf: sensitivityInputSchema.oneOf }] },
     outputSchema: { type: 'object', oneOf: [sensitivityOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
   {
@@ -355,7 +361,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_corners',
-    description: 'Run SPICE text across up to 64 uniquely named deterministic corners with optional top-level .param overrides and/or temp in Celsius. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
+    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Optional top-level .param overrides and/or temp in Celsius require SPICE text; JSON overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'corners', 'measurement'],
       properties: { ...requestInputSchema.properties, ...cornersProperties },
@@ -413,8 +419,17 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_disto_metrics',
-    description: 'Run exactly one unstepped .disto from SPICE text for output v(node). Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
-    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+\\)$' } } },
+    description: 'Run exactly one unstepped .disto from SPICE text for output v(node). JSON requests (spice-ts and circuit-json) return UNSUPPORTED_FEATURE naming missing DISTOF1/DISTOF2 source fields; their adapters cannot represent these excitations. Use SPICE text, not AC amplitude inference. Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
+    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+\\)$' } },
+      // Tool-local recognition for actionable errors, not a protocol-wide analysis extension.
+      $defs: { ...commonSchemaV1.$defs, analysis: { anyOf: [
+        commonSchemaV1.$defs.analysis,
+        { type: 'object', required: ['type', 'variation', 'points', 'startFreq', 'stopFreq'], additionalProperties: false,
+          properties: { type: { const: 'disto' }, variation: { const: 'dec' }, points: { type: 'integer', minimum: 1 },
+            startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 },
+            f2OverF1: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 1 } } },
+      ] } },
+    },
     outputSchema: { type: 'object', oneOf: [distoMetricsOutputSchema, toolFailureOutputSchema, distoUnsupportedSchema], $defs: commonSchemaV1.$defs },
   },
   {
@@ -564,18 +579,34 @@ async function executeToolWithStore(
   try {
     if (name === 'spice_capabilities') return success(streamStore.capabilities());
     if (name === 'spice_sparams') {
-      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
-      const selectors = sparamsArgs(args);
-      enforceMaximum('maxAnalyses', limits.maxAnalyses, 1, 'validation');
+      if (!isRecord(args) || (('netlist' in args) === ('request' in args))) {
+        throw apiError('INVALID_REQUEST', 'Expected exactly one of netlist or request', 'validation', {});
+      }
+      const { request: rawRequest, ...rawSelectors } = args;
+      const selectors = sparamsArgs('netlist' in args ? rawSelectors : { ...rawSelectors, netlist: 'pending' });
+      const original = toolRequest('netlist' in args ? {
+        request: { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } },
+      } : { request: rawRequest });
+      validateSparamsPorts(original);
+      if (!validateSparamsRequest(original).valid) {
+        throw apiError('INVALID_REQUEST', 'Invalid S-parameter request', 'validation', {});
+      }
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      throwIfCancelled(options.signal);
+      const converted = convertRequest(prepareSparamsRequest(original));
+      const request = mapSparamsPorts(original, converted.request);
+      const { diagnostics } = converted;
+      await boundedRequestPlan(request, effective);
+      enforceMaximum('maxAnalyses', effective.maxAnalyses, 1, 'validation');
       const release = streamStore.acquireOneShotSlot();
       try {
-        const request: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } };
-        const raw = await runInWorker<SParameterResult[]>('sparams', boundedRequest(request, limits), limits.maxWallTimeMs,
+        const raw = await runInWorker<SParameterResult[]>('sparams', boundedRequest(request, effective), effective.maxWallTimeMs,
           options, undefined, undefined, undefined, selectors);
-        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.reduce((n, r) => n + r.frequencies.length * r.ports.length ** 2, 0), 'transport');
+        enforceMaximum('maxResultPoints', effective.maxResultPoints, raw.reduce((n, r) => n + r.frequencies.length * r.ports.length ** 2, 0), 'transport');
         const result = sparamsReport(raw, selectors);
-        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
-        return success(result);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        return success(result, diagnostics);
       } finally { release(); }
     }
     if (name === 'spice_impedance') {
@@ -634,20 +665,32 @@ async function executeToolWithStore(
       } finally { release(); }
     }
     if (name === 'spice_sensitivity') {
-      const selectors = sensitivityArgs(args);
       enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
-      enforceMaximum('maxAnalyses', limits.maxAnalyses, 1, 'validation');
+      if (!isRecord(args) || ('netlist' in args) === ('request' in args)) {
+        throw apiError('INVALID_REQUEST', 'Expected exactly one of netlist or request', 'validation', {});
+      }
+      const { request: rawRequest, ...selectorArgs } = args;
+      const selectors = sensitivityArgs('netlist' in args ? selectorArgs : { ...selectorArgs, netlist: 'protocol request' });
+      const original = toolRequest('netlist' in args ? {
+        request: { apiVersion: '1', input: { format: 'spice', source: selectors.netlist } },
+      } : { request: rawRequest });
+      if (!validateMetricsRequest(original).valid) {
+        throw apiError('INVALID_REQUEST', 'Invalid sensitivity request', 'validation', {});
+      }
+      const effective = effectiveLimits(original, limits);
+      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      throwIfCancelled(options.signal);
+      const { request, diagnostics } = convertRequest(original);
+      enforceMaximum('maxAnalyses', effective.maxAnalyses, 1, 'validation');
       const release = streamStore.acquireOneShotSlot();
       try {
-        const raw = await runInWorker<SensitivityResult>('sensitivity', {
-          apiVersion: '1', input: { format: 'spice', source: selectors.netlist },
-        }, limits.maxWallTimeMs, options, selectors.sweep
+        const raw = await runInWorker<SensitivityResult>('sensitivity', boundedRequest(request, effective), effective.maxWallTimeMs, options, selectors.sweep
           ? `${selectors.output} ac ${selectors.sweep.type} ${selectors.sweep.points} ${selectors.sweep.fstart} ${selectors.sweep.fstop}`
           : selectors.output);
-        enforceMaximum('maxResultPoints', limits.maxResultPoints, raw.entries.length * Math.max(1, raw.frequencies?.length ?? 0), 'transport');
+        enforceMaximum('maxResultPoints', effective.maxResultPoints, raw.entries.length * Math.max(1, raw.frequencies?.length ?? 0), 'transport');
         const result = sensitivityReport(raw, selectors);
-        enforceMaximum('maxSerializedResultBytes', limits.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
-        return success(result);
+        enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(result)), 'transport');
+        return success(result, diagnostics);
       } finally { release(); }
     }
     if (name === 'spice_power_metrics') {
@@ -712,7 +755,12 @@ async function executeToolWithStore(
       const effective = effectiveLimits(original, limits);
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
       const deadline = Date.now() + effective.maxWallTimeMs;
-      const result = await runCorners(args, original, (request, measurements) => executeToolWithStore(
+      if (original.input.format !== 'spice' && !validateMetricsRequest(original).valid) {
+        throw apiError('INVALID_REQUEST', 'Invalid corners request', 'validation', {});
+      }
+      throwIfCancelled(options.signal);
+      const { request } = convertRequest(original);
+      const result = await runCorners(args, request, (request, measurements) => executeToolWithStore(
         'spice_measure', { request, measurements },
         { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
       ), result => {
@@ -795,9 +843,9 @@ async function executeToolWithStore(
     if (name === 'spice_measure') enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(measurements)), 'validation');
     const dcInput = name === 'spice_dc_metrics' ? dcMetricsInput(args) : undefined;
     let original = toolRequest(args);
-    if (distoSelector && original.input.format !== 'spice') unsupportedDisto();
     const effective = effectiveLimits(original, limits);
     enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
+    if (distoSelector) validateDistoJsonInput(original.input);
     if (name === 'spice_pz_metrics' && original.input.format !== 'spice' && !validatePoleZeroInput(original.input).valid) {
       throw apiError('INVALID_REQUEST', 'Invalid pole-zero JSON input', 'validation', {});
     }
@@ -1442,6 +1490,9 @@ const validatePoleZeroInput = new AjvJsonSchemaValidator().getValidator({
 const validateMetricsRequest = new AjvJsonSchemaValidator().getValidator({
   ...commonSchemaV1.$defs.simulationRequest, $defs: commonSchemaV1.$defs,
 });
+const validateSparamsRequest = new AjvJsonSchemaValidator().getValidator({
+  ...commonSchemaV1.$defs.simulationRequest, $defs: sparamsRequestDefs,
+});
 
 function toolRequest(args: unknown): SimulationRequestV1 {
   if (!isRecord(args) || !isRecord(args.request)) {
@@ -1828,15 +1879,28 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
     }
     if (operation === 'sparams') {
       const invalid = message => { throw { code: 'INVALID_REQUEST', message, phase: 'validation', retryable: false, details: {} }; };
-      const circuit = core.parseTitleless(request.input.source);
+      const circuit = request.input.format === 'spice'
+        ? core.parseTitleless(request.input.source) : core.circuitFromDocument(request.input.document);
       const compiled = circuit.compile();
+      const componentMaximum = request.options.limits.maxComponents;
+      if (compiled.devices.length > componentMaximum) {
+        throw { code: 'RESOURCE_LIMIT', message: 'S-parameter component limit exceeded', phase: 'validation', retryable: false,
+          details: { limit: 'maxComponents', maximum: componentMaximum, actual: compiled.devices.length } };
+      }
       if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript
-        || /(^|\n)\s*\.control\b/i.test(request.input.source)
+        || (request.input.format === 'spice' && /(^|\n)\s*\.control\b/i.test(request.input.source))
         || circuit.analyses.length !== 1 || circuit.analyses[0].type !== 'sp') {
         invalid('S-parameters require exactly one .sp analysis without steps, control blocks or conflicting analyses');
       }
       const analysis = circuit.analyses[0];
       const ports = compiled.devices.filter(d => d.port !== undefined);
+      if (request.input.format === 'spice-ts') {
+        const numbers = ports.map(d => d.port.number).sort((a, b) => a - b);
+        if (numbers.length < 2 || numbers.some((number, index) => number !== index + 1)) {
+          throw { code: 'INVALID_REQUEST', message: 'S-parameters require at least two contiguous RF ports starting at 1',
+            phase: 'validation', retryable: false, details: { path: '/input/document/circuit/components' } };
+        }
+      }
       if (sparamsSelector.portPair && sparamsSelector.portPair.some(p => p > ports.length)) invalid('Port index exceeds the number of RF ports');
       const frequencies = sparamsSelector.frequenciesHz;
       const count = frequencies ? frequencies.length
@@ -1882,15 +1946,22 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
       return;
     }
     if (operation === 'sensitivity') {
-      const circuit = core.parseTitleless(request.input.source);
+      const circuit = request.input.format === 'spice'
+        ? core.parseTitleless(request.input.source) : core.circuitFromDocument(request.input.document);
       const compiled = circuit.compile();
       if (compiled.steps.length || compiled.poleZeroAnalyses.length || circuit.controlScript
-        || /(^|\n)\s*\.control\b/i.test(request.input.source)) {
+        || (request.input.format === 'spice' && /(^|\n)\s*\.control\b/i.test(request.input.source))) {
         throw new core.InvalidCircuitError('Sensitivity requires an unstepped deck without control blocks or .pz');
       }
       const analysis = core.parseTitleless('.sens ' + sensitivityOutput).analyses[0];
       circuit.analyses.splice(0, circuit.analyses.length, analysis);
-      const result = (await core.simulate(circuit)).sensitivity;
+      // Preflight component/expansion limits without executing discarded deck analyses.
+      // Native protocol documents support OP preflight, not the dedicated sensitivity envelope.
+      const preflightInput = request.input.format === 'spice'
+        ? { format: 'spice', source: circuit.toNetlist() }
+        : { ...request.input, document: { ...request.input.document, analyses: [{ type: 'op' }] } };
+      await core.validateProtocolV1({ ...request, input: preflightInput });
+      const result = (await core.simulate(circuit, request.options)).sensitivity;
       parentPort.postMessage({ type: 'result', result });
       return;
     }

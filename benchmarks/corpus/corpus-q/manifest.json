@@ -1,0 +1,321 @@
+{
+  "schemaVersion": 1,
+  "issue": "https://github.com/spicets/spice-ts/issues/1763",
+  "sources": [
+    {
+      "key": "xyce",
+      "repository": "https://github.com/Xyce/Xyce_Regression",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "license": "GPL-3.0-or-later",
+      "licensePath": "benchmarks/corpus/corpus-q/licenses/xyce/README.md",
+      "licenseSha256": "82ff6df7bddcdf639483d261949a02a5f43da85d579f1242b05c3aa0c430f7cb",
+      "licenseUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/README.md",
+      "licenseTextPath": "benchmarks/corpus/corpus-q/licenses/xyce/COPYING",
+      "licenseTextSha256": "12ac5047f2af0522f06798b1589ffc4599bc29c91f954d7874e0320634e777c0"
+    }
+  ],
+  "selection": "Fixed explicit list of six standalone AC measurement decks (AVG, DERIV, equation, INTEG, MAX/MIN/PP, RMS), their six DC counterparts, and three standalone transient source regression decks. Chosen by analysis/family and absence from earlier committed manifests, before either engine ran. No success filtering, adaptations, dependencies or vendor libraries. Xyce dialect failures and deliberately failing measurements are retained.",
+  "mechanicalAdaptation": "none",
+  "circuits": [
+    {
+      "id": "q-1",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_AC/AvgTestAC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/AvgTestAC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_AC/AvgTestAC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_AC/AvgTestAC.cir",
+      "sha256": "6eab138dd81445cba1e388f255017479f804d97895140717d5a062384cb4e11c",
+      "upstreamSha256": "6eab138dd81445cba1e388f255017479f804d97895140717d5a062384cb4e11c",
+      "bytes": 1301,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-2",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_AC/DerivTestAC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/DerivTestAC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_AC/DerivTestAC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_AC/DerivTestAC.cir",
+      "sha256": "12a8802c4043840ae8ea60ed7f276060e374c1d736b9255c2bd1eef4d6500e2b",
+      "upstreamSha256": "12a8802c4043840ae8ea60ed7f276060e374c1d736b9255c2bd1eef4d6500e2b",
+      "bytes": 2776,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-3",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_AC/EquationEvalTestAC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/EquationEvalTestAC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_AC/EquationEvalTestAC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_AC/EquationEvalTestAC.cir",
+      "sha256": "6b3b30b8c7585e05b56a69450888942fc6110ae8691fe86404c5953fadbc27df",
+      "upstreamSha256": "6b3b30b8c7585e05b56a69450888942fc6110ae8691fe86404c5953fadbc27df",
+      "bytes": 1345,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-4",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_AC/IntegTestAC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/IntegTestAC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_AC/IntegTestAC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_AC/IntegTestAC.cir",
+      "sha256": "f3caeaae432fb9b33b003ebbd1f273401f16d570c28ec2ce935de1e11c920749",
+      "upstreamSha256": "f3caeaae432fb9b33b003ebbd1f273401f16d570c28ec2ce935de1e11c920749",
+      "bytes": 1235,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-5",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_AC/MaxMinPPTestAC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/MaxMinPPTestAC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_AC/MaxMinPPTestAC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_AC/MaxMinPPTestAC.cir",
+      "sha256": "63cf3fea8167ff659ded50c18e5db54aac1b1153bd113dce918638ff048c91cb",
+      "upstreamSha256": "63cf3fea8167ff659ded50c18e5db54aac1b1153bd113dce918638ff048c91cb",
+      "bytes": 2235,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-6",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_AC/RMSTestAC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/RMSTestAC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_AC/RMSTestAC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_AC/RMSTestAC.cir",
+      "sha256": "2ab76bc262ebb9e7415dea5fc8344c3438d96d91eb02e442adf5891da75145b8",
+      "upstreamSha256": "2ab76bc262ebb9e7415dea5fc8344c3438d96d91eb02e442adf5891da75145b8",
+      "bytes": 1199,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-7",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_DC/AvgTest1DC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/AvgTest1DC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_DC/AvgTest1DC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_DC/AvgTest1DC.cir",
+      "sha256": "71764698898c2c14ceffd96f9c6b05a5527606e7c9713d716b41d53a40080cd4",
+      "upstreamSha256": "71764698898c2c14ceffd96f9c6b05a5527606e7c9713d716b41d53a40080cd4",
+      "bytes": 1264,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-8",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_DC/DerivTest1DC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/DerivTest1DC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_DC/DerivTest1DC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_DC/DerivTest1DC.cir",
+      "sha256": "1e9c93463103c3a38f1a4419980caa495d7ebe77912a6e520e9538dc2cd438ee",
+      "upstreamSha256": "1e9c93463103c3a38f1a4419980caa495d7ebe77912a6e520e9538dc2cd438ee",
+      "bytes": 2766,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-9",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_DC/EquationEvalTestDC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/EquationEvalTestDC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_DC/EquationEvalTestDC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_DC/EquationEvalTestDC.cir",
+      "sha256": "843357f49b30533406ca3b3290849792f17d7a91779847b90daae96b8eaec8cc",
+      "upstreamSha256": "843357f49b30533406ca3b3290849792f17d7a91779847b90daae96b8eaec8cc",
+      "bytes": 1156,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-10",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_DC/IntegTest1DC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/IntegTest1DC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_DC/IntegTest1DC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_DC/IntegTest1DC.cir",
+      "sha256": "51521719061c2b6691bea869c244941383b381aa5ddf90621b57fe49c7f98651",
+      "upstreamSha256": "51521719061c2b6691bea869c244941383b381aa5ddf90621b57fe49c7f98651",
+      "bytes": 1230,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-11",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_DC/MaxMinPPTest1DC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/MaxMinPPTest1DC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_DC/MaxMinPPTest1DC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_DC/MaxMinPPTest1DC.cir",
+      "sha256": "e4230e89a088309a2ae38d5e63e4af75e74ac4e96e3dd2bb629765568cd4da48",
+      "upstreamSha256": "e4230e89a088309a2ae38d5e63e4af75e74ac4e96e3dd2bb629765568cd4da48",
+      "bytes": 2260,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-12",
+      "source": "xyce",
+      "upstreamPath": "Netlists/MEASURE_DC/RMSTest1DC.cir",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/RMSTest1DC.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/MEASURE_DC/RMSTest1DC.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/MEASURE_DC/RMSTest1DC.cir",
+      "sha256": "1ba2a2a745cba7f64895acc4ed45c992b4f458862e2ce7b7e5b4984cc57e73ec",
+      "upstreamSha256": "1ba2a2a745cba7f64895acc4ed45c992b4f458862e2ce7b7e5b4984cc57e73ec",
+      "bytes": 1192,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-13",
+      "source": "xyce",
+      "upstreamPath": "Netlists/SOURCES/sources.cir",
+      "sourcePath": "xyce/Netlists/SOURCES/sources.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/SOURCES/sources.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/SOURCES/sources.cir",
+      "sha256": "f824d17f25b569ff3118452450b3591fee277b5bc17d8a51024d90381c217b4a",
+      "upstreamSha256": "f824d17f25b569ff3118452450b3591fee277b5bc17d8a51024d90381c217b4a",
+      "bytes": 1034,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-14",
+      "source": "xyce",
+      "upstreamPath": "Netlists/VSIN/bug510.cir",
+      "sourcePath": "xyce/Netlists/VSIN/bug510.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/VSIN/bug510.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/VSIN/bug510.cir",
+      "sha256": "9aa771304dfda15f4c925d1a8e92dad7e4c4b482ff6a09f8bbc83cae72955576",
+      "upstreamSha256": "9aa771304dfda15f4c925d1a8e92dad7e4c4b482ff6a09f8bbc83cae72955576",
+      "bytes": 563,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    },
+    {
+      "id": "q-15",
+      "source": "xyce",
+      "upstreamPath": "Netlists/VSIN/vsin.cir",
+      "sourcePath": "xyce/Netlists/VSIN/vsin.cir",
+      "sourceUrl": "https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/Netlists/VSIN/vsin.cir",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "licence": "GPL-3.0-or-later",
+      "localPath": "benchmarks/corpus/corpus-q/fixtures/xyce/Netlists/VSIN/vsin.cir",
+      "sha256": "72bfd2057ffb6360d259dd46855319d2363d3f742cd40de2b33aac4cdd1f5105",
+      "upstreamSha256": "72bfd2057ffb6360d259dd46855319d2363d3f742cd40de2b33aac4cdd1f5105",
+      "bytes": 1210,
+      "adaptation": "none",
+      "includeClosure": [],
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": []
+    }
+  ]
+}

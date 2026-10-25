@@ -1,0 +1,18 @@
+*
+* Bug 510 SON:  Test "offset" feature of xyce_verify.pl
+* This test is IDENTICAL to the "bug1679.cir" test in this directory,
+* but instead of doing the offset by .1V on the print line and
+* in the gold standard, we use the *COMP offset=.1 line
+*  
+* This makes sure that the phase value is handled correctly for the DCOP
+* part of the calculation.  DCOPValue = V0 + VA * sin (2.0*mpi*(PHASE/360));
+*
+
+.tran 1ns 1ms
+*COMP V(VINP) offset=.1
+.print tran  v(vinp) 
+
+VVINP    VINP        0   DC 0 SIN ( 1.65 1.65 10000 0 0 -90 )
+RVINP    VINP        0   1e+8
+.end
+

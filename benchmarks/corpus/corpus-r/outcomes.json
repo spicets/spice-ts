@@ -1,0 +1,1254 @@
+{
+  "schemaVersion": "spice-ts-corpus-r-outcomes/v1",
+  "sources": [
+    {
+      "key": "xyce",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "license": "GPL-3.0-or-later"
+    }
+  ],
+  "manifestSha256": "38c278c822177e4d3e1d16f9e447c6b7d19364acb46d4345beed3c1999d0051c",
+  "tools": {
+    "ngspice": "ngspice-47",
+    "spiceTs": "0.4.0",
+    "node": "v22.23.4"
+  },
+  "environment": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M5 Pro",
+    "perFixtureRuntimeMs": {
+      "r-1": {
+        "ngspice": 81.64212499999849,
+        "spiceTs": 1093.9179579999982
+      },
+      "r-2": {
+        "ngspice": 71.86770800000522,
+        "spiceTs": 1044.8168749999968
+      },
+      "r-3": {
+        "ngspice": 160.47062500000175,
+        "spiceTs": 2485.5023750000037
+      },
+      "r-4": {
+        "ngspice": 150.3434169999964,
+        "spiceTs": 3289.5705000000016
+      },
+      "r-5": {
+        "ngspice": 84.39829199999804,
+        "spiceTs": 2317.815042000002
+      },
+      "r-6": {
+        "ngspice": 95.3714159999945,
+        "spiceTs": 2710.5376670000114
+      },
+      "r-7": {
+        "ngspice": 733.3276250000054,
+        "spiceTs": 2697.904542000004
+      },
+      "r-8": {
+        "ngspice": 1320.752084000007,
+        "spiceTs": 4603.684708000001
+      },
+      "r-9": {
+        "ngspice": 93.11770899999829,
+        "spiceTs": 3423.3895829999965
+      },
+      "r-10": {
+        "ngspice": 85.99633300000278,
+        "spiceTs": 2302.9025420000107
+      },
+      "r-11": {
+        "ngspice": 214.8742920000077,
+        "spiceTs": 2987.240875000003
+      },
+      "r-12": {
+        "ngspice": 468.4769579999993,
+        "spiceTs": 2641.4366670000018
+      },
+      "r-13": {
+        "ngspice": 120.66533300001174,
+        "spiceTs": 3095.5237919999927
+      }
+    }
+  },
+  "commands": {
+    "generate": "pnpm build && spice-heavy pnpm exec tsx benchmarks/corpus/corpus-r/parity.ts",
+    "verify": "spice-heavy pnpm exec tsx benchmarks/corpus/corpus-r/parity.ts --check",
+    "ngspice": "ngspice -b -r <raw> <identical-fixture> (HOME=<tmp> with .spiceinit \"set filetype=ascii\")",
+    "spiceTs": "@spice-ts/core simulate(<identical-fixture>) in a bounded child process (no parse() pre-check)"
+  },
+  "policy": {
+    "input": "byte-identical fixture for both engines",
+    "fixtureAdaptation": "none",
+    "perCircuitToleranceTuning": false,
+    "matchThreshold": 0.01,
+    "matchRule": "matched = both engines succeed, every spice-ts analysis has an ngspice counterpart, and for every common signal max|spice-ts - ngspice| <= 0.01 x max(peak |ngspice signal|, floor), with the corpus-f floor: 0.0001 V for node voltages, 1e-10 A for branch currents, 1e-12 otherwise. Errors are taken at spice-ts points with ngspice interpolated (transient breakpoint alignment as in the aggregate report).",
+    "fineReference": "Fine-step reference (#592): ngspice-47 runs the same deck with every active .tran card rewritten to TMAX_fine = min(TSTEP, (TSTOP - TSTART)/50, deck TMAX if given) / 10, i.e. the ngspice default step ceiling divided by 10; TSTEP, TSTOP, TSTART, UIC and every other card are unchanged. The rule is the same for every transient fixture. No reference is generated when the deck has no parsable .tran card outside .control, or when TSTOP/TMAX_fine exceeds 1000000 steps; the ngspice run is bounded at 600 s. Each default run (spice-ts, ngspice) is scored by the same procedure: at the reference's output points, with the default run linearly interpolated onto them, over the transient signals of the headline comparison, normalised by the reference peak with the same per-quantity floors. The headline's one-sided breakpoint alignment applies at every default-run time point within ngspice's breakpoint merge distance (CKTminBreak = 0.00005 x TMAX_fine) of a reference time point; the headline matches breakpoints bit for bit, which here would favour ngspice, whose default run lands on its own reference's breakpoint times exactly while spice-ts's land a few ulps away. This charges each engine for its own published waveform, so a coarse output grid counts against whichever engine produced it. Status (matched/mismatch) is defined by the headline column only. One fine reference is not a convergence proof, and neither column is an accuracy ranking of the engines.",
+    "deterministicHashExcludes": [
+      "environment",
+      "tools.node",
+      "ngspice.analyses",
+      "spiceTs.analyses"
+    ]
+  },
+  "totals": {
+    "fixtures": 13,
+    "ngspice": {
+      "success": 3,
+      "failed": 1,
+      "unsupported": 9
+    },
+    "spiceTs": {
+      "success": 4,
+      "failed": 2,
+      "unsupported": 7
+    },
+    "outcomes": {
+      "matched": 1,
+      "mismatch": 2,
+      "not-compared": 0,
+      "spice-ts-loss": 0,
+      "ngspice-failed": 1,
+      "both-failed": 9
+    },
+    "bySource": {
+      "xyce": {
+        "matched": 1,
+        "mismatch": 2,
+        "not-compared": 0,
+        "spice-ts-loss": 0,
+        "ngspice-failed": 1,
+        "both-failed": 9
+      }
+    }
+  },
+  "gapBuckets": [
+    {
+      "bucket": "device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP)",
+      "fixtures": 2,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "r-1",
+        "r-2"
+      ],
+      "issue": null
+    },
+    {
+      "bucket": "execution: other failure",
+      "fixtures": 2,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "r-5",
+        "r-11"
+      ],
+      "issue": null
+    },
+    {
+      "bucket": "expression: bare parameter names as values (X-card R=R1, M = 10)",
+      "fixtures": 2,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "r-4",
+        "r-10"
+      ],
+      "issue": null
+    },
+    {
+      "bucket": "parse: other unsupported syntax",
+      "fixtures": 2,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "r-3",
+        "r-9"
+      ],
+      "issue": null
+    },
+    {
+      "bucket": "output: expressions and output variables in .print lines",
+      "fixtures": 1,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "r-13"
+      ],
+      "issue": null
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "r-1",
+      "sourcePath": "xyce/Netlists/BJT_EXTNODE/npn_rb_rc_re_3.cir",
+      "sha256": "3b66d2324ffe2d10f23b13c933da8005e78a35242d45105c665be827b73ea940",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 14 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 14: Unsupported BJT Q-card form: 'Q 2 1 0 0 cprime bprime eprime QN2222' Q 2 1 0 0 cprime bprime eprime QN2222"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP)",
+      "comparisons": []
+    },
+    {
+      "id": "r-2",
+      "sourcePath": "xyce/Netlists/BJT_EXTNODE/npn_rc_re_3.cir",
+      "sha256": "353fdff6a19b2b432460ab99d0ace357636e66b8917974cef69fab473ef56a03",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 14 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 14: Unsupported BJT Q-card form: 'Q 2 1 0 0 cprime eprime bfs17a' Q 2 1 0 0 cprime eprime bfs17a"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "device: Q/D instance forms (AREA=/M= keywords, thermal nodes, VBIC PNP)",
+      "comparisons": []
+    },
+    {
+      "id": "r-3",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_647_SON/bjt.cir",
+      "sha256": "8864d3f0ab48a6fb301f707998c00a706b713c355b2d1bb59d4f4f3cbad79ed0",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 13 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 9: Unsupported BJT instance parameter: 'TEMP=30' in 'Q1 1 1 0 Qmod TEMP=30' Q1 1 1 0 Qmod TEMP=30"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "parse: other unsupported syntax",
+      "comparisons": []
+    },
+    {
+      "id": "r-4",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_647_SON/bjt_ambient.cir",
+      "sha256": "6e4c6a92d2ecd6732a8d23f8ce2725736bbeddf61064ec9b06782848738cf5b1",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 13 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 13: Cannot parse number: 'TEMP' .step lin TEMP 30 35 1"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: bare parameter names as values (X-card R=R1, M = 10)",
+      "comparisons": []
+    },
+    {
+      "id": "r-5",
+      "sourcePath": "xyce/Netlists/DIODE/diode_with_sidewall_temp.cir",
+      "sha256": "fc7398f74d7726637ec379138a8893d8ca05b764c7fdac947934a81db414f907",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 7 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "failed",
+        "analyses": [],
+        "firstErrorLine": ".step TEMP supports LIST mode only"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "execution: other failure",
+      "comparisons": []
+    },
+    {
+      "id": "r-6",
+      "sourcePath": "xyce/Netlists/NOISE/unsupported_analysis_mode.cir",
+      "sha256": "646915368df7cd2307ebc33b859de29b822c7842bc61286a73b2b690f42cdbc4",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "failed",
+        "analyses": [],
+        "firstErrorLine": "Error on line 12 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "tran:59"
+        ]
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "ngspice-failed",
+      "gapBucket": null,
+      "comparisons": []
+    },
+    {
+      "id": "r-7",
+      "sourcePath": "xyce/Netlists/NOISE/unsupported_device_source.cir",
+      "sha256": "484be57f1f991c281e4cecb61461822dc09ae79f191be5da0cb96de8c671e677",
+      "analyses": [
+        "noise"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "noise:21",
+          "noise:1"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "noise:21",
+          "noise:1"
+        ]
+      },
+      "comparedAnalyses": 2,
+      "comparedSignals": 4,
+      "worstNormalizedError": 1.06e-7,
+      "worstSignal": "noise onoise_spectrum",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Noise Spectral Density Curves",
+            "ngspice": "Noise Spectral Density Curves",
+            "ngspiceIndex": 0
+          },
+          "signals": [
+            "inoise_spectrum",
+            "onoise_spectrum"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 21,
+              "ngspicePoints": 21,
+              "alignedPoints": 21,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.942767226437573e-16,
+                  "rms": 5.493862315946112e-16
+                },
+                "relativeError": {
+                  "max": 1.0722585486794605e-7,
+                  "rms": 9.246396960093357e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.935629297658163e-14,
+                  "rms": 4.9980912000893033e-14
+                },
+                "relativeError": {
+                  "max": 1.072261840120025e-7,
+                  "rms": 9.246389988190494e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 21,
+              "ngspicePoints": 21,
+              "alignedPoints": 21,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "inoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.942767226437573e-16,
+                  "rms": 5.493862315946112e-16
+                },
+                "relativeError": {
+                  "max": 1.0722585486794605e-7,
+                  "rms": 9.246396960093357e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "onoise_spectrum": {
+                "status": "compared",
+                "sampleCount": 21,
+                "absoluteError": {
+                  "max": 5.935629297658163e-14,
+                  "rms": 4.9980912000893033e-14
+                },
+                "relativeError": {
+                  "max": 1.072261840120025e-7,
+                  "rms": 9.246389988190494e-8,
+                  "sampleCount": 21,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "analysis": "noise",
+          "plot": {
+            "spiceTs": "Integrated Noise",
+            "ngspice": "Integrated Noise",
+            "ngspiceIndex": 1
+          },
+          "signals": [
+            "v(inoise_total)",
+            "v(onoise_total)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8400131949775772e-13,
+                  "rms": 1.8400131949775772e-13
+                },
+                "relativeError": {
+                  "max": 1.0368825272204005e-7,
+                  "rms": 1.0368825272204005e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8160371671087708e-11,
+                  "rms": 1.8160371671087708e-11
+                },
+                "relativeError": {
+                  "max": 1.048749903706903e-7,
+                  "rms": 1.048749903706903e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1,
+              "ngspicePoints": 1,
+              "alignedPoints": 1,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "v(inoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8400131949775772e-13,
+                  "rms": 1.8400131949775772e-13
+                },
+                "relativeError": {
+                  "max": 1.0368825272204005e-7,
+                  "rms": 1.0368825272204005e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(onoise_total)": {
+                "status": "compared",
+                "sampleCount": 1,
+                "absoluteError": {
+                  "max": 1.8160371671087708e-11,
+                  "rms": 1.8160371671087708e-11
+                },
+                "relativeError": {
+                  "max": 1.048749903706903e-7,
+                  "rms": 1.048749903706903e-7,
+                  "sampleCount": 1,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "r-8",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_983_SON/jfet.cir",
+      "sha256": "30c750a61966530dda12862343a0a2315c674b9569be0004537caff01a54428a",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "tran:10171"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "tran:10082"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 9,
+      "worstNormalizedError": 0.356,
+      "worstSignal": "tran i(vds1)",
+      "outcome": "mismatch",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "tran",
+          "signals": [
+            "i(vds1)",
+            "i(vds2)",
+            "i(vgs)",
+            "i(vin)",
+            "v(1)",
+            "v(2)",
+            "v(3)",
+            "v(4)",
+            "v(5)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 10082,
+              "ngspicePoints": 10171,
+              "alignedPoints": 10082,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vds1)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 41.389752579325034,
+                  "rms": 1.2651064606362097
+                },
+                "relativeError": {
+                  "max": 1.0919807802327581,
+                  "rms": 0.03673542552119049,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vds2)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vgs)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 41.38975259473659,
+                  "rms": 1.265106458653117
+                },
+                "relativeError": {
+                  "max": 1.104370668830775,
+                  "rms": 0.03653700709654373,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vin)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 1.2086485423612459e-9,
+                  "rms": 3.8919645516202073e-10
+                },
+                "relativeError": {
+                  "max": 1.0108749099923079e-7,
+                  "rms": 1.9633783777864073e-9,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 8.470329472543003e-13,
+                  "rms": 1.4030130716263682e-14
+                },
+                "relativeError": {
+                  "max": 1,
+                  "rms": 0.01405387337722316,
+                  "sampleCount": 5063,
+                  "excludedZeroReferences": 5019
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 5.084821452783217e-13,
+                  "rms": 8.76693729472075e-15
+                },
+                "relativeError": {
+                  "max": 1,
+                  "rms": 0.01049785603183589,
+                  "sampleCount": 9074,
+                  "excludedZeroReferences": 1008
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 0.00039442519085119976,
+                  "rms": 0.000015884922014095016
+                },
+                "relativeError": {
+                  "max": 0.0004091523659180366,
+                  "rms": 0.00001637847324537308,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 10082,
+              "ngspicePoints": 10171,
+              "alignedPoints": 10082,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vds1)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 41.389752579325034,
+                  "rms": 1.2686214892583612
+                },
+                "relativeError": {
+                  "max": 1.0919807802327581,
+                  "rms": 0.03811461077567814,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vds2)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vgs)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 41.38975259473659,
+                  "rms": 1.2686214873663264
+                },
+                "relativeError": {
+                  "max": 1.104370668830775,
+                  "rms": 0.03796761237392764,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vin)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 1.2086485423612459e-9,
+                  "rms": 3.8919645517986767e-10
+                },
+                "relativeError": {
+                  "max": 1.0108749099923079e-7,
+                  "rms": 1.9633783778663006e-9,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(2)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 8.470329472543003e-13,
+                  "rms": 1.4030130716263682e-14
+                },
+                "relativeError": {
+                  "max": 1,
+                  "rms": 0.01405387337722316,
+                  "sampleCount": 5063,
+                  "excludedZeroReferences": 5019
+                }
+              },
+              "v(3)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 5.084821452783217e-13,
+                  "rms": 1.0122229663053885e-14
+                },
+                "relativeError": {
+                  "max": 1,
+                  "rms": 0.01049785603183589,
+                  "sampleCount": 9074,
+                  "excludedZeroReferences": 1008
+                }
+              },
+              "v(4)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(5)": {
+                "status": "compared",
+                "sampleCount": 10082,
+                "absoluteError": {
+                  "max": 0.00039442519085119976,
+                  "rms": 0.000015891536411618822
+                },
+                "relativeError": {
+                  "max": 0.0004091523659180366,
+                  "rms": 0.000016381151991529132,
+                  "sampleCount": 10082,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "1e-10"
+        ],
+        "headline": {
+          "worst": 0.356,
+          "signal": "i(vds1)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.254,
+          "signal": "i(vgs)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.264,
+          "signal": "i(vgs)"
+        }
+      }
+    },
+    {
+      "id": "r-9",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_647_SON/mos1.cir",
+      "sha256": "b648314bff405f9df771ffd3eadb1e0302dc0baf0e8d3fcd5673ce39b06f7746",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 9 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 9: Cannot parse number: 'M1:TEMP' .step lin M1:TEMP 25 27 1"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "parse: other unsupported syntax",
+      "comparisons": []
+    },
+    {
+      "id": "r-10",
+      "sourcePath": "xyce/Netlists/Certification_Tests/BUG_647_SON/mos1_modpar.cir",
+      "sha256": "b1a21088d68301a71f44d96a2548de39008c30f07c3e2edcddfd32216ab8839d",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 9 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 9: Cannot parse number: 'TEMP' .step lin TEMP 25 27 1"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: bare parameter names as values (X-card R=R1, M = 10)",
+      "comparisons": []
+    },
+    {
+      "id": "r-11",
+      "sourcePath": "xyce/Netlists/Certification_Tests/ISSUE_239/mos1_test1.cir",
+      "sha256": "d07de4b3259eacaeb7853701e3dcdb9f4a5940a1d72f68053ad41bbeec9b82e4",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 22 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "failed",
+        "analyses": [],
+        "firstErrorLine": "Step parameter device 'mp1:l' not found"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "execution: other failure",
+      "comparisons": []
+    },
+    {
+      "id": "r-12",
+      "sourcePath": "xyce/Netlists/Certification_Tests/ISSUE_239/mos1_test2.cir",
+      "sha256": "c0c2c3e556207b17c862ea7d8999f9acf9ee8b10327d57d55825b6089f32b300",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "tran:381"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "tran:380"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 6,
+      "worstNormalizedError": 0.183,
+      "worstSignal": "tran v(vout)",
+      "outcome": "mismatch",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "tran",
+          "signals": [
+            "i(vdddev)",
+            "i(vin1)",
+            "v(1)",
+            "v(in)",
+            "v(vdd)",
+            "v(vout)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 380,
+              "ngspicePoints": 381,
+              "alignedPoints": 380,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vdddev)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0.00024104157186121276,
+                  "rms": 0.00002956806407325952
+                },
+                "relativeError": {
+                  "max": 4.635879172018221,
+                  "rms": 0.36347934338245436,
+                  "sampleCount": 380,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vin1)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0.00015592519817844144,
+                  "rms": 0.000019626537685339007
+                },
+                "relativeError": {
+                  "max": 50.18377115080552,
+                  "rms": 11.58302642318767,
+                  "sampleCount": 297,
+                  "excludedZeroReferences": 83
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 7.610856389561604e-13,
+                  "rms": 9.094833075257993e-14
+                },
+                "relativeError": {
+                  "max": 3.598809303598528e-12,
+                  "rms": 2.6487415802849465e-13,
+                  "sampleCount": 210,
+                  "excludedZeroReferences": 170
+                }
+              },
+              "v(in)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0.1559251981780183,
+                  "rms": 0.01962653768533914
+                },
+                "relativeError": {
+                  "max": 5.598614230332468,
+                  "rms": 1.8513131049196005,
+                  "sampleCount": 380,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(vdd)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 380,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(vout)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0.8943855490480428,
+                  "rms": 0.08592028071508669
+                },
+                "relativeError": {
+                  "max": 70.66826541495641,
+                  "rms": 13.032549206487406,
+                  "sampleCount": 380,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 380,
+              "ngspicePoints": 381,
+              "alignedPoints": 380,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vdddev)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0.00024104157186121276,
+                  "rms": 0.000029569211448109924
+                },
+                "relativeError": {
+                  "max": 4.635879172018221,
+                  "rms": 0.3634908141268239,
+                  "sampleCount": 380,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "i(vin1)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0.00015592519817844144,
+                  "rms": 0.000019632836033927394
+                },
+                "relativeError": {
+                  "max": 50.18377115080552,
+                  "rms": 11.583027037521209,
+                  "sampleCount": 297,
+                  "excludedZeroReferences": 83
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 7.610856389561604e-13,
+                  "rms": 9.094838223975012e-14
+                },
+                "relativeError": {
+                  "max": 1,
+                  "rms": 0.06884283908215143,
+                  "sampleCount": 211,
+                  "excludedZeroReferences": 169
+                }
+              },
+              "v(in)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0.1559251981780183,
+                  "rms": 0.019632836033927535
+                },
+                "relativeError": {
+                  "max": 5.598614230332468,
+                  "rms": 1.851313113022396,
+                  "sampleCount": 380,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(vdd)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 380,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(vout)": {
+                "status": "compared",
+                "sampleCount": 380,
+                "absoluteError": {
+                  "max": 0.8943855490480428,
+                  "rms": 0.08592281847135183
+                },
+                "relativeError": {
+                  "max": 70.66826541495641,
+                  "rms": 13.032549207448186,
+                  "sampleCount": 380,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "2e-9"
+        ],
+        "headline": {
+          "worst": 0.261,
+          "signal": "v(vout)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.156,
+          "signal": "v(vout)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.325,
+          "signal": "v(vout)"
+        }
+      }
+    },
+    {
+      "id": "r-13",
+      "sourcePath": "xyce/Netlists/Certification_Tests/ISSUE_239/mos1_test3.cir",
+      "sha256": "b929ff7e4758749b11796b6a3f5d9ccf4c23359dc21e573fd86167cdbd4c5edb",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 20, new internal line no. 22:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 23: Unknown function 'v' + outputs={v(vout)+1.0}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "output: expressions and output variables in .print lines",
+      "comparisons": []
+    }
+  ],
+  "outcomeSha256": "a5e25921484529b092a4e947474efefca3d60c8da164376a08583f8cdac1e676",
+  "classCounts": {
+    "unsupported": 7,
+    "failed": 2,
+    "ngspice-failed": 1,
+    "matched": 1,
+    "mismatch": 2
+  },
+  "gapLinks": {
+    "r-8": "https://github.com/spicets/spice-ts/issues/1698",
+    "r-12": "https://github.com/spicets/spice-ts/issues/1780"
+  },
+  "coreTree": "5ff5419c12cca937df06056f0276c51d783b0c8c",
+  "sourceAdaptation": "13 verbatim decks; identical original and committed hashes, no runtime adaptation."
+}
