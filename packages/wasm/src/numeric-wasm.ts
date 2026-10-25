@@ -691,8 +691,8 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     const temperatureRequested = circuit.temperature !== undefined || circuit.nominalTemperature !== undefined;
     compiled = circuit.compile();
     if (temperatureRequested && (analysis === 'tran' || analysis === 'ac')
-      && compiled.devices.some(device => ['Q', 'M', 'J'].includes(deviceType(device.name) ?? ''))) {
-      unsupported('circuit-temperature', 'Transistor circuit temperature is supported only for OP/DC');
+      && compiled.devices.some(device => ['M', 'J'].includes(deviceType(device.name) ?? ''))) {
+      unsupported('circuit-temperature', 'MOSFET/JFET circuit temperature is supported only for OP/DC');
     }
   } catch (error) {
     if (error instanceof NumericBackendError) throw error;
@@ -836,9 +836,10 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV'
         + (temperatureEnabled ? '|EG|XTI|TNOM|TBV1' : '');
       // The core device supplies the charge Jacobian and accepted/rejected-step
-      // history; the nonlinear transient and AC paths solve it through WASM.
+      // history, including temperature-adjusted junction capacitances/potentials;
+      // the nonlinear transient and AC paths solve it through WASM.
       const bjtNames = 'IS|BF|BR|NF|NR|VAF|RB|RC|RE|CJE|VJE|MJE|CJC|VJC|MJC|FC|TF|TR'
-        + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|XTI|EG|XTB' : '');
+        + (temperatureEnabled ? '|XTI|EG|XTB' : '');
       const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS|CGS|CGD|PB|FC'
         + (temperatureEnabled && (analysis === 'op' || analysis === 'dc') ? '|TNOM|EG|XTI|TCV|VTOTC|BEX|BETATCE' : '');
       const resistor = /^(R|RES)$/i.test(model[1]!);
