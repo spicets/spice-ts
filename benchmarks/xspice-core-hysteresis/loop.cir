@@ -1,0 +1,7 @@
+XSPICE core mode=2 full hysteresis loops
+* Original spice-ts regression fixture, MIT. Geometry intentionally non-unit.
+vdrive mmf 0 PWL(0 -2 1m 2 3m -2 5m 2 7m -2)
+a1 mmf 0 c
+.model c core(mode=2 h_array=[-2 2] b_array=[-3 3] area=7 length=11 in_low=-1 in_high=1 hyst=0.3 out_lower_limit=-2 out_upper_limit=3 input_domain=0.1 fraction=true)
+.tran 10u 7m
+.end
