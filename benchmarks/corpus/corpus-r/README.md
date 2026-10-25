@@ -30,6 +30,10 @@ Provenance, licences, upstream/adapted SHA256 and selection are in [SOURCES.md](
 | r-12 | mismatch | success | success | 0.183 | none / none |
 | r-13 | both-failed | unsupported | unsupported | not compared | Error in netlist line no. 20, new internal line no. 22: / Parse error at line 23: Unknown function 'v' + outputs={v(vout)+1.0} |
 
+## Reproducibility limitation
+
+The committed receipt is the first complete measured run, not a claim that stochastic decks replay deterministically. A subsequent unchanged `--check` run changed r-12 from mismatch to matched in the summary pass, then reported `summary/detail outcome drift: r-12`. The verbatim deck contains unseeded `agauss(5,0.5,1)`. Both engines still receive identical bytes; no seed, circuit edit, metric change or success filtering is applied to force agreement. #1780 tracks the mismatch and replay instability. The check failed and the original committed receipt was restored by the existing harness.
+
 ## Measurement and losses
 
 Unchanged corpus-f runner, corpus-h owned-child orchestration, 1% normalized peak threshold and existing signal floors. Full matched-point max/RMS absolute/relative metrics, environment, tool versions and per-fixture timings are in [outcomes.json](outcomes.json). Null is not zero error. Runtime includes child startup, parsing, solving and export on a shared host; no speed comparison is claimed.

@@ -36,6 +36,10 @@ Provenance, licences, upstream/adapted SHA256 and selection are in [SOURCES.md](
 |---|---|---|---|---|---|
 ${r.fixtures.map(f => `| ${f.id} | ${f.outcome} | ${f.ngspice.status} | ${f.spiceTs.status} | ${f.worstNormalizedError ?? 'not compared'} | ${(f.ngspice.firstErrorLine ?? 'none') + ' / ' + (f.spiceTs.firstErrorLine ?? 'none')} |`).join('\n')}
 
+## Reproducibility limitation
+
+The committed receipt is the first complete measured run, not a claim that stochastic decks replay deterministically. A subsequent unchanged \`--check\` run changed r-12 from mismatch to matched in the summary pass, then reported \`summary/detail outcome drift: r-12\`. The verbatim deck contains unseeded \`agauss(5,0.5,1)\`. Both engines still receive identical bytes; no seed, circuit edit, metric change or success filtering is applied to force agreement. #1780 tracks the mismatch and replay instability. The check failed and the original committed receipt was restored by the existing harness.
+
 ## Measurement and losses
 
 Unchanged corpus-f runner, corpus-h owned-child orchestration, 1% normalized peak threshold and existing signal floors. Full matched-point max/RMS absolute/relative metrics, environment, tool versions and per-fixture timings are in [outcomes.json](outcomes.json). Null is not zero error. Runtime includes child startup, parsing, solving and export on a shared host; no speed comparison is claimed.
