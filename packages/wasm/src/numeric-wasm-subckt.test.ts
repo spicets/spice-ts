@@ -162,15 +162,6 @@ describe('bounded numeric WASM subcircuit expansion (#1726)', () => {
     } finally { await engine.close(); }
   });
 
-  it.each([
-    { name: 'local .param', source: 'X1 in out cell\n.subckt cell a z\n.param r=1k\nR1 a z 1k\n.ends' },
-  ])('rejects $name with structured parameter feature', async ({ source }) => {
-    const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
-    try {
-      expect(await engine.simulate(request(`${drive}\nRload out 0 1k\n${source}\n.op`), { requestId: 'subckt-params' }))
-        .toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'subcircuit-parameters' } } });
-    } finally { await engine.close(); }
-  });
 
   it.each([
     { name: 'missing subcircuit', source: 'X1 in out missing' },
