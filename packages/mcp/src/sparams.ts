@@ -1,4 +1,86 @@
 import type { SParameterResult } from '@spice-ts/core';
+import type { JsonObject, SimulationRequestV1 } from '@spice-ts/core/protocol';
+import { commonSchemaV1 } from '@spice-ts/core/protocol';
+
+// Only this tool accepts native SP analyses on circuit-json inputs.
+export const sparamsRequestDefs = structuredClone(commonSchemaV1.$defs);
+const sparamsSimulationInput = sparamsRequestDefs.simulationInput as { oneOf: { properties: Record<string, unknown> }[] };
+sparamsSimulationInput.oneOf[2].properties.analyses = { type: 'array', items: { $ref: '#/$defs/nativeAnalysis' } };
+
+function isObject(value: unknown): value is JsonObject {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** Validate original input before schema/conversion can obscure its JSON pointers. */
+export function validateSparamsPorts(request: SimulationRequestV1): void {
+  const input = request.input;
+  if (input.format === 'spice') return;
+  const native = input.format === 'spice-ts';
+  const document: unknown = native ? input.document : undefined;
+  const circuit = isObject(document) ? document.circuit : undefined;
+  const components: unknown = native ? (isObject(circuit) ? circuit.components : undefined) : input.circuit;
+  if (!Array.isArray(components)) return; // Let the request schema report malformed containers.
+  const base = native ? '/input/document/circuit/components' : '/input/circuit';
+  const ports: { number: number; path: string }[] = [];
+  const seen = new Set<number>();
+  components.forEach((component: unknown, index: number) => {
+    if (!isObject(component) || (native ? typeof component.type !== 'string' || component.type.toUpperCase() !== 'V'
+      : component.type !== 'source_component' || component.ftype !== 'simple_voltage_source')) return;
+    const metadata = native ? component.params : component;
+    if (!isObject(metadata)) return;
+    const path = `${base}/${index}${native ? '/params' : ''}`;
+    if ('portnum' in metadata && (typeof metadata.portnum !== 'number' || !Number.isFinite(metadata.portnum)
+      || !Number.isInteger(metadata.portnum) || metadata.portnum <= 0)) {
+      sparamsInvalid('portnum must be a positive finite integer', `${path}/portnum`);
+    }
+    if ('z0' in metadata) {
+      if (typeof metadata.z0 !== 'number' || !Number.isFinite(metadata.z0) || metadata.z0 <= 0) {
+        sparamsInvalid('z0 must be a positive finite number', `${path}/z0`);
+      }
+      if (!('portnum' in metadata)) sparamsInvalid('z0 requires portnum', `${path}/z0`);
+    }
+    if (typeof metadata.portnum === 'number') {
+      if (seen.has(metadata.portnum)) sparamsInvalid('Duplicate RF port number', `${path}/portnum`);
+      seen.add(metadata.portnum);
+      ports.push({ number: metadata.portnum, path: `${path}/portnum` });
+    }
+  });
+  // Native instances may contain additional ports. Check the aggregate in the
+  // bounded worker after compilation rather than expanding an untrusted graph here.
+  if (native && components.some(component => isObject(component) && typeof component.type === 'string'
+    && component.type.toUpperCase() === 'X')) return;
+  if (ports.length < 2) sparamsInvalid('S-parameters require at least two RF ports', base);
+  ports.sort((a, b) => a.number - b.number).forEach((port, index) => {
+    if (port.number !== index + 1) sparamsInvalid('RF port numbers must be contiguous starting at 1', port.path);
+  });
+}
+
+/** RF metadata is an MCP S-parameter extension, not a shared circuit-json contract. */
+export function prepareSparamsRequest(request: SimulationRequestV1): SimulationRequestV1 {
+  if (request.input.format !== 'circuit-json' || !Array.isArray(request.input.circuit)) return request;
+  return { ...request, input: { ...request.input, circuit: request.input.circuit.map(element => {
+    if (!isObject(element) || element.type !== 'source_component'
+      || element.ftype !== 'simple_voltage_source') return element;
+    const { portnum: _portnum, z0: _z0, ...rest } = element;
+    return rest;
+  }) } };
+}
+
+export function mapSparamsPorts(original: SimulationRequestV1, converted: SimulationRequestV1): SimulationRequestV1 {
+  if (original.input.format !== 'circuit-json' || converted.input.format !== 'spice-ts') return converted;
+  const metadata = new Map(original.input.circuit.filter(isObject).filter(element => element.type === 'source_component'
+    && element.ftype === 'simple_voltage_source').map(element => [element.source_component_id, element]));
+  const document = converted.input.document;
+  return { ...converted, input: { ...converted.input, document: { ...document, circuit: { ...document.circuit,
+    components: document.circuit.components.map(component => {
+      const source = metadata.get(component.id);
+      return source ? { ...component, params: { ...component.params,
+        ...(source.portnum !== undefined ? { portnum: source.portnum } : {}),
+        ...(source.z0 !== undefined ? { z0: source.z0 } : {}),
+      } } : component;
+    }),
+  } } } };
+}
 
 export interface SparamsArgs {
   netlist: string;
@@ -33,8 +115,8 @@ export const sparamsOutputSchema = {
     } },
   },
 };
-export function sparamsInvalid(message: string): never {
-  throw { code: 'INVALID_REQUEST', message, phase: 'validation', retryable: false, details: {} };
+export function sparamsInvalid(message: string, path?: string): never {
+  throw { code: 'INVALID_REQUEST', message, phase: 'validation', retryable: false, details: path ? { path } : {} };
 }
 export function sparamsArgs(args: unknown): SparamsArgs {
   if (!args || typeof args !== 'object' || Array.isArray(args)) sparamsInvalid('Expected S-parameter arguments');
