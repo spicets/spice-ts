@@ -5,7 +5,7 @@ import { createSpiceEngine } from './index.js';
 
 type Analysis = 'op' | 'dc' | 'tran' | 'ac';
 type Fixture = { name: string; body: string; analyses: Analysis[]; output?: number };
-type ErrorMetrics = { maxRelativeError: number; maxZeroAbsoluteError: number; values: number };
+type ErrorMetrics = { maxRelativeError: number; maxAbsoluteError: number; maxZeroAbsoluteError: number; values: number };
 
 // Project-authored fixtures. Core must accept each fixture before WASM is tested.
 const divider = `.subckt divider a z PARAMS: top=1k bottom=2k
@@ -13,6 +13,42 @@ Rtop a z {top}
 Rbottom z 0 {bottom}
 .ends divider`;
 const fixtures: Fixture[] = [
+  { name: 'nested local expression reads outer instance scope', analyses: ['op', 'tran'], output: 0.4,
+    body: `X1 in out outer r0=2k
+X2 in other outer r0=4k
+.subckt outer a z PARAMS: r0=1k
+Xchild a z inner
+.subckt inner a z
+.param rr={2*r0}
+R1 a z {rr}
+R2 z 0 2k
+.ends inner
+.ends outer` },
+  { name: 'local parameter shadows global without leaking', analyses: ['op', 'tran'], output: 0.4,
+    body: `.param rr=1k
+X1 in out local
+Rglobal in global {rr}
+Rload global 0 2k
+.subckt local a z
+.param rr=4k
+R1 a z {rr}
+R2 z 0 2k
+.ends local` },
+  { name: 'local dependencies and overrides beat defaults', analyses: ['op', 'tran'], output: 0.6,
+    body: `X1 in out local r0=2k rr=2k
+.subckt local a z PARAMS: r0=1k
+R1 a z {rr}
+R2 z 0 2k
+.param rr={2*r0}
+.ends local` },
+  { name: 'local expression with isolated instance overrides', analyses: ['op', 'tran'], output: 0.4,
+    body: `X1 in out local r0=2k
+X2 in other local r0=4k
+.subckt local a z PARAMS: r0=1k
+.param rr={2*r0}
+R1 a z {rr}
+R2 z 0 2k
+.ends local` },
   { name: 'parameter expression defaults', analyses: ['op', 'dc'], output: 0.6,
     body: `.param base=1k
 X1 in out divider
@@ -56,13 +92,15 @@ const request = (source: string): SimulationRequestV1 => ({
   apiVersion: '1', input: { format: 'spice', source },
 });
 
-// Every exported numeric value is checked. Nonzero references use relative error;
-// zero references use absolute error, with the same analysis-specific tolerance.
-function compare(actual: unknown, expected: unknown, tolerance: number, metrics: ErrorMetrics, path = 'analysis'): void {
+// Every exported numeric value is checked. TRAN uses pointwise absolute error;
+// other analyses use relative error, falling back to absolute error at zero.
+function compare(actual: unknown, expected: unknown, tolerance: number, metrics: ErrorMetrics, path = 'analysis', absolute = false): void {
   if (typeof expected === 'number') {
     expect(typeof actual, path).toBe('number');
     expect(Number.isFinite(actual), path).toBe(true);
     const difference = Math.abs((actual as number) - expected);
+    metrics.maxAbsoluteError = Math.max(metrics.maxAbsoluteError, difference);
+    if (absolute) expect(difference, path).toBeLessThanOrEqual(tolerance);
     metrics.values++;
     if (expected === 0) {
       metrics.maxZeroAbsoluteError = Math.max(metrics.maxZeroAbsoluteError, difference);
@@ -70,35 +108,35 @@ function compare(actual: unknown, expected: unknown, tolerance: number, metrics:
     } else {
       const relative = difference / Math.abs(expected);
       metrics.maxRelativeError = Math.max(metrics.maxRelativeError, relative);
-      expect(relative, path).toBeLessThanOrEqual(tolerance);
+      if (!absolute) expect(relative, path).toBeLessThanOrEqual(tolerance);
     }
   } else if (Array.isArray(expected)) {
     expect(Array.isArray(actual), path).toBe(true);
     expect(actual, path).toHaveLength(expected.length);
-    expected.forEach((value, index) => compare((actual as unknown[])[index], value, tolerance, metrics, `${path}[${index}]`));
+    expected.forEach((value, index) => compare((actual as unknown[])[index], value, tolerance, metrics, `${path}[${index}]`, absolute));
   } else if (expected !== null && typeof expected === 'object') {
     expect(actual, path).not.toBeNull();
     const fields = actual as Record<string, unknown>;
     expect(Object.keys(fields).sort(), path).toEqual(Object.keys(expected).sort());
-    for (const [key, value] of Object.entries(expected)) compare(fields[key], value, tolerance, metrics, `${path}.${key}`);
+    for (const [key, value] of Object.entries(expected)) compare(fields[key], value, tolerance, metrics, `${path}.${key}`, absolute);
   } else {
     expect(actual, path).toEqual(expected);
   }
 }
 
-describe('numeric WASM subcircuit parameters (#1741)', () => {
-  it('returns a structured unsupported error for subcircuit-local .param', async () => {
+describe('numeric WASM subcircuit parameters (#1741, #1797)', () => {
+  it('returns a structured compile error for a malformed subcircuit-local .param', async () => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
       await expect(engine.simulate(request(`VIN in 0 1
 X1 in out divider
 .subckt divider a z PARAMS: r=1k
-.param local=2k
+.param local={2 *}
 R1 a z {r}
 R2 z 0 {local}
 .ends divider
 .op`), { requestId: 'subckt-local-param' })).resolves.toMatchObject({
-        ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'subcircuit-parameters' } },
+        ok: false, error: { code: 'INVALID_CIRCUIT', phase: 'compile', retryable: false },
       });
     } finally { await engine.close(); }
   });
@@ -110,6 +148,10 @@ R2 z 0 {local}
     expect(expected.type).toBe(analysis);
     if (expected.type === 'op' && output !== undefined) {
       expect(expected.voltagesV['out']).toBeCloseTo(output, 12);
+      if (name.includes('isolated') || name.includes('nested local expression')) {
+        expect(expected.voltagesV['other']).toBeCloseTo(0.24, 12);
+      }
+      if (name.includes('without leaking')) expect(expected.voltagesV['global']).toBeCloseTo(0.8, 12);
     }
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
@@ -122,9 +164,9 @@ R2 z 0 {local}
       if (actual.type === 'tran' && expected.type === 'tran') expect(actual.timeS).toEqual(expected.timeS);
       if (actual.type === 'ac' && expected.type === 'ac') expect(actual.frequencyHz).toEqual(expected.frequencyHz);
       if (actual.type === 'dc' && expected.type === 'dc') expect(actual.axis).toEqual(expected.axis);
-      const metrics: ErrorMetrics = { maxRelativeError: 0, maxZeroAbsoluteError: 0, values: 0 };
-      compare(actual, expected, analysis === 'op' ? 1e-12 : 1e-9, metrics);
-      console.info('subckt-params metrics', JSON.stringify({ name, analysis, ...metrics }));
+      const metrics: ErrorMetrics = { maxRelativeError: 0, maxAbsoluteError: 0, maxZeroAbsoluteError: 0, values: 0 };
+      compare(actual, expected, analysis === 'op' ? 1e-12 : 1e-9, metrics, 'analysis', analysis === 'tran');
+      process.stdout.write(`subckt-params metrics ${JSON.stringify({ name, analysis, ...metrics })}\n`);
     } finally { await engine.close(); }
   });
 });

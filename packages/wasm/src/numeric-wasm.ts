@@ -796,9 +796,6 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
   for (const [index, card] of cards.entries()) {
     const definition = /^\.subckt\b/i.test(card);
     const instance = /^X/i.test(card);
-    if (stack.length > 1 && /^\.param\b/i.test(card)) {
-      unsupported('subcircuit-parameters', 'Subcircuit-local .param cards are not supported');
-    }
     if (definition) {
       const scope: number[] = [];
       scopes.push(scope);
