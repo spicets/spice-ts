@@ -702,8 +702,8 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     const temperatureRequested = circuit.temperature !== undefined || circuit.nominalTemperature !== undefined;
     compiled = circuit.compile();
     if (temperatureRequested && (analysis === 'tran' || analysis === 'ac')
-      && compiled.devices.some(device => ['M', 'J'].includes(deviceType(device.name) ?? ''))) {
-      unsupported('circuit-temperature', 'MOSFET/JFET circuit temperature is supported only for OP/DC');
+      && compiled.devices.some(device => deviceType(device.name) === 'J')) {
+      unsupported('circuit-temperature', 'JFET circuit temperature is supported only for OP/DC');
     }
   } catch (error) {
     if (error instanceof NumericBackendError) throw error;
