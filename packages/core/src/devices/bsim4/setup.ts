@@ -197,11 +197,7 @@ export function setupBsim4Instance(
   for (const key of ['off', 'min'] as const) {
     if (values[key] !== 0 && values[key] !== 1) throw new InvalidCircuitError(`BSIM4 ${key} must be 0 or 1`);
   }
-  // b4set.c:2434-2515. With rdsmod/rgeomod guarded, only given positive
-  // squares and positive RSH need unported source/drain internal nodes.
-  for (const key of ['nrd', 'nrs'] as const) {
-    if (m.rsh > 0 && given.has(key) && values[key] > 0) unsupported(key, 'positive sheet resistance needs an internal source/drain node');
-  }
+  // b4set.c:2434-2515: the MNA adapter owns enabled drain/source prime nodes.
   for (const node of Object.values(external)) {
     if (!Number.isInteger(node) || node < 0) throw new InvalidCircuitError('BSIM4 node indices must be nonnegative integers');
   }

@@ -3360,6 +3360,12 @@ export class Circuit {
           if ((desc.params?.RBODYMOD ?? model.params.RBODYMOD ?? 0) === 1) {
             nodes.push(...['dbody', 'body', 'sbody'].map(suffix => internalNodeName(desc.name, suffix)));
           }
+          // b4set.c:2434-2515: omitted squares do not create prime nodes.
+          // Append after gate/body nodes so their established offsets stay fixed.
+          if ((model.params.RSH ?? 0) > 0) {
+            if ((desc.params?.NRD ?? 0) > 0) nodes.push(internalNodeName(desc.name, 'drain'));
+            if ((desc.params?.NRS ?? 0) > 0) nodes.push(internalNodeName(desc.name, 'source'));
+          }
           result.push({ ...desc, nodes });
           continue;
         }

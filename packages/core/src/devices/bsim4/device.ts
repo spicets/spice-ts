@@ -66,13 +66,14 @@ export class BSIM4 implements DeviceModel {
   private readonly intrinsicNodes: number[];
   private initializeGate = true;
   private readonly bodyNodes: number[];
+  private readonly seriesResistance: readonly number[];
   private previousJunction = [0, 0];
 
   constructor(readonly name: string, readonly nodes: number[],
     modelCard: Readonly<Record<string, number | string | undefined>>,
     instanceCard: Readonly<Record<string, number | undefined>>, polarity: 1 | -1) {
-    if (![4, 5, 6, 7, 8, 9].includes(nodes.length) || nodes.some(n => !Number.isInteger(n) || n < -1)) {
-      throw new InvalidCircuitError('BSIM4 requires four terminals plus enabled internal gate/body indices');
+    if (nodes.length < 4 || nodes.length > 11 || nodes.some(n => !Number.isInteger(n) || n < -1)) {
+      throw new InvalidCircuitError('BSIM4 requires four terminals plus enabled internal gate/body/series indices');
     }
     const card = lowercaseCard(modelCard);
     if (Object.hasOwn(card, 'type')) throw new UnsupportedModelParameterError(name, 'type', 'polarity comes from the NMOS/PMOS model type, not an internal TYPE parameter');
@@ -84,13 +85,20 @@ export class BSIM4 implements DeviceModel {
     const gate = this.instance.values.rgatemod !== 0;
     const gateNodes = Number(gate) + Number(this.instance.values.rgatemod === 3);
     const body = this.instance.values.rbodymod === 1;
-    if (nodes.length !== 4 + gateNodes + 3 * Number(body)) {
-      throw new InvalidCircuitError('BSIM4 requires internal nodes for enabled RGATEMOD/RBODYMOD');
+    this.seriesResistance = (['nrd', 'nrs'] as const).map(key => this.model.values.rsh > 0
+      && this.instance.given.has(key) && this.instance.values[key] > 0
+      ? this.model.values.rsh * this.instance.values[key] : 0);
+    const seriesOffset = 4 + gateNodes + 3 * Number(body);
+    if (nodes.length !== seriesOffset + this.seriesResistance.filter(r => r > 0).length) {
+      throw new InvalidCircuitError('BSIM4 requires internal nodes for enabled RGATEMOD/RBODYMOD/RSH');
     }
-    this.bodyNodes = body ? nodes.slice(4 + gateNodes) : [];
+    this.bodyNodes = body ? nodes.slice(4 + gateNodes, seriesOffset) : [];
     // 0..2 intrinsic, 3..4 junctions, 5..7 physical GM overlap pairs.
     this.chargeState = new TransientChargeState(this.instance.values.rgatemod === 3 ? 8 : body ? 5 : 3);
-    this.intrinsicNodes = [nodes[0], gate ? nodes[4] : nodes[1], nodes[2], this.bodyNodes[1] ?? nodes[3]];
+    let seriesIndex = seriesOffset;
+    const drain = this.seriesResistance[0] > 0 ? nodes[seriesIndex++] : nodes[0];
+    const source = this.seriesResistance[1] > 0 ? nodes[seriesIndex] : nodes[2];
+    this.intrinsicNodes = [drain, gate ? nodes[4] : nodes[1], source, this.bodyNodes[1] ?? nodes[3]];
     this.processed = preprocessBsim4(this.model, this.instance);
     this.von = this.evaluate(this.previous).von; // enforce all DC guards at construction
   }
@@ -99,6 +107,7 @@ export class BSIM4 implements DeviceModel {
   }
   assertAnalyses(analyses: readonly string[]): void {
     for (const analysis of analyses) {
+      if ((analysis === 'tran' || analysis === 'ac') && this.seriesResistance.some(r => r > 0)) this.unsupported('RSH series nodes: ' + analysis);
       if (analysis === 'tran') this.terminalCharges(() => 0);
       else if (analysis !== 'op' && analysis !== 'dc' && analysis !== 'ac') this.unsupported(analysis);
     }
@@ -144,6 +153,7 @@ export class BSIM4 implements DeviceModel {
   }
   resetTransient(): void { this.chargeState.reset(); }
   private terminalCharges(read: (node: number) => number) {
+    if (this.seriesResistance.some(r => r > 0)) this.unsupported('RSH series nodes: tran');
     const p = this.model.values.type;
     // RGATEMOD=1/2 store intrinsic and overlap charge at GP (b4ld.c),
     // behind the static/nonlinear gate resistor. Only RGATEMOD=3 splits
@@ -302,6 +312,12 @@ export class BSIM4 implements DeviceModel {
     this.von = op.von;
     const voltage = [vs + p * vds, vs + p * vgs, vs, vs + p * vbs];
     const mult = this.instance.values.m * this.instance.values.mult_i;
+    // ngspice-47 b4temp.c:2041-2101/b4ld: physical D-DP/S-SP conductance,
+    // independent of intrinsic forward/reverse orientation. MULT_I scales both.
+    for (const [side, terminal] of [[0, 0], [1, 2]] as const) {
+      const resistance = this.seriesResistance[side];
+      if (resistance > 0) this.stampConductance(ctx, this.nodes[terminal], nodes[terminal], mult / resistance);
+    }
     if (this.bodyNodes.length) {
       const [db, bp, sb] = this.bodyNodes;
       // b4temp.c:1870-1890 and b4ld/b4acld: constant five-resistor body network.
