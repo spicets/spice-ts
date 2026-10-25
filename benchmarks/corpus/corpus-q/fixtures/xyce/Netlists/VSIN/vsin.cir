@@ -1,0 +1,32 @@
+Netlist to Test the Xyce Sinusoidal Voltage Source Model
+*********************************************************************
+* Tier No.:	1                                           
+* Description:	Test of Xyce model for an independent voltage source.
+*		The voltage source is described as:
+*		A sinusoidal time dependent voltage signal that 
+*		implements a cosine signal by specifying a negative
+*		delay equal to 2.5us, or a quarter of the period
+*		(specified by the 10us in the transient analysis 
+*		statement).  The signal has a 5V peak value with a 
+*		100KHz frequency, or 10us period.
+* Input/Output:	VCOS; a common simulation data output (.csd)
+*		file can be generated for viewing the signal in probe.
+********************************************************************** 
+VCOS 1 0 SIN(0 5 100K -2.5U)
+R 1 0 500
+.TRAN 1US 10US
+*
+* The first print statement is for a tabular output the second is for 
+* a probe compatible output
+*
+.PRINT TRAN V(1)
+*
+* For a csd output to view in probe, use this print statement and then
+* rename the outpfile from vsin.cir.prn to vsin.csd
+*
+*.PRINT TRAN FORMAT=PROBE V(1)
+*
+* For constant timestep output use the options flag
+*
+*.OPTIONS TIMEINT CONSTSTEP=1
+.END

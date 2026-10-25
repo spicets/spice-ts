@@ -2790,6 +2790,15 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 
 
 
+## XSPICE filesource / file_source (#1758)
+
+- Original project-authored decks, table, generator and test-consumed ngspice vectors in [xspice-file-source/](xspice-file-source/), **MIT** under repository LICENSE. No third-party netlists or data copied.
+- Numerical contract consulted: [ngspice-47 file_source source](https://github.com/imr/ngspice/tree/ngspice-47/src/xspice/icm/analog/file_source), BSD-3-Clause, Thomas Sailer. Implementation is independently expressed; no source text redistributed.
+- Reproduce: `node benchmarks/xspice-file-source/generate.mjs`; internally `ngspice -b oracle.cir` sources the unchanged committed deck as `input.cir` and writes all timepoints with 17-digit precision. Version, command and platform are in `reference.json`.
+- Upstream calls the model **filesource**, not file_source. spice-ts supports both names. ngspice-47 rejects omitted amplitude vectors at its parameter loader, despite identity handling in cfunc; defaults/step reference decks therefore explicitly supply identity `amploffset=[0] amplscale=[1]`. spice-ts additionally allows omission. The aliases and omitted vectors are not claimed as identical-deck ngspice parity.
+- Before: unsupported model. After: 88 ngspice timepoints in each of defaults, all-four-transforms, and step cases; maximum normalized absolute errors respectively `4.448008912761045e-16`, `6.467004657784513e-16`, and `0` (limit `1e-6`, normalization by max(1, peak reference magnitude)). No speed claim.
+- Verification: `pnpm -C packages/core exec vitest run src/devices/xspice/file-source.test.ts`. Tests first execute identical full decks and check all spice-ts samples, then repeat the same circuit with transient stop at each oracle time to avoid interpolating across step discontinuities. Two-output/relative-time behavior and structured missing/malformed-file errors are also tested. Coverage is bounded to these fixtures, not arbitrary file contents or general ngspice parity; past EOF spice-ts safely holds the final row.
+
 ## BSIM4 DIOMOD=0/2 junction laws (#1703)
 
 - Sources: original project-authored `benchmarks/bsim4-diomod/mode0.cir` and `mode2.cir`, MIT under repository `LICENSE`. Public source directory: https://github.com/spicets/spice-ts/tree/main/benchmarks/bsim4-diomod.
@@ -2806,3 +2815,11 @@ See also bounded MOS1 AC (#1663): original project-authored NMOS/PMOS common-sou
 - Mechanical adaptation only: title prefix for the 12 title-less MNA-MAT files; append `\n.op\n.end\n` to those and the RLC parser example. Original element/value/whitespace bytes stay unchanged inside reversible wrappers, verified by offline tests. Three extension stress decks are verbatim. Both engines receive identical committed bytes, no runtime adaptation or per-circuit tuning. This adds DC/OP coverage, not a transient/speed claim.
 - [Committed receipt](corpus/corpus-p/outcomes.json): **16 fixtures, 13 matched, 0 mismatch, 0 spice-ts failed, 2 spice-ts unsupported**. The two unsupported decks fail or are unsupported in both engines; one more deck is ngspice-failed/spice-ts-success. All three exclusions remain published, never counted as matches. All 13 ngspice-success decks match, so there is no ngspice-success gap requiring an issue. Reference rejection does not validate spice-ts extension semantics.
 - Reproduce: `pnpm exec tsx benchmarks/corpus/corpus-p/ingest.ts`; `spice-heavy pnpm exec tsx benchmarks/corpus/corpus-p/parity.ts --jobs 1`; verify with `pnpm exec tsx --test benchmarks/corpus/corpus-p/corpus-p.test.ts`. Unchanged existing corpus-f/h runner and global 1% metric; no aggregate/tolerance changes. Aggregate refresh deferred to nightly.
+
+## corpus-q: Xyce AC/DC measurements and transient sources (#1763)
+
+15 verbatim decks at Xyce_Regression revision `7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2`, licensed GPL-3.0-or-later by the pinned [repository README](https://github.com/Xyce/Xyce_Regression/blob/7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2/README.md). Original grant and full GPL text are retained under `benchmarks/corpus/corpus-q/licenses/xyce/`. These are independent benchmark data, not package code; no vendor libraries.
+
+Six AC, six DC and three transient decks selected statically with no engine-success filter; identical original bytes in both simulators. Pinned per-file source URLs, original/committed SHA256, licence hashes and selection are in [corpus-q/SOURCES.md](corpus/corpus-q/SOURCES.md) and [manifest.json](corpus/corpus-q/manifest.json). Deduplication checks all earlier corpus manifests by revision-independent URLs and original/committed/content hashes.
+
+ngspice-47 baseline: 3 matched (one DC, two transient), 0 mismatch, 0 not-compared, 0 spice-ts-loss, 0 ngspice-failed, 12 both-failed. All AC decks fail in both engines; this is not successful AC parity evidence. Fine-step reference is compared for q-15; q-14 is unavailable under the shared million-step budget. All failures and full metrics remain in [outcomes.json](corpus/corpus-q/outcomes.json). No speed or superiority claim. No aggregate refresh.

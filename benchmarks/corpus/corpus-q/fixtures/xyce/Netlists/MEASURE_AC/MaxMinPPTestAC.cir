@@ -1,0 +1,81 @@
+* Test AC mode support for MAX, MIN and PP measures.
+* To be conservative, there are subtests for each
+* valid operator (V, VR, VI, VP, VM and VDB) for
+* each measure type.  Expressions are also tested.
+* One current operator (IM) is tested for a branch current.
+*
+* See SON Bug 1140 for more details
+*****************************************************
+
+.PARAM P1=100.0
+.PARAM P2=10000.0
+.PARAM P3=1000.0
+
+* Trivial high-pass filter (V-C-R) circuit
+R1 b 0 2
+C1 a b 1u
+V1 a 0 DC 0V AC 1
+
+.print AC vr(b) vi(b) vm(b) vp(b) vdb(b) im(v1)
+.ac dec 5 100Hz 1e6
+
+* MAX
+.MEASURE AC maxvb max v(b)
+.MEASURE AC maxvmb max vm(b)
+.MEASURE AC maxvrb max vr(b)
+.MEASURE AC maxvib max vi(b)
+.MEASURE AC maxvpb max vp(b)
+.MEASURE AC maxvdbb max vdb(b)
+
+* MIN
+.MEASURE AC minvb min v(b)
+.MEASURE AC minvmb min vm(b)
+.MEASURE AC minvrb min vr(b)
+.MEASURE AC minvib min vi(b)
+.MEASURE AC minvpb min vp(b)
+.MEASURE AC minvdbb min vdb(b)
+
+* PP
+.MEASURE AC ppvb pp v(b)
+.MEASURE AC ppvmb pp vm(b)
+.MEASURE AC ppvrb pp vr(b)
+.MEASURE AC ppvib pp vi(b)
+.MEASURE AC ppvpb pp vp(b)
+.MEASURE AC ppvdbb pp vdb(b)
+
+* Use expressions
+.MEASURE AC maxvrbExp max {1+vr(b)}
+.MEASURE AC maxvibExp max {1+vi(b)}
+.MEASURE AC minvrbExp min {1+vr(b)}
+.MEASURE AC minvibExp min {1+vi(b)}
+.MEASURE AC ppvrbExp pp {1+vr(b)}
+.MEASURE AC ppvriExp pp {1+vi(b)}
+
+* add FROM-TO
+.MEASURE AC maxvmbFromTo max vm(b) FROM=1e3 TO=1e5
+.MEASURE AC minvmbFromTo min vm(b) FROM=1e3 TO=1e5
+.MEASURE AC ppvmbFromTo pp vm(b) FROM=1e3 TO=1e5
+
+* FROM and TO as expressions
+.MEASURE AC maxvibfromexp max vi(b) FROM={9.0e4+P2}
+.MEASURE AC maxvmbtoexp max vm(b) TO={900.0+P1}
+.MEASURE AC ppvmbfromtoexp pp vm(b) FROM={9000.0+P3} TO={9.0e4+P2}
+
+* OUTPUT= qualifier
+.MEASURE AC FreqOfMaxvb max vr(b) OUTPUT=FREQ
+.MEASURE AC FreqOfMinvb min vr(b) OUTPUT=FREQ
+
+* branch currents
+.MEASURE AC maximv1 max IM(V1)
+.MEASURE AC minimv1 min IM(V1)
+.MEASURE AC ppimv1 pp IM(V1)
+
+* Tests should fail since the FROM-T0 windows have various problems.
+.measure ac maxFromToFail1 max v(b) FROM=1e7 TO=1e8
+.measure ac maxFromToFail2 max vr(b) FROM=1e6 TO=1e2
+.measure ac minFromToFail1 min vi(b) TO=-1e6
+.measure ac minFromToFail2 min vm(b) FROM=1e7 TO=1e8
+.measure ac ppFromToFail1 pp vp(b) FROM=1e7 TO=1e8
+
+.end
+

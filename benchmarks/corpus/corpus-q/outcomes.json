@@ -1,0 +1,906 @@
+{
+  "schemaVersion": "spice-ts-corpus-q-outcomes/v1",
+  "sources": [
+    {
+      "key": "xyce",
+      "revision": "7bb7e98f0ed3a81a7d1cf1d10b68592107ed40b2",
+      "license": "GPL-3.0-or-later"
+    }
+  ],
+  "manifestSha256": "278cd99d01dc6aa299160b45fa1ffe586f90fcdb440a357fb533023b68928087",
+  "tools": {
+    "ngspice": "ngspice-47",
+    "spiceTs": "0.4.0",
+    "node": "v22.23.4"
+  },
+  "environment": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M5 Pro",
+    "perFixtureRuntimeMs": {
+      "q-1": {
+        "ngspice": 76.6102499999979,
+        "spiceTs": 888.2007920000178
+      },
+      "q-2": {
+        "ngspice": 29.70720799997798,
+        "spiceTs": 899.3085420000134
+      },
+      "q-3": {
+        "ngspice": 63.17112499999348,
+        "spiceTs": 917.9947089999914
+      },
+      "q-4": {
+        "ngspice": 29.251665999996476,
+        "spiceTs": 966.6909999999916
+      },
+      "q-5": {
+        "ngspice": 48.53504200000316,
+        "spiceTs": 1431.8618750000023
+      },
+      "q-6": {
+        "ngspice": 200.71087500001886,
+        "spiceTs": 2256.624165999994
+      },
+      "q-7": {
+        "ngspice": 60.461999999999534,
+        "spiceTs": 1187.2212500000023
+      },
+      "q-8": {
+        "ngspice": 42.69416600000113,
+        "spiceTs": 1501.1867090000014
+      },
+      "q-9": {
+        "ngspice": 146.18312500001048,
+        "spiceTs": 1612.4306670000078
+      },
+      "q-10": {
+        "ngspice": 100.25137499999255,
+        "spiceTs": 1297.5901669999876
+      },
+      "q-11": {
+        "ngspice": 35.96112500000163,
+        "spiceTs": 1777.165708000015
+      },
+      "q-12": {
+        "ngspice": 180.64850000001024,
+        "spiceTs": 1682.2969999999914
+      },
+      "q-13": {
+        "ngspice": 87.89466699998593,
+        "spiceTs": 1352.687166000018
+      },
+      "q-14": {
+        "ngspice": 15094.05687500001,
+        "spiceTs": 3396.1495409999916
+      },
+      "q-15": {
+        "ngspice": 128.51920800001244,
+        "spiceTs": 823.491417000012
+      }
+    }
+  },
+  "commands": {
+    "generate": "pnpm build && spice-heavy pnpm exec tsx benchmarks/corpus/corpus-q/parity.ts",
+    "verify": "spice-heavy pnpm exec tsx benchmarks/corpus/corpus-q/parity.ts --check",
+    "ngspice": "ngspice -b -r <raw> <identical-fixture> (HOME=<tmp> with .spiceinit \"set filetype=ascii\")",
+    "spiceTs": "@spice-ts/core simulate(<identical-fixture>) in a bounded child process (no parse() pre-check)"
+  },
+  "policy": {
+    "input": "byte-identical fixture for both engines",
+    "fixtureAdaptation": "none",
+    "perCircuitToleranceTuning": false,
+    "matchThreshold": 0.01,
+    "matchRule": "matched = both engines succeed, every spice-ts analysis has an ngspice counterpart, and for every common signal max|spice-ts - ngspice| <= 0.01 x max(peak |ngspice signal|, floor), with the corpus-f floor: 0.0001 V for node voltages, 1e-10 A for branch currents, 1e-12 otherwise. Errors are taken at spice-ts points with ngspice interpolated (transient breakpoint alignment as in the aggregate report).",
+    "fineReference": "Fine-step reference (#592): ngspice-47 runs the same deck with every active .tran card rewritten to TMAX_fine = min(TSTEP, (TSTOP - TSTART)/50, deck TMAX if given) / 10, i.e. the ngspice default step ceiling divided by 10; TSTEP, TSTOP, TSTART, UIC and every other card are unchanged. The rule is the same for every transient fixture. No reference is generated when the deck has no parsable .tran card outside .control, or when TSTOP/TMAX_fine exceeds 1000000 steps; the ngspice run is bounded at 600 s. Each default run (spice-ts, ngspice) is scored by the same procedure: at the reference's output points, with the default run linearly interpolated onto them, over the transient signals of the headline comparison, normalised by the reference peak with the same per-quantity floors. The headline's one-sided breakpoint alignment applies at every default-run time point within ngspice's breakpoint merge distance (CKTminBreak = 0.00005 x TMAX_fine) of a reference time point; the headline matches breakpoints bit for bit, which here would favour ngspice, whose default run lands on its own reference's breakpoint times exactly while spice-ts's land a few ulps away. This charges each engine for its own published waveform, so a coarse output grid counts against whichever engine produced it. Status (matched/mismatch) is defined by the headline column only. One fine reference is not a convergence proof, and neither column is an accuracy ranking of the engines.",
+    "deterministicHashExcludes": [
+      "environment",
+      "tools.node",
+      "ngspice.analyses",
+      "spiceTs.analyses"
+    ]
+  },
+  "totals": {
+    "fixtures": 15,
+    "ngspice": {
+      "success": 3,
+      "failed": 0,
+      "unsupported": 12
+    },
+    "spiceTs": {
+      "success": 3,
+      "failed": 0,
+      "unsupported": 12
+    },
+    "outcomes": {
+      "matched": 3,
+      "mismatch": 0,
+      "not-compared": 0,
+      "spice-ts-loss": 0,
+      "ngspice-failed": 0,
+      "both-failed": 12
+    },
+    "bySource": {
+      "xyce": {
+        "matched": 3,
+        "mismatch": 0,
+        "not-compared": 0,
+        "spice-ts-loss": 0,
+        "ngspice-failed": 0,
+        "both-failed": 12
+      }
+    }
+  },
+  "gapBuckets": [
+    {
+      "bucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "fixtures": 10,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "q-1",
+        "q-2",
+        "q-3",
+        "q-4",
+        "q-5",
+        "q-6",
+        "q-8",
+        "q-9",
+        "q-12",
+        "q-13"
+      ],
+      "issue": null
+    },
+    {
+      "bucket": "directive: .fft",
+      "fixtures": 1,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "q-7"
+      ],
+      "issue": null
+    },
+    {
+      "bucket": "parse: other unsupported syntax",
+      "fixtures": 1,
+      "ngspiceSuccess": 0,
+      "ids": [
+        "q-11"
+      ],
+      "issue": null
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "q-1",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/AvgTestAC.cir",
+      "sha256": "6eab138dd81445cba1e388f255017479f804d97895140717d5a062384cb4e11c",
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 28, new internal line no. 33:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 33: Unknown function 'vr' .MEASURE AC avgvrbExp avg {1+vr(b)}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-2",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/DerivTestAC.cir",
+      "sha256": "12a8802c4043840ae8ea60ed7f276060e374c1d736b9255c2bd1eef4d6500e2b",
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 37, new internal line no. 44:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 44: Unknown function 'vi' .MEASURE AC derivExp1 DERIV VM(b) when vr(b)=vi(b)"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-3",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/EquationEvalTestAC.cir",
+      "sha256": "6b3b30b8c7585e05b56a69450888942fc6110ae8691fe86404c5953fadbc27df",
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 17, new internal line no. 19:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 19: Unknown function 'v' .MEASURE AC eqnvb eqn {1+v(b)}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-4",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/IntegTestAC.cir",
+      "sha256": "f3caeaae432fb9b33b003ebbd1f273401f16d570c28ec2ce935de1e11c920749",
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 24, new internal line no. 27:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 27: Unknown function 'vp' .MEASURE AC integvpbExp integ {vp(b)/100}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-5",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/MaxMinPPTestAC.cir",
+      "sha256": "63cf3fea8167ff659ded50c18e5db54aac1b1153bd113dce918638ff048c91cb",
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 41, new internal line no. 47:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 47: Unknown function 'vr' .MEASURE AC maxvrbExp max {1+vr(b)}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-6",
+      "sourcePath": "xyce/Netlists/MEASURE_AC/RMSTestAC.cir",
+      "sha256": "2ab76bc262ebb9e7415dea5fc8344c3438d96d91eb02e442adf5891da75145b8",
+      "analyses": [
+        "ac"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 24, new internal line no. 27:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 27: Unknown function 'vp' .MEASURE AC rmsvpbExp rms {vp(b)/100}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-7",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/AvgTest1DC.cir",
+      "sha256": "71764698898c2c14ceffd96f9c6b05a5527606e7c9713d716b41d53a40080cd4",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error on line 22 or its substitute:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 22: Unsupported dot command: '.FFT' .FFT V ( 1a ) NP=8"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "directive: .fft",
+      "comparisons": []
+    },
+    {
+      "id": "q-8",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/DerivTest1DC.cir",
+      "sha256": "1e9c93463103c3a38f1a4419980caa495d7ebe77912a6e520e9538dc2cd438ee",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 42, new internal line no. 45:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 45: Unknown function 'v' .MEASURE DC derivExp1 DERIV V(2) when v(2)={4*v(1)}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-9",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/EquationEvalTestDC.cir",
+      "sha256": "843357f49b30533406ca3b3290849792f17d7a91779847b90daae96b8eaec8cc",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 22, new internal line no. 23:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 23: Unknown function 'v' .measure dc vv2 EQN {v(1b)+12.0}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-10",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/IntegTest1DC.cir",
+      "sha256": "51521719061c2b6691bea869c244941383b381aa5ddf90621b57fe49c7f98651",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "dc:5"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "dc:5"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 3,
+      "worstNormalizedError": 0,
+      "worstSignal": "dc i(vsrc1)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "dc",
+          "signals": [
+            "i(vsrc1)",
+            "v(1a)",
+            "v(1b)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 5,
+              "ngspicePoints": 5,
+              "alignedPoints": 5,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vsrc1)": {
+                "status": "compared",
+                "sampleCount": 5,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 5,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1a)": {
+                "status": "compared",
+                "sampleCount": 5,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 5,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1b)": {
+                "status": "compared",
+                "sampleCount": 5,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 5,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 5,
+              "ngspicePoints": 5,
+              "alignedPoints": 5,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vsrc1)": {
+                "status": "compared",
+                "sampleCount": 5,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 5,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1a)": {
+                "status": "compared",
+                "sampleCount": 5,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 5,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1b)": {
+                "status": "compared",
+                "sampleCount": 5,
+                "absoluteError": {
+                  "max": 0,
+                  "rms": 0
+                },
+                "relativeError": {
+                  "max": 0,
+                  "rms": 0,
+                  "sampleCount": 5,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "q-11",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/MaxMinPPTest1DC.cir",
+      "sha256": "e4230e89a088309a2ae38d5e63e4af75e74ac4e96e3dd2bb629765568cd4da48",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 37, new internal line no. 43:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 43: Undefined parameter 'SV' .measure dc maxv1bsv max v(1b) OUTPUT=SV"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "parse: other unsupported syntax",
+      "comparisons": []
+    },
+    {
+      "id": "q-12",
+      "sourcePath": "xyce/Netlists/MEASURE_DC/RMSTest1DC.cir",
+      "sha256": "1ba2a2a745cba7f64895acc4ed45c992b4f458862e2ce7b7e5b4984cc57e73ec",
+      "analyses": [
+        "dc"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error in netlist line no. 32, new internal line no. 39:"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 39: Unknown function 'v' .measure dc rmsv1bsq rms {v(1b)*v(1b)}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-13",
+      "sourcePath": "xyce/Netlists/SOURCES/sources.cir",
+      "sha256": "f824d17f25b569ff3118452450b3591fee277b5bc17d8a51024d90381c217b4a",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Error: no such function 'spice_pulse' at line 19"
+      },
+      "spiceTs": {
+        "status": "unsupported",
+        "analyses": [],
+        "firstErrorLine": "Parse error at line 19: Unknown function 'spice_pulse' B1 1s 1 v={spice_pulse(v1,v2,td,tr,tf,pw,per)-1mv}"
+      },
+      "comparedAnalyses": 0,
+      "comparedSignals": 0,
+      "worstNormalizedError": null,
+      "worstSignal": null,
+      "outcome": "both-failed",
+      "gapBucket": "expression: quoted/brace expressions in values (TEMPER, functions)",
+      "comparisons": []
+    },
+    {
+      "id": "q-14",
+      "sourcePath": "xyce/Netlists/VSIN/bug510.cir",
+      "sha256": "9aa771304dfda15f4c925d1a8e92dad7e4c4b482ff6a09f8bbc83cae72955576",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "tran:1000008"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "tran:1000008"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 2,
+      "worstNormalizedError": 5.41e-15,
+      "worstSignal": "tran i(vvinp)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "tran",
+          "signals": [
+            "i(vvinp)",
+            "v(vinp)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 1000008,
+              "ngspicePoints": 1000008,
+              "alignedPoints": 1000008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vvinp)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.7867101231145398e-22,
+                  "rms": 3.8360957945793425e-23
+                },
+                "relativeError": {
+                  "max": 1.5055050750288086e-10,
+                  "rms": 3.356127160966408e-13,
+                  "sampleCount": 999890,
+                  "excludedZeroReferences": 118
+                }
+              },
+              "v(vinp)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.7763568394002505e-14,
+                  "rms": 3.834298332135208e-15
+                },
+                "relativeError": {
+                  "max": 1.0786729532495644e-9,
+                  "rms": 1.2968969074338969e-12,
+                  "sampleCount": 1000006,
+                  "excludedZeroReferences": 2
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 1000008,
+              "ngspicePoints": 1000008,
+              "alignedPoints": 1000008,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vvinp)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.7867101231145398e-22,
+                  "rms": 3.836096017227705e-23
+                },
+                "relativeError": {
+                  "max": 1.5055050750288086e-10,
+                  "rms": 3.3561854802593954e-13,
+                  "sampleCount": 999890,
+                  "excludedZeroReferences": 118
+                }
+              },
+              "v(vinp)": {
+                "status": "compared",
+                "sampleCount": 1000008,
+                "absoluteError": {
+                  "max": 1.7763568394002505e-14,
+                  "rms": 3.8342988265532255e-15
+                },
+                "relativeError": {
+                  "max": 1.0786729532495644e-9,
+                  "rms": 1.2969424344166076e-12,
+                  "sampleCount": 1000006,
+                  "excludedZeroReferences": 2
+                }
+              }
+            }
+          }
+        }
+      ],
+      "fineReference": {
+        "status": "unavailable",
+        "tmax": [
+          "1e-10"
+        ],
+        "reason": "TSTOP/TMAX_fine = 10000000 steps exceeds the 1000000-step budget",
+        "headline": {
+          "worst": 5.41e-15,
+          "signal": "i(vvinp)"
+        },
+        "spiceTsVsFine": null,
+        "ngspiceDefaultVsFine": null
+      }
+    },
+    {
+      "id": "q-15",
+      "sourcePath": "xyce/Netlists/VSIN/vsin.cir",
+      "sha256": "72bfd2057ffb6360d259dd46855319d2363d3f742cd40de2b33aac4cdd1f5105",
+      "analyses": [
+        "tran"
+      ],
+      "unmappedAnalyses": [],
+      "sameNameAs": [],
+      "ngspice": {
+        "status": "success",
+        "analyses": [
+          "tran:59"
+        ]
+      },
+      "spiceTs": {
+        "status": "success",
+        "analyses": [
+          "tran:59"
+        ]
+      },
+      "comparedAnalyses": 1,
+      "comparedSignals": 2,
+      "worstNormalizedError": 8.67e-16,
+      "worstSignal": "tran i(vcos)",
+      "outcome": "matched",
+      "gapBucket": null,
+      "comparisons": [
+        {
+          "analysis": "tran",
+          "signals": [
+            "i(vcos)",
+            "v(1)"
+          ],
+          "metrics": {
+            "grid": {
+              "spiceTsPoints": 59,
+              "ngspicePoints": 59,
+              "alignedPoints": 59,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcos)": {
+                "status": "compared",
+                "sampleCount": 59,
+                "absoluteError": {
+                  "max": 8.673617379884035e-18,
+                  "rms": 2.7543278240031644e-18
+                },
+                "relativeError": {
+                  "max": 1.6081142800602846e-14,
+                  "rms": 2.343766508910794e-15,
+                  "sampleCount": 59,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 59,
+                "absoluteError": {
+                  "max": 4.218847493575595e-15,
+                  "rms": 1.3813093540609913e-15
+                },
+                "relativeError": {
+                  "max": 1.606545388079738e-14,
+                  "rms": 2.3231813279217887e-15,
+                  "sampleCount": 59,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          },
+          "linearMetrics": {
+            "grid": {
+              "spiceTsPoints": 59,
+              "ngspicePoints": 59,
+              "alignedPoints": 59,
+              "excludedOutOfRange": 0
+            },
+            "signals": {
+              "i(vcos)": {
+                "status": "compared",
+                "sampleCount": 59,
+                "absoluteError": {
+                  "max": 8.673617379884035e-18,
+                  "rms": 2.7543278240031644e-18
+                },
+                "relativeError": {
+                  "max": 1.6081142800602846e-14,
+                  "rms": 2.343766508910794e-15,
+                  "sampleCount": 59,
+                  "excludedZeroReferences": 0
+                }
+              },
+              "v(1)": {
+                "status": "compared",
+                "sampleCount": 59,
+                "absoluteError": {
+                  "max": 4.218847493575595e-15,
+                  "rms": 1.3819330937864605e-15
+                },
+                "relativeError": {
+                  "max": 1.606545388079738e-14,
+                  "rms": 2.324730169054284e-15,
+                  "sampleCount": 59,
+                  "excludedZeroReferences": 0
+                }
+              }
+            }
+          }
+        }
+      ],
+      "fineReference": {
+        "status": "compared",
+        "tmax": [
+          "2e-8"
+        ],
+        "headline": {
+          "worst": 8.67e-16,
+          "signal": "i(vcos)"
+        },
+        "spiceTsVsFine": {
+          "worst": 0.00197,
+          "signal": "v(1)"
+        },
+        "ngspiceDefaultVsFine": {
+          "worst": 0.00197,
+          "signal": "i(vcos)"
+        }
+      }
+    }
+  ],
+  "outcomeSha256": "cf8c86d584420f7e8129a313b2990ef24abd713f96b9d6cabc237511e403c647",
+  "classCounts": {
+    "unsupported": 12,
+    "matched": 3
+  },
+  "gapLinks": {},
+  "coreTree": "5b0ad090826f9afadd3bdfd9103f726ca5c101e3",
+  "sourceAdaptation": "15 verbatim decks; identical original and committed hashes, no runtime adaptation."
+}
