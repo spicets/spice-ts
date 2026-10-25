@@ -79,12 +79,12 @@ describe('WASM MOS1 circuit TEMP/TNOM OP/DC', () => {
   });
 
   it.each(['NMOS', 'PMOS'].flatMap(polarity => ['.ac lin 2 1 10', '.tran 1u 10u'].map(control => ({ polarity, control }))))(
-    'rejects nonnominal temperature for $polarity $control', async ({ polarity, control }) => {
+    'accepts nonnominal temperature for $polarity $control', async ({ polarity, control }) => {
       const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       try {
         for (const temperature of temperatures) {
           expect(await engine.simulate(request(`${circuit(polarity)}\n${temperature}\n${control}`), { requestId: 'mos1-temperature-guard' })).toMatchObject({
-            ok: false, error: { code: 'UNSUPPORTED_FEATURE', phase: 'validation', retryable: false, details: { feature: 'circuit-temperature' } },
+            ok: true, metadata: { backend: 'spice-ts-wasm' },
           });
         }
       } finally { await engine.close(); }
