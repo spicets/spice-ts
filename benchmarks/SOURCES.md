@@ -1,5 +1,26 @@
 # Benchmark sources
 
+## XSPICE core mode=2 hysteresis (#1802)
+
+| Fixture | Source | Licence | Oracle |
+| --- | --- | --- | --- |
+| `xspice-core-hysteresis/loop.cir` | Original project-authored triangular MMF deck with two full hysteresis loops, https://github.com/spicets/spice-ts/issues/1802 | Repository MIT | ngspice-47, identical committed netlist bytes |
+
+Model semantics follow ngspice-47's Public Domain
+[`xtradev/core/cfunc.mod`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/xspice/icm/xtradev/core/cfunc.mod),
+mode=2 (lines 366-510). This mode uses the input and output limits directly,
+without mode=1's geometry scaling. The non-unit geometry in the fixture checks
+that distinction. The existing `hyst` state machine supplies accepted-timepoint
+state, initialization, limits, derivatives and quadratic smoothing.
+
+Reproduce with `spice-heavy pnpm exec tsx benchmarks/xspice-core-hysteresis/compare.ts`.
+The harness requires ngspice-47, sources the unmodified fixture, observes
+`i(vdrive)` (negative core flux/output), and compares both time grids with linear
+interpolation. It reports point counts, peak, max/RMS absolute and peak-normalized
+errors plus single-run wall times (not a performance claim). Both directions must
+remain within 1% of the oracle peak. No solver tolerances are overridden.
+
+
 ## Corpus-f control-only transient export (#1221)
 
 `benchmarks/corpus/corpus-f/control-transient.test.ts` contains original

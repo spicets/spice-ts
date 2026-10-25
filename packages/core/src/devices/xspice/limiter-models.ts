@@ -328,7 +328,7 @@ const X_FALLING = false;
  * the input of the first call (the operating point's first iteration), and
  * the transient starts from the leg the operating point converged on.
  */
-function hyst(params: ResolvedXspiceParams): CodeModelBehavior {
+export function hyst(params: ResolvedXspiceParams): CodeModelBehavior {
   const inLow = real(params, 'in_low');
   const inHigh = real(params, 'in_high');
   const hysteresis = real(params, 'hyst');

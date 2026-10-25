@@ -1,4 +1,5 @@
 import { InvalidCircuitError } from '../../errors.js';
+import { hyst } from './limiter-models.js';
 import { real, reals, flag, smoothCorner, STATIC, type BehaviorFactory, type CodeModelBehavior, type ResolvedXspiceParams } from './models.js';
 
 /** ngspice-47 xtradev/lcouple/cfunc.mod:182-235 (backward difference, not CKT integration). */
@@ -23,9 +24,11 @@ function lcouple(params: ResolvedXspiceParams): CodeModelBehavior {
   };
 }
 
-/** ngspice-47 xtradev/core/cfunc.mod:246-365, mode=1. No pwl model input limiter. */
+/** ngspice-47 xtradev/core/cfunc.mod: mode=1 PWL, mode=2 unscaled hysteresis. */
 function core(params: ResolvedXspiceParams): CodeModelBehavior {
-  if (real(params, 'mode') !== 1) throw new InvalidCircuitError('XSPICE core supports only PWL mode=1; hysteresis mode=2 is not implemented');
+  const mode = real(params, 'mode');
+  if (mode === 2) return hyst(params);
+  if (mode !== 1) throw new InvalidCircuitError(`XSPICE core supports only mode=1 or mode=2; got mode=${mode}`);
   const h = reals(params, 'h_array');
   const b = reals(params, 'b_array');
   const area = real(params, 'area');
