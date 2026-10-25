@@ -1,0 +1,44 @@
+* Test AC mode support for the RMS measure.
+* To be conservative, there are subtests for each
+* valid operator (V, VR, VI, VP, VM and VDB) for
+* each measure type.  Expressions are also tested.
+* One current operator (IM) is tested for a branch current.
+*
+* See SON Bugs 1282 and 1283 for more details.
+*****************************************************
+
+* Trivial high-pass filter (V-C-R) circuit
+R1 b 0 2
+C1 a b 1u
+V1 a 0 DC 0V AC 1
+
+.print AC vr(b) vi(b) vm(b) vp(b) vdb(b) im(v1) rmsvmb
+.ac dec 5 100Hz 1e6
+
+* rms
+.MEASURE AC rmsvb rms v(b)
+.MEASURE AC rmsvmb rms vm(b)
+.MEASURE AC rmsvrb rms vr(b)
+.MEASURE AC rmsvib rms vi(b)
+.MEASURE AC rmsvdbb rms vdb(b)
+
+* Use expression with vp(), since VP(b) is
+* roughly 100x larger than other values
+.MEASURE AC rmsvpbExp rms {vp(b)/100}
+
+* add FROM-TO
+.MEASURE AC rmsvmbFromTo rms vm(b) FROM=1e3 TO=1e5
+
+* branch current
+.MEASURE AC rmsimv1 rms im(v1)
+
+* FROM=TO value is a failed measure, by definition
+* for RMS measure.
+.MEASURE AC rmsvmbFromTo1Pt rms vm(b) FROM=1e3 TO=1e3
+
+* Tests should fail since the FROM-T0 windows
+* have various problems.
+.measure ac rmsFail1 rms v(b) FROM=1e7 TO=1e8
+.measure ac rmsFail2 rms vr(b) FROM=1e6 TO=1e2
+
+.end

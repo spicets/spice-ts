@@ -1,0 +1,46 @@
+* Test DC mode support for RMS Measures
+*
+* This bug covers:
+*   1) the case of one variable in the .DC line,
+*      without a .STEP statement. where the swept
+*      variable is increasing.
+*
+*   2) An ascending sweep variable.
+*
+* See SON Bugs 1282 and 1283 for more details.
+********************************************************
+
+vsrc1   1a 0 1
+rload1a 1a 1b 1
+rload1b 1b 0 1
+
+.DC vsrc1 1 5 1
+
+* Note: vsrc1:DCV0 is the syntax for printing the DC value of vsrc1,
+* at it is swept.
+.print dc vsrc1:DCV0 v(1a) v(1b) rmsv1b
+
+* These should give the same answer
+.meas dc rmsv1b rms v(1b)
+.measure dc rmsgnd1b rms v(0,1b)
+
+* FROM or TO
+.measure dc rmsv1bFrom rms v(1b) FROM=3
+.measure dc rmsv1bTo rms v(1b) TO=3
+
+* These should give the same answer
+.measure dc RMSv1bFT1 rms v(1b) FROM=2 TO=4
+.measure dc RMSv1bFT2 rms v(1b) FROM=4 TO=2
+
+* FROM=TO value should be a failed measure, by definition
+.measure dc rmsv1bPT rms v(1b) FROM=4 TO=4
+
+* Expression
+.measure dc rmsv1bsq rms {v(1b)*v(1b)}
+
+* Tests should fail since the FROM-T0 windows
+* do not overlap with the stepped values for VSRC1:DCV0
+.measure dc rmsFail1 rms v(1b) FROM=-4 TO=-2
+.measure dc rmsFail2 rms v(1b) FROM=-2 TO=-4
+
+.end
