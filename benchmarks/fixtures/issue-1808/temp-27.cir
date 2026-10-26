@@ -1,0 +1,17 @@
+Resistor instance temperature temp-27
+V1 in 0 5
+R1 in delta 1k TC1=0.01 TC2=0.0001 DTEMP=10
+R2 delta 0 2k
+R3 in absolute 1k TC1=0.01 TC2=0.0001 TEMP=80
+R4 absolute 0 2k
+R5 in both 1k TC1=0.01 TC2=0.0001 TEMP=80 DTEMP=10
+R6 both 0 2k
+R7 in ambient 1k TC1=0.01 TC2=0.0001
+R8 ambient 0 2k
+.temp 27
+.op
+.dc TEMP 27 73 23
+.control
+set filetype=ascii
+.endc
+.end
