@@ -164,7 +164,7 @@ describe('bounded numeric WebAssembly backend', () => {
           devicesByAnalysis: {
             op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S'],
             dc: ['R', 'I', 'V', 'D', 'J', 'S'],
-            tran: ['R', 'C', 'L', 'I', 'V', 'J'],
+            tran: ['R', 'C', 'L', 'I', 'V', 'J', 'S'],
             ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J'],
           },
           fallback: 'reject',
