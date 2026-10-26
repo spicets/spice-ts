@@ -5,6 +5,41 @@ import { createSpiceEngine, type WorkerLike } from './index.js';
 // Use real module workers: terminate() only requests shutdown; its promise
 // resolves once the thread and its MessagePort have actually been released.
 describe('module worker shutdown', () => {
+  it.each([false, true])('reports failed shutdown (factory pending: %s)', async factoryPending => {
+    let releaseFactory!: () => void;
+    const factoryGate = new Promise<void>(resolve => { releaseFactory = resolve; });
+    let reply!: (event: MessageEvent) => void;
+    const engine = await createSpiceEngine({
+      backend: 'spice-ts-wasm',
+      workerFactory: async () => {
+        if (factoryPending) await factoryGate;
+        return {
+          postMessage(message: unknown) {
+            reply({ data: { id: (message as { id: number }).id, ok: false, error: {
+              code: 'CANCELLED', message: 'cancelled', retryable: true, phase: 'solve', details: {},
+            } } } as MessageEvent);
+          },
+          onMessage(listener: (event: MessageEvent) => void) { reply = listener; return () => {}; },
+          onError: () => () => {},
+          terminate: () => Promise.reject(new Error('shutdown failed')),
+        };
+      },
+    });
+    const simulation = engine.simulate({
+      apiVersion: '1', input: { format: 'spice', source: 'V1 out 0 1\nR1 out 0 1k\n.op' },
+    }, { requestId: 'failed-shutdown' });
+    if (factoryPending) {
+      const closing = expect(engine.close()).rejects.toThrow('terminated');
+      // Attach before releasing the factory to catch unexpected rejections.
+      const response = expect(simulation).resolves.toMatchObject({ ok: false, error: { code: 'BACKEND_UNAVAILABLE' } });
+      releaseFactory();
+      await Promise.all([closing, response]);
+    } else {
+      await expect(simulation).resolves.toMatchObject({ ok: false, error: { code: 'BACKEND_UNAVAILABLE' } });
+      await expect(engine.close()).rejects.toThrow('terminated');
+    }
+    await expect(engine.close()).rejects.toThrow('terminated');
+  });
   it.each([false, true])('close waits for cancellation shutdown (factory pending: %s)', async factoryPending => {
     let releaseFactory!: () => void;
     let releaseTermination!: (code: number) => void;

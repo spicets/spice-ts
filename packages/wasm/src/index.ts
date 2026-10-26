@@ -187,6 +187,15 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
   const factory = options.workerFactory ?? defaultWorkerFactory;
   const jobs = new Map<string, ActiveJob>();
   const pendingRequests = new Set<Promise<ValidationEnvelope | SimulationEnvelope>>();
+  let shutdownFailed = false;
+  const terminateWorker = async (worker: WorkerLike): Promise<void> => {
+    try {
+      await worker.terminate();
+    } catch (error) {
+      shutdownFailed = true;
+      throw error;
+    }
+  };
   let closed = false;
   let operationId = 0;
 
@@ -256,7 +265,11 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
     }
     if (cancellationRequested) {
       jobs.delete(requestId);
-      await worker.terminate();
+      try {
+        await terminateWorker(worker);
+      } catch {
+        return failure(requestId, transportError('BACKEND_UNAVAILABLE', 'The module worker could not be terminated'), request, manifest, backend);
+      }
       return failure(requestId, cancelledError(), request, manifest, backend);
     }
 
@@ -273,7 +286,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
         removeError();
         removeExit();
         if (!preserveJob) jobs.delete(requestId);
-        await worker.terminate();
+        await terminateWorker(worker);
       };
       const finish = (value: ValidationEnvelope | SimulationEnvelope, preserveJob = false): void => {
         if (settled) return;
@@ -398,6 +411,9 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
       // them, as well as workers currently completing asynchronous shutdown.
       await Promise.allSettled(pendingRequests);
       jobs.clear();
+      if (shutdownFailed) {
+        throw new SpiceEngineError(transportError('BACKEND_UNAVAILABLE', 'The module worker could not be terminated'));
+      }
       verifiedWorker.dispose();
     },
   };
