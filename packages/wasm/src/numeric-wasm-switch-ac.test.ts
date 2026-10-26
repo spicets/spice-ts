@@ -57,6 +57,7 @@ describe('voltage-controlled SW WASM AC parity', () => {
       const actual = await wasm.simulate(request(source), { requestId: 'switch-ac-parity' });
       expect(actual.ok, JSON.stringify(actual)).toBe(true);
       if (!actual.ok) throw new Error(actual.error.message);
+      expect(wasm.capabilities.numericWasm?.devicesByAnalysis.ac).toContain('S');
       expect(actual.metadata).toMatchObject({ backend: 'spice-ts-wasm' });
       expect(actual.data.analyses).toHaveLength(1);
       expect(reference.analyses).toHaveLength(1);
@@ -71,6 +72,15 @@ describe('voltage-controlled SW WASM AC parity', () => {
         const error = Math.abs(a.frequencyHz[index]! - frequency) / frequency;
         metrics.maxRelativeFrequencyError = Math.max(metrics.maxRelativeFrequencyError, error);
         expect(error, `frequency[${index}]`).toBeLessThanOrEqual(1e-9);
+        // Independent RC oracle: H = 1 / (1 + R * (1/ROFF + j*w*C)).
+        // Standalone-OP accepted-state semantics select ROFF for these decks.
+        const real = 1 + 1e3 / 1e6;
+        const imaginary = 1e3 * 2 * Math.PI * frequency * 10e-9;
+        const magnitude = 1 / Math.hypot(real, imaginary);
+        const phase = -Math.atan2(imaginary, real);
+        const output = a.voltagePhasors.out![index]!;
+        expect(Math.abs(output.magnitude - magnitude) / magnitude).toBeLessThanOrEqual(1e-9);
+        expect(Math.abs(output.phaseDegrees * Math.PI / 180 - phase)).toBeLessThanOrEqual(1e-9);
       });
       for (const field of ['voltagePhasors', 'currentPhasors'] as const) {
         expect(Object.keys(a[field]).sort()).toEqual(Object.keys(b[field]).sort());
