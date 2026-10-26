@@ -51,7 +51,7 @@ describe('JFET temperature preprocessing (#1695)', () => {
   });
 
   it('retains structured UnsupportedTemperatureError for unsupported devices', () => {
-    expect(() => parse('unsupported\nV1 d 0 1\nM1 d d 0 0 MM\n.model MM NMOS LEVEL=6\n.temp 80\n.op').compile()).toThrow(UnsupportedTemperatureError);
+    expect(() => parse('unsupported\nV1 d 0 1\nM1 d d 0 0 MM\n.model MM NMOS LEVEL=9\n.temp 80\n.op').compile()).toThrow(UnsupportedTemperatureError);
   });
 
   it.each([1, 2])('level %i rejects unknown model tokens structurally', level => {

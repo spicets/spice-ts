@@ -186,6 +186,16 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
 
   const factory = options.workerFactory ?? defaultWorkerFactory;
   const jobs = new Map<string, ActiveJob>();
+  const pendingRequests = new Set<Promise<ValidationEnvelope | SimulationEnvelope>>();
+  let shutdownFailed = false;
+  const terminateWorker = async (worker: WorkerLike): Promise<void> => {
+    try {
+      await worker.terminate();
+    } catch (error) {
+      shutdownFailed = true;
+      throw error;
+    }
+  };
   let closed = false;
   let operationId = 0;
 
@@ -219,7 +229,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
     } : {}),
   } as const);
 
-  const execute = async (
+  const executeRequest = async (
     operation: WorkerOperation,
     request: SimulationRequestV1,
     requestId: string,
@@ -255,7 +265,11 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
     }
     if (cancellationRequested) {
       jobs.delete(requestId);
-      void worker.terminate();
+      try {
+        await terminateWorker(worker);
+      } catch {
+        return failure(requestId, transportError('BACKEND_UNAVAILABLE', 'The module worker could not be terminated'), request, manifest, backend);
+      }
       return failure(requestId, cancelledError(), request, manifest, backend);
     }
 
@@ -266,19 +280,22 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
       let removeError = (): void => {};
       let removeExit = (): void => {};
       let deadline: ReturnType<typeof setTimeout> | undefined;
-      const cleanup = (preserveJob = false): void => {
+      const cleanup = async (preserveJob = false): Promise<void> => {
         if (deadline) clearTimeout(deadline);
         removeMessage();
         removeError();
         removeExit();
         if (!preserveJob) jobs.delete(requestId);
-        void worker.terminate();
+        await terminateWorker(worker);
       };
       const finish = (value: ValidationEnvelope | SimulationEnvelope, preserveJob = false): void => {
         if (settled) return;
         settled = true;
-        cleanup(preserveJob);
-        resolve(value);
+        // Node terminate() is asynchronous. Do not resolve the operation while
+        // its worker (and MessagePort) can still outlive the caller's cleanup.
+        void cleanup(preserveJob).then(() => resolve(value), () => resolve(failure(
+          requestId, transportError('BACKEND_UNAVAILABLE', 'The module worker could not be terminated'), request, manifest, backend,
+        )));
       };
       const onMessage = (event: MessageEvent): void => {
         const response = event.data as WorkerResponse;
@@ -322,6 +339,18 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
       const message: WorkerRequest = { id, operation, backend, request, maxPoints: options.maxPoints, ...(wasmBytes ? { wasmBytes } : {}) };
       worker.postMessage(message);
     });
+  };
+
+  const execute = (
+    operation: WorkerOperation,
+    request: SimulationRequestV1,
+    requestId: string,
+    streamState?: StreamJobState,
+  ): Promise<ValidationEnvelope | SimulationEnvelope> => {
+    const pending = executeRequest(operation, request, requestId, streamState);
+    pendingRequests.add(pending);
+    void pending.then(() => pendingRequests.delete(pending), () => pendingRequests.delete(pending));
+    return pending;
   };
 
   const engine: SpiceEngine = {
@@ -378,7 +407,13 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
     async close() {
       closed = true;
       for (const job of jobs.values()) job.cancel();
+      // Includes requests still constructing a worker when close() cancelled
+      // them, as well as workers currently completing asynchronous shutdown.
+      await Promise.allSettled(pendingRequests);
       jobs.clear();
+      if (shutdownFailed) {
+        throw new SpiceEngineError(transportError('BACKEND_UNAVAILABLE', 'The module worker could not be terminated'));
+      }
       verifiedWorker.dispose();
     },
   };

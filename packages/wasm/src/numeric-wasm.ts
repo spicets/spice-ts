@@ -839,7 +839,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
     if (/^\.param\b/i.test(card)) continue;
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
-      const model = /^\.model\s+\S+\s+(D|R|RES|NPN|PNP|NMOS|PMOS|NJF|PJF|SW)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
+      const model = /^\.model\s+\S+\s+(D|R|RES|C|L|NPN|PNP|NMOS|PMOS|NJF|PJF|SW)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
       if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT, MOS1, JFET and SW models are supported');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
@@ -870,7 +870,9 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       const jfetNames = 'LEVEL|VTO|BETA|LAMBDA|IS|N|RD|RS|CGS|CGD|PB|FC'
         + (temperatureEnabled ? '|TNOM|EG|XTI|TCV|VTOTC|BEX|BETATCE' : '');
       const resistor = /^(R|RES)$/i.test(model[1]!);
-      const names = resistor ? 'TC1|TC2|TNOM' : jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
+      const cl = /^(C|L)$/i.test(model[1]!);
+      if (cl && analysis !== 'tran' && analysis !== 'ac') unsupported('nonlinear-model', 'C/L models require transient or AC analysis');
+      const names = resistor || cl ? 'TC1|TC2|TNOM' : jfet ? jfetNames : mos ? mosNames : bjt ? bjtNames : diodeNames;
       // Check every LEVEL occurrence, not just the final duplicate consumed by core.
       if (mos && [...parameters.matchAll(/\bLEVEL\s*=\s*([^\s,]+)/gi)].some(match => Number(match[1]) !== 1)) {
         unsupported('mosfet-model-parameter', 'Only MOSFET LEVEL=1 is supported');
@@ -882,6 +884,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
 
       const remaining = parameters.replace(parameter, '').trim();
       if (remaining) {
+        if (cl) unsupported('passive-form', 'C/L models support numeric TC1, TC2 and TNOM only');
         if (resistor) unsupported('resistor-model-parameter', 'Only resistor TC1, TC2 and TNOM are supported');
         if (jfet) unsupported('jfet-model-parameter', `Only JFET model parameters ${jfetNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
         if (mos) unsupported('mosfet-model-parameter', `Only MOS1 model parameters ${mosNames.replaceAll('|', ', ')} are supported (LEVEL=1 only)`);
@@ -926,7 +929,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       if (!instance || instance[1]!.trim().replace(dimensions, '').trim()) {
         unsupported('mosfet-form', `MOSFETs must use name drain gate source bulk model with optional numeric ${instanceNames.replaceAll('|', ', ')} only`);
       }
-    } else if (type === 'L') {
+    } else if (type === 'L' && analysis !== 'tran' && analysis !== 'ac') {
       const withoutIC = card.replace(new RegExp(`\\s+IC\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i'), '').split(/\s+/);
       if (withoutIC.length !== 4 || !SPICE_NUMBER.test(withoutIC[3]!)) {
         unsupported('inductor-form', 'Inductors must use name positive negative constant-inductance');
@@ -945,12 +948,21 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
         || remainder.replace(parameters, '').trim()) {
         unsupported('passive-form', 'Resistors require a resistance, optional model, and numeric TC1/TC2/TNOM only');
       }
-    } else if (type === 'C') {
-      const withoutIC = type === 'C'
-        ? card.replace(new RegExp(`\\s+IC\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}\\s*$`, 'i'), '').split(/\s+/)
-        : tokens;
-      if (withoutIC.length !== 4) {
-        unsupported('passive-form', 'Passive devices must use name positive negative value');
+    } else if (type === 'C' || type === 'L') {
+      const number = SPICE_NUMBER.source.slice(1, -1);
+      const parameters = new RegExp(`\\b(?:TC1|TC2|IC)\\s*=\\s*${number}(?:\\s+|$)`, 'gi');
+      let tail = tokens.slice(4).join(' ');
+      // Optional model follows the explicit value; core resolves lexical scope.
+      if (tokens[4] && !tokens[4].includes('=') && !/^(?:TC1|TC2|IC)$/i.test(tokens[4])) {
+        tail = tokens.slice(5).join(' ');
+      }
+      const remainder = tail.replace(parameters, '').trim();
+      if (type === 'L' && !SPICE_NUMBER.test(tokens[3] ?? '')) {
+        unsupported('inductor-form', 'Inductors must use name positive negative constant-inductance');
+      }
+      // Core compilation applies the temperature law once; WASM stamps those values.
+      if (tokens.length < 4 || remainder) {
+        unsupported('passive-form', 'C/L devices require a value, optional model, and numeric TC1/TC2/IC only');
       }
     } else if (type === 'G') {
       if (tokens.length !== 6 || !SPICE_NUMBER.test(tokens[5]!)) {

@@ -2,7 +2,7 @@ import {
   DEVICE_GMIN, type ChargeIntegration, type ChargeTruncation, type ConvergenceTolerances, type DeviceModel, type StampContext,
 } from './device.js';
 import { stampChargeBranch, stampChargeCurrent, TransientChargeState } from './charge-state.js';
-import { InvalidCircuitError } from '../errors.js';
+import { InvalidCircuitError, UnsupportedTemperatureError } from '../errors.js';
 import { fetlim, limvds, pnjlim, stepScale } from './devsup.js';
 
 /**
@@ -65,6 +65,7 @@ export interface MOS6ModelParams {
   CGBO: number;
   LD: number;
   TNOM: number;
+  unsupportedTemperatureParameter?: string;
   oxideCapFactor: number;
   given: {
     CBD: boolean;
@@ -202,8 +203,17 @@ export function resolveMOS6Model(
     }
   }
 
+  // mos6temp.c covers these standard fields, not dialect-specific UTE/TCV/XTI laws.
+  const temperatureParameters = new Set([
+    'LEVEL', 'VTO', 'VT0', 'KV', 'NV', 'KC', 'NC', 'GAMMA', 'GAMMA1', 'SIGMA',
+    'PHI', 'LAMBDA', 'LAMBDA0', 'LAMBDA1', 'IS', 'JS', 'PB', 'CJ', 'CJSW',
+    'MJ', 'MJSW', 'FC', 'CBD', 'CBS', 'CGSO', 'CGDO', 'CGBO', 'LD', 'TNOM',
+    'TOX', 'U0', 'UO', 'NSUB', 'TPG', 'NSS', 'RD', 'RS', 'RSH',
+  ]);
   return {
     polarity,
+    unsupportedTemperatureParameter: Object.keys(params).find(key => params[key] !== undefined
+      && !temperatureParameters.has(key)),
     VTO: vto,
     KV: params.KV ?? 2,
     NV: params.NV ?? 0.5,
@@ -384,8 +394,14 @@ export class MOS6 implements DeviceModel {
     /** [drain, gate, source, bulk] */
     readonly nodes: number[],
     model: MOS6ModelParams,
-    instance: Partial<MOS6InstanceParams>,
+    instance: Partial<MOS6InstanceParams> & { TEMP?: number; DTEMP?: number },
   ) {
+    // Instance temperature overrides are not yet part of the validated MOS6 surface.
+    for (const parameter of ['TEMP', 'DTEMP'] as const) {
+      if (instance[parameter] !== undefined) {
+        throw new UnsupportedTemperatureError(name, instance.TEMP ?? 27 + (instance.DTEMP ?? 0), parameter);
+      }
+    }
     this.model = model;
     this.instance = {
       W: instance.W ?? DEFAULT_MOS_WIDTH,
@@ -414,6 +430,9 @@ export class MOS6 implements DeviceModel {
   }
 
   setTemperature(value: number): void {
+    if (value !== this.model.TNOM - CONSTCTOK && this.model.unsupportedTemperatureParameter !== undefined) {
+      throw new UnsupportedTemperatureError(this.name, value, this.model.unsupportedTemperatureParameter);
+    }
     this.temperature = value;
     this.applyTemperature();
   }

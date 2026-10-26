@@ -1150,7 +1150,7 @@ describe('bounded numeric WebAssembly backend', () => {
         ['model', 'V1 in 0 1\nR1 in a 1\nL1 a 0 lmod 1m\n.tran 1u 10u',
           'inductor-form', 'Inductors must use name positive negative constant-inductance'],
         ['instance-parameter', 'V1 in 0 1\nR1 in a 1\nL1 a 0 1m m=2\n.tran 1u 10u',
-          'inductor-form', 'Inductors must use name positive negative constant-inductance'],
+          'passive-form', 'C/L devices require a value, optional model, and numeric TC1/TC2/IC only'],
         ['expression', 'V1 in 0 1\nR1 in a 1\nL1 a 0 {1m*2}\n.tran 1u 10u',
           'inductor-form', 'Inductors must use name positive negative constant-inductance'],
         ['nonlinear-expression', "V1 in 0 1\nR1 in a 1\nL1 a 0 L='1m*(1+i(V1))'\n.tran 1u 10u",
