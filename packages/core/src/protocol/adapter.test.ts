@@ -137,7 +137,6 @@ describe('protocol v1 core adapter', () => {
 
   it.each([
     ['noise', 'V1 in 0 DC 0 AC 1\nR1 in out 1k\nR2 out 0 1k\n.noise v(out) V1 lin 2 1 2'],
-    ['tf', 'V1 in 0 1\nR1 in out 1k\nR2 out 0 1k\n.tf v(out) V1'],
   ])('rejects parsed %s analyses that protocol v1 cannot serialize', async (type, source) => {
     let caught: unknown;
     try {

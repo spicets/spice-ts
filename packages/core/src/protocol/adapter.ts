@@ -1,7 +1,6 @@
 import type {
   AcResultV1,
   AnalysisResultV1,
-  AnalysisV1,
   NativeAnalysisV1,
   CircuitComponentV1,
   CircuitModelV1,
@@ -18,7 +17,7 @@ import type {
   SubcircuitV1,
   TransientResultV1,
 } from './types.js';
-import { Circuit } from '../circuit.js';
+import { Circuit, type CompiledCircuit } from '../circuit.js';
 import { operatingPointReport } from '../op-report.js';
 import {
   ConvergenceError,
@@ -36,7 +35,7 @@ import { VOLTAGE_SOURCE_MULTIPLIER_ERROR } from '../parser/waveform-parser.js';
 import type { ACResult, DCSweepResult, DCResult, SimulationResult, StepResult, TransientResult } from '../results.js';
 import { simulate } from '../simulate.js';
 import type {
-  AnalysisCommand, AnalysisDirective, SimulationOptions, SourceWaveform, StepAnalysis,
+  AnalysisCommand, AnalysisDirective, SimulationOptions, SourceWaveform, StepAnalysis, TransferFunctionAnalysis,
 } from '../types.js';
 import { DEFAULT_OPTIONS } from '../types.js';
 import {
@@ -83,6 +82,7 @@ export async function validateProtocolV1(
   guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
   const compiled = circuit.compile(guard);
   enforcePointLimit(circuit.analyses, guard, requestReltol(request, circuit), compiled.steps[0]);
+  validateNativeTfOutputs(request, compiled);
   if (compiled.analyses.length === 0) throw new InvalidCircuitError('No analysis command specified');
   if (!execution?.topologyWarnings) preflightTopology(compiled, protocolSourcePath(request));
   const diagnostics = execution?.topologyWarnings ? topologyWarnings(compiled) : [];
@@ -161,6 +161,7 @@ export async function simulateProtocolV1(
   const analyses = circuit.analyses.map(protocolAnalysis);
   guard.maximum('maxAnalyses', analyses.length, 'validation');
   const preflight = circuit.compile(guard);
+  validateNativeTfOutputs(request, preflight);
   enforcePointLimit(analyses, guard, requestReltol(request, circuit), preflight.steps[0]);
   preflightTopology(preflight, protocolSourcePath(request));
   const options = coreOptions(request.options);
@@ -188,17 +189,19 @@ export async function simulateProtocolV1(
   return response;
 }
 
-function protocolAnalysis(analysis: AnalysisDirective): AnalysisCommand {
+type ProtocolCoreAnalysis = AnalysisCommand | TransferFunctionAnalysis;
+
+function protocolAnalysis(analysis: AnalysisDirective): ProtocolCoreAnalysis {
   switch (analysis.type) {
     case 'op':
     case 'dc':
     case 'tran':
     case 'ac':
+    case 'tf':
       return analysis;
     case 'noise':
     case 'sp':
     case 'disto':
-    case 'tf':
     case 'sens':
       throw new UnsupportedProtocolAnalysisError(analysis.type);
   }
@@ -403,7 +406,8 @@ function estimatedStepCount(step?: StepAnalysis): number {
 
 function estimatedAnalysisPoints(analysis: AnalysisDirective, reltol: number): number {
   switch (analysis.type) {
-    case 'op': return 1;
+    case 'op':
+    case 'tf': return 1;
     case 'dc': {
       const primaryPoints = accumulatedLinearPointCount(analysis.start, analysis.stop, analysis.step);
       const secondaryPoints = analysis.secondary === undefined
@@ -417,8 +421,7 @@ function estimatedAnalysisPoints(analysis: AnalysisDirective, reltol: number): n
     case 'ac': return frequencyPointCount(analysis, reltol, 'ac');
     case 'noise': return frequencyPointCount(analysis, reltol, 'noise');
     case 'sp':
-    case 'disto':
-    case 'tf': return 0;
+    case 'disto': return 0;
     case 'sens': {
       if (analysis.mode === 'dc') return 1;
       return frequencyPointCount(analysis, reltol, 'sens');
@@ -433,7 +436,8 @@ function finiteLinearPoints(start: number, stop: number, step: number): number {
 function resultPointCount(analyses: readonly AnalysisResultV1[]): number {
   return analyses.reduce((total, analysis) => {
     switch (analysis.type) {
-      case 'op': return total + 1;
+      case 'op':
+      case 'tf': return total + 1;
       case 'dc': return total + analysis.axis.values.length;
       case 'tran': return total + analysis.timeS.length;
       case 'ac': return total + analysis.frequencyHz.length;
@@ -489,6 +493,14 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     addComponent(circuit, component);
   }
   for (const [index, analysis] of document.analyses.entries()) {
+    if (analysis.type === 'tf') {
+      const path = `/input/document/analyses/${index}`;
+      if (typeof analysis.source !== 'string' || !/^[^\s]+$/.test(analysis.source)) invalidNativeField(`${path}/source`);
+      if (typeof analysis.output !== 'string') invalidNativeField(`${path}/output`);
+      const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(analysis.output);
+      const current = /^i\(\s*(v[^\s(),]*)\s*\)$/i.exec(analysis.output);
+      if (!voltage && !current) invalidNativeField(`${path}/output`);
+    }
     if (analysis.type === 'disto') {
       const path = `/input/document/analyses/${index}`;
       for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
@@ -550,6 +562,21 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
   return circuit;
 }
 
+/** Resolve native .tf voltage outputs only after hierarchical nodes are expanded. */
+function validateNativeTfOutputs(request: SimulationRequestV1, compiled: CompiledCircuit): void {
+  if (request.input.format !== 'spice-ts') return;
+  if (!request.input.document.analyses.some(analysis => analysis.type === 'tf')) return;
+  const nodes = new Set([...compiled.nodeIndexMap.keys()].map(node => node.toLowerCase()));
+  for (const [index, analysis] of request.input.document.analyses.entries()) {
+    if (analysis.type !== 'tf') continue;
+    const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(analysis.output);
+    if (voltage && [voltage[1], voltage[2]].some(node => node !== undefined
+      && !['0', 'gnd'].includes(node.toLowerCase()) && !nodes.has(node.toLowerCase()))) {
+      invalidNativeField(`/input/document/analyses/${index}/output`);
+    }
+  }
+}
+
 function coreModel(model: CircuitModelV1): { name: string; type: string; params: Record<string, number> } {
   return { name: model.name, type: model.type, params: numberParams(model.params) };
 }
@@ -578,6 +605,14 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
     case 'ac': circuit.addAnalysis('ac', analysis); break;
     case 'sp': circuit.addAnalysis('sp', analysis); break;
     case 'disto': circuit.addAnalysis('disto', analysis); break;
+    case 'tf': {
+      const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(analysis.output);
+      const current = /^i\(\s*(v[^\s(),]*)\s*\)$/i.exec(analysis.output);
+      if (voltage) circuit.addAnalysis('tf', { outputNode: voltage[1], outputReferenceNode: voltage[2], inputSource: analysis.source });
+      else if (current) circuit.addAnalysis('tf', { outputSource: current[1], inputSource: analysis.source });
+      else invalidNativeField('/input/document/analyses/output');
+      break;
+    }
   }
 }
 
@@ -612,7 +647,7 @@ function addComponent(circuit: Circuit, component: CircuitComponentV1): void {
 function appendAnalysisResult(
   target: AnalysisResultV1[],
   result: SimulationResult,
-  analysis: AnalysisCommand,
+  analysis: ProtocolCoreAnalysis,
   analysisIndex: number,
   nodeNames: string[],
   branchNames: string[],
@@ -629,7 +664,7 @@ function appendAnalysisResult(
 
 function serializeOne(
   result: SimulationResult | StepResult,
-  analysis: AnalysisCommand,
+  analysis: ProtocolCoreAnalysis,
   analysisIndex: number,
   nodeNames: string[],
   branchNames: string[],
@@ -641,6 +676,10 @@ function serializeOne(
     case 'dc': return serializeDc(required(result.dcSweep, 'DC-sweep result'), analysis, analysisIndex, nodeNames, branchNames, circuit, step);
     case 'tran': return serializeTransient(required(result.transient, 'transient result'), analysisIndex, nodeNames, branchNames, step);
     case 'ac': return serializeAc(required(result.ac, 'AC result'), analysisIndex, nodeNames, branchNames, step);
+    case 'tf': {
+      const tf = required(result.transferFunction, 'transfer-function result');
+      return withStep({ type: 'tf', analysisIndex, transferFunction: tf.transfer, inputResistanceOhm: tf.inputResistance, outputResistanceOhm: tf.outputResistance }, step);
+    }
   }
 }
 

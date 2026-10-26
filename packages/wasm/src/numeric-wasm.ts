@@ -541,7 +541,7 @@ function simulateAc(
   const dynamic = new Float64Array(order * order);
   const rhsReal = new Float64Array(order);
   const rhsImaginary = new Float64Array(order);
-  const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''))
+  const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M', 'J', 'S'].includes(deviceType(device.name) ?? ''))
     ? solveNonlinearOp(compiled, order, request, exports, undefined, false)
     : new Float64Array(order);
   const context: StampContext = {
@@ -848,7 +848,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       const jfet = /^(NJF|PJF)$/i.test(model[1]!);
       const parameters = (model[2] ?? model[3] ?? '').trim();
       if (/^(SW|CSW)$/i.test(model[1]!)) {
-        if (analysis === 'ac') unsupported('switch-analysis', 'SW and CSW models are supported only for OP/DC/TRAN');
+        if (analysis === 'ac' && /^CSW$/i.test(model[1]!)) unsupported('switch-analysis', 'CSW models are supported only for OP/DC/TRAN');
         const names = /^CSW$/i.test(model[1]!) ? 'IT|IH|RON|ROFF' : 'VT|VH|RON|ROFF';
         const parameter = new RegExp(`\\b(?:${names})\\s*=\\s*(${SPICE_NUMBER.source.slice(1, -1)})(?:\\s+|,\\s*|$)`, 'gi');
         let finite = true;
@@ -910,13 +910,14 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       unsupported('device-or-directive', `Unsupported linear .${analysis} card '${tokens[0] ?? ''}'`);
     }
     if (type === 'S' || type === 'W') {
-      if (analysis === 'ac') unsupported('switch-analysis', 'SW and CSW models are supported only for OP/DC/TRAN');
+      if (analysis === 'ac' && type === 'W') unsupported('switch-analysis', 'CSW models are supported only for OP/DC/TRAN');
       const length = type === 'S' ? 6 : 5;
       if ((tokens.length !== length && tokens.length !== length + 1)
         || (tokens.length === length + 1 && !/^(ON|OFF)$/i.test(tokens[length]!))) {
         unsupported('switch-form', type === 'S'
           ? 'Switches must use name positive negative control-positive control-negative model with optional ON/OFF'
           : 'Current switches must use name positive negative controlling-voltage-source model with optional ON/OFF');
+
       }
     } else if (type === 'J') {
       const area = tokens[5];
