@@ -40,7 +40,8 @@ export interface SParameterAnalysisV1 { type: 'sp'; variation: 'dec' | 'oct' | '
 export interface DistoAnalysisV1 { type: 'disto'; variation: 'dec'; points: number; startFreq: number; stopFreq: number; f2OverF1?: number }
 /** Independent-source params.distortionF1 / distortionF2 (DISTOF1 / DISTOF2). */
 export interface DistortionExcitationV1 { magnitude: number; phase?: number }
-export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1 | DistoAnalysisV1;
+export interface TfAnalysisV1 { type: 'tf'; output: string; source: string }
+export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1 | DistoAnalysisV1 | TfAnalysisV1;
 
 export interface CircuitPortV1 { name: string; net: string }
 export interface CircuitComponentV1 {
@@ -123,7 +124,11 @@ export interface AcResultV1 {
   voltagePhasors: Record<string, ComplexPolarV1[]>;
   currentPhasors: Record<string, ComplexPolarV1[]>;
 }
-export type AnalysisResultV1 = OperatingPointResultV1 | DcResultV1 | TransientResultV1 | AcResultV1;
+export interface TfResultV1 {
+  type: 'tf'; analysisIndex: number; step?: StepCoordinateV1;
+  transferFunction: number; inputResistanceOhm: number; outputResistanceOhm: number;
+}
+export type AnalysisResultV1 = OperatingPointResultV1 | DcResultV1 | TransientResultV1 | AcResultV1 | TfResultV1;
 export interface SimulationResultV1 { status: 'complete'; analyses: AnalysisResultV1[] }
 
 export interface DiagnosticSourceV1 { file: string; line: number; column?: number; excerpt?: string }
@@ -193,9 +198,9 @@ export type StreamPointV1 =
   | { type: 'tran'; timeS: number; voltagesV: Record<string, number>; currentsA: Record<string, number> }
   | { type: 'ac'; frequencyHz: number; voltagePhasors: Record<string, ComplexPolarV1>; currentPhasors: Record<string, ComplexPolarV1> };
 export type SimulationEventV1 =
-  | { type: 'analysis-start'; analysis: 'op' | 'dc' | 'tran' | 'ac'; analysisIndex: number; step?: StepCoordinateV1 }
+  | { type: 'analysis-start'; analysis: 'op' | 'dc' | 'tran' | 'ac' | 'tf'; analysisIndex: number; step?: StepCoordinateV1 }
   | { type: 'point'; analysisIndex: number; step?: StepCoordinateV1; pointIndex: number; point: StreamPointV1 }
-  | { type: 'analysis-end'; analysis: 'op' | 'dc' | 'tran' | 'ac'; analysisIndex: number; step?: StepCoordinateV1; pointCount: number }
+  | { type: 'analysis-end'; analysis: 'op' | 'dc' | 'tran' | 'ac' | 'tf'; analysisIndex: number; step?: StepCoordinateV1; pointCount: number }
   | { type: 'diagnostic'; diagnostic: DiagnosticV1 };
 export interface PartialAnalysisV1 {
   analysis: 'dc' | 'tran' | 'ac'; analysisIndex: number; step?: StepCoordinateV1;
