@@ -2946,13 +2946,16 @@ export class Circuit {
   ): void {
     // Resistor.setTemperature preserves instance TEMP precedence and adds DTEMP
     // only when TEMP is absent (ngspice-47 restemp.c).
+    // SW/CSW have no temperature routine in ngspice: their resistances and
+    // thresholds are temperature-independent, despite nonlinear stamping.
     for (const device of devices) {
       if (device instanceof Resistor || device instanceof VBIC || device instanceof BehavioralSource
         || device instanceof Diode || device instanceof BJT || device instanceof MOSFET
         || device instanceof MOS2 || device instanceof MOS6 || device instanceof MOS3
         || device instanceof BSIM3v3 || device instanceof BSIM4 || device instanceof EKV26) {
         device.setTemperature(temperature);
-      } else if (device.isNonlinear && !(device instanceof JFET)) {
+      } else if (device.isNonlinear && !(device instanceof JFET)
+        && !(device instanceof VoltageSwitch) && !(device instanceof CurrentSwitch)) {
         throw new UnsupportedTemperatureError(device.name, temperature);
       }
     }
