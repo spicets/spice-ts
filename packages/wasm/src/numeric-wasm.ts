@@ -718,6 +718,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
   }
   validateControlledSourceValues(compiled);
+  validateSwitchValues(compiled);
   if (analysis !== 'op') validatePassiveValues(compiled);
   const order = compiled.nodeCount + compiled.branchCount;
   if (order < 1) throw numericError('INVALID_CIRCUIT', 'The circuit has no numeric unknowns', 'compile');
@@ -1130,6 +1131,21 @@ function validAcSourceTokens(tokens: string[]): boolean {
       || ((tokens.length === 7 || tokens.length === 8) && tokens[5]?.toUpperCase() === 'AC');
   }
   return first === 'AC' && (tokens.length === 5 || tokens.length === 6);
+}
+
+function validateSwitchValues(compiled: CompiledCircuit): void {
+  for (const device of compiled.devices) {
+    if (deviceType(device.name) !== 'S') continue;
+    // Validate core-resolved values, including SPICE suffix scaling and defaults.
+    // Both states must be stampable, regardless of the initial control voltage.
+    const { model } = device as unknown as {
+      model: { onConductance: number; offConductance: number };
+    };
+    if ([model.onConductance, model.offConductance].some(conductance =>
+      conductance === 0 || !Number.isFinite(conductance) || !Number.isFinite(1 / conductance))) {
+      unsupported('switch-model-parameter', 'SW model RON and ROFF must resolve to nonzero finite resistances and conductances');
+    }
+  }
 }
 
 function validateControlledSourceValues(compiled: CompiledCircuit): void {

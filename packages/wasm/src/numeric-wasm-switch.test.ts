@@ -72,6 +72,21 @@ describe('bounded voltage-controlled SW WASM OP/DC', () => {
     } finally { await wasm.close(); }
   });
 
+  it.each(['.op', '.dc V1 0 2 1'].flatMap(analysis =>
+    ['RON', 'ROFF'].flatMap(parameter =>
+      ['0', '1e-999', '1e-308mil', '1e309'].map(value => ({ analysis, parameter, value }))),
+  ))('rejects invalid resolved $parameter=$value for $analysis', async ({ analysis, parameter, value }) => {
+    const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      const control = parameter === 'RON' ? 2 : 0;
+      const source = `${circuit(control, 0.2, '', `VT=1 VH=0.2 ${parameter}=${value}`)}\n${analysis}`;
+      expect(await wasm.simulate(request(source), { requestId: 'switch-resistance' }))
+        .toMatchObject({ ok: false, error: {
+          code: 'UNSUPPORTED_FEATURE', phase: 'validation', details: { feature: 'switch-model-parameter' },
+        } });
+    } finally { await wasm.close(); }
+  });
+
   it.each(['VON=1', 'VOFF=0', 'IT=1', 'LEVEL=1', 'VT={1}', 'VH=nope', 'RON=1 garbage', 'ROFF=1e999'])(
     'rejects unsupported SW model parameter %s', async model => {
       const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
