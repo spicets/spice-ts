@@ -170,6 +170,9 @@
           "$ref": "#/$defs/analysis"
         },
         {
+          "$ref": "#/$defs/distoAnalysis"
+        },
+        {
           "type": "object",
           "required": [
             "type",
@@ -205,6 +208,42 @@
           "additionalProperties": false
         }
       ]
+    },
+    "distoAnalysis": {
+      "type": "object",
+      "required": [
+        "type",
+        "variation",
+        "points",
+        "startFreq",
+        "stopFreq"
+      ],
+      "properties": {
+        "type": {
+          "const": "disto"
+        },
+        "variation": {
+          "const": "dec"
+        },
+        "points": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "startFreq": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "stopFreq": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "f2OverF1": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        }
+      },
+      "additionalProperties": false
     },
     "poleZeroAnalysis": {
       "type": "object",
@@ -382,6 +421,62 @@
                   "z0": {
                     "type": "number",
                     "exclusiveMinimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "V",
+                  "v",
+                  "I",
+                  "i"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "properties": {
+                  "distortionF1": {
+                    "type": "object",
+                    "required": [
+                      "magnitude"
+                    ],
+                    "properties": {
+                      "magnitude": {
+                        "type": "number"
+                      },
+                      "phase": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "distortionF2": {
+                    "type": "object",
+                    "required": [
+                      "magnitude"
+                    ],
+                    "properties": {
+                      "magnitude": {
+                        "type": "number"
+                      },
+                      "phase": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
                   }
                 }
               }
@@ -1080,6 +1175,7 @@
         "code": {
           "enum": [
             "INVALID_REQUEST",
+            "INVALID_INPUT",
             "PARSE_ERROR",
             "INVALID_CIRCUIT",
             "UNSUPPORTED_FEATURE",

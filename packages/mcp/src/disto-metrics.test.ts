@@ -34,7 +34,70 @@ describe('spice_disto_metrics', () => {
     const tool = MCP_TOOLS.find(t => t.name === 'spice_disto_metrics')!;
     expect(validator.getValidator(tool.inputSchema)({ request: { apiVersion: '1', input }, output: 'v(out)' }).valid).toBe(true);
   });
-  it.each(jsonInputs)('names unavailable DISTOF source fields for $format instead of rejecting the analysis', async input => {
+  it.each([false, true])('matches SPICE-text metrics exactly for native JSON (two-tone=%s)', async twoTone => {
+    const source = twoTone ? diode.replace('DISTOF1 0.01', 'DISTOF1 0.01 30 DISTOF2 0.005 -20').replace('100k\n', '100k 0.9\n') : diode;
+    const native = structuredClone(document);
+    Object.assign(native.circuit.components[0].params, {
+      distortionF1: { magnitude: 0.01, phase: twoTone ? 30 : 0 },
+      ...(twoTone ? { distortionF2: { magnitude: 0.005, phase: -20 } } : {}),
+    });
+    if (twoTone) Object.assign(native.analyses[0], { f2OverF1: 0.9 });
+    const response = await executeTool('spice_disto_metrics', { request: { apiVersion: '1', input: { format: 'spice-ts', document: native } }, output: 'v(out)' });
+    expect(response.isError).not.toBe(true);
+    expect(response.structuredContent).toEqual((await run(source)).structuredContent);
+  });
+  it.each([
+    ['distortionF1', null, 'distortionF1'],
+    ['distortionF2', [], 'distortionF2'],
+    ['distortionF1', {}, 'distortionF1/magnitude'],
+    ['distortionF2', { magnitude: '0.01' }, 'distortionF2/magnitude'],
+    ['distortionF1', { magnitude: Infinity }, 'distortionF1/magnitude'],
+    ['distortionF2', { magnitude: 0.01, phase: '30' }, 'distortionF2/phase'],
+    ['distortionF1', { magnitude: 0.01, typo: 1 }, 'distortionF1/typo'],
+  ])('rejects invalid native %s excitation %j naming %s', async (field, value, path) => {
+    const native = structuredClone(document);
+    Object.assign(native.circuit.components[0].params, { [field as string]: value });
+    const response = await executeTool('spice_disto_metrics', { request: { apiVersion: '1', input: { format: 'spice-ts', document: native } }, output: 'v(out)' });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_INPUT', phase: 'validation', retryable: false } } });
+    expect(JSON.stringify(response.structuredContent)).toContain(path);
+    expect(validator.getValidator(MCP_TOOLS.find(t => t.name === 'spice_disto_metrics')!.outputSchema!)(response.structuredContent).valid).toBe(true);
+  });
+  it.each([
+    ['variation', 'lin'], ['points', 0], ['points', 1.5], ['startFreq', -1],
+    ['stopFreq', 0], ['f2OverF1', 1], ['f2OverF1', 0], ['f2OverF1', '0.9'],
+  ])('rejects invalid native disto analysis %s=%s', async (field, value) => {
+    const native = structuredClone(document);
+    Object.assign(native.analyses[0], { [field]: value });
+    const response = await executeTool('spice_disto_metrics', { request: { apiVersion: '1', input: { format: 'spice-ts', document: native } }, output: 'v(out)' });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_INPUT', details: { path: `/input/document/analyses/0/${field}` } } } });
+  });
+  it.each([
+    [{ type: 'noise', outputNode: 'out', inputSource: 'V1', variation: 'dec', points: 5, startFreq: 1e3, stopFreq: 1e5 }],
+    [{ type: 'noise', outputNode: 'out', inputSource: 'V1', variation: 'dec', points: 1e9, startFreq: 1, stopFreq: 1e12 }],
+    {}, null, 'noise',
+  ].map(noiseAnalyses => [noiseAnalyses]))('rejects supplemental or malformed noiseAnalyses %j before execution', async noiseAnalyses => {
+    const response = await executeTool('spice_disto_metrics', {
+      request: { apiVersion: '1', input: { format: 'spice-ts', document: { ...document, noiseAnalyses } } }, output: 'v(out)',
+    });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: {
+      code: 'UNSUPPORTED_ANALYSIS', phase: 'validation', retryable: false,
+    } } });
+  });
+  it.each([
+    ['models', undefined], ['models', null], ['subcircuits', undefined],
+    ['circuit', null], ['circuit', { components: [null], nets: [] }],
+    ['circuit', { components: [{}], nets: [] }],
+    ['circuit', { components: [{ type: 42, params: {} }], nets: [] }],
+  ])('rejects malformed native document %s=%j during validation', async (field, value) => {
+    const response = await executeTool('spice_disto_metrics', {
+      request: { apiVersion: '1', input: { format: 'spice-ts', document: { ...document, [field]: value } } }, output: 'v(out)',
+    });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: {
+      code: 'INVALID_INPUT', phase: 'validation', retryable: false,
+    } } });
+    expect(JSON.stringify(response.structuredContent)).toContain(field);
+  });
+  it.each(jsonInputs.filter(input => input.format === 'circuit-json'))('names unavailable DISTOF source fields for $format instead of rejecting the analysis', async input => {
     const spice = await run();
     expect(spice.isError).not.toBe(true);
     const response = await executeTool('spice_disto_metrics', { request: { apiVersion: '1', input }, output: 'v(out)' });

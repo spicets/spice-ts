@@ -1,5 +1,15 @@
-import { DistortionResult } from '@spice-ts/core';
+import Ajv from 'ajv';
+import { circuitFromDocument, DistortionResult } from '@spice-ts/core';
+import { commonSchemaV1 } from '@spice-ts/core/protocol';
+import type { SpiceTsCircuitDocumentV1 } from '@spice-ts/core/protocol';
 import type { ComplexDistortionValue, DistortionProduct } from '@spice-ts/core';
+
+const ajv = new Ajv({ strict: false, validateSchema: false, allErrors: true });
+const validateNativeDistoDocument = ajv.compile({
+  ...commonSchemaV1.$defs.nativeDocument,
+  // The tool has already required exactly one disto; avoid unrelated analysis-union errors.
+  $defs: { ...commonSchemaV1.$defs, nativeAnalysis: commonSchemaV1.$defs.distoAnalysis },
+});
 
 /** Structured-clone representation of core's result across the worker boundary. */
 export interface DistoSpectrum {
@@ -39,7 +49,7 @@ export const distoUnsupportedSchema = {
 export function unsupportedDisto(): never {
   throw { code: 'UNSUPPORTED_ANALYSIS', message: 'Distortion metrics require exactly one unstepped .disto without control blocks or .pz', phase: 'validation', retryable: false, details: {} };
 }
-/** JSON adapters do not carry source DISTOF1/DISTOF2 excitations. Never infer them from AC. */
+/** circuit-json does not carry source DISTOF1/DISTOF2 excitations. Never infer them from AC. */
 export function validateDistoJsonInput(input: unknown): void {
   const record = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -50,9 +60,23 @@ export function validateDistoJsonInput(input: unknown): void {
   }
   const analyses = document.analyses;
   if (analyses.length !== 1 || !record(analyses[0]) || analyses[0].type !== 'disto'
-    || ['steps', 'step', 'poleZeroAnalyses'].some(key => document[key] !== undefined
+    || ['steps', 'step', 'poleZeroAnalyses', 'noiseAnalyses'].some(key => document[key] !== undefined
       && (!Array.isArray(document[key]) || document[key].length > 0))
     || document.controlScript !== undefined) unsupportedDisto();
+  if (input.format === 'spice-ts') {
+    // Validate untrusted structure before the typed adapter can iterate/access it.
+    if (!validateNativeDistoDocument(document)) {
+      const error = validateNativeDistoDocument.errors![0];
+      const field = error.keyword === 'required' ? error.params.missingProperty
+        : error.keyword === 'additionalProperties' ? error.params.additionalProperty : undefined;
+      const path = `/input/document${error.instancePath}${field === undefined ? '' : `/${String(field).replaceAll('~', '~0').replaceAll('/', '~1')}`}`;
+      throw { code: 'INVALID_INPUT', message: `Invalid native distortion document: ${ajv.errorsText(validateNativeDistoDocument.errors)}`,
+        phase: 'validation', retryable: false, details: { path } };
+    }
+    // Retain semantic checks (finite numbers and ordered frequency bounds) before budgeting.
+    circuitFromDocument(document as unknown as SpiceTsCircuitDocumentV1);
+    return;
+  }
   throw {
     code: 'UNSUPPORTED_FEATURE',
     message: `${String(input.format)} cannot represent source DISTOF1/DISTOF2 amplitudes and phases; use SPICE text with DISTOF1 [and DISTOF2]`,

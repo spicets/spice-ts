@@ -419,16 +419,14 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_disto_metrics',
-    description: 'Run exactly one unstepped .disto from SPICE text for output v(node). JSON requests (spice-ts and circuit-json) return UNSUPPORTED_FEATURE naming missing DISTOF1/DISTOF2 source fields; their adapters cannot represent these excitations. Use SPICE text, not AC amplitude inference. Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
+    description: 'Run exactly one unstepped .disto from SPICE text or native spice-ts JSON for output v(node). Native independent sources accept params.distortionF1 and params.distortionF2 objects with magnitude and optional phase in degrees; never infer excitation from AC. circuit-json returns UNSUPPORTED_FEATURE naming missing DISTOF1/DISTOF2 source fields. Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
     inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+\\)$' } },
-      // Tool-local recognition for actionable errors, not a protocol-wide analysis extension.
-      $defs: { ...commonSchemaV1.$defs, analysis: { anyOf: [
-        commonSchemaV1.$defs.analysis,
-        { type: 'object', required: ['type', 'variation', 'points', 'startFreq', 'stopFreq'], additionalProperties: false,
-          properties: { type: { const: 'disto' }, variation: { const: 'dec' }, points: { type: 'integer', minimum: 1 },
-            startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 },
-            f2OverF1: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 1 } } },
-      ] } },
+      // circuit-json recognizes .disto only to return its actionable unsupported error.
+      $defs: { ...commonSchemaV1.$defs,
+        // Keep the native branch disjoint from the circuit-json-only analysis override.
+        nativeAnalysis: { oneOf: [commonSchemaV1.$defs.analysis, commonSchemaV1.$defs.distoAnalysis] },
+        analysis: { anyOf: [commonSchemaV1.$defs.analysis, commonSchemaV1.$defs.distoAnalysis] },
+      },
     },
     outputSchema: { type: 'object', oneOf: [distoMetricsOutputSchema, toolFailureOutputSchema, distoUnsupportedSchema], $defs: commonSchemaV1.$defs },
   },
@@ -1870,7 +1868,7 @@ parentPort.once('message', async ({ operation, request, coreModulePath, sensitiv
     }
     if (operation === 'disto') {
       const files = request.input.virtualFiles || {};
-      const circuit = await core.parseTitlelessAsync(request.input.source, async path => {
+      const circuit = request.input.format === 'spice-ts' ? core.circuitFromDocument(request.input.document) : await core.parseTitlelessAsync(request.input.source, async path => {
         if (files[path] === undefined) throw new core.ParseError('Missing virtual include: ' + path, 0, path);
         return files[path];
       });

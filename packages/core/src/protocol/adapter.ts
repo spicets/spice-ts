@@ -56,7 +56,7 @@ import { isValidMaxTimestepOption } from '../analysis/max-timestep.js';
 
 const MAX_DETAIL_NAMES = 32;
 const API_ERROR_CODES = new Set<SpiceApiErrorV1['code']>([
-  'INVALID_REQUEST', 'PARSE_ERROR', 'INVALID_CIRCUIT', 'UNSUPPORTED_FEATURE',
+  'INVALID_REQUEST', 'INVALID_INPUT', 'PARSE_ERROR', 'INVALID_CIRCUIT', 'UNSUPPORTED_FEATURE',
   'SINGULAR_MATRIX', 'CONVERGENCE_FAILED', 'TIMESTEP_TOO_SMALL', 'RESOURCE_LIMIT',
   'CANCELLED', 'BACKEND_UNAVAILABLE', 'INTERNAL_ERROR',
 ]);
@@ -489,6 +489,18 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     addComponent(circuit, component);
   }
   for (const [index, analysis] of document.analyses.entries()) {
+    if (analysis.type === 'disto') {
+      const path = `/input/document/analyses/${index}`;
+      for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
+        const value = analysis[field];
+        if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+          || field === 'points' && !Number.isInteger(value)) invalidDistoField(`${path}/${field}`);
+      }
+      if (analysis.variation !== 'dec') invalidDistoField(`${path}/variation`);
+      if (analysis.stopFreq < analysis.startFreq) invalidDistoField(`${path}/stopFreq`);
+      const ratio = analysis.f2OverF1;
+      if (ratio !== undefined && (typeof ratio !== 'number' || !Number.isFinite(ratio) || ratio <= 0 || ratio >= 1)) invalidDistoField(`${path}/f2OverF1`);
+    }
     if (analysis.type === 'sp') {
       for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
         const value = analysis[field];
@@ -565,6 +577,7 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
     case 'tran': circuit.addAnalysis('tran', analysis); break;
     case 'ac': circuit.addAnalysis('ac', analysis); break;
     case 'sp': circuit.addAnalysis('sp', analysis); break;
+    case 'disto': circuit.addAnalysis('disto', analysis); break;
   }
 }
 
@@ -819,9 +832,32 @@ function required<T>(value: T | undefined, name: string): T {
 }
 
 function waveform(params: JsonObject): Partial<SourceWaveform> & { dc?: number } {
+  const distortion: Partial<SourceWaveform> = {};
+  for (const field of ['distortionF1', 'distortionF2'] as const) {
+    const value = params[field];
+    if (value !== undefined) {
+      const path = `params/${field}`;
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) invalidDistoField(path);
+      const excitation = value as JsonObject;
+      for (const key of Object.keys(excitation)) {
+        if (key !== 'magnitude' && key !== 'phase') invalidDistoField(`${path}/${key}`);
+      }
+      if (typeof excitation.magnitude !== 'number' || !Number.isFinite(excitation.magnitude)) invalidDistoField(`${path}/magnitude`);
+      if (excitation.phase !== undefined && (typeof excitation.phase !== 'number' || !Number.isFinite(excitation.phase))) invalidDistoField(`${path}/phase`);
+      distortion[field] = { magnitude: numberParam(excitation, 'magnitude'), phase: optionalNumber(excitation, 'phase') ?? 0 };
+    }
+  }
+  return { ...sourceWaveform(params), ...distortion };
+}
+
+function invalidDistoField(path: string): never {
+  throw new ProtocolExecutionError({ code: 'INVALID_INPUT', message: `Invalid native distortion field at ${path}`, phase: 'validation', retryable: false, details: { path } });
+}
+
+function sourceWaveform(params: JsonObject): Partial<SourceWaveform> & { dc?: number } {
   const kind = stringParam(params, 'waveform') ?? 'dc';
   switch (kind) {
-    case 'dc': return { dc: numberParam(params, 'dc') };
+    case 'dc': return { dc: params.dc === undefined && (params.distortionF1 !== undefined || params.distortionF2 !== undefined) ? 0 : numberParam(params, 'dc') };
     case 'ac': return { type: 'ac', dc: optionalNumber(params, 'dc'), magnitude: optionalNumber(params, 'magnitude') ?? 1, phase: optionalNumber(params, 'phase') ?? 0 };
     case 'sin': return { type: 'sin', offset: numberParam(params, 'offset'), amplitude: numberParam(params, 'amplitude'), frequency: numberParam(params, 'frequency'), delay: optionalNumber(params, 'delay'), damping: optionalNumber(params, 'damping'), phase: optionalNumber(params, 'phase') };
     case 'pulse': return { type: 'pulse', v1: numberParam(params, 'v1'), v2: numberParam(params, 'v2'), delay: numberParam(params, 'delay'), rise: numberParam(params, 'rise'), fall: numberParam(params, 'fall'), width: numberParam(params, 'width'), period: numberParam(params, 'period') };
