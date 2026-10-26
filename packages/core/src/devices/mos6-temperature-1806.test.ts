@@ -39,6 +39,13 @@ describe('MOS6 circuit temperature ngspice-47 parity (#1806)', () => {
     const result = await simulate(deck('n-tnom27-temp50').replace('TEMP=50 ', '').replace('.op', '.temp 50\n.op'));
     compare(result.dc!.current('VD'), references.find(r => r.id === 'n-tnom27-temp50')!.op[0]['i(vd)'], '.temp I(VD)');
   });
+  it('applies and restores the model during a .dc TEMP sweep', async () => {
+    const result = await simulate(deck('n-tnom27-temp27').replace(/\.dc VG[^\n]+/, '.dc TEMP 27 100 73'));
+    for (const [index, temperature] of [27, 100].entries()) {
+      const reference = references.find(r => r.id === `n-tnom27-temp${temperature}`)!;
+      compare(result.dcSweep!.current('VD')[index], reference.op[0]['i(vd)'], `TEMP=${temperature}`);
+    }
+  });
   it.each(['TCV', 'UTE', 'TRD', 'XTI'])('rejects unported model %s off nominal', async parameter => {
     await expect(simulate(deck('n-tnom27-temp50').replace('LEVEL=6', `LEVEL=6 ${parameter}=0.1`)))
       .rejects.toMatchObject({ code: 'UNSUPPORTED_TEMPERATURE', deviceName: 'M1', temperature: 50, parameter });
