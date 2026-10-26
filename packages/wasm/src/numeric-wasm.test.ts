@@ -165,7 +165,7 @@ describe('bounded numeric WebAssembly backend', () => {
             op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S'],
             dc: ['R', 'I', 'V', 'D', 'J', 'S'],
             tran: ['R', 'C', 'L', 'I', 'V', 'J', 'S'],
-            ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J'],
+            ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S'],
           },
           fallback: 'reject',
           limits: { maxSystemOrder: 64, maxAcPoints: 1025, maxResultPoints: 4096, memoryPages: 3 },
