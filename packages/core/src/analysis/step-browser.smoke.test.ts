@@ -63,7 +63,12 @@ async function pageDebuggerUrl(
         throw new Error(`Chrome exited before DevTools became ready (code ${child.exitCode ?? child.signalCode})\n${stderr}`);
       }
       try {
-        const [port] = (await readFile(join(profileDirectory, 'DevToolsActivePort'), 'utf8')).split('\n');
+        // Chrome can expose DevTools before (or without) writing the profile
+        // port file. Its stderr announcement is an independent readiness source.
+        const announcement = /DevTools listening on (ws:\/\/[^\s]+)/.exec(stderr)?.[1];
+        const port = announcement
+          ? new URL(announcement).port
+          : (await readFile(join(profileDirectory, 'DevToolsActivePort'), 'utf8')).split('\n')[0];
         const response = await fetch(`http://127.0.0.1:${port}/json/list`, {
           signal: AbortSignal.timeout(Math.max(1, Math.ceil(Math.min(1_000, deadline - performance.now())))),
         });
@@ -174,6 +179,29 @@ describe('production browser step worker', () => {
       await terminateProcess(child);
     }
   }, 5_000);
+
+  it('discovers the stderr endpoint when Chrome has not written its port file', async () => {
+    const profileDirectory = await mkdtemp(join(tmpdir(), 'spice-ts-stderr-browser-'));
+    temporaryDirectories.push(profileDirectory);
+    const server = createServer((_request, response) => {
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify([{ type: 'page', webSocketDebuggerUrl: 'ws://example.test/stderr-page' }]));
+    });
+    await new Promise<void>(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('No test server address');
+    const child = spawn(process.execPath, ['-e', `setTimeout(() => console.error('DevTools listening on ws://127.0.0.1:${address.port}/devtools/browser/test'), 50); setInterval(() => {}, 1000)`], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    try {
+      await expect(pageDebuggerUrl(profileDirectory, child, 2_000))
+        .resolves.toBe('ws://example.test/stderr-page');
+    } finally {
+      await terminateProcess(child);
+      server.closeAllConnections();
+      await new Promise<void>(resolveClose => server.close(() => resolveClose()));
+    }
+  });
 
   it.each(['delayed page', 'hung endpoint'] as const)('handles a %s during startup', async mode => {
     const profileDirectory = await mkdtemp(join(tmpdir(), 'spice-ts-starting-browser-'));
