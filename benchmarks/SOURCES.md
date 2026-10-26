@@ -2919,6 +2919,6 @@ Pinned per-file URLs, original/committed SHA256, licence hashes and static selec
 ## Resistor instance TEMP/DTEMP at circuit temperature (#1808)
 
 - Source: original project-authored resistor-divider decks in [fixtures/issue-1808](fixtures/issue-1808/), MIT (repository licence). No third-party netlist copied.
-- Semantic reference: ngspice-47 [`restemp.c`](https://github.com/ngspice/ngspice/blob/ngspice-47/src/spicelib/devices/res/restemp.c). Instance TEMP overrides circuit temperature and ignores DTEMP; otherwise DTEMP adds to circuit temperature.
+- Semantic reference: ngspice-47 [`restemp.c`](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/res/restemp.c). Instance TEMP overrides circuit temperature and ignores DTEMP; otherwise DTEMP adds to circuit temperature.
 - Oracle: ngspice-47, generated with `spice-heavy python3 benchmarks/fixtures/issue-1808/generate.py`. The generator records OP and DC TEMP sweep vectors from `ngspice -b -r <temporary-reference.raw> <deck.cir>` in ASCII mode.
 - Both engines receive the identical committed decks. Four decks cover `.options TEMP` and `.temp` at 27/50 C, each with a 27/50/73 C sweep. Each deck contains DTEMP=10, TEMP=80, TEMP=80 plus DTEMP=10, and an ambient-only control divider; TC1 and TC2 are both nonzero. Tests require relative error <= 1e-9 on every OP/sweep voltage and source current. This is correctness coverage, not a speed claim.
