@@ -541,7 +541,7 @@ function simulateAc(
   const dynamic = new Float64Array(order * order);
   const rhsReal = new Float64Array(order);
   const rhsImaginary = new Float64Array(order);
-  const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''))
+  const operatingPoint = compiled.devices.some(device => ['D', 'Q', 'M', 'J', 'S'].includes(deviceType(device.name) ?? ''))
     ? solveNonlinearOp(compiled, order, request, exports, undefined, false)
     : new Float64Array(order);
   const context: StampContext = {
@@ -848,7 +848,6 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       const jfet = /^(NJF|PJF)$/i.test(model[1]!);
       const parameters = (model[2] ?? model[3] ?? '').trim();
       if (/^SW$/i.test(model[1]!)) {
-        if (analysis === 'ac') unsupported('switch-analysis', 'SW models are supported only for OP/DC/TRAN');
         const parameter = new RegExp(`\\b(?:VT|VH|RON|ROFF)\\s*=\\s*(${SPICE_NUMBER.source.slice(1, -1)})(?:\\s+|,\\s*|$)`, 'gi');
         let finite = true;
         const remaining = parameters.replace(parameter, (_match, value: string) => {
@@ -909,7 +908,6 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       unsupported('device-or-directive', `Unsupported linear .${analysis} card '${tokens[0] ?? ''}'`);
     }
     if (type === 'S') {
-      if (analysis === 'ac') unsupported('switch-analysis', 'SW models are supported only for OP/DC/TRAN');
       if ((tokens.length !== 6 && tokens.length !== 7)
         || (tokens.length === 7 && !/^(ON|OFF)$/i.test(tokens[6]!))) {
         unsupported('switch-form', 'Switches must use name positive negative control-positive control-negative model with optional ON/OFF');
