@@ -249,6 +249,55 @@
       },
       "additionalProperties": false
     },
+    "noiseAnalysis": {
+      "type": "object",
+      "required": [
+        "type",
+        "outputNode",
+        "inputSource",
+        "variation",
+        "points",
+        "startFreq",
+        "stopFreq"
+      ],
+      "properties": {
+        "type": {
+          "const": "noise"
+        },
+        "outputNode": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "outputReferenceNode": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "inputSource": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "variation": {
+          "enum": [
+            "dec",
+            "oct",
+            "lin"
+          ]
+        },
+        "points": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "startFreq": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "stopFreq": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
     "port": {
       "type": "object",
       "required": [
@@ -465,6 +514,12 @@
           "items": {
             "$ref": "#/$defs/poleZeroAnalysis"
           }
+        },
+        "noiseAnalyses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/noiseAnalysis"
+          }
         }
       },
       "additionalProperties": false
@@ -540,6 +595,12 @@
               "type": "array",
               "items": {
                 "$ref": "#/$defs/poleZeroAnalysis"
+              }
+            },
+            "noiseAnalyses": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/noiseAnalysis"
               }
             }
           },

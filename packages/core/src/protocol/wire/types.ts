@@ -24,6 +24,17 @@ export interface PoleZeroAnalysisV1 {
   mode: 'pol' | 'zer' | 'pz';
 }
 
+/** Scalar noise request, separate from the v1 result/stream union. */
+export interface NoiseAnalysisV1 {
+  type: 'noise';
+  outputNode: string;
+  outputReferenceNode?: string;
+  inputSource: string;
+  variation: 'dec' | 'oct' | 'lin';
+  points: number;
+  startFreq: number;
+  stopFreq: number;
+}
 export interface SParameterAnalysisV1 { type: 'sp'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
 export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1;
 
@@ -50,6 +61,7 @@ export interface SpiceTsCircuitDocumentV1 {
   circuit: { components: CircuitComponentV1[]; nets: string[] };
   analyses: NativeAnalysisV1[];
   poleZeroAnalyses?: PoleZeroAnalysisV1[];
+  noiseAnalyses?: NoiseAnalysisV1[];
   models: CircuitModelV1[];
   subcircuits: SubcircuitV1[];
 }
@@ -57,7 +69,7 @@ export interface SpiceTsCircuitDocumentV1 {
 export type SimulationInputV1 =
   | { format: 'spice'; source: string; virtualFiles?: Record<string, string> }
   | { format: 'spice-ts'; document: SpiceTsCircuitDocumentV1 }
-  | { format: 'circuit-json'; circuit: JsonValue[]; analyses: AnalysisV1[]; poleZeroAnalyses?: PoleZeroAnalysisV1[] };
+  | { format: 'circuit-json'; circuit: JsonValue[]; analyses: AnalysisV1[]; poleZeroAnalyses?: PoleZeroAnalysisV1[]; noiseAnalyses?: NoiseAnalysisV1[] };
 
 export interface ResourceLimitsV1 {
   maxSourceBytes?: number;

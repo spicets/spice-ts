@@ -29,6 +29,13 @@ const nativeAnalysis: Schema = { oneOf: [
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'sp' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
 
+const noiseAnalysis = object(['type', 'outputNode', 'inputSource', 'variation', 'points', 'startFreq', 'stopFreq'], {
+  type: { const: 'noise' }, outputNode: { type: 'string', pattern: '\\S' },
+  outputReferenceNode: { type: 'string', pattern: '\\S' }, inputSource: { type: 'string', pattern: '\\S' },
+  variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1),
+  startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 },
+});
+
 const poleZeroAnalysis = object(['type', 'inputPositive', 'inputNegative', 'outputPositive', 'outputNegative', 'inputType', 'mode'], {
   type: { const: 'pz' }, inputPositive: string, inputNegative: string,
   outputPositive: string, outputNegative: string,
@@ -55,11 +62,12 @@ const nativeDocument = object(['format', 'schemaVersion', 'circuit', 'analyses',
   circuit: object(['components', 'nets'], { components: array(ref('component')), nets: { type: 'array', items: { type: 'string', not: { const: '0' } }, uniqueItems: true } }),
   analyses: array(ref('nativeAnalysis')), models: array(ref('model')), subcircuits: array(ref('subcircuit')),
   poleZeroAnalyses: array(ref('poleZeroAnalysis')),
+  noiseAnalyses: array(ref('noiseAnalysis')),
 });
 const simulationInput: Schema = { oneOf: [
   object(['format', 'source'], { format: { const: 'spice' }, source: string, virtualFiles: { type: 'object', propertyNames: { type: 'string', pattern: '^(?!(?:.*//)|/)(?:(?!\\.{1,2}(?:/|$))[^/\\\\]+)(?:/(?!\\.{1,2}(?:/|$))[^/\\\\]+)*$' }, additionalProperties: string } }),
   object(['format', 'document'], { format: { const: 'spice-ts' }, document: ref('nativeDocument') }),
-  object(['format', 'circuit', 'analyses'], { format: { const: 'circuit-json' }, circuit: array(ref('jsonValue')), analyses: array(ref('analysis')), poleZeroAnalyses: array(ref('poleZeroAnalysis')) }),
+  object(['format', 'circuit', 'analyses'], { format: { const: 'circuit-json' }, circuit: array(ref('jsonValue')), analyses: array(ref('analysis')), poleZeroAnalyses: array(ref('poleZeroAnalysis')), noiseAnalyses: array(ref('noiseAnalysis')) }),
 ] };
 const limits = object([], Object.fromEntries(['maxSourceBytes', 'maxVirtualFiles', 'maxIncludeDepth', 'maxComponents', 'maxSubcircuitDepth', 'maxAnalyses', 'maxResultPoints', 'maxSerializedResultBytes', 'maxWallTimeMs'].map((key) => [key, integer()])));
 const options = object([], {
@@ -132,7 +140,7 @@ export const commonSchemaV1 = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://spice-ts.dev/schemas/v1/common.schema.json',
   $defs: {
-    jsonValue, sha256: hash, step: object(['index', 'parameter', 'value'], stepProperties), analysis, nativeAnalysis, poleZeroAnalysis,
+    jsonValue, sha256: hash, step: object(['index', 'parameter', 'value'], stepProperties), analysis, nativeAnalysis, poleZeroAnalysis, noiseAnalysis,
     port: object(['name', 'net'], { name: string, net: string }), component, model,
     subcircuit: object(['name', 'ports', 'components'], { name: { type: 'string', minLength: 1 }, ports: array(string), components: array(ref('component')), models: array(ref('model')) }),
     nativeDocument, simulationInput, limits, options,

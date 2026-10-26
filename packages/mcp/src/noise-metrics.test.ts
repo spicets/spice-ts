@@ -19,7 +19,61 @@ async function run(extra = {}) {
   };
 }
 
+const noiseAnalysis = { type: 'noise', outputNode: 'out', inputSource: 'V1', variation: 'dec', points: 100, startFreq: 1, stopFreq: 1e10 };
+const document = {
+  format: 'spice-ts', schemaVersion: '1.0',
+  circuit: { nets: ['in', 'out'], components: [
+    { type: 'V', id: 'V1', name: 'V1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { waveform: 'ac', magnitude: 1, dc: 0 } },
+    { type: 'R', id: 'R1', name: 'R1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: 'out' }], params: { resistance: 1000 } },
+    { type: 'C', id: 'C1', name: 'C1', ports: [{ name: 'p', net: 'out' }, { name: 'n', net: '0' }], params: { capacitance: 1e-9 } },
+  ] }, analyses: [], models: [], subcircuits: [], noiseAnalyses: [noiseAnalysis],
+};
+const jsonRequest = { apiVersion: '1', input: { format: 'spice-ts', document } };
+
 describe('spice_noise_metrics', () => {
+  it('matches every SPICE scalar exactly for native JSON and legacy netlist', async () => {
+    const selectors = { bandHz: [10, 100000], spotFrequenciesHz: [10, 1000, 12345] };
+    const expected = await run(selectors);
+    for (const input of [{ request: jsonRequest }, { netlist: rc }]) {
+      const response = await executeTool('spice_noise_metrics', { ...input, ...selectors });
+      expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+      expect(response.structuredContent).toEqual(expected);
+      expect(validator.getValidator(MCP_TOOLS.find(t => t.name === 'spice_noise_metrics')!.inputSchema)({ ...input, ...selectors }).valid).toBe(true);
+    }
+  });
+  it('preserves noise through circuit-json conversion and matches text exactly', async () => {
+    const circuit = [
+      ...['in', 'out', '0'].map(net => ({ type: 'source_net', source_net_id: net, name: net })),
+      ...document.circuit.components.flatMap((component, i) => [
+        { type: 'source_component', source_component_id: component.id, name: component.name,
+          ftype: ['simple_voltage_source', 'simple_resistor', 'simple_capacitor'][i],
+          ...[{ voltage: 0 }, { resistance: 1000 }, { capacitance: 1e-9 }][i] },
+        ...component.ports.flatMap((port, j) => [
+          { type: 'source_port', source_port_id: `${component.id}-${j}`, source_component_id: component.id, name: port.name, pin_number: j + 1 },
+          { type: 'source_trace', source_trace_id: `${component.id}-${j}`, connected_source_port_ids: [`${component.id}-${j}`], connected_source_net_ids: [port.net] },
+        ]),
+      ]),
+    ];
+    const input = { format: 'circuit-json', circuit, analyses: [], noiseAnalyses: [noiseAnalysis] };
+    expect(await executeTool('spice_noise_metrics', { request: { apiVersion: '1', input: { ...input, noiseAnalyses: [{ ...noiseAnalysis, points: 0 }] } } }))
+      .toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST', details: { path: '/input/noiseAnalyses/0/points' } } } });
+    const selectors = { spotFrequenciesHz: [10, 1000] };
+    const response = await executeTool('spice_noise_metrics', { request: { apiVersion: '1', input }, ...selectors });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    expect(response.structuredContent).toEqual(await run(selectors));
+    expect(validator.getValidator(MCP_TOOLS.find(t => t.name === 'spice_noise_metrics')!.inputSchema)({ request: { apiVersion: '1', input } }).valid).toBe(true);
+    expect(await executeTool('spice_noise_metrics', { request: { apiVersion: '1', input: { ...input, circuit: [{ type: 'source_component', source_component_id: 'U1', name: 'U1', ftype: 'simple_chip' }] } } }))
+      .toMatchObject({ isError: true, structuredContent: { error: { code: 'UNSUPPORTED_ELEMENT', details: { diagnostics: expect.any(Array) } } } });
+  });
+  it('returns a pointer for invalid native noise fields', async () => {
+    const response = await executeTool('spice_noise_metrics', { request: { ...jsonRequest, input: { format: 'spice-ts', document: { ...document, noiseAnalyses: [{ ...noiseAnalysis, points: 0 }] } } } });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST', details: { path: '/input/document/noiseAnalyses/0/points' } } } });
+  });
+  it('rejects ambiguous input and multiple native noise analyses', async () => {
+    for (const args of [{ netlist: rc, request: jsonRequest }, {}, { request: { ...jsonRequest, input: { format: 'spice-ts', document: { ...document, noiseAnalyses: [noiseAnalysis, noiseAnalysis] } } } }]) {
+      expect(await executeTool('spice_noise_metrics', args)).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST' } } });
+    }
+  });
   it('integrates PSD rather than amplitude and clips edges before trapezoids', () => {
     const spectrum = new NoiseResult([1, 3], 'out', 'I1', [1, 3], [2, 6], undefined, undefined);
     const m = noiseMetrics(spectrum, { bandHz: [1.5, 2.5], spotFrequenciesHz: [1, Math.sqrt(3), 3] });

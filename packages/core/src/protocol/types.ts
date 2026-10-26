@@ -35,6 +35,7 @@ export interface SpiceTsCircuitDocumentV1 {
   circuit: { components: CircuitComponentV1[]; nets: string[] };
   analyses: NativeAnalysisV1[];
   poleZeroAnalyses?: import('./wire/types.js').PoleZeroAnalysisV1[];
+  noiseAnalyses?: import('./wire/types.js').NoiseAnalysisV1[];
   models: CircuitModelV1[];
   subcircuits: SubcircuitV1[];
 }
@@ -42,7 +43,7 @@ export interface SpiceTsCircuitDocumentV1 {
 export type SimulationInputV1 =
   | { format: 'spice'; source: string; virtualFiles?: Record<string, string> }
   | { format: 'spice-ts'; document: SpiceTsCircuitDocumentV1 }
-  | { format: 'circuit-json'; circuit: JsonValue[]; analyses: AnalysisV1[]; poleZeroAnalyses?: import('./wire/types.js').PoleZeroAnalysisV1[] };
+  | { format: 'circuit-json'; circuit: JsonValue[]; analyses: AnalysisV1[]; poleZeroAnalyses?: import('./wire/types.js').PoleZeroAnalysisV1[]; noiseAnalyses?: import('./wire/types.js').NoiseAnalysisV1[] };
 
 export interface ResourceLimitsV1 {
   maxSourceBytes?: number;
