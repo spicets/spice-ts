@@ -69,11 +69,6 @@ describe('MOS3 non-nominal temperature ngspice-47 parity (#1057)', () => {
       code: 'UNSUPPORTED_TEMPERATURE', deviceName: 'M1', temperature: 100, parameter,
     });
   });
-  it('keeps LEVEL=9 non-nominal circuit temperature rejected', async () => {
-    await expect(simulate(references[0].deck.replace('LEVEL=3', 'LEVEL=9'))).rejects.toMatchObject({
-      code: 'UNSUPPORTED_TEMPERATURE', deviceName: 'M1', temperature: 100,
-    });
-  });
   it.each(['TEMP=27', 'DTEMP=10'])('keeps LEVEL=9 instance %s rejected', async override => {
     await expect(simulate(references[0].deck.replace('LEVEL=3', 'LEVEL=9')
       .replace('W=10u', `${override} W=10u`))).rejects.toMatchObject({

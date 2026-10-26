@@ -1,0 +1,15 @@
+MOS9 circuit temperature p-tnom50-temp50
+VD supply 0 -3
+VG g 0 -2
+VB b 0 0.4
+RD supply d 1k
+RS s 0 100
+M1 d g s b MOD L=2u W=10u AD=2p AS=3p
+.model MOD PMOS LEVEL=9 VTO=-0.7 KP=50u GAMMA=0.4 PHI=0.6 THETA=0.1 ETA=0.02 KAPPA=0.2 VMAX=1e5 TOX=20n IS=1e-14 JS=1e-8 TNOM=50
+.options TEMP=50 RELTOL=1e-10 ABSTOL=1e-15 VNTOL=1e-12
+.op
+.dc VG -0.8 -2.4 -0.4
+.control
+set filetype=ascii
+.endc
+.end

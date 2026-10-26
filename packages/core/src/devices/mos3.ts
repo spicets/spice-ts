@@ -447,9 +447,6 @@ export class MOS3 implements DeviceModel {
   }
 
   setTemperature(value: number): void {
-    // LEVEL=9 remains outside this validation slice, including direct hooks
-    // used by .dc/.step TEMP (not just the circuit compilation guard).
-    if (this.model.level !== 3 && value !== 27) throw new UnsupportedTemperatureError(this.name, value);
     const effective = this.instance.TEMP ?? value + (this.instance.DTEMP ?? 0);
     if (effective !== this.model.TNOM - CONSTCTOK && this.model.unsupportedTemperatureParameter !== undefined) {
       throw new UnsupportedTemperatureError(this.name, effective, this.model.unsupportedTemperatureParameter);
@@ -468,6 +465,10 @@ export class MOS3 implements DeviceModel {
    * 214-251 (KP/U0, PHI/VTO, IS/JS and junction capacitance laws),253-339
    * (Vcrit and depletion coefficients). These equations were already ported;
    * #1057 validates and enables their use beyond the circuit's 27 C default.
+   * MOS9 uses the same equations (mos9temp.c:44-50,135-149,220-345).
+   * Its only semantic difference in temperature preprocessing is the 1 um
+   * effective geometry floor (mos9temp.c:203-215 vs mos3temp.c:198-210),
+   * already enforced by the constructor. #1812 validates circuit TEMP for it.
    * Source: https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/mos3/mos3temp.c
    */
   private applyTemperature(): void {

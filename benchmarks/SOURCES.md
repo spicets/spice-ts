@@ -1,5 +1,32 @@
 # Benchmark sources
 
+## MOS9 circuit temperature (#1812)
+
+`fixtures/issue-1812/*.cir` are original project-authored MIT bias decks for
+https://github.com/spicets/spice-ts/issues/1812. No third-party netlists copied.
+`reference.json` contains ngspice-47 OP and DC vectors for NMOS/PMOS at circuit
+TEMP=27/50/100 C and model TNOM=27/50 C. Every deck is consumed unchanged by
+both simulators. Regenerate with
+`spice-heavy python3 benchmarks/fixtures/issue-1812/generate.py`, which runs
+`ngspice -b -r <temporary-reference.raw> <deck.cir>` in ASCII mode.
+
+Source audit against the ngspice-47 tag in https://github.com/imr/ngspice
+(BSD-3-Clause, not copied here): `src/spicelib/devices/mos9/mos9temp.c:44-50,
+135-149,220-345` has the same temperature equations as
+`src/spicelib/devices/mos3/mos3temp.c:44-50,131-145,214-339`.
+After normalizing MOS3/MOS9 names, whitespace and comments, the only semantic
+difference is MOS9's effective length/width rejection below 1 um
+(`mos9temp.c:203-215`), versus MOS3's rejection at or below zero
+(`mos3temp.c:198-210`). The existing MOS3 constructor already applies this
+LEVEL=9 geometry floor. No separate temperature law is necessary.
+
+Before: 11 of 16 new tests fail with `UnsupportedTemperatureError` (including
+direct DC TEMP hooks); 5 pass. After: all 16 pass. Across the 12 identical decks,
+636 OP/DC scalar comparisons have maximum relative error 1.8367661135279044e-8
+(threshold 1e-6, no absolute-error floor). This is correctness evidence, not a
+speed claim or an aggregate-corpus result. Existing unsupported instance
+TEMP/DTEMP and unported dialect temperature-field guards are unchanged.
+
 ## MOS6 circuit temperature (#1806)
 
 `fixtures/issue-1806/*.cir` are original project-authored MIT decks from
