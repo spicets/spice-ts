@@ -74,13 +74,8 @@ const BASELINE_MODES = {
   trnqsmod: 0, acnqsmod: 0, mtrlmod: 0, mtrlcompatmod: 0, cvchargemod: 0,
   gidlmod: 0, wpemod: 0, fnoimod: 1, tnoimod: 0,
 } as const satisfies Partial<Record<Bsim4ModelParameter, number>>;
-// b4set.c:2224-2304. b4temp.c:1657-1761 applies stress/WPE corrections
-// subsequently consumed by b4ld.c. Conservatively reject explicitly nondefault
-// layout parameters even when another activation parameter is currently absent.
+// b4set.c:2224-2304. LOD is ported for static analysis; WPE remains guarded.
 const LAYOUT_DEFAULTS = {
-  saref: 1e-6, sbref: 1e-6, wlod: 0, ku0: 0, kvsat: 0, kvth0: 0, tku0: 0,
-  llodku0: 0, wlodku0: 0, llodvth: 0, wlodvth: 0, lku0: 0, wku0: 0, pku0: 0,
-  lkvth0: 0, wkvth0: 0, pkvth0: 0, stk2: 0, lodk2: 1, steta0: 0, lodeta0: 1,
   web: 0, wec: 0, kvth0we: 0, k2we: 0, ku0we: 0, scref: 1e-6,
   lkvth0we: 0, lk2we: 0, lku0we: 0, wkvth0we: 0, wk2we: 0, wku0we: 0,
   pkvth0we: 0, pk2we: 0, pku0we: 0,
@@ -179,9 +174,9 @@ export function setupBsim4Instance(
     if (['geomod', 'rgeomod', 'trnqsmod', 'acnqsmod', 'wnflag'].includes(key) && value !== 0) {
       unsupported(raw, 'instance selector path is not ported');
     }
-    // b4set.c:2417-2432, b4temp.c:1657-1761. Conservative neutral-layout guard.
-    if (['sa', 'sb', 'sd', 'sca', 'scb', 'scc', 'sc'].includes(key) && value !== values[parameter]) {
-      unsupported(raw, 'nondefault instance stress/well-proximity layout is not ported');
+    // b4temp.c:1704-1756. WPE has no validated implementation yet.
+    if (['sca', 'scb', 'scc', 'sc'].includes(key) && value !== values[parameter]) {
+      unsupported(raw, 'nondefault instance well-proximity layout is not ported');
     }
     values[parameter] = value;
     given.add(parameter);

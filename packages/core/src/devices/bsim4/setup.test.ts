@@ -104,13 +104,11 @@ describe('BSIM4 fail-closed setup', () => {
   it.each(['trnqsmod', 'acnqsmod', 'geomod', 'rgeomod', 'wnflag'])('rejects instance mode %s', parameter => {
     expect(() => setupBsim4Instance(setupBsim4Model(), { [parameter]: 1 }, nodes)).toThrow(UnsupportedModel);
   });
-  it.each(['saref', 'sbref', 'wlod', 'ku0', 'kvsat', 'kvth0', 'tku0', 'llodku0', 'wlodku0', 'llodvth', 'wlodvth',
-    'lku0', 'wku0', 'pku0', 'lkvth0', 'wkvth0', 'pkvth0', 'stk2', 'lodk2', 'steta0', 'lodeta0',
-    'web', 'wec', 'kvth0we', 'k2we', 'ku0we', 'scref', 'lkvth0we', 'lk2we', 'lku0we',
+  it.each(['web', 'wec', 'kvth0we', 'k2we', 'ku0we', 'scref', 'lkvth0we', 'lk2we', 'lku0we',
     'wkvth0we', 'wk2we', 'wku0we', 'pkvth0we', 'pk2we', 'pku0we'])('guards nondefault layout param %s', parameter => {
     expect(() => setupBsim4Model({ [parameter]: 2 })).toThrow(UnsupportedModel);
   });
-  it.each(['sa', 'sb', 'sd', 'sca', 'scb', 'scc', 'sc'])('guards nondefault instance layout %s', parameter => {
+  it.each(['sca', 'scb', 'scc', 'sc'])('guards nondefault instance layout %s', parameter => {
     expect(() => setupBsim4Instance(setupBsim4Model(), { [parameter]: 1e-6 }, nodes)).toThrow(UnsupportedModel);
   });
   it('accepts explicitly neutral layout values', () => {

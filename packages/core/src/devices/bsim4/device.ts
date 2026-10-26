@@ -107,6 +107,7 @@ export class BSIM4 implements DeviceModel {
   }
   assertAnalyses(analyses: readonly string[]): void {
     for (const analysis of analyses) {
+      if ((analysis === 'tran' || analysis === 'ac') && this.hasLodLayout()) this.unsupported('SA/SB/SD stress: ' + analysis);
       if ((analysis === 'tran' || analysis === 'ac') && this.seriesResistance.some(r => r > 0)) this.unsupported('RSH series nodes: ' + analysis);
       if (analysis === 'tran') this.terminalCharges(() => 0);
       else if (analysis !== 'op' && analysis !== 'dc' && analysis !== 'ac') this.unsupported(analysis);
@@ -115,7 +116,14 @@ export class BSIM4 implements DeviceModel {
   capacitances(): never { return this.unsupported('capacitances'); }
   charges(): never { return this.unsupported('charge'); }
   noise(): never { return this.unsupported('noise'); }
-  stampSmallSignal(ctx: StampContext): void { this.stamp(ctx, true); }
+  private hasLodLayout(): boolean {
+    const { sa, sb, sd } = this.instance.values;
+    return sa !== 0 || sb !== 0 || sd !== 2 * this.model.values.dmcg;
+  }
+  stampSmallSignal(ctx: StampContext): void {
+    if (this.hasLodLayout()) this.unsupported('SA/SB/SD stress: ac');
+    this.stamp(ctx, true);
+  }
   stampDynamic(ctx: StampContext): void {
     const p = this.model.values.type;
     const read = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);
@@ -153,6 +161,7 @@ export class BSIM4 implements DeviceModel {
   }
   resetTransient(): void { this.chargeState.reset(); }
   private terminalCharges(read: (node: number) => number) {
+    if (this.hasLodLayout()) this.unsupported('SA/SB/SD stress: tran');
     if (this.seriesResistance.some(r => r > 0)) this.unsupported('RSH series nodes: tran');
     const p = this.model.values.type;
     // RGATEMOD=1/2 store intrinsic and overlap charge at GP (b4ld.c),
