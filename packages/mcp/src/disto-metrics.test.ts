@@ -71,6 +71,32 @@ describe('spice_disto_metrics', () => {
     const response = await executeTool('spice_disto_metrics', { request: { apiVersion: '1', input: { format: 'spice-ts', document: native } }, output: 'v(out)' });
     expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_INPUT', details: { path: `/input/document/analyses/0/${field}` } } } });
   });
+  it.each([
+    [{ type: 'noise', outputNode: 'out', inputSource: 'V1', variation: 'dec', points: 5, startFreq: 1e3, stopFreq: 1e5 }],
+    [{ type: 'noise', outputNode: 'out', inputSource: 'V1', variation: 'dec', points: 1e9, startFreq: 1, stopFreq: 1e12 }],
+    {}, null, 'noise',
+  ].map(noiseAnalyses => [noiseAnalyses]))('rejects supplemental or malformed noiseAnalyses %j before execution', async noiseAnalyses => {
+    const response = await executeTool('spice_disto_metrics', {
+      request: { apiVersion: '1', input: { format: 'spice-ts', document: { ...document, noiseAnalyses } } }, output: 'v(out)',
+    });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: {
+      code: 'UNSUPPORTED_ANALYSIS', phase: 'validation', retryable: false,
+    } } });
+  });
+  it.each([
+    ['models', undefined], ['models', null], ['subcircuits', undefined],
+    ['circuit', null], ['circuit', { components: [null], nets: [] }],
+    ['circuit', { components: [{}], nets: [] }],
+    ['circuit', { components: [{ type: 42, params: {} }], nets: [] }],
+  ])('rejects malformed native document %s=%j during validation', async (field, value) => {
+    const response = await executeTool('spice_disto_metrics', {
+      request: { apiVersion: '1', input: { format: 'spice-ts', document: { ...document, [field]: value } } }, output: 'v(out)',
+    });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: {
+      code: 'INVALID_INPUT', phase: 'validation', retryable: false,
+    } } });
+    expect(JSON.stringify(response.structuredContent)).toContain(field);
+  });
   it.each(jsonInputs.filter(input => input.format === 'circuit-json'))('names unavailable DISTOF source fields for $format instead of rejecting the analysis', async input => {
     const spice = await run();
     expect(spice.isError).not.toBe(true);

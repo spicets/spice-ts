@@ -1,6 +1,15 @@
+import Ajv from 'ajv';
 import { circuitFromDocument, DistortionResult } from '@spice-ts/core';
+import { commonSchemaV1 } from '@spice-ts/core/protocol';
 import type { SpiceTsCircuitDocumentV1 } from '@spice-ts/core/protocol';
 import type { ComplexDistortionValue, DistortionProduct } from '@spice-ts/core';
+
+const ajv = new Ajv({ strict: false, validateSchema: false, allErrors: true });
+const validateNativeDistoDocument = ajv.compile({
+  ...commonSchemaV1.$defs.nativeDocument,
+  // The tool has already required exactly one disto; avoid unrelated analysis-union errors.
+  $defs: { ...commonSchemaV1.$defs, nativeAnalysis: commonSchemaV1.$defs.distoAnalysis },
+});
 
 /** Structured-clone representation of core's result across the worker boundary. */
 export interface DistoSpectrum {
@@ -51,11 +60,20 @@ export function validateDistoJsonInput(input: unknown): void {
   }
   const analyses = document.analyses;
   if (analyses.length !== 1 || !record(analyses[0]) || analyses[0].type !== 'disto'
-    || ['steps', 'step', 'poleZeroAnalyses'].some(key => document[key] !== undefined
+    || ['steps', 'step', 'poleZeroAnalyses', 'noiseAnalyses'].some(key => document[key] !== undefined
       && (!Array.isArray(document[key]) || document[key].length > 0))
     || document.controlScript !== undefined) unsupportedDisto();
   if (input.format === 'spice-ts') {
-    // Validate before estimating the sweep's resource budget.
+    // Validate untrusted structure before the typed adapter can iterate/access it.
+    if (!validateNativeDistoDocument(document)) {
+      const error = validateNativeDistoDocument.errors![0];
+      const field = error.keyword === 'required' ? error.params.missingProperty
+        : error.keyword === 'additionalProperties' ? error.params.additionalProperty : undefined;
+      const path = `/input/document${error.instancePath}${field === undefined ? '' : `/${String(field).replaceAll('~', '~0').replaceAll('/', '~1')}`}`;
+      throw { code: 'INVALID_INPUT', message: `Invalid native distortion document: ${ajv.errorsText(validateNativeDistoDocument.errors)}`,
+        phase: 'validation', retryable: false, details: { path } };
+    }
+    // Retain semantic checks (finite numbers and ordered frequency bounds) before budgeting.
     circuitFromDocument(document as unknown as SpiceTsCircuitDocumentV1);
     return;
   }
