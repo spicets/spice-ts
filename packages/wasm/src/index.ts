@@ -434,7 +434,8 @@ function resultEvents(result: SimulationResultV1): SimulationEventV1[] {
 
 function analysisPoints(analysis: AnalysisResultV1): Array<Extract<SimulationEventV1, { type: 'point' }>['point']> {
   switch (analysis.type) {
-    case 'op': return [];
+    case 'op':
+    case 'tf': return [];
     case 'dc': return analysis.axis.values.map((value, index) => ({
       type: 'dc', axis: { name: analysis.axis.name, unit: analysis.axis.unit, value },
       voltagesV: indexedRecord(analysis.voltagesV, index), currentsA: indexedRecord(analysis.currentsA, index),
@@ -485,7 +486,7 @@ function partialAnalyses(events: SimulationEventV1[]): PartialAnalysisV1[] {
   for (const event of events) {
     if (event.type === 'diagnostic') continue;
     const key = `${event.analysisIndex}:${event.step?.index ?? ''}`;
-    if (event.type === 'analysis-start' && event.analysis !== 'op') {
+    if (event.type === 'analysis-start' && event.analysis !== 'op' && event.analysis !== 'tf') {
       analyses.set(key, {
         analysis: event.analysis, analysisIndex: event.analysisIndex,
         ...(event.step ? { step: event.step } : {}), emittedPointCount: 0, complete: false,

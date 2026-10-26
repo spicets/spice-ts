@@ -45,6 +45,7 @@ function valid(value: unknown): value is Measurement {
 }
 
 function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]; unit: string; axisUnit: string } | undefined {
+  if (a.type === 'tf') return undefined;
   const match = /^(?:(db|mag)\()?([vi])\(([^()]+)\)\)?$/i.exec(signal);
   if (!match) return undefined;
   const [, transform, quantity, name] = match;
