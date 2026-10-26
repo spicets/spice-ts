@@ -27,8 +27,17 @@ const analysis: Schema = { oneOf: [
 const nativeAnalysis: Schema = { oneOf: [
   ref('analysis'),
   ref('distoAnalysis'),
+  ref('sensitivityAnalysis'),
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'sp' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
+
+const sensitivityAnalysis = { ...object(['type', 'mode', 'outputNode'], {
+  type: { const: 'sens' }, mode: { const: 'dc' }, outputNode: { type: 'string', pattern: '\\S' },
+  outputReferenceNode: { type: 'string', pattern: '\\S' }, outputType: { enum: ['voltage', 'current'] },
+}), allOf: [{
+  if: { properties: { outputType: { const: 'current' } }, required: ['outputType'] },
+  then: { properties: { outputReferenceNode: false } },
+}] };
 
 const distoAnalysis = object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], {
   type: { const: 'disto' }, variation: { const: 'dec' }, points: integer(1),
@@ -153,7 +162,7 @@ export const commonSchemaV1 = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://spice-ts.dev/schemas/v1/common.schema.json',
   $defs: {
-    jsonValue, sha256: hash, step: object(['index', 'parameter', 'value'], stepProperties), analysis, nativeAnalysis, distoAnalysis, poleZeroAnalysis, noiseAnalysis,
+    jsonValue, sha256: hash, step: object(['index', 'parameter', 'value'], stepProperties), analysis, nativeAnalysis, distoAnalysis, sensitivityAnalysis, poleZeroAnalysis, noiseAnalysis,
     port: object(['name', 'net'], { name: string, net: string }), component, model,
     subcircuit: object(['name', 'ports', 'components'], { name: { type: 'string', minLength: 1 }, ports: array(string), components: array(ref('component')), models: array(ref('model')) }),
     nativeDocument, simulationInput, limits, options,
