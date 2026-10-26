@@ -36,7 +36,11 @@ export interface NoiseAnalysisV1 {
   stopFreq: number;
 }
 export interface SParameterAnalysisV1 { type: 'sp'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
-export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1;
+/** Bounded DEC distortion sweep; F2 is fixed at startFreq * f2OverF1. */
+export interface DistoAnalysisV1 { type: 'disto'; variation: 'dec'; points: number; startFreq: number; stopFreq: number; f2OverF1?: number }
+/** Independent-source params.distortionF1 / distortionF2 (DISTOF1 / DISTOF2). */
+export interface DistortionExcitationV1 { magnitude: number; phase?: number }
+export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1 | DistoAnalysisV1;
 
 export interface CircuitPortV1 { name: string; net: string }
 export interface CircuitComponentV1 {
@@ -135,7 +139,7 @@ export interface DiagnosticV1 {
   suggestions?: DiagnosticSuggestionV1[];
 }
 export type SpiceApiErrorCodeV1 =
-  | 'INVALID_REQUEST' | 'PARSE_ERROR' | 'INVALID_CIRCUIT' | 'UNSUPPORTED_FEATURE' | 'UNSUPPORTED_ELEMENT'
+  | 'INVALID_REQUEST' | 'INVALID_INPUT' | 'PARSE_ERROR' | 'INVALID_CIRCUIT' | 'UNSUPPORTED_FEATURE' | 'UNSUPPORTED_ELEMENT'
   | 'SINGULAR_MATRIX' | 'CONVERGENCE_FAILED' | 'TIMESTEP_TOO_SMALL' | 'RESOURCE_LIMIT'
   | 'CANCELLED' | 'BACKEND_UNAVAILABLE' | 'INTERNAL_ERROR';
 export interface SpiceApiErrorV1 {

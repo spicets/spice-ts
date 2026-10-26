@@ -1,4 +1,5 @@
-import { DistortionResult } from '@spice-ts/core';
+import { circuitFromDocument, DistortionResult } from '@spice-ts/core';
+import type { SpiceTsCircuitDocumentV1 } from '@spice-ts/core/protocol';
 import type { ComplexDistortionValue, DistortionProduct } from '@spice-ts/core';
 
 /** Structured-clone representation of core's result across the worker boundary. */
@@ -39,7 +40,7 @@ export const distoUnsupportedSchema = {
 export function unsupportedDisto(): never {
   throw { code: 'UNSUPPORTED_ANALYSIS', message: 'Distortion metrics require exactly one unstepped .disto without control blocks or .pz', phase: 'validation', retryable: false, details: {} };
 }
-/** JSON adapters do not carry source DISTOF1/DISTOF2 excitations. Never infer them from AC. */
+/** circuit-json does not carry source DISTOF1/DISTOF2 excitations. Never infer them from AC. */
 export function validateDistoJsonInput(input: unknown): void {
   const record = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -53,6 +54,11 @@ export function validateDistoJsonInput(input: unknown): void {
     || ['steps', 'step', 'poleZeroAnalyses'].some(key => document[key] !== undefined
       && (!Array.isArray(document[key]) || document[key].length > 0))
     || document.controlScript !== undefined) unsupportedDisto();
+  if (input.format === 'spice-ts') {
+    // Validate before estimating the sweep's resource budget.
+    circuitFromDocument(document as unknown as SpiceTsCircuitDocumentV1);
+    return;
+  }
   throw {
     code: 'UNSUPPORTED_FEATURE',
     message: `${String(input.format)} cannot represent source DISTOF1/DISTOF2 amplitudes and phases; use SPICE text with DISTOF1 [and DISTOF2]`,

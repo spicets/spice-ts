@@ -26,8 +26,15 @@ const analysis: Schema = { oneOf: [
 
 const nativeAnalysis: Schema = { oneOf: [
   ref('analysis'),
+  ref('distoAnalysis'),
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'sp' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
+
+const distoAnalysis = object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], {
+  type: { const: 'disto' }, variation: { const: 'dec' }, points: integer(1),
+  startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 },
+  f2OverF1: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 1 },
+});
 
 const noiseAnalysis = object(['type', 'outputNode', 'inputSource', 'variation', 'points', 'startFreq', 'stopFreq'], {
   type: { const: 'noise' }, outputNode: { type: 'string', pattern: '\\S' },
@@ -47,12 +54,18 @@ const jsonValue: Schema = { oneOf: [
   { type: 'array', items: ref('jsonValue') },
   { type: 'object', additionalProperties: ref('jsonValue') },
 ] };
-const component = { ...object(['type', 'id', 'name', 'ports', 'params'], {
+const component: Schema = { ...object(['type', 'id', 'name', 'ports', 'params'], {
   type: string, id: { type: 'string', minLength: 1 }, name: { type: 'string', minLength: 1 },
   ports: array(ref('port')), params: { type: 'object', additionalProperties: ref('jsonValue') }, model: string, subcircuit: string,
 }), allOf: [{
   if: { properties: { type: { enum: ['V', 'v'] } }, required: ['type'] },
   then: { properties: { params: { type: 'object', properties: { portnum: integer(1), z0: { type: 'number', exclusiveMinimum: 0 } } } } },
+}, {
+  if: { properties: { type: { enum: ['V', 'v', 'I', 'i'] } }, required: ['type'] },
+  then: { properties: { params: { type: 'object', properties: {
+    distortionF1: object(['magnitude'], { magnitude: number, phase: number }),
+    distortionF2: object(['magnitude'], { magnitude: number, phase: number }),
+  } } } },
 }] };
 const model = object(['name', 'type', 'params'], {
   name: { type: 'string', minLength: 1 }, type: { type: 'string', minLength: 1 }, params: { type: 'object', additionalProperties: ref('jsonValue') },
@@ -90,7 +103,7 @@ const diagnostic = object(['severity', 'code', 'message'], {
   suggestions: array(object(['action'], { action: string, replacement: ref('jsonValue') })),
 });
 const apiError = object(['code', 'message', 'retryable', 'phase', 'details'], {
-  code: { enum: ['INVALID_REQUEST', 'PARSE_ERROR', 'INVALID_CIRCUIT', 'UNSUPPORTED_FEATURE', 'UNSUPPORTED_ELEMENT', 'SINGULAR_MATRIX', 'CONVERGENCE_FAILED', 'TIMESTEP_TOO_SMALL', 'RESOURCE_LIMIT', 'CANCELLED', 'BACKEND_UNAVAILABLE', 'INTERNAL_ERROR'] },
+  code: { enum: ['INVALID_REQUEST', 'INVALID_INPUT', 'PARSE_ERROR', 'INVALID_CIRCUIT', 'UNSUPPORTED_FEATURE', 'UNSUPPORTED_ELEMENT', 'SINGULAR_MATRIX', 'CONVERGENCE_FAILED', 'TIMESTEP_TOO_SMALL', 'RESOURCE_LIMIT', 'CANCELLED', 'BACKEND_UNAVAILABLE', 'INTERNAL_ERROR'] },
   message: string, retryable: { type: 'boolean' }, phase: { enum: ['validation', 'parse', 'compile', 'solve', 'serialize', 'transport'] }, details: { type: 'object', additionalProperties: ref('jsonValue') },
 });
 const resolvedOptionsProperties = {
@@ -140,7 +153,7 @@ export const commonSchemaV1 = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://spice-ts.dev/schemas/v1/common.schema.json',
   $defs: {
-    jsonValue, sha256: hash, step: object(['index', 'parameter', 'value'], stepProperties), analysis, nativeAnalysis, poleZeroAnalysis, noiseAnalysis,
+    jsonValue, sha256: hash, step: object(['index', 'parameter', 'value'], stepProperties), analysis, nativeAnalysis, distoAnalysis, poleZeroAnalysis, noiseAnalysis,
     port: object(['name', 'net'], { name: string, net: string }), component, model,
     subcircuit: object(['name', 'ports', 'components'], { name: { type: 'string', minLength: 1 }, ports: array(string), components: array(ref('component')), models: array(ref('model')) }),
     nativeDocument, simulationInput, limits, options,
