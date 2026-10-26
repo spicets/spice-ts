@@ -57,7 +57,7 @@ describe('protocol-v1 capability and terminal envelopes', () => {
     const capabilities = protocolCapabilitiesV1();
 
     expect(capabilities.analyses.map(entry => entry.id)).toEqual([
-      'analysis:op', 'analysis:dc', 'analysis:tran', 'analysis:ac',
+      'analysis:op', 'analysis:dc', 'analysis:tran', 'analysis:ac', 'analysis:tf',
     ]);
     expect(capabilities.limits.map(entry => entry.name)).toEqual([
       'maxSourceBytes', 'maxVirtualFiles', 'maxIncludeDepth', 'maxComponents',
@@ -65,7 +65,7 @@ describe('protocol-v1 capability and terminal envelopes', () => {
       'maxSerializedResultBytes', 'maxWallTimeMs',
     ]);
     expect(capabilities.completions).toEqual(['complete', 'failed', 'limited', 'cancelled']);
-    expect(canonicalHash(capabilities)).toBe('a9e352f127adcfc39478808297bc0ffeefb18540f50db4c0332a2813272f31c9');
+    expect(canonicalHash(capabilities)).toBe('e35e05d2d32ca4257e5de04c389dd0159cbe51731d5f54e1b4e2510388cd3c80');
     assertWireSafe(capabilities, true);
   });
 
@@ -91,17 +91,16 @@ describe('protocol-v1 capability and terminal envelopes', () => {
     assertWireSafe(terminal);
   });
 
-  it('returns UNSUPPORTED_FEATURE for an unsupported analysis', async () => {
+  it('returns scalar results and counts for transfer-function analysis', async () => {
     const terminal = await executeProtocolV1(divider('.tf v(out) V1'), {
-      requestId: 'req-unsupported', now: scriptedClock(20, 20, 23),
+      requestId: 'req-tf', now: scriptedClock(20, 20, 23),
     });
 
     expect(terminal).toMatchObject({
-      ok: false,
-      error: { code: 'UNSUPPORTED_FEATURE', phase: 'validation' },
-      metadata: { completion: 'failed', partial: false, counts: { requestedAnalyses: 1, completedAnalyses: 0, resultPoints: 0 } },
+      ok: true,
+      data: { analyses: [{ type: 'tf', transferFunction: 0.5 }] },
+      metadata: { completion: 'complete', partial: false, counts: { requestedAnalyses: 1, completedAnalyses: 1, resultPoints: 1 } },
     });
-    expect(canonicalHash(terminal)).toBe('64e72f012e3da1ca85b310eff443bcaec1e00c0c64728df9a51870eecd68b958');
     assertWireSafe(terminal);
   });
 

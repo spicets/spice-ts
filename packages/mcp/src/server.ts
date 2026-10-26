@@ -1386,7 +1386,7 @@ function* resultEvents(result: SimulationResultV1): Generator<SimulationEventV1,
     const common = { analysisIndex: analysis.analysisIndex, ...(analysis.step ? { step: analysis.step } : {}) };
     yield { type: 'analysis-start', analysis: analysis.type, ...common };
     let pointCount = 0;
-    if (analysis.type !== 'op') {
+    if (analysis.type !== 'op' && analysis.type !== 'tf') {
       pointCount = analysisPointCount(analysis);
       for (let pointIndex = 0; pointIndex < pointCount; pointIndex++) {
         yield { type: 'point', ...common, pointIndex, point: analysisPoint(analysis, pointIndex) };
@@ -1396,7 +1396,7 @@ function* resultEvents(result: SimulationResultV1): Generator<SimulationEventV1,
   }
 }
 
-type PointAnalysisV1 = Exclude<AnalysisResultV1, { type: 'op' }>;
+type PointAnalysisV1 = Exclude<AnalysisResultV1, { type: 'op' | 'tf' }>;
 
 function analysisPointCount(analysis: PointAnalysisV1): number {
   switch (analysis.type) {
@@ -1436,7 +1436,7 @@ function partialAnalyses(events: SimulationEventV1[]): PartialAnalysisV1[] {
   for (const event of events) {
     if (event.type === 'diagnostic') continue;
     const key = `${event.analysisIndex}:${event.step?.index ?? ''}`;
-    if (event.type === 'analysis-start' && event.analysis !== 'op') {
+    if (event.type === 'analysis-start' && event.analysis !== 'op' && event.analysis !== 'tf') {
       analyses.set(key, {
         analysis: event.analysis, analysisIndex: event.analysisIndex,
         ...(event.step ? { step: event.step } : {}), emittedPointCount: 0, complete: false,
@@ -1651,7 +1651,8 @@ function enforceResultBounds(result: SimulationResultV1, limits: McpLimits): voi
   let points = 0;
   for (const analysis of result.analyses) {
     switch (analysis.type) {
-      case 'op': points += 1; break;
+      case 'op':
+      case 'tf': points += 1; break;
       case 'dc': points += analysis.axis.values.length; break;
       case 'tran': points += analysis.timeS.length; break;
       case 'ac': points += analysis.frequencyHz.length; break;

@@ -2950,6 +2950,12 @@ Pinned per-file URLs, original/committed SHA256, licence hashes and static selec
 - Reproduce references: `spice-heavy python3 benchmarks/fixtures/issue-1821/generate.py`; internally `ngspice -b -r <temporary-reference.raw> <id>.cir`, ASCII output. Both engines receive identical committed bytes. Compare: `pnpm exec tsx benchmarks/fixtures/issue-1821/compare.mts`.
 - 24 decks cover LEVEL=4/5, NMOS/PMOS, model TEMP=27/75, circuit TEMP=27/75/-20 C, nonzero junction leakage and OP plus six-point DC gate sweeps. Every node voltage and voltage-source current requires relative error <= 1e-6 without an absolute floor. This is correctness coverage, not a performance claim.
 
+## BSIM4 static SA/SB/SD length-of-diffusion stress (#1832)
+
+- Original MIT decks, generator and test-consumed oracle in `packages/core/src/devices/bsim4/__fixtures__/lod/`. No third-party model cards. Six OP cases and 36 VGS sweep points use identical committed deck bytes in both engines, SHA-256 checked.
+- Equation source: ngspice-47 commit `a80f6e3e95d51534905b1f23410a951802666656`, [b4temp.c:1574-1702](https://github.com/imr/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/bsim4/b4temp.c#L1574-L1702), ECL-2.0. The later native MULU0 overwrite is deliberately preserved. See the fixture README for scope and regeneration command.
+- Before: six parity tests reject KU0. After: maximum measured relative error 3.91e-15 for saved node voltages and drain currents (limit 1e-6). WPE and nondefault-layout AC/transient remain unsupported. No speed claim.
+
 ## Resistor instance TEMP/DTEMP at circuit temperature (#1808)
 
 - Source: original project-authored resistor-divider decks in [fixtures/issue-1808](fixtures/issue-1808/), MIT (repository licence). No third-party netlist copied.

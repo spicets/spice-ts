@@ -26,6 +26,7 @@ const analysis: Schema = { oneOf: [
 
 const nativeAnalysis: Schema = { oneOf: [
   ref('analysis'),
+  ref('tfAnalysis'),
   ref('distoAnalysis'),
   ref('sensitivityAnalysis'),
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'sp' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
@@ -38,6 +39,11 @@ const sensitivityAnalysis = { ...object(['type', 'mode', 'outputNode'], {
   if: { properties: { outputType: { const: 'current' } }, required: ['outputType'] },
   then: { properties: { outputReferenceNode: false } },
 }] };
+
+const tfAnalysis = object(['type', 'output', 'source'], {
+  type: { const: 'tf' }, output: { type: 'string', pattern: '^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[vV][^\\s(),]*\\s*\\))$' },
+  source: { type: 'string', pattern: '^[^\\s]+$' },
+});
 
 const distoAnalysis = object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], {
   type: { const: 'disto' }, variation: { const: 'dec' }, points: integer(1),
@@ -105,6 +111,7 @@ const dcResult = object(['type', 'analysisIndex', 'axis', 'voltagesV', 'currents
 const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'currentsA'], { type: { const: 'tran' }, ...commonResult, timeS: array(number), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord });
 const acResult = object(['type', 'analysisIndex', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, ...commonResult, frequencyHz: array({ type: 'number', minimum: 0 }), voltagePhasors: complexSeriesRecord, currentPhasors: complexSeriesRecord });
 const simulationResult = object(['status', 'analyses'], { status: { const: 'complete' }, analyses: array(ref('analysisResult')) });
+const tfResult = object(['type', 'analysisIndex', 'transferFunction', 'inputResistanceOhm', 'outputResistanceOhm'], { type: { const: 'tf' }, ...commonResult, transferFunction: number, inputResistanceOhm: number, outputResistanceOhm: number });
 const diagnostic = object(['severity', 'code', 'message'], {
   severity: { enum: ['info', 'warning', 'error'] }, code: string, message: string, path: string,
   source: object(['file', 'line'], { file: string, line: integer(1), column: integer(1), excerpt: string }),
@@ -137,9 +144,9 @@ const streamPoint: Schema = { oneOf: [
   object(['type', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, frequencyHz: { type: 'number', minimum: 0 }, voltagePhasors: complexRecord, currentPhasors: complexRecord }),
 ] };
 const simulationEvent: Schema = { oneOf: [
-  object(['type', 'analysis', 'analysisIndex'], { type: { const: 'analysis-start' }, analysis: { enum: ['op', 'dc', 'tran', 'ac'] }, analysisIndex, step }),
+  object(['type', 'analysis', 'analysisIndex'], { type: { const: 'analysis-start' }, analysis: { enum: ['op', 'dc', 'tran', 'ac', 'tf'] }, analysisIndex, step }),
   object(['type', 'analysisIndex', 'pointIndex', 'point'], { type: { const: 'point' }, analysisIndex, step, pointIndex: integer(), point: ref('streamPoint') }),
-  object(['type', 'analysis', 'analysisIndex', 'pointCount'], { type: { const: 'analysis-end' }, analysis: { enum: ['op', 'dc', 'tran', 'ac'] }, analysisIndex, step, pointCount: integer() }),
+  object(['type', 'analysis', 'analysisIndex', 'pointCount'], { type: { const: 'analysis-end' }, analysis: { enum: ['op', 'dc', 'tran', 'ac', 'tf'] }, analysisIndex, step, pointCount: integer() }),
   object(['type', 'diagnostic'], { type: { const: 'diagnostic' }, diagnostic: ref('diagnostic') }),
 ] };
 const partialResult = object(['status', 'analyses', 'partialEventSha256'], {
@@ -167,8 +174,8 @@ export const commonSchemaV1 = {
     subcircuit: object(['name', 'ports', 'components'], { name: { type: 'string', minLength: 1 }, ports: array(string), components: array(ref('component')), models: array(ref('model')) }),
     nativeDocument, simulationInput, limits, options,
     simulationRequest: object(['apiVersion', 'input'], { apiVersion: { const: '1' }, input: ref('simulationInput'), options: ref('options') }),
-    complex, opResult, dcResult, tranResult, acResult,
-    analysisResult: { oneOf: [ref('opResult'), ref('dcResult'), ref('tranResult'), ref('acResult')] }, simulationResult,
+    complex, opResult, dcResult, tranResult, acResult, tfResult, tfAnalysis,
+    analysisResult: { oneOf: [ref('opResult'), ref('dcResult'), ref('tranResult'), ref('acResult'), ref('tfResult')] }, simulationResult,
     diagnostic, apiError, resolvedOptions, runMetadata, partialRunMetadata, successEnvelope, failureEnvelope,
     streamPoint, simulationEvent, partialResult, failureTerminal,
     streamTerminal: { oneOf: [ref('successEnvelope'), ref('failureTerminal')] }, simulationReadData,

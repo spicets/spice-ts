@@ -24,6 +24,7 @@ const CAPABILITIES: ProtocolCapabilitiesV1 = {
     { id: 'analysis:dc', type: 'dc' },
     { id: 'analysis:tran', type: 'tran' },
     { id: 'analysis:ac', type: 'ac' },
+    { id: 'analysis:tf', type: 'tf' },
   ],
   inputFormats: [
     { id: 'input:spice', format: 'spice' },
@@ -168,7 +169,8 @@ function safeRequestedAnalysisCount(request: SimulationRequestV1): number {
 function pointCount(analyses: AnalysisResultV1[]): number {
   return analyses.reduce((total, analysis) => {
     switch (analysis.type) {
-      case 'op': return total + 1;
+      case 'op':
+      case 'tf': return total + 1;
       case 'dc': return total + analysis.axis.values.length;
       case 'tran': return total + analysis.timeS.length;
       case 'ac': return total + analysis.frequencyHz.length;
