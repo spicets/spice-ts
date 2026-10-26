@@ -446,9 +446,27 @@ requested finite transfer poles, not a proof about unobservable internal modes.
 Call `spice_noise_metrics` with `{ request, bandHz: [10, 100000], spotFrequenciesHz: [10, 1000] }`.
 Both selectors are optional. The default band is the entire simulated sweep;
 at most 128 positive spot frequencies are accepted. The request must contain
-exactly one unstepped `.noise` directive. Currently this requires SPICE text:
-the native JSON IR does not yet define noise analyses. Other analysis directives
-are not executed by this tool. Includes, netlist temperature/options, request
+exactly one unstepped noise analysis. Supply exactly one of `{ netlist: "..." }`
+or `{ request: { apiVersion: "1", input: ... } }`. Protocol inputs accept
+`spice`, `spice-ts`, and `circuit-json`. Native documents use optional
+`noiseAnalyses` (separate from `analyses`, like `poleZeroAnalyses`):
+
+```json
+"noiseAnalyses": [{
+  "type": "noise", "outputNode": "out", "inputSource": "V1",
+  "variation": "dec", "points": 100, "startFreq": 1, "stopFreq": 1000000
+}]
+```
+
+`outputReferenceNode` optionally selects differential voltage output. The sweep
+uses `dec`, `oct`, or `lin`, positive integer `points`, and positive finite
+`startFreq`/`stopFreq` in Hz with `stopFreq >= startFreq`. Invalid fields return
+`INVALID_REQUEST` with a JSON pointer in `error.details.path`. For `circuit-json`,
+place `noiseAnalyses` directly on `input`; conversion preserves it and reports
+unsupported components through structured conversion diagnostics. Native noise
+uses the same solver/device limitations as SPICE `.noise`.
+
+Other analysis directives are not executed by this tool. Includes, netlist temperature/options, request
 overrides, worker cancellation, wall-time limits and resource limits are retained.
 
 `integratedOutputNoiseVrms` is output RMS voltage. `integratedInputNoiseRms`

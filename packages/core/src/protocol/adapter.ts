@@ -499,6 +499,33 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     }
     addAnalysis(circuit, analysis);
   }
+  if (document.noiseAnalyses !== undefined) {
+    const analyses = document.noiseAnalyses;
+    const base = '/input/document/noiseAnalyses';
+    if (!Array.isArray(analyses)) invalidNativeField(base);
+    for (const [index, analysis] of analyses.entries()) {
+      const path = `${base}/${index}`;
+      if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) invalidNativeField(path);
+      if (analysis.type !== 'noise') invalidNativeField(`${path}/type`);
+      for (const field of ['outputNode', 'inputSource', 'outputReferenceNode'] as const) {
+        if (field === 'outputReferenceNode' && analysis[field] === undefined) continue;
+        if (typeof analysis[field] !== 'string' || !analysis[field].trim()) invalidNativeField(`${path}/${field}`);
+      }
+      if (!['dec', 'oct', 'lin'].includes(analysis.variation)) invalidNativeField(`${path}/variation`);
+      for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
+        const value = analysis[field];
+        if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+          || field === 'points' && !Number.isInteger(value)) invalidNativeField(`${path}/${field}`);
+      }
+      if (analysis.stopFreq < analysis.startFreq) invalidNativeField(`${path}/stopFreq`);
+      for (const field of Object.keys(analysis)) {
+        if (!['type', 'outputNode', 'outputReferenceNode', 'inputSource', 'variation', 'points', 'startFreq', 'stopFreq'].includes(field)) {
+          invalidNativeField(`${path}/${field.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+        }
+      }
+      circuit.addAnalysis('noise', analysis);
+    }
+  }
   if (document.poleZeroAnalyses !== undefined) {
     const analyses = document.poleZeroAnalyses;
     if (!Array.isArray(analyses) || analyses.some(a => !a || a.type !== 'pz'

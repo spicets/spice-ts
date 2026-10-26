@@ -443,10 +443,12 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_noise_metrics',
-    description: 'Simulate exactly one unstepped .noise analysis. Integrate PSD by linear-frequency trapezoids over optional bandHz; interpolate spotFrequenciesHz densities in log-frequency without extrapolation. SPICE text input; native JSON IR does not yet support noise directives.',
+    description: 'Simulate exactly one unstepped .noise analysis. Accept exactly one netlist or protocol-v1 request (spice, spice-ts or circuit-json); JSON inputs use noiseAnalyses. Integrate PSD by linear-frequency trapezoids over optional bandHz; interpolate spotFrequenciesHz densities in log-frequency without extrapolation.',
     inputSchema: {
       ...requestInputSchema,
-      properties: { ...requestInputSchema.properties, ...noiseMetricsProperties },
+      required: [],
+      oneOf: [{ required: ['netlist'], not: { required: ['request'] } }, { required: ['request'], not: { required: ['netlist'] } }],
+      properties: { ...requestInputSchema.properties, netlist: { type: 'string' }, ...noiseMetricsProperties },
     },
     outputSchema: {
       type: 'object', oneOf: [noiseMetricsOutputSchema, toolFailureOutputSchema],
@@ -842,7 +844,8 @@ async function executeToolWithStore(
     }
     if (name === 'spice_measure') enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(measurements)), 'validation');
     const dcInput = name === 'spice_dc_metrics' ? dcMetricsInput(args) : undefined;
-    let original = toolRequest(args);
+    let original = toolRequest(name === 'spice_noise_metrics' && isRecord(args) && typeof args.netlist === 'string'
+      ? { request: { apiVersion: '1', input: { format: 'spice', source: args.netlist } } } : args);
     const effective = effectiveLimits(original, limits);
     enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
     if (distoSelector) validateDistoJsonInput(original.input);
@@ -1597,6 +1600,7 @@ function convertRequest(request: SimulationRequestV1): {
           format: 'spice-ts', schemaVersion: '1.0', circuit: converted.value!,
           analyses: request.input.analyses, models: [], subcircuits: [],
           ...(request.input.poleZeroAnalyses !== undefined ? { poleZeroAnalyses: request.input.poleZeroAnalyses } : {}),
+          ...(request.input.noiseAnalyses !== undefined ? { noiseAnalyses: request.input.noiseAnalyses } : {}),
         },
       },
     },
