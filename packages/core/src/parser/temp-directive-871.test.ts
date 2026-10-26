@@ -99,10 +99,12 @@ describe('.temp single circuit temperature (#871)', () => {
     expect(result.dc!.voltage('c')).toBeCloseTo(1, 12);
   });
 
-  it('retains the existing unsupported resistor instance-temperature diagnostic', async () => {
-    const netlist = `instance temp\nV1 a 0 1\nR1 a 0 1k temp=27\n.temp 127\n.op\n.end`;
-    await expect(simulate(netlist)).rejects.toThrow(/instance TEMP\/DTEMP/);
-    await expect(simulate(netlist.replace('.temp 127', '.options temp=127'))).rejects.toThrow(/instance TEMP\/DTEMP/);
+  it('keeps resistor instance TEMP fixed under .temp and .options TEMP (#1808)', async () => {
+    const netlist = `instance temp\nV1 a 0 1\nR1 a 0 1k temp=27 tc1=0.01\n.temp 127\n.op\n.end`;
+    for (const directive of ['.temp 127', '.options temp=127']) {
+      const result = await simulate(netlist.replace('.temp 127', directive));
+      expect(result.dc!.current('V1')).toBeCloseTo(-0.001, 12);
+    }
   });
 
   it('uses identical temperature in batch and streaming transient APIs', async () => {

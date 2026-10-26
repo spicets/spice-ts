@@ -2904,7 +2904,7 @@ export class Circuit {
     bindBehavioralControlBranches(pendingBehavioralSources, deviceMap);
 
     if (this._temperature !== undefined && this._temperature !== NOMINAL_TEMPERATURE_C) {
-      this.applyCircuitTemperature(this._temperature, expandedDescriptors, devices);
+      this.applyCircuitTemperature(this._temperature, devices);
     }
 
     validateCoupledInductors(devices);
@@ -2942,19 +2942,10 @@ export class Circuit {
    */
   private applyCircuitTemperature(
     temperature: number,
-    descriptors: DeviceDescriptor[],
     devices: DeviceModel[],
   ): void {
-    const unsupported = (subject: string): InvalidCircuitError => new InvalidCircuitError(
-      `.options TEMP=${temperature} is unsupported for ${subject}: `
-      + `only resistors, bounded VBIC devices and B sources follow the ngspice temperature model`,
-    );
-    for (const desc of descriptors) {
-      if (desc.type === 'R' && (desc.params?.TEMP !== undefined || desc.params?.DTEMP !== undefined)) {
-        throw unsupported(`resistor '${desc.name}' with an instance TEMP/DTEMP`);
-      }
-    }
-
+    // Resistor.setTemperature preserves instance TEMP precedence and adds DTEMP
+    // only when TEMP is absent (ngspice-47 restemp.c).
     for (const device of devices) {
       if (device instanceof Resistor || device instanceof VBIC || device instanceof BehavioralSource
         || device instanceof Diode || device instanceof BJT || device instanceof MOSFET
