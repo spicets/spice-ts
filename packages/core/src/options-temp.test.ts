@@ -140,7 +140,7 @@ R3 4 0 1k
   });
 
   it.each([
-    ['level-6 MOSFET', 'M1 1 1 0 0 MMOD\n.model MMOD NMOS LEVEL=6'],
+    ['level-9 MOSFET', 'M1 1 1 0 0 MMOD\n.model MMOD NMOS LEVEL=9'],
   ])('rejects a non-nominal TEMP for a %s without an ngspice temperature model', (_kind, cards) => {
     const circuit = parse(`unsupported temp\nV1 1 0 1\n${cards}\n.options temp=100\n.op`);
 

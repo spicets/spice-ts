@@ -1,5 +1,22 @@
 # Benchmark sources
 
+## MOS6 circuit temperature (#1806)
+
+`fixtures/issue-1806/*.cir` are original project-authored MIT decks from
+https://github.com/spicets/spice-ts/issues/1806. `reference.json` contains
+ngspice-47 OP and gate-voltage DC sweep outputs from those identical bytes.
+The 12 cases cover NMOS/PMOS, circuit TEMP=27/50/100 C and model TNOM=27/50 C.
+Regenerate with `spice-heavy python3 benchmarks/fixtures/issue-1806/generate.py`.
+Each invocation is `ngspice -b -r <temporary-reference.raw> <fixture.cir>`.
+Temperature semantics follow Berkeley-licensed ngspice-47
+[`mos6temp.c`](https://sourceforge.net/p/ngspice/ngspice/ci/ngspice-47/tree/src/spicelib/devices/mos6/mos6temp.c).
+Generated on Darwin arm64 with Homebrew ngspice-47 (KLU).
+The existing device temperature equations already match this oracle; #1806
+enables circuit dispatch and rejects unported temperature parameters.
+Before: 8/12 non-nominal decks rejected. After: 12/12 run, maximum relative
+OP/DC error 1.933e-12 across 636 values (required <=1e-6, zero references exact).
+No runtime superiority claim is made.
+
 ## XSPICE core mode=2 hysteresis (#1802)
 
 | Fixture | Source | Licence | Oracle |
