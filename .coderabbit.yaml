@@ -1,0 +1,50 @@
+# CodeRabbit config for spice-ts. Advisory reviewer next to the exact-head agent review; not a required check.
+language: en-US
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  auto_review:
+    enabled: true
+    drafts: false
+    ignore_title_keywords: ["chore(release)"]
+  path_filters:
+    - "!benchmarks/results/**"
+    - "!benchmarks/**/report.json"
+    - "!benchmarks/**/*.raw"
+    - "!**/fixtures/**"
+    - "!docs/history/**"
+    - "!**/CHANGELOG.md"
+    - "!pnpm-lock.yaml"
+    - "!examples/showcase/docs/screenshots/**"
+  path_instructions:
+    - path: "packages/core/src/**"
+      instructions: >-
+        SPICE simulator core. Check numerical correctness against ngspice-47 semantics (units, sign conventions,
+        convergence/limiting, LTE/time-step control, temperature handling). Flag per-circuit special cases,
+        loosened tolerances, silent fallbacks to a different model level, and unbounded loops or allocations.
+    - path: "packages/core/src/parser/**"
+      instructions: >-
+        Netlist parser. Flag deviations from ngspice card syntax, lost source positions in errors, and
+        behaviour that silently ignores unknown parameters instead of warning or raising a typed error.
+    - path: "packages/mcp/src/**"
+      instructions: >-
+        MCP server for AI agents. Check input bounds (sizes, run counts, timeouts), cancellation, typed JSON
+        errors, and that tool schemas match the implementation.
+    - path: "**/*.test.ts"
+      instructions: >-
+        Tests must assert behaviour against a reference (ngspice output or an analytic answer), not snapshot
+        whatever the code returns. Flag weakened assertions or widened tolerances.
+    - path: "benchmarks/**"
+      instructions: >-
+        Benchmark honesty: identical netlists for both engines, no per-circuit tuning, losses must stay
+        published. Flag any change that hides or reclassifies a loss.
+  tools:
+    biome:
+      enabled: false
+chat:
+  auto_reply: true
