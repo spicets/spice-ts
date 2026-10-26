@@ -140,8 +140,8 @@ R3 4 0 1k
   });
 
   it.each([
-    ['level-9 MOSFET', 'M1 1 1 0 0 MMOD\n.model MMOD NMOS LEVEL=9'],
-  ])('rejects a non-nominal TEMP for a %s without an ngspice temperature model', (_kind, cards) => {
+    ['level-9 MOSFET with unported UTE', 'M1 1 1 0 0 MMOD\n.model MMOD NMOS LEVEL=9 UTE=0.1'],
+  ])('rejects a non-nominal TEMP for a %s', (_kind, cards) => {
     const circuit = parse(`unsupported temp\nV1 1 0 1\n${cards}\n.options temp=100\n.op`);
 
     expect(() => circuit.compile()).toThrow(InvalidCircuitError);
