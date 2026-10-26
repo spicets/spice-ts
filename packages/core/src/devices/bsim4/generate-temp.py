@@ -83,6 +83,7 @@ def generate(source: Path) -> str:
     output += "import type { Bsim4ModelValues, Bsim4ModelParameter } from './params.js';\nimport type { Bsim4InstanceValues } from './instance-params.js';\n"
     def union(items):
         return ' | '.join(repr(item) for item in items)
+    output += "import { applyLod } from './lod.js';\n"
     output += f'export type Bsim4TemperatureModel = Bsim4ModelValues & Record<{union(model_extras)}, number>;\n'
     output += f'export type Bsim4Size = Record<{union(size_fields)}, number>;\n'
     output += f'export type Bsim4TemperatureInstance = {{ -readonly [K in keyof Bsim4InstanceValues]: Bsim4InstanceValues[K] }} & Record<{union(instance_fields)}, number>;\n'
@@ -106,6 +107,8 @@ export function applyTemperature(
   let epsrox = 0, toxe = 0, epssub = 0, Inv_L = 0, Inv_W = 0, Inv_LW = 0, PowWeffWr = 0;
   const delTemp = Temp - model.tnom;
 '''
+    body = body.replace('  here.k2 = pParam.k2;\n',
+                        '  here.k2 = pParam.k2;\n\n  applyLod(model, here, pParam, Temp, Lnew, Wnew);\n')
     output += body + '\n}\n'
     return output
 
