@@ -2,7 +2,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
 import { parseTitleless } from '../parser/index.js';
 import { simulate } from '../simulate.js';
-import { simulateProtocolV1 } from './adapter.js';
+import { simulateProtocolV1, validateProtocolV1 } from './adapter.js';
 import { protocolSchemasV1 } from './wire/schemas.js';
 import { executeProtocolV1 } from './envelopes.js';
 import type { SimulationRequestV1, SpiceTsCircuitDocumentV1 } from './types.js';
@@ -38,6 +38,28 @@ describe('native protocol transfer function', () => {
     input.input.document.analyses = [analysis as never];
     const result = await executeProtocolV1(input);
     expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST', phase: 'validation', details: { path: `/input/document/analyses/0/${field}` } } });
+  });
+  it.each(['v(X1.mid)', 'v(in,X1.mid)', 'v(x1.MID)'])('matches text for expanded subcircuit output %s', async output => {
+    const input = request(output);
+    if (input.input.format !== 'spice-ts') throw new Error('expected native input');
+    const component = (type: string, name: string, nets: string[], params: Record<string, number>) => ({ type, name, id: name, ports: nets.map((net, i) => ({ name: String(i), net })), params });
+    input.input.document.circuit = { nets: ['in'], components: [
+      component('V', 'V1', ['in', '0'], { dc: 1 }),
+      { ...component('X', 'X1', ['in', '0'], {}), subcircuit: 'div' },
+    ] };
+    input.input.document.subcircuits = [{ name: 'div', ports: ['a', 'b'], components: [
+      component('R', 'R1', ['a', 'mid'], { resistance: 1000 }),
+      component('R', 'R2', ['mid', 'b'], { resistance: 1000 }),
+    ] }];
+    const source = `.subckt div a b\nR1 a mid 1000\nR2 mid b 1000\n.ends\nV1 in 0 1\nX1 in 0 div\n.tf ${output} V1`;
+    expect(ajv.validate(`${base}simulation-request.schema.json`, input)).toBe(true);
+    const expected = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice', source } });
+    expect(expected.analyses[0]).toMatchObject({ type: 'tf', transferFunction: 0.5, inputResistanceOhm: 2000, outputResistanceOhm: 500 });
+    expect(await simulateProtocolV1(input)).toEqual(expected);
+    expect(await validateProtocolV1(input)).toMatchObject({ status: 'valid' });
+    input.input.document.analyses = [{ type: 'tf', output: 'v(X1.missing)', source: 'V1' }];
+    expect(await executeProtocolV1(input)).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST', details: { path: '/input/document/analyses/0/output' } } });
+    await expect(validateProtocolV1(input)).rejects.toMatchObject({ apiError: { code: 'INVALID_REQUEST', details: { path: '/input/document/analyses/0/output' } } });
   });
   it.each(['v(out)', 'v(out,mid)', 'i(V1)'])('matches text .tf %s within 1e-12 relative', async output => {
     const input = request(output);

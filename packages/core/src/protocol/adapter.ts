@@ -17,7 +17,7 @@ import type {
   SubcircuitV1,
   TransientResultV1,
 } from './types.js';
-import { Circuit } from '../circuit.js';
+import { Circuit, type CompiledCircuit } from '../circuit.js';
 import { operatingPointReport } from '../op-report.js';
 import {
   ConvergenceError,
@@ -82,6 +82,7 @@ export async function validateProtocolV1(
   guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
   const compiled = circuit.compile(guard);
   enforcePointLimit(circuit.analyses, guard, requestReltol(request, circuit), compiled.steps[0]);
+  validateNativeTfOutputs(request, compiled);
   if (compiled.analyses.length === 0) throw new InvalidCircuitError('No analysis command specified');
   if (!execution?.topologyWarnings) preflightTopology(compiled, protocolSourcePath(request));
   const diagnostics = execution?.topologyWarnings ? topologyWarnings(compiled) : [];
@@ -160,6 +161,7 @@ export async function simulateProtocolV1(
   const analyses = circuit.analyses.map(protocolAnalysis);
   guard.maximum('maxAnalyses', analyses.length, 'validation');
   const preflight = circuit.compile(guard);
+  validateNativeTfOutputs(request, preflight);
   enforcePointLimit(analyses, guard, requestReltol(request, circuit), preflight.steps[0]);
   preflightTopology(preflight, protocolSourcePath(request));
   const options = coreOptions(request.options);
@@ -498,7 +500,6 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
       const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(analysis.output);
       const current = /^i\(\s*(v[^\s(),]*)\s*\)$/i.exec(analysis.output);
       if (!voltage && !current) invalidNativeField(`${path}/output`);
-      if (voltage && [voltage[1], voltage[2]].some(node => node !== undefined && !['0', 'gnd'].includes(node.toLowerCase()) && circuit.getNodeIndex(node) < 0)) invalidNativeField(`${path}/output`);
     }
     if (analysis.type === 'disto') {
       const path = `/input/document/analyses/${index}`;
@@ -559,6 +560,21 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     for (const analysis of analyses) circuit.addAnalysis('pz', analysis);
   }
   return circuit;
+}
+
+/** Resolve native .tf voltage outputs only after hierarchical nodes are expanded. */
+function validateNativeTfOutputs(request: SimulationRequestV1, compiled: CompiledCircuit): void {
+  if (request.input.format !== 'spice-ts') return;
+  if (!request.input.document.analyses.some(analysis => analysis.type === 'tf')) return;
+  const nodes = new Set([...compiled.nodeIndexMap.keys()].map(node => node.toLowerCase()));
+  for (const [index, analysis] of request.input.document.analyses.entries()) {
+    if (analysis.type !== 'tf') continue;
+    const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(analysis.output);
+    if (voltage && [voltage[1], voltage[2]].some(node => node !== undefined
+      && !['0', 'gnd'].includes(node.toLowerCase()) && !nodes.has(node.toLowerCase()))) {
+      invalidNativeField(`/input/document/analyses/${index}/output`);
+    }
+  }
 }
 
 function coreModel(model: CircuitModelV1): { name: string; type: string; params: Record<string, number> } {
