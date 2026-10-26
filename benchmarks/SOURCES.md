@@ -2943,6 +2943,13 @@ Seven transient decks, five DC device sweeps and one noise deck. Selected by dev
 
 Pinned per-file URLs, original/committed SHA256, licence hashes and static selection are in [corpus-r/SOURCES.md](corpus/corpus-r/SOURCES.md) and [manifest.json](corpus/corpus-r/manifest.json). Every outcome and full metrics are published in [README.md](corpus/corpus-r/README.md) and [outcomes.json](corpus/corpus-r/outcomes.json). The original 100-fixture aggregate is unchanged, as requested in #1777.
 
+## BSIM1/BSIM2 circuit temperature (#1821)
+
+- Source: original project-authored decks, generator and test-consumed oracle vectors in [fixtures/issue-1821](fixtures/issue-1821/), MIT under the repository licence. No third-party netlists copied.
+- Semantic reference: ngspice-47 [BSIM1](https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/bsim1) and [BSIM2](https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/bsim2), BSD-style ngspice licence. `b1temp.c` and `b2temp.c` ignore the circuit temperature; `b1ld.c`/`b2ld.c` use fixed `CONSTvt0` for junctions. BSIM2 uses model-card `TEMP` for `Vtm`, not circuit `TEMP`.
+- Reproduce references: `spice-heavy python3 benchmarks/fixtures/issue-1821/generate.py`; internally `ngspice -b -r <temporary-reference.raw> <id>.cir`, ASCII output. Both engines receive identical committed bytes. Compare: `pnpm exec tsx benchmarks/fixtures/issue-1821/compare.mts`.
+- 24 decks cover LEVEL=4/5, NMOS/PMOS, model TEMP=27/75, circuit TEMP=27/75/-20 C, nonzero junction leakage and OP plus six-point DC gate sweeps. Every node voltage and voltage-source current requires relative error <= 1e-6 without an absolute floor. This is correctness coverage, not a performance claim.
+
 ## Resistor instance TEMP/DTEMP at circuit temperature (#1808)
 
 - Source: original project-authored resistor-divider decks in [fixtures/issue-1808](fixtures/issue-1808/), MIT (repository licence). No third-party netlist copied.
