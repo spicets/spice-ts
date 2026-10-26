@@ -25,7 +25,7 @@ import { MOS3, mos3SeriesResistances, resolveMOS3Model } from './devices/mos3.js
 import { MOS6, mos6SeriesResistances, resolveMOS6Model } from './devices/mos6.js';
 import { createBSIM1, resolveBSIM1Model } from './devices/bsim1.js';
 import { createBSIM2, resolveBSIM2Model } from './devices/bsim2.js';
-import { classicBsimSeriesResistances, resolveClassicBsimInstance } from './devices/bsim12-load.js';
+import { ClassicBsimMosfet, classicBsimSeriesResistances, resolveClassicBsimInstance } from './devices/bsim12-load.js';
 import { VDMOS } from './devices/vdmos.js';
 import { isVdmosModelType, resolveVdmosModel } from './devices/vdmos-model.js';
 import { JFET, resolveNJFETParams } from './devices/jfet.js';
@@ -2936,7 +2936,8 @@ export class Circuit {
    * Only devices whose temperature model follows ngspice-47 are accepted:
    * resistors (TC1/TC2 around TNOM), C/L (resolved during construction), the bounded VBIC (vbictemp.c mapping),
    * B sources (asrctemp.c tc1/tc2 and `temper`), diodes (diotemp.c), the
-   * Gummel-Poon BJT (bjttemp.c), MOS levels 1/2/3/6 (mos*temp.c) and BSIM3 (b3temp.c,
+   * Gummel-Poon BJT (bjttemp.c), MOS levels 1/2/3/6 (mos*temp.c), BSIM1/2
+   * (b1temp.c/b2temp.c ignore circuit temperature; junctions use CONSTvt0), and BSIM3 (b3temp.c,
    * b3v32temp.c). Every other temperature-dependent element is rejected instead of silently
    * running at 27 C.
    */
@@ -2950,6 +2951,7 @@ export class Circuit {
       if (device instanceof Resistor || device instanceof VBIC || device instanceof BehavioralSource
         || device instanceof Diode || device instanceof BJT || device instanceof MOSFET
         || device instanceof MOS2 || device instanceof MOS6 || device instanceof MOS3
+        || device instanceof ClassicBsimMosfet
         || device instanceof BSIM3v3 || device instanceof BSIM4 || device instanceof EKV26) {
         device.setTemperature(temperature);
       } else if (device.isNonlinear && !(device instanceof JFET)) {
