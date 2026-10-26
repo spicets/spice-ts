@@ -125,6 +125,7 @@ export class BSIM4 implements DeviceModel {
     this.stamp(ctx, true);
   }
   stampDynamic(ctx: StampContext): void {
+    if (this.hasLodLayout()) this.unsupported('SA/SB/SD stress: ac');
     const p = this.model.values.type;
     const read = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);
     const [d, g, s, b] = this.intrinsicNodes;

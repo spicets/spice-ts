@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { BSIM4 } from './device.js';
+import type { StampContext } from '../device.js';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { simulate } from '../../simulate.js';
@@ -35,6 +37,43 @@ describe('BSIM4 static length-of-diffusion stress', () => {
       item.points.forEach((row, n) => check(values[n], row[index]));
     });
     console.info(`${item.deck}: maxRelative=${maxRelative}`);
+  });
+  for (const method of ['stampDynamic', 'stampAC'] as const) it(`rejects direct LOD ${method} before stamping`, () => {
+    const device = new BSIM4('M', [0, 1, -1, -1], { LEVEL: 54 },
+      { sa: 5e-7, sb: 5e-7, sd: 2e-7, nf: 2 }, 1);
+    const stamps: number[] = [];
+    const ctx: StampContext = {
+      stampG: (_r, _c, value) => { stamps.push(value); },
+      stampC: (_r, _c, value) => { stamps.push(value); },
+      stampB: (_r, value) => { stamps.push(value); },
+      getVoltage: node => node === 1 ? 1.4 : 0.7, getCurrent: () => 0,
+      time: 0, dt: 0, numNodes: 2, sourceScale: 1, useDcSourceValue: true,
+    };
+    expect(() => device[method](ctx, 1e3)).toThrow(UnsupportedModelParameterError);
+    expect(stamps).toEqual([]);
+  });
+  for (const nf of [10000.5, 9007199254740994, Number.MAX_VALUE]) it(`rejects excessive active LOD NF=${nf} during setup`, () => {
+    const model = setupBsim4Model();
+    // Do not enter preprocessing: the old loop can hang beyond JS integer precision.
+    expect(() => setupBsim4Instance(model, { sa: 5e-7, sb: 5e-7, sd: 2e-7, nf },
+      { d: 1, g: 2, s: 0, b: 0 })).toThrow(/nf.*10000/i);
+  });
+  it('retains native fractional NF summation rather than rounding the finger count', () => {
+    const model = setupBsim4Model({ kvth0: 1e-8 });
+    const instance = setupBsim4Instance(model, { l: 1e-6, sa: 5e-7, sb: 5e-7, sd: 2e-7, nf: 1.5 },
+      { d: 1, g: 2, s: 0, b: 0 });
+    const processed = preprocessBsim4(model, instance);
+    // Native i < 1.5 visits i=0,1, with each term still divided by 1.5.
+    const invOd = 2 * (1 / 1.5 / 1e-6 + 1 / 1.5 / 2.2e-6);
+    const invRef = 1 / (model.values.saref + 0.5e-6) + 1 / (model.values.sbref + 0.5e-6);
+    expect(processed.instance.vth0).toBeCloseTo(processed.size.vth0
+      + 1e-8 / Math.sqrt(1 + 1e-9) * (invOd - invRef), 14);
+    expect(instance.values.nf).toBe(1.5);
+  });
+  for (const nf of [9999.5, 10000]) it(`accepts active LOD NF=${nf} at the work limit`, () => {
+    const device = new BSIM4('M', [0, 1, -1, -1], { LEVEL: 54 },
+      { sa: 5e-7, sb: 5e-7, sd: 2e-7, nf }, 1);
+    expect(Number.isFinite(device.evaluate({ vgs: 1.4, vds: 0.7, vbs: 0 }).ids)).toBe(true);
   });
   it('preserves default SA=SB=0 preprocessing bit for bit', () => {
     const nodes = { d: 1, g: 2, s: 0, b: 0 };

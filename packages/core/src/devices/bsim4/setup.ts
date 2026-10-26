@@ -186,6 +186,12 @@ export function setupBsim4Instance(
   for (const key of ['l', 'w', 'm', 'nf'] as const) {
     if (values[key] <= 0 || (key === 'nf' && values.nf < 1)) throw new InvalidCircuitError(`BSIM4 ${key} must be positive (nf >= 1)`);
   }
+  // Resource bound for the native i < NF LOD sum (not a physical model limit).
+  // Keep fractional NF semantics, but reject before preprocessing can loop or
+  // lose integer progress above Number.MAX_SAFE_INTEGER. Inactive LOD is unchanged.
+  if (values.sa > 0 && values.sb > 0 && values.sd > 0 && values.nf > 10000) {
+    throw new InvalidCircuitError('BSIM4 active LOD nf must be <= 10000');
+  }
   for (const key of ['ad', 'as', 'pd', 'ps', 'nrd', 'nrs'] as const) {
     if (values[key] < 0) throw new InvalidCircuitError(`BSIM4 ${key} must be nonnegative`);
   }
