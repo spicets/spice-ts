@@ -112,7 +112,7 @@ function simulateDc(
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
   const originalWaveform = source.waveform;
   const originalSecondaryWaveform = secondarySource?.waveform;
-  const nonlinear = compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''));
+  const nonlinear = compiled.devices.some(device => ['D', 'Q', 'M', 'J', 'S'].includes(deviceType(device.name) ?? ''));
   let previous: Float64Array | undefined;
   let value = sweep.start;
   let outerValue = sweep.secondary?.start ?? 0;
@@ -176,7 +176,7 @@ function simulateOp(
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
-  if (compiled.devices.some(device => ['D', 'Q', 'M', 'J'].includes(deviceType(device.name) ?? ''))) {
+  if (compiled.devices.some(device => ['D', 'Q', 'M', 'J', 'S'].includes(deviceType(device.name) ?? ''))) {
     return opResult(compiled, solveNonlinearOp(compiled, order, request, exports), request);
   }
   const matrix = new Float64Array(order * order);
@@ -712,12 +712,13 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
   const devices = analysis === 'op' || analysis === 'dc'
-    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J']
+    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J'];
   if (compiled.devices.some(device => !devices.includes(deviceType(device.name) ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
   }
   validateControlledSourceValues(compiled);
+  validateSwitchValues(compiled);
   if (analysis !== 'op') validatePassiveValues(compiled);
   const order = compiled.nodeCount + compiled.branchCount;
   if (order < 1) throw numericError('INVALID_CIRCUIT', 'The circuit has no numeric unknowns', 'compile');
@@ -819,7 +820,7 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', temperatureEnabled: boolean): void {
   const allowedDevices = analysis === 'op' || analysis === 'dc'
-    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J']
+    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J'];
   for (const card of cards) {
     if (/^\.options\b/i.test(card)) {
@@ -839,12 +840,25 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
     if (/^\.param\b/i.test(card)) continue;
     if (new RegExp(`^\\.(?:${analysis}|end)(?:\\s|$)`, 'i').test(card)) continue;
     if (/^\.model\b/i.test(card)) {
-      const model = /^\.model\s+\S+\s+(D|R|RES|C|L|NPN|PNP|NMOS|PMOS|NJF|PJF)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
-      if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT, MOS1 and JFET models are supported');
+      const model = /^\.model\s+\S+\s+(D|R|RES|C|L|NPN|PNP|NMOS|PMOS|NJF|PJF|SW)(?:\s*\((.*)\)|\s+(.*))?\s*$/i.exec(card);
+      if (!model) unsupported('nonlinear-model', 'Only bounded diode, BJT, MOS1, JFET and SW models are supported');
       const mos = /MOS$/i.test(model[1]!);
       const bjt = /^(NPN|PNP)$/i.test(model[1]!);
       const jfet = /^(NJF|PJF)$/i.test(model[1]!);
       const parameters = (model[2] ?? model[3] ?? '').trim();
+      if (/^SW$/i.test(model[1]!)) {
+        if (analysis !== 'op' && analysis !== 'dc') unsupported('switch-analysis', 'SW models are supported only for OP/DC');
+        const parameter = new RegExp(`\\b(?:VT|VH|RON|ROFF)\\s*=\\s*(${SPICE_NUMBER.source.slice(1, -1)})(?:\\s+|,\\s*|$)`, 'gi');
+        let finite = true;
+        const remaining = parameters.replace(parameter, (_match, value: string) => {
+          finite &&= Number.isFinite(parseFloat(value));
+          return '';
+        }).trim();
+        if (remaining || !finite) {
+          unsupported('switch-model-parameter', 'Only finite numeric SW model parameters VT, VH, RON and ROFF are supported');
+        }
+        continue;
+      }
       const mosNames = 'LEVEL|VTO|KP|LAMBDA|GAMMA|PHI|RD|RS|RSH'
         + (analysis === 'tran' || analysis === 'ac' ? '|TOX|CGSO|CGDO|CGBO|CBD|CBS|CJ|CJSW|PB|MJ|MJSW|FC' : '');
       const diodeNames = 'IS|N|RS|CJO|CJ0|VJ|M|FC|TT|BV|IBV'
@@ -893,7 +907,12 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
     if (!allowedDevices.includes(type)) {
       unsupported('device-or-directive', `Unsupported linear .${analysis} card '${tokens[0] ?? ''}'`);
     }
-    if (type === 'J') {
+    if (type === 'S') {
+      if ((tokens.length !== 6 && tokens.length !== 7)
+        || (tokens.length === 7 && !/^(ON|OFF)$/i.test(tokens[6]!))) {
+        unsupported('switch-form', 'Switches must use name positive negative control-positive control-negative model with optional ON/OFF');
+      }
+    } else if (type === 'J') {
       const area = tokens[5];
       if ((tokens.length !== 5 && tokens.length !== 6)
         || (area !== undefined && (!SPICE_NUMBER.test(area) || !Number.isFinite(parseFloat(area)) || parseFloat(area) <= 0))) {
@@ -1112,6 +1131,21 @@ function validAcSourceTokens(tokens: string[]): boolean {
       || ((tokens.length === 7 || tokens.length === 8) && tokens[5]?.toUpperCase() === 'AC');
   }
   return first === 'AC' && (tokens.length === 5 || tokens.length === 6);
+}
+
+function validateSwitchValues(compiled: CompiledCircuit): void {
+  for (const device of compiled.devices) {
+    if (deviceType(device.name) !== 'S') continue;
+    // Validate core-resolved values, including SPICE suffix scaling and defaults.
+    // Both states must be stampable, regardless of the initial control voltage.
+    const { model } = device as unknown as {
+      model: { onConductance: number; offConductance: number };
+    };
+    if ([model.onConductance, model.offConductance].some(conductance =>
+      conductance === 0 || !Number.isFinite(conductance) || !Number.isFinite(1 / conductance))) {
+      unsupported('switch-model-parameter', 'SW model RON and ROFF must resolve to nonzero finite resistances and conductances');
+    }
+  }
 }
 
 function validateControlledSourceValues(compiled: CompiledCircuit): void {

@@ -94,8 +94,8 @@ export interface SpiceEngineCapabilitiesV1 {
     inputFormats: readonly ['spice'];
     analyses: readonly ['op', 'dc', 'tran', 'ac'];
     devicesByAnalysis: {
-      op: readonly ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J'];
-      dc: readonly ['R', 'I', 'V', 'D', 'J'];
+      op: readonly ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S'];
+      dc: readonly ['R', 'I', 'V', 'D', 'J', 'S'];
       tran: readonly ['R', 'C', 'L', 'I', 'V', 'J'];
       ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J'];
     };
@@ -218,8 +218,8 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
         inputFormats: ['spice'] as const,
         analyses: ['op', 'dc', 'tran', 'ac'] as const,
         devicesByAnalysis: {
-          op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J'] as const,
-          dc: ['R', 'I', 'V', 'D', 'J'] as const,
+          op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S'] as const,
+          dc: ['R', 'I', 'V', 'D', 'J', 'S'] as const,
           tran: ['R', 'C', 'L', 'I', 'V', 'J'] as const,
           ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J'] as const,
         },
