@@ -934,7 +934,14 @@ async function executeToolWithStore(
       return { isError: true, content: [{ type: 'text', text: JSON.stringify(local) }], structuredContent: local };
     }
     if (error instanceof ParameterOverrideError) return failure(error.apiError);
-    return failure(publicError(error));
+    const mapped = publicError(error);
+    if (isRecord(args) && isRecord(args.request) && isRecord(args.request.input)
+      && args.request.input.format === 'circuit-json' && typeof mapped.details.path === 'string'
+      && /^\/input\/document\/noiseAnalyses(?:\/|$)/.test(mapped.details.path)) {
+      mapped.details.path = mapped.details.path.replace('/input/document/', '/input/');
+      mapped.message = mapped.message.replace('/input/document/noiseAnalyses', '/input/noiseAnalyses');
+    }
+    return failure(mapped);
   }
 }
 

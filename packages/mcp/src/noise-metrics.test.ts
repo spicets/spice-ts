@@ -55,6 +55,8 @@ describe('spice_noise_metrics', () => {
       ]),
     ];
     const input = { format: 'circuit-json', circuit, analyses: [], noiseAnalyses: [noiseAnalysis] };
+    expect(await executeTool('spice_noise_metrics', { request: { apiVersion: '1', input: { ...input, noiseAnalyses: [{ ...noiseAnalysis, points: 0 }] } } }))
+      .toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST', details: { path: '/input/noiseAnalyses/0/points' } } } });
     const selectors = { spotFrequenciesHz: [10, 1000] };
     const response = await executeTool('spice_noise_metrics', { request: { apiVersion: '1', input }, ...selectors });
     expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
