@@ -1,0 +1,15 @@
+VDMOS circuit temperature n-channel-temp-20
+.options TEMP=-20 RELTOL=1e-10 ABSTOL=1e-15 VNTOL=1e-12
+Vd d 0 10
+Vg g 0 5
+M1 d g 0 vd
+.model vd VDMOS( VTO=2 KP=1 TNOM=40 TCVTH=-0.003 MU=-1.2
++ RD=0.2 RS=0.1 RG=0.3 TEXP0=1.8 TRS1=0.003 TRS2=0.000002 TRG1=0.002
++ RQ=0.1 VQ=3 TEXP1=0.5 IS=2e-12 N=1.1 EG=1.08 XTI=2.5 RB=0.15 TRB1=0.002 TRB2=0.000003
++ CJO=1n VJ=0.7 M=0.4 TT=10n)
+.op
+.dc Vg 0 6 0.1
+.control
+set filetype=ascii
+.endc
+.end
