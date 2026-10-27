@@ -1,5 +1,16 @@
 # Benchmark sources
 
+## HFET1 temperature (#1876)
+
+Inline `temperatureDeck` in `packages/core/src/devices/hfet1-temperature-1876.test.ts`
+is original project-authored MIT material; no third-party netlists are copied.
+Reference: ngspice-47 `ngspice -b deck.cir`, using identical template bytes.
+Source audit: [hfettemp.c:62-91](https://github.com/imr/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/hfet1/hfettemp.c#L62-L91)
+(ngspice BSD-3-Clause). The bounded LEVEL=5 NHFET implementation uses effective
+temperature for channel density, thermal voltage and gate leakage; unported
+temperature coefficients and AC dispersion parameters are typed errors.
+LEVEL=1 is MES, not HFET1; PHFET remains unsupported.
+
 ## BJT instance temperature (#1852)
 
 `fixtures/1852/*.cir` are original project-authored MIT decks for
