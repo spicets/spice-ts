@@ -3007,6 +3007,15 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
 - Oracle: ngspice-47, generated with `spice-heavy python3 benchmarks/fixtures/issue-1808/generate.py`. The generator records OP and DC TEMP sweep vectors from `ngspice -b -r <temporary-reference.raw> <deck.cir>` in ASCII mode.
 - Both engines receive the identical committed decks. Four decks cover `.options TEMP` and `.temp` at 27/50 C, each with a 27/50/73 C sweep. Each deck contains DTEMP=10, TEMP=80, TEMP=80 plus DTEMP=10, and an ambient-only control divider; TC1 and TC2 are both nonzero. Tests require relative error <= 1e-9 on every OP/sweep voltage and source current. This is correctness coverage, not a speed claim.
 
+## MOS2 instance TEMP/DTEMP (#1853)
+
+- Original project-authored decks, generator and test-consumed oracle in [fixtures/issue-1853](fixtures/issue-1853/), MIT under the repository licence; no third-party netlist/model copied.
+- Semantic reference: ngspice-47 [`mos2temp.c`](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/mos2/mos2temp.c), BSD-style ngspice licence. Explicit instance TEMP overrides circuit TEMP and ignores DTEMP; otherwise DTEMP adds to circuit TEMP. Existing temperature laws are reused, including ngspice's use of unscaled model UO in `mos2load.c` (its preprocessed tSurfMob is unused there).
+- Regenerate: `spice-heavy python3 benchmarks/fixtures/issue-1853/generate.py` (ngspice-47); internally `ngspice -b -r <temporary-reference.raw> <id>.cir`. Both simulators consume identical committed deck bytes, SHA-256 checked by tests.
+- Six decks: NMOS/PMOS x TEMP=75, DTEMP=20, TEMP=75 plus DTEMP=20 at circuit TEMP=40. OP and 61-point gate sweeps compare **every** saved node voltage and source current at strict relative <=1e-6, without an absolute floor. All decks use the same tight Newton settings (RELTOL=1e-12, ABSTOL=1e-20, VNTOL=1e-16) to resolve off-state source voltages around 4e-11 V; these are solver settings, not relaxed comparison thresholds.
+- Before: all six OP/DC parity tests failed with ignored instance fields. After: worst relative errors n-temp/n-both/p-temp/p-both 1.939e-7, n-dtemp 1.612e-8, p-dtemp 1.127e-8. Compare: `spice-heavy pnpm -C packages/core exec vitest run src/devices/mos2-instance-temperature-1853.test.ts`.
+- Regression coverage includes repeated DC TEMP sweep restoration, invalid effective temperature with last-valid-state preservation, and AC/transient equivalence to the same effective circuit temperature with nonzero junction capacitances. No performance claim.
+
 ## VDMOS circuit temperature (#1845)
 
 - Source: original project-authored decks, generator and test-consumed oracle vectors in [fixtures/issue-1845](fixtures/issue-1845/), MIT under the repository licence. No third-party netlists copied.

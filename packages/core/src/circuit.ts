@@ -2754,6 +2754,7 @@ export class Circuit {
               desc.name, nodeIdxs,
               resolveMOS2Model(desc.modelName!, modelParams, polarity),
               desc.params ?? {},
+              this._temperature ?? NOMINAL_TEMPERATURE_C,
             ));
           } else if (level === 3 || level === 9) {
             // MOS3 / MOS9 (ngspice mos3, mos9); expandPassiveParasitics gave [D', G, S', B].
