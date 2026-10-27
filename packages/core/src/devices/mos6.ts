@@ -430,11 +430,14 @@ export class MOS6 implements DeviceModel {
 
   setTemperature(value: number): void {
     const effective = this.instanceTemperature ?? value + this.deltaTemperature;
+    if (!Number.isFinite(effective) || effective <= -CONSTCTOK) {
+      throw new InvalidCircuitError(`${this.name}: MOSFET level 6 effective temperature must be finite and above absolute zero (got ${effective} C)`);
+    }
     if (effective !== this.model.TNOM - CONSTCTOK && this.model.unsupportedTemperatureParameter !== undefined) {
       throw new UnsupportedTemperatureError(this.name, effective, this.model.unsupportedTemperatureParameter);
     }
+    this.applyTemperature(effective);
     this.temperature = value;
-    this.applyTemperature();
   }
 
   getTemperature(): number {
@@ -447,7 +450,7 @@ export class MOS6 implements DeviceModel {
   }
 
   /** mos6temp.c instance loop. */
-  private applyTemperature(): void {
+  private applyTemperature(effective: number): void {
     const model = this.model;
     const { AD, AS, PD, PS } = this.instance;
     const tnom = model.TNOM;
@@ -458,7 +461,7 @@ export class MOS6 implements DeviceModel {
     const arg1 = -egfet1 / (kt1 + kt1) + 1.1150877 / (CONSTBOLTZ * (REFTEMP + REFTEMP));
     const pbfact1 = -2 * vtnom * (1.5 * Math.log(fact1) + CHARGE * arg1);
 
-    const temp = this.getTemperature() + CONSTCTOK;
+    const temp = effective + CONSTCTOK;
     const vt = temp * CONSTKOVERQ;
     const ratio = temp / tnom;
     const fact2 = temp / REFTEMP;
