@@ -19,6 +19,8 @@ import type {
 } from './types.js';
 import { Circuit, type CompiledCircuit } from '../circuit.js';
 import { VoltageSource } from '../devices/voltage-source.js';
+import { CurrentSource } from '../devices/current-source.js';
+import { Resistor } from '../devices/resistor.js';
 import { operatingPointReport } from '../op-report.js';
 import {
   ConvergenceError,
@@ -494,6 +496,24 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     addComponent(circuit, component);
   }
   for (const [index, analysis] of document.analyses.entries()) {
+    if (analysis.type === 'dc' && analysis.secondary !== undefined) {
+      const path = `/input/document/analyses/${index}/secondary`;
+      const secondary = analysis.secondary;
+      if (typeof secondary !== 'object' || secondary === null || Array.isArray(secondary)) invalidNativeField(path);
+      if (typeof secondary.source !== 'string' || !/^[^\s]+$/.test(secondary.source)) invalidNativeField(`${path}/source`);
+      for (const field of ['start', 'stop', 'step'] as const) {
+        if (typeof secondary[field] !== 'number' || !Number.isFinite(secondary[field])) invalidNativeField(`${path}/${field}`);
+      }
+      if (secondary.step === 0 || (secondary.stop > secondary.start && secondary.step < 0)
+        || (secondary.stop < secondary.start && secondary.step > 0)) invalidNativeField(`${path}/step`);
+      for (const field of Object.keys(secondary)) {
+        if (!['source', 'start', 'stop', 'step'].includes(field)) invalidNativeField(`${path}/${field.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+      }
+      const name = secondary.source.toUpperCase();
+      if (name === analysis.source.toUpperCase()) invalidNativeField(`${path}/source`);
+      const targets = circuit.compile().devices.filter(device => (device instanceof VoltageSource || device instanceof CurrentSource || device instanceof Resistor) && device.name.toUpperCase() === name);
+      if (name !== 'TEMP' && targets.length !== 1) invalidNativeField(`${path}/source`);
+    }
     if (analysis.type === 'sens') {
       const path = `/input/document/analyses/${index}`;
       if (analysis.mode !== 'dc') invalidNativeField(`${path}/mode`);
@@ -722,14 +742,17 @@ function serializeOp(result: DCResult, analysisIndex: number, nodes: string[], b
 }
 
 function serializeDc(result: DCSweepResult, analysis: Extract<AnalysisCommand, { type: 'dc' }>, analysisIndex: number, nodes: string[], branches: string[], circuit: Circuit, step?: StepCoordinateV1): DcResultV1 {
-  const normalizedSourceName = analysis.source.toUpperCase();
-  const source = circuit.toIR().components.find(component =>
-    (component.type === 'V' || component.type === 'I')
-    && component.name.toUpperCase() === normalizedSourceName,
-  );
+  const components = circuit.toIR().components;
+  const axis = (name: string, values: Float64Array): DcResultV1['axis'] => {
+    const source = components.find(component => component.name.toUpperCase() === name.toUpperCase());
+    return { name: source?.name ?? name, unit: source?.type === 'I' ? 'A' : 'V', values: Array.from(values) };
+  };
   return withStep({
     type: 'dc', analysisIndex,
-    axis: { name: source?.name ?? analysis.source, unit: source?.type === 'I' ? 'A' : 'V', values: Array.from(result.sweepValues) },
+    axis: axis(analysis.source, result.sweepValues),
+    ...(analysis.secondary && result.secondarySweepValues ? {
+      secondaryAxis: axis(analysis.secondary.source, result.secondarySweepValues),
+    } : {}),
     voltagesV: sortedRecord(nodes, name => Array.from(result.voltage(name))),
     currentsA: sortedRecord(branches, name => Array.from(result.current(name))),
   }, step);

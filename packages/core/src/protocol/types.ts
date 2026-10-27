@@ -3,7 +3,7 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 export type JsonObject = { [key: string]: JsonValue };
 
 export interface OperatingPointAnalysisV1 { type: 'op' }
-export interface DcAnalysisV1 { type: 'dc'; source: string; start: number; stop: number; step: number }
+export interface DcAnalysisV1 { type: 'dc'; source: string; start: number; stop: number; step: number; secondary?: { source: string; start: number; stop: number; step: number } }
 export interface TransientAnalysisV1 { type: 'tran'; timestep: number; stopTime: number; startTime?: number; maxTimestep?: number }
 export interface AcAnalysisV1 { type: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
 export type AnalysisV1 = OperatingPointAnalysisV1 | DcAnalysisV1 | TransientAnalysisV1 | AcAnalysisV1;
@@ -87,6 +87,8 @@ export interface OperatingPointResultV1 {
 export interface DcResultV1 {
   type: 'dc'; analysisIndex: number; step?: StepCoordinateV1;
   axis: { name: string; unit: 'V' | 'A'; values: number[] };
+  /** Point-aligned outer sweep coordinates for nested DC sweeps. */
+  secondaryAxis?: { name: string; unit: 'V' | 'A'; values: number[] };
   voltagesV: Record<string, number[]>; currentsA: Record<string, number[]>;
 }
 export interface TransientResultV1 {
