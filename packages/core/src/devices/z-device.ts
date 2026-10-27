@@ -85,10 +85,11 @@ export function createZDevice(
   resolved: ResolvedZModel,
   instanceParams: Record<string, number> | undefined,
   gmin: number = MESA_JUNCTION_GMIN,
+  circuitTemperature = 27,
 ): DeviceModel {
   switch (resolved.kind) {
     case 'hfet':
-      return new HFET1(name, nodes, resolved.model, resolveHFET1Instance(instanceParams));
+      return new HFET1(name, nodes, resolved.model, resolveHFET1Instance(instanceParams), circuitTemperature);
     case 'mes':
       return new MES(name, nodes, resolved.model, resolveMESInstance(instanceParams), gmin);
     case 'mesa':

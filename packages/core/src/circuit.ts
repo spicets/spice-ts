@@ -29,6 +29,7 @@ import { ClassicBsimMosfet, classicBsimSeriesResistances, resolveClassicBsimInst
 import { VDMOS } from './devices/vdmos.js';
 import { isVdmosModelType, resolveVdmosModel } from './devices/vdmos-model.js';
 import { JFET, resolveNJFETParams } from './devices/jfet.js';
+import { HFET1 } from './devices/hfet1.js';
 import { createZDevice, expandZDevice, resolveZModel } from './devices/z-device.js';
 import { BehavioralCurrentSource, BehavioralSource, BehavioralVoltageSource } from './devices/behavioral-source.js';
 import {
@@ -2638,6 +2639,7 @@ export class Circuit {
           const model = this.requireModel('Z-card', desc);
           devices.push(createZDevice(
             desc.name, nodeIndices, resolveZModel(model), desc.params, this._simulationOptions.deviceGmin,
+            this._temperature ?? NOMINAL_TEMPERATURE_C,
           ));
           break;
         }
@@ -2955,7 +2957,7 @@ export class Circuit {
       if (device instanceof Resistor || device instanceof VBIC || device instanceof BehavioralSource
         || device instanceof Diode || device instanceof BJT || device instanceof MOSFET
         || device instanceof MOS2 || device instanceof MOS6 || device instanceof MOS3
-        || device instanceof ClassicBsimMosfet
+        || device instanceof ClassicBsimMosfet || device instanceof HFET1
         // VDMOStempUpdate already handles instance TEMP/DTEMP and model TNOM.
         // Keep the separate self-heating network outside this validated surface.
         || (device instanceof VDMOS && !device.selfHeating)
