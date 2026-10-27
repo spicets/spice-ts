@@ -56,6 +56,9 @@ export class DCResult {
  * Contains time-domain waveforms for all nodes and branches.
  */
 export class TransientResult {
+  /** `.four` tables. Harmonic zero is the signed DC component. */
+  fourier?: FourierResult[];
+
   constructor(
     /** Array of time points in seconds. */
     public readonly time: number[],

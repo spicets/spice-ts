@@ -1,4 +1,5 @@
 import { Circuit } from './circuit.js';
+import { evaluateFourierCards } from './parser/dot-four.js';
 import { squaredNoiseOutput } from './results.js';
 import type { CompiledCircuit } from './circuit.js';
 import { parse, parseAsync, parseControlAnalysisCard, parseControlOptions } from './parser/index.js';
@@ -166,7 +167,7 @@ export async function simulate(
     return { steps: stepResults, warnings, convergence };
   }
 
-  const result = solveCompiledAnalyses(compiled, options, warnings, convergence, guard, measures, new Map(), true);
+  const result = solveCompiledAnalyses(circuit, compiled, options, warnings, convergence, guard, measures, new Map(), true);
   warnUnmeasuredAnalyses(measures, compiled.analyses, warnings);
   return result;
 }
@@ -191,6 +192,7 @@ function warnUnmeasuredAnalyses(
  * do_measure(); `measureValues` is ngspice's dictionary of earlier results.
  */
 function solveCompiledAnalyses(
+  circuit: Circuit,
   compiled: CompiledCircuit,
   options: SimulationOptions,
   warnings: SimulationWarning[],
@@ -256,6 +258,7 @@ function solveCompiledAnalyses(
           },
           savedDeviceVectors,
         );
+        evaluateFourierCards(circuit, result.transient, warnings);
         measure(analysis, run);
         break;
       }
@@ -402,7 +405,7 @@ function simulateControlScript(
     const resolved = withNetlistOptions(compiled.simulationOptions, options);
     // Cleared first: a failed analysis leaves no state to read out.
     operatingState = undefined;
-    const result = solveCompiledAnalyses(compiled, resolved, warnings, convergence, guard, measures, measureValues, false, saves);
+    const result = solveCompiledAnalyses(circuit, compiled, resolved, warnings, convergence, guard, measures, measureValues, false, saves);
     operatingState = analyses.length === 1 && poleZero.length === 0
       ? controlOperatingState(compiled, analyses[0], result)
       : undefined;
