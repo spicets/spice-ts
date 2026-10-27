@@ -136,7 +136,11 @@ export function parseBJTInstance(
     if (!STRICT_NUMBER.test(value!)) {
       fail(`Invalid BJT instance parameter value: '${token}' in '${line}'`);
     }
-    params[name] = parseNumber(value!);
+    try {
+      params[name] = parseNumber(value!);
+    } catch {
+      fail(`Invalid BJT instance parameter value: '${token}' in '${line}'`);
+    }
   }
   for (const name of INSTANCE_KEYWORDS) {
     const value = params[name];

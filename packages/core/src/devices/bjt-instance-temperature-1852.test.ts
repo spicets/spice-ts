@@ -73,6 +73,17 @@ describe('BJT instance temperature #1852', () => {
       }
     });
 
+  it.each(['RB=30', 'RB=100 RBM=20 IRB=0.2m'])(
+    'uses circuit TNOM for series resistors with %s and instance temperature', async base => {
+      for (const instance of ['TEMP=50', 'DTEMP=-30']) {
+        const input = deck(instance, 80, base).replace('.options temp=80', '.options tnom=80 temp=80');
+        const implicit = (await simulate(input)).dc!;
+        const explicit = (await simulate(input.replace('.model QM NPN', '.model QM NPN TNOM=80'))).dc!;
+        for (const node of ['c', 'b']) expect(implicit.voltage(node)).toBeCloseTo(explicit.voltage(node), 12);
+        for (const source of ['VC', 'VB']) expect(implicit.current(source)).toBeCloseTo(explicit.current(source), 14);
+      }
+    });
+
   it.each(['TEMP=-273.15', 'DTEMP=-300.15', 'DTEMP=-400', 'TEMP=1e999'])(
     'rejects invalid effective temperature %s', async instance => {
       await expect(simulate(deck(instance, 27))).rejects.toThrow(/temperature|TEMP|absolute zero/);

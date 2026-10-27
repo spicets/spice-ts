@@ -141,6 +141,20 @@ describe('BJT Q-card parser', () => {
     expect((error as Error).message).toContain(message);
   });
 
+  it.each(['TEMP', 'DTEMP'])('preserves source diagnostics for malformed subcircuit %s', keyword => {
+    const card = `Q1 c b 0 QM ${keyword}=1e3k`;
+    const input = `temperature diagnostics\n.subckt cell c b\n${card}\n.model QM NPN\n.ends cell\nX1 c b cell\n.op\n.end`;
+    let error: unknown;
+    try {
+      parse(input).compile();
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(ParseError);
+    expect(error).toMatchObject({ line: 3, context: card });
+    expect((error as Error).message).toContain(`Invalid BJT instance parameter value: '${keyword}=1e3k'`);
+  });
+
   // Instance AREA/M is exactly the model with IS/ISE/IKF scaled and RB/RC/RE
   // divided by AREA*M once AREAB=1: bjttemp.c BCtSatCur = tSatCur*AREAB, and
   // AREAB defaults to AREA (IS*AREA^2*M, #641). ngspice-47 .op on the AREAB=1

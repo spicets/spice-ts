@@ -3280,7 +3280,7 @@ export class Circuit {
               params: {
                 TC1: model.params[`T${parameter}1`] ?? 0,
                 TC2: model.params[`T${parameter}2`] ?? 0,
-                TNOM: model.params.TNOM ?? model.params.TREF ?? NOMINAL_TEMPERATURE_C,
+                TNOM: model.params.TNOM ?? model.params.TREF ?? this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
                 ...(desc.params?.TEMP !== undefined ? { TEMP: desc.params.TEMP } : {}),
                 ...(desc.params?.DTEMP !== undefined ? { DTEMP: desc.params.DTEMP } : {}),
               },
