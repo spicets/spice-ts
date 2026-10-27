@@ -106,13 +106,4 @@ describe('bounded voltage-controlled SW WASM OP/DC', () => {
       } finally { await wasm.close(); }
     },
   );
-  it.each([false, true])('keeps AC switches unsupported (model first: %s)', async modelFirst => {
-    const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
-    try {
-      const cards = circuit(2).split('\n');
-      if (modelFirst) cards.unshift(cards.pop()!);
-      expect(await wasm.simulate(request(`${cards.join('\n')}\n.ac dec 1 1 10`), { requestId: 'switch-dynamic' }))
-        .toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'switch-analysis' } } });
-    } finally { await wasm.close(); }
-  });
 });

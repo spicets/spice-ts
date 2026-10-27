@@ -54,6 +54,17 @@ const metadata = {
 } as const;
 
 describe('protocol v1 JSON Schemas', () => {
+  it('accepts sensitivity only in native requests, not generic analyses, results or streams', () => {
+    const sens = { type: 'sens', mode: 'dc', outputNode: 'out' };
+    const request = structuredClone(positive.requests.native);
+    const native = { ...request, input: { ...request.input, document: { ...request.input.document, analyses: [sens] } } };
+    expect(ajv.validate('https://spice-ts.dev/schemas/v1/simulation-request.schema.json', native)).toBe(true);
+    const common = 'https://spice-ts.dev/schemas/v1/common.schema.json#/$defs/';
+    expect(ajv.validate(`${common}analysis`, sens)).toBe(false);
+    expect(ajv.validate(`${common}analysisResult`, sens)).toBe(false);
+    expect(ajv.validate(`${common}simulationEvent`, { type: 'analysis-start', analysis: 'sens', analysisIndex: 0 })).toBe(false);
+  });
+
   it('round-trips all tagged simulation inputs', () => {
     for (const request of Object.values(positive.requests)) {
       expect(validate('https://spice-ts.dev/schemas/v1/simulation-request.schema.json', request)).toBe(true);

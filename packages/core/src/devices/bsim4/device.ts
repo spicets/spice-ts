@@ -115,7 +115,9 @@ export class BSIM4 implements DeviceModel {
   capacitances(): never { return this.unsupported('capacitances'); }
   charges(): never { return this.unsupported('charge'); }
   noise(): never { return this.unsupported('noise'); }
-  stampSmallSignal(ctx: StampContext): void { this.stamp(ctx, true); }
+  stampSmallSignal(ctx: StampContext): void {
+    this.stamp(ctx, true);
+  }
   stampDynamic(ctx: StampContext): void {
     const p = this.model.values.type;
     const read = (node: number) => node < 0 ? 0 : ctx.getVoltage(node);

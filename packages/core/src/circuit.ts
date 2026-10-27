@@ -2733,6 +2733,7 @@ export class Circuit {
               desc.name, nodeIdxs,
               resolveMOS6Model(desc.modelName!, modelParams, polarity),
               desc.params ?? {},
+              this._temperature ?? NOMINAL_TEMPERATURE_C,
             ));
           } else if (level === 4 || level === 5) {
             // BSIM1 (LEVEL=4) / BSIM2 (LEVEL=5); expandPassiveParasitics gave [D', G, S', B].
@@ -2954,6 +2955,9 @@ export class Circuit {
         || device instanceof Diode || device instanceof BJT || device instanceof MOSFET
         || device instanceof MOS2 || device instanceof MOS6 || device instanceof MOS3
         || device instanceof ClassicBsimMosfet
+        // VDMOStempUpdate already handles instance TEMP/DTEMP and model TNOM.
+        // Keep the separate self-heating network outside this validated surface.
+        || (device instanceof VDMOS && !device.selfHeating)
         || device instanceof BSIM3v3 || device instanceof BSIM4 || device instanceof EKV26) {
         device.setTemperature(temperature);
       } else if (device.isNonlinear && !(device instanceof JFET)

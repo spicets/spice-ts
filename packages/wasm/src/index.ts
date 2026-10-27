@@ -94,10 +94,10 @@ export interface SpiceEngineCapabilitiesV1 {
     inputFormats: readonly ['spice'];
     analyses: readonly ['op', 'dc', 'tran', 'ac'];
     devicesByAnalysis: {
-      op: readonly ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S'];
-      dc: readonly ['R', 'I', 'V', 'D', 'J', 'S'];
-      tran: readonly ['R', 'C', 'L', 'I', 'V', 'J', 'S'];
-      ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J'];
+      op: readonly ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
+      dc: readonly ['R', 'I', 'V', 'D', 'J', 'S', 'W'];
+      tran: readonly ['R', 'C', 'L', 'I', 'V', 'J', 'S', 'W'];
+      ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S', 'W'];
     };
     fallback: 'reject';
     limits: typeof NUMERIC_WASM_LIMITS;
@@ -218,10 +218,10 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
         inputFormats: ['spice'] as const,
         analyses: ['op', 'dc', 'tran', 'ac'] as const,
         devicesByAnalysis: {
-          op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S'] as const,
-          dc: ['R', 'I', 'V', 'D', 'J', 'S'] as const,
-          tran: ['R', 'C', 'L', 'I', 'V', 'J', 'S'] as const,
-          ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J'] as const,
+          op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'] as const,
+          dc: ['R', 'I', 'V', 'D', 'J', 'S', 'W'] as const,
+          tran: ['R', 'C', 'L', 'I', 'V', 'J', 'S', 'W'] as const,
+          ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S', 'W'] as const,
         },
         fallback: 'reject' as const,
         limits: NUMERIC_WASM_LIMITS,
@@ -434,7 +434,8 @@ function resultEvents(result: SimulationResultV1): SimulationEventV1[] {
 
 function analysisPoints(analysis: AnalysisResultV1): Array<Extract<SimulationEventV1, { type: 'point' }>['point']> {
   switch (analysis.type) {
-    case 'op': return [];
+    case 'op':
+    case 'tf': return [];
     case 'dc': return analysis.axis.values.map((value, index) => ({
       type: 'dc', axis: { name: analysis.axis.name, unit: analysis.axis.unit, value },
       voltagesV: indexedRecord(analysis.voltagesV, index), currentsA: indexedRecord(analysis.currentsA, index),
@@ -485,7 +486,7 @@ function partialAnalyses(events: SimulationEventV1[]): PartialAnalysisV1[] {
   for (const event of events) {
     if (event.type === 'diagnostic') continue;
     const key = `${event.analysisIndex}:${event.step?.index ?? ''}`;
-    if (event.type === 'analysis-start' && event.analysis !== 'op') {
+    if (event.type === 'analysis-start' && event.analysis !== 'op' && event.analysis !== 'tf') {
       analyses.set(key, {
         analysis: event.analysis, analysisIndex: event.analysisIndex,
         ...(event.step ? { step: event.step } : {}), emittedPointCount: 0, complete: false,

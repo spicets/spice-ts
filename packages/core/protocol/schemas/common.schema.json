@@ -170,7 +170,13 @@
           "$ref": "#/$defs/analysis"
         },
         {
+          "$ref": "#/$defs/tfAnalysis"
+        },
+        {
           "$ref": "#/$defs/distoAnalysis"
+        },
+        {
+          "$ref": "#/$defs/sensitivityAnalysis"
         },
         {
           "type": "object",
@@ -244,6 +250,56 @@
         }
       },
       "additionalProperties": false
+    },
+    "sensitivityAnalysis": {
+      "type": "object",
+      "required": [
+        "type",
+        "mode",
+        "outputNode"
+      ],
+      "properties": {
+        "type": {
+          "const": "sens"
+        },
+        "mode": {
+          "const": "dc"
+        },
+        "outputNode": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "outputReferenceNode": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "outputType": {
+          "enum": [
+            "voltage",
+            "current"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outputType": {
+                "const": "current"
+              }
+            },
+            "required": [
+              "outputType"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outputReferenceNode": false
+            }
+          }
+        }
+      ]
     },
     "poleZeroAnalysis": {
       "type": "object",
@@ -1040,6 +1096,60 @@
       },
       "additionalProperties": false
     },
+    "tfResult": {
+      "type": "object",
+      "required": [
+        "type",
+        "analysisIndex",
+        "transferFunction",
+        "inputResistanceOhm",
+        "outputResistanceOhm"
+      ],
+      "properties": {
+        "type": {
+          "const": "tf"
+        },
+        "analysisIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step": {
+          "$ref": "#/$defs/step"
+        },
+        "transferFunction": {
+          "type": "number"
+        },
+        "inputResistanceOhm": {
+          "type": "number"
+        },
+        "outputResistanceOhm": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tfAnalysis": {
+      "type": "object",
+      "required": [
+        "type",
+        "output",
+        "source"
+      ],
+      "properties": {
+        "type": {
+          "const": "tf"
+        },
+        "output": {
+          "type": "string",
+          "pattern": "^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[vV][^\\s(),]*\\s*\\))$"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^[^\\s]+$"
+        }
+      },
+      "additionalProperties": false
+    },
     "analysisResult": {
       "oneOf": [
         {
@@ -1053,6 +1163,9 @@
         },
         {
           "$ref": "#/$defs/acResult"
+        },
+        {
+          "$ref": "#/$defs/tfResult"
         }
       ]
     },
@@ -1622,7 +1735,8 @@
                 "op",
                 "dc",
                 "tran",
-                "ac"
+                "ac",
+                "tf"
               ]
             },
             "analysisIndex": {
@@ -1681,7 +1795,8 @@
                 "op",
                 "dc",
                 "tran",
-                "ac"
+                "ac",
+                "tf"
               ]
             },
             "analysisIndex": {

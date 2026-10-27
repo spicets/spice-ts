@@ -49,14 +49,14 @@ describe('BSIM4 DC device integration', () => {
   for (const [parameter, value] of [
     ['IGCMOD', 2], ['IGBMOD', 2], ['RDSMOD', 1], ['RBODYMOD', 2], ['RGATEMOD', 4],
     ['TRNQSMOD', 1], ['ACNQSMOD', 1], ['MOBMOD', 1], ['TEMPMOD', 1], ['GEOMOD', 1],
-    ['PERMOD', 0], ['WPEMOD', 1], ['SAREF', 2e-6], ['AGIDL', 1e-9], ['AGISL', 1e-9],
+    ['PERMOD', 0], ['WPEMOD', 1], ['KVTH0WE', 2e-6], ['AGIDL', 1e-9], ['AGISL', 1e-9],
     ['JTSS', 1e-9], ['A2', 0.001], ['PRWG', -0.1], ['RDSW', -1], ['RDSWMIN', -1],
   ] as const) {
     it(`fails closed for ${parameter}=${value}`, () => {
       expect(() => new BSIM4('M', [0, 1, -1, -1], { LEVEL: 54, [parameter]: value }, {}, 1)).toThrow(UnsupportedModel);
     });
   }
-  for (const parameter of ['OFF', 'ICVGS', 'ICVDS', 'ICVBS', 'DTEMP', 'SA', 'SCA']) {
+  for (const parameter of ['OFF', 'ICVGS', 'ICVDS', 'ICVBS', 'DTEMP', 'SCB', 'SCA']) {
     it(`fails closed for unported instance ${parameter}`, () => {
       expect(() => new BSIM4('M', [0, 1, -1, -1], { LEVEL: 54 }, { [parameter]: 1 }, 1)).toThrow(UnsupportedModel);
     });

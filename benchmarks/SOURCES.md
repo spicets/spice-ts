@@ -14,6 +14,24 @@ Reference semantics are `bjtparm.c` and `bjttemp.c` from ngspice-47
 (https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/bjt,
 BSD-3-Clause source, not copied).
 
+## MOS9 instance temperature (#1846)
+
+`fixtures/issue-1846/*.cir` are original project-authored MIT bias decks for
+https://github.com/spicets/spice-ts/issues/1846. No third-party netlists copied.
+The tests consume the identical decks used by ngspice-47 to generate
+`reference.json`: NMOS and PMOS, instance TEMP=75, DTEMP=30 at circuit TEMP=40,
+and both (TEMP wins). Each includes OP and 61 gate-bias DC points, including
+cutoff, with loaded drain/source nodes and body bias. All saved node voltages
+and source currents are checked at every point with a strict 1e-6 relative
+bound (zero references must match exactly).
+
+Regenerate with `spice-heavy python3 benchmarks/fixtures/issue-1846/generate.py`.
+It checks ngspice-47 and runs `ngspice -b -r <temporary-reference.raw> <deck.cir>`
+in ASCII mode. The shared temperature law is unchanged; only the LEVEL=9
+instance override guard is removed. The precedence rule is ngspice-47
+[`mos9temp.c:135-140`](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/mos9/mos9temp.c#L135-L140).
+Unported model temperature parameters remain rejected.
+
 ## MOS9 circuit temperature (#1812)
 
 `fixtures/issue-1812/*.cir` are original project-authored MIT bias decks for
@@ -40,6 +58,27 @@ direct DC TEMP hooks); 5 pass. After: all 16 pass. Across the 12 identical decks
 (threshold 1e-6, no absolute-error floor). This is correctness evidence, not a
 speed claim or an aggregate-corpus result. Existing unsupported instance
 TEMP/DTEMP and unported dialect temperature-field guards are unchanged.
+
+## MOS6 instance TEMP/DTEMP (#1847)
+
+`fixtures/issue-1847/*.cir` are original project-authored MIT decks from
+https://github.com/spicets/spice-ts/issues/1847. No third-party fixture bytes.
+The test-consumed `reference.json` records SHA-256 of each identical deck and
+ngspice-47 OP/DC outputs. Six cases cover NMOS/PMOS, circuit TEMP=40 C,
+instance TEMP=75 C, DTEMP=30 C, and both. Each has 61 gate-sweep points
+(0 to 3 V in 0.05 V increments for NMOS, mirrored for PMOS).
+Regenerate with `spice-heavy python3 benchmarks/fixtures/issue-1847/generate.py`.
+Each invocation is `ngspice -b -r <temporary-reference.raw> <fixture.cir>`.
+Semantic reference is Berkeley-licensed ngspice-47 commit
+`a80f6e3e95d51534905b1f23410a951802666656`,
+[`mos6par.c:25-32`](https://github.com/ngspice/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/mos6/mos6par.c#L25-L32)
+and [`mos6temp.c:130-138`](https://github.com/ngspice/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/mos6/mos6temp.c#L130-L138).
+TEMP is Celsius, DTEMP is a temperature difference. Explicit TEMP ignores DTEMP;
+otherwise the effective temperature is circuit TEMP plus DTEMP.
+Generated on Darwin arm64 with Homebrew ngspice-47 (KLU). Before: all six decks
+rejected. After: all six run, with worst relative OP/DC error 6.327e-8 for i(Vd)
+and 1.025e-10 for node voltages, below 1e-6 at every point with exact zeros.
+Other temperature-law guards remain. No speed or aggregate-corpus claim.
 
 ## MOS6 circuit temperature (#1806)
 
@@ -2964,9 +3003,28 @@ Pinned per-file URLs, original/committed SHA256, licence hashes and static selec
 - Reproduce references: `spice-heavy python3 benchmarks/fixtures/issue-1821/generate.py`; internally `ngspice -b -r <temporary-reference.raw> <id>.cir`, ASCII output. Both engines receive identical committed bytes. Compare: `pnpm exec tsx benchmarks/fixtures/issue-1821/compare.mts`.
 - 24 decks cover LEVEL=4/5, NMOS/PMOS, model TEMP=27/75, circuit TEMP=27/75/-20 C, nonzero junction leakage and OP plus six-point DC gate sweeps. Every node voltage and voltage-source current requires relative error <= 1e-6 without an absolute floor. This is correctness coverage, not a performance claim.
 
+## BSIM4 static SA/SB/SD length-of-diffusion stress (#1832)
+
+Dynamic follow-up (#1842): original MIT `lod/ac.cir` and `lod/tran.cir` in
+`packages/core/src/devices/bsim4/__fixtures__/`, with test-consumed ngspice-47
+vectors and `generate-dynamic.py`. Both engines receive identical hashed
+deck bytes. See the fixture README for commands, fixed tolerances and errors.
+
+- Original MIT decks, generator and test-consumed oracle in `packages/core/src/devices/bsim4/__fixtures__/lod/`. No third-party model cards. Six OP cases and 36 VGS sweep points use identical committed deck bytes in both engines, SHA-256 checked.
+- Equation source: ngspice-47 commit `a80f6e3e95d51534905b1f23410a951802666656`, [b4temp.c:1574-1702](https://github.com/imr/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/bsim4/b4temp.c#L1574-L1702), ECL-2.0. The later native MULU0 overwrite is deliberately preserved. See the fixture README for scope and regeneration command.
+- Before: six parity tests reject KU0. After: maximum measured relative error 3.91e-15 for saved node voltages and drain currents (limit 1e-6). Dynamic LOD is covered by #1842 above; WPE remains unsupported. No speed claim.
+
 ## Resistor instance TEMP/DTEMP at circuit temperature (#1808)
 
 - Source: original project-authored resistor-divider decks in [fixtures/issue-1808](fixtures/issue-1808/), MIT (repository licence). No third-party netlist copied.
 - Semantic reference: ngspice-47 [`restemp.c`](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/res/restemp.c). Instance TEMP overrides circuit temperature and ignores DTEMP; otherwise DTEMP adds to circuit temperature.
 - Oracle: ngspice-47, generated with `spice-heavy python3 benchmarks/fixtures/issue-1808/generate.py`. The generator records OP and DC TEMP sweep vectors from `ngspice -b -r <temporary-reference.raw> <deck.cir>` in ASCII mode.
 - Both engines receive the identical committed decks. Four decks cover `.options TEMP` and `.temp` at 27/50 C, each with a 27/50/73 C sweep. Each deck contains DTEMP=10, TEMP=80, TEMP=80 plus DTEMP=10, and an ambient-only control divider; TC1 and TC2 are both nonzero. Tests require relative error <= 1e-9 on every OP/sweep voltage and source current. This is correctness coverage, not a speed claim.
+
+## VDMOS circuit temperature (#1845)
+
+- Source: original project-authored decks, generator and test-consumed oracle vectors in [fixtures/issue-1845](fixtures/issue-1845/), MIT under the repository licence. No third-party netlists copied.
+- Semantic reference: ngspice-47 [`vdmostemp.c`](https://github.com/imr/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/vdmos/vdmostemp.c), BSD-style ngspice licence. The existing VDMOS instance-temperature implementation supplies the same law for circuit temperature.
+- Regenerate with `spice-heavy python3 benchmarks/fixtures/issue-1845/generate.py` (requires ngspice-47). Internally runs `ngspice -b -r <temporary-reference.raw> <id>.cir`. Both simulators receive identical committed decks, including the ASCII-output control setting.
+- Nine decks cover the issue OP plus NMOS/PMOS gate sweeps at -20/75 C, model TNOM=40, TCVTH/MU, RD polynomial and TEXP0 branches, RS/RG temperature coefficients, quasi-saturation TEXP1 and body-diode IS/N/EG/XTI/RB temperature coefficients. Tests consume all OP and 488 DC points and all saved node voltages/source currents, requiring relative error <=1e-6 or absolute error <=1e-12.
+- Compare with `VDMOS_PARITY_REPORT=1 pnpm -C packages/core exec vitest run src/devices/vdmos-temperature-1845.test.ts`. Additional tests cover `.temp`, `.dc TEMP` and instance TEMP/DTEMP precedence. Nondefault circuit TNOM and self-heating circuit TEMP remain explicitly rejected. This is correctness coverage, not a speed claim.

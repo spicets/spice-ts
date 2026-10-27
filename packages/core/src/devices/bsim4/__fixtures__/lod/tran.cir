@@ -1,0 +1,11 @@
+Original MIT BSIM4 LOD common-source transient regression
+.model DUT NMOS LEVEL=54 VERSION=4.8 KU0=1e-7 KVTH0=2e-8 KVSAT=0.4 STK2=1e-8 STETA0=2e-8
+Vdd vdd 0 1.8
+Vin in 0 PULSE(0.9 1.3 1n 200p 200p 3n 7n)
+Rd vdd out 2k
+M1 out in 0 0 DUT L=1u W=10u SA=0.5u SB=0.5u SD=0.2u NF=2
+Cload out 0 100f
+.temp 27
+.save v(out)
+.tran 10p 10n
+.end

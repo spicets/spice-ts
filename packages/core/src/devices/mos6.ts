@@ -373,6 +373,8 @@ export class MOS6 implements DeviceModel {
   private readonly overlapGD: number;
   private readonly overlapGB: number;
   private temperature = 27;
+  private readonly instanceTemperature?: number;
+  private readonly deltaTemperature: number;
   private temp!: MOS6TemperatureState;
   /** ngspice CKTstate0 vbs/vbd/von of the previous load. */
   private lastVbs = 0;
@@ -395,13 +397,10 @@ export class MOS6 implements DeviceModel {
     readonly nodes: number[],
     model: MOS6ModelParams,
     instance: Partial<MOS6InstanceParams> & { TEMP?: number; DTEMP?: number },
+    circuitTemperature = 27,
   ) {
-    // Instance temperature overrides are not yet part of the validated MOS6 surface.
-    for (const parameter of ['TEMP', 'DTEMP'] as const) {
-      if (instance[parameter] !== undefined) {
-        throw new UnsupportedTemperatureError(name, instance.TEMP ?? 27 + (instance.DTEMP ?? 0), parameter);
-      }
-    }
+    this.instanceTemperature = instance.TEMP;
+    this.deltaTemperature = instance.DTEMP ?? 0;
     this.model = model;
     this.instance = {
       W: instance.W ?? DEFAULT_MOS_WIDTH,
@@ -422,7 +421,7 @@ export class MOS6 implements DeviceModel {
     this.overlapGS = model.CGSO * W;
     this.overlapGD = model.CGDO * W;
     this.overlapGB = model.CGBO * this.effectiveLength;
-    this.applyTemperature();
+    this.setTemperature(circuitTemperature);
     this.lastVon = this.temp.tVto * model.polarity;
     const { Cbs, Cbssw, Cbd, Cbdsw } = this.temp;
     this.storesCharge = [this.oxideCap, this.overlapGS, this.overlapGD, this.overlapGB, Cbs, Cbssw, Cbd, Cbdsw]
@@ -430,14 +429,20 @@ export class MOS6 implements DeviceModel {
   }
 
   setTemperature(value: number): void {
-    if (value !== this.model.TNOM - CONSTCTOK && this.model.unsupportedTemperatureParameter !== undefined) {
-      throw new UnsupportedTemperatureError(this.name, value, this.model.unsupportedTemperatureParameter);
+    const effective = this.instanceTemperature ?? value + this.deltaTemperature;
+    if (effective !== this.model.TNOM - CONSTCTOK && this.model.unsupportedTemperatureParameter !== undefined) {
+      throw new UnsupportedTemperatureError(this.name, effective, this.model.unsupportedTemperatureParameter);
     }
     this.temperature = value;
     this.applyTemperature();
   }
 
   getTemperature(): number {
+    // mos6temp.c: explicit TEMP ignores DTEMP; otherwise add DTEMP to CKTtemp.
+    return this.instanceTemperature ?? this.temperature + this.deltaTemperature;
+  }
+
+  getCircuitTemperature(): number {
     return this.temperature;
   }
 
@@ -453,7 +458,7 @@ export class MOS6 implements DeviceModel {
     const arg1 = -egfet1 / (kt1 + kt1) + 1.1150877 / (CONSTBOLTZ * (REFTEMP + REFTEMP));
     const pbfact1 = -2 * vtnom * (1.5 * Math.log(fact1) + CHARGE * arg1);
 
-    const temp = this.temperature + CONSTCTOK;
+    const temp = this.getTemperature() + CONSTCTOK;
     const vt = temp * CONSTKOVERQ;
     const ratio = temp / tnom;
     const fact2 = temp / REFTEMP;

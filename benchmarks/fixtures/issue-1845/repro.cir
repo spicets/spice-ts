@@ -1,0 +1,11 @@
+t
+.options TEMP=75
+Vd d 0 10
+Vg g 0 5
+M1 d g 0 vd
+.model vd VDMOS(VTO=2 KP=1)
+.op
+.control
+set filetype=ascii
+.endc
+.end

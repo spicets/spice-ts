@@ -121,9 +121,9 @@ export interface MOS3InstanceParams {
   AS: number;
   PD: number;
   PS: number;
-  /** Absolute instance temperature (C), taking precedence over DTEMP. LEVEL=3 only. */
+  /** Absolute instance temperature (C), taking precedence over DTEMP. LEVEL=3/9. */
   TEMP?: number;
-  /** Offset from circuit temperature (C). LEVEL=3 only. */
+  /** Offset from circuit temperature (C). LEVEL=3/9. */
   DTEMP?: number;
 }
 
@@ -403,12 +403,6 @@ export class MOS3 implements DeviceModel {
     instance: Partial<MOS3InstanceParams>,
   ) {
     this.model = model;
-    // LEVEL=9 instance overrides remain outside the validated temperature surface.
-    for (const parameter of ['TEMP', 'DTEMP'] as const) {
-      if (model.level !== 3 && instance[parameter] !== undefined) {
-        throw new UnsupportedTemperatureError(name, instance.TEMP ?? 27 + (instance.DTEMP ?? 0), parameter);
-      }
-    }
     this.instance = {
       W: instance.W ?? DEFAULT_MOS_WIDTH,
       L: instance.L ?? DEFAULT_MOS_LENGTH,
@@ -468,7 +462,8 @@ export class MOS3 implements DeviceModel {
    * MOS9 uses the same equations (mos9temp.c:44-50,135-149,220-345).
    * Its only semantic difference in temperature preprocessing is the 1 um
    * effective geometry floor (mos9temp.c:203-215 vs mos3temp.c:198-210),
-   * already enforced by the constructor. #1812 validates circuit TEMP for it.
+   * already enforced by the constructor. #1812 validates circuit TEMP and
+   * #1846 validates instance TEMP/DTEMP for it.
    * Source: https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/mos3/mos3temp.c
    */
   private applyTemperature(): void {

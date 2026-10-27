@@ -21,6 +21,12 @@ function bundledWorkerPin(): Record<string, string | number> | undefined {
 const pin = bundledWorkerPin();
 
 export default defineConfig({
+  test: {
+    // A file fork also creates per-request WASM workers. Bound the multiplicative
+    // memory pressure under V8 coverage, independent of the runner's CPU count.
+    maxWorkers: 2,
+    setupFiles: ['./src/test-support/resource-diagnostics.ts'],
+  },
   define: pin ? { __SPICE_TS_BUNDLED_WORKER__: JSON.stringify(pin) } : {},
   resolve: {
     alias: {

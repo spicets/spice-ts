@@ -61,6 +61,11 @@ threshold law. Do not add the temperature shift to VTH0 a second time.
 
 ## Skipped and fail-closed
 
+Static LOD stress now runs through `lod.ts` before DELVTO/MULU0 and derived
+electrostatics. See `__fixtures__/lod/README.md` for native ordering, scope and
+identical-deck OP/DC evidence. WPE remains rejected. The original stage-only
+limitations below describe the baseline extraction, not later adapter extensions.
+
 The existing setup guards remain authoritative. In particular TEMPMOD=1/2/3,
 nonbaseline MOBMOD/DIOMOD/RDSMOD, material modes, alternate geometry/perimeter,
 stress/WPE/NQS/body/gate networks and dynamic analyses remain unsupported.

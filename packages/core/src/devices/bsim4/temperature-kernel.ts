@@ -26,6 +26,7 @@ standard can be found at: http://www.si2.org/cmc
 // Pinned source a80f6e3e95d51534905b1f23410a951802666656. Warning output omitted, numerical branches preserved.
 import type { Bsim4ModelValues, Bsim4ModelParameter } from './params.js';
 import type { Bsim4InstanceValues } from './instance-params.js';
+import { applyLod } from './lod.js';
 export type Bsim4TemperatureModel = Bsim4ModelValues & Record<'DjctGateSidewallTempSatCurDensity' | 'DjctSidewallTempSatCurDensity' | 'DjctTempSatCurDensity' | 'Eg0' | 'PhiBD' | 'PhiBS' | 'PhiBSWD' | 'PhiBSWGD' | 'PhiBSWGS' | 'PhiBSWS' | 'SjctGateSidewallTempSatCurDensity' | 'SjctSidewallTempSatCurDensity' | 'SjctTempSatCurDensity' | 'coxe' | 'coxp' | 'factor1' | 'vcrit' | 'vtm' | 'vtm0', number>;
 export type Bsim4Size = Record<'Aechvb' | 'AechvbEdgeD' | 'AechvbEdgeS' | 'Bechvb' | 'BechvbEdge' | 'ToxRatio' | 'ToxRatioEdge' | 'Xdep0' | 'a0' | 'a1' | 'a2' | 'abulkCVfactor' | 'acde' | 'agidl' | 'agisl' | 'ags' | 'aigbacc' | 'aigbinv' | 'aigc' | 'aigd' | 'aigs' | 'aigsd' | 'alpha0' | 'alpha1' | 'at' | 'b0' | 'b1' | 'beta0' | 'bgidl' | 'bgisl' | 'bigbacc' | 'bigbinv' | 'bigc' | 'bigd' | 'bigs' | 'bigsd' | 'cdep0' | 'cdsc' | 'cdscb' | 'cdscd' | 'cf' | 'cgbo' | 'cgdl' | 'cgdo' | 'cgidl' | 'cgisl' | 'cgsl' | 'cgso' | 'cigbacc' | 'cigbinv' | 'cigc' | 'cigd' | 'cigs' | 'cigsd' | 'cit' | 'ckappad' | 'ckappas' | 'clc' | 'cle' | 'delta' | 'dl' | 'dlc' | 'drout' | 'dsub' | 'dvt0' | 'dvt0w' | 'dvt1' | 'dvt1w' | 'dvt2' | 'dvt2w' | 'dvtp0' | 'dvtp1' | 'dvtp2' | 'dvtp2factor' | 'dvtp3' | 'dvtp4' | 'dvtp5' | 'dw' | 'dwb' | 'dwc' | 'dwg' | 'dwj' | 'egidl' | 'egisl' | 'eigbinv' | 'eta0' | 'etab' | 'eu' | 'fgidl' | 'fgisl' | 'fprout' | 'gamma1' | 'gamma2' | 'k1' | 'k1ox' | 'k2' | 'k2we' | 'k3' | 'k3b' | 'keta' | 'ketac' | 'kgidl' | 'kgisl' | 'kt1' | 'kt1l' | 'kt2' | 'ku0we' | 'kvth0we' | 'lambda' | 'lc' | 'ldeb' | 'leff' | 'leffCV' | 'litl' | 'lp' | 'lpe0' | 'lpeb' | 'minv' | 'minvcv' | 'moin' | 'mstar' | 'mstarcv' | 'ndep' | 'nfactor' | 'ngate' | 'nigbacc' | 'nigbinv' | 'nigc' | 'noff' | 'nsd' | 'nsub' | 'ntox' | 'pclm' | 'pdibl1' | 'pdibl2' | 'pdiblb' | 'pdits' | 'pditsd' | 'phi' | 'phin' | 'phis3' | 'pigcd' | 'poxedge' | 'prt' | 'prwb' | 'prwg' | 'pscbe1' | 'pscbe2' | 'pvag' | 'rds0' | 'rdsw' | 'rdswmin' | 'rdw' | 'rgidl' | 'rgisl' | 'rsw' | 'sqrtPhi' | 'sqrtXdep0' | 'teta0' | 'tfactor' | 'theta0vb0' | 'thetaRout' | 'tnfactor' | 'tvfbsdoff' | 'tvoff' | 'tvoffcv' | 'u0' | 'u0temp' | 'ua' | 'ua1' | 'ub' | 'ub1' | 'uc' | 'uc1' | 'ucs' | 'ucste' | 'ud' | 'ud1' | 'up' | 'ute' | 'vbi' | 'vbm' | 'vbx' | 'vfb' | 'vfbcv' | 'vfbsd' | 'vfbsdoff' | 'vfbzbfactor' | 'voff' | 'voffcbn' | 'voffcv' | 'vsat' | 'vsattemp' | 'vth0' | 'vtl' | 'w0' | 'weff' | 'weffCJ' | 'weffCV' | 'wr' | 'xj' | 'xn' | 'xrcrg1' | 'xrcrg2' | 'xt', number>;
 export type Bsim4TemperatureInstance = { -readonly [K in keyof Bsim4InstanceValues]: Bsim4InstanceValues[K] } & Record<'coxp' | 'eta0' | 'k2' | 'k2ox' | 'toxp' | 'u0temp' | 'vbsc' | 'vfb' | 'vfbzb' | 'vsattemp' | 'vtfbphi1' | 'vtfbphi2' | 'vth0', number>;
@@ -1266,6 +1267,8 @@ export function applyTemperature(
   here.vsattemp = pParam.vsattemp;
   here.eta0 = pParam.eta0;
   here.k2 = pParam.k2;
+
+  applyLod(model, here, pParam, Temp, Lnew, Wnew);
 
   // b4temp.c:1758-1794
   /* adding delvto  */

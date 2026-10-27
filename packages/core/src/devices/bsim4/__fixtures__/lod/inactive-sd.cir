@@ -1,0 +1,13 @@
+Original MIT BSIM4 LOD OP/DC regression
+.model DUT NMOS LEVEL=54 VERSION=4.8 KU0=1e-7 KVTH0=2e-8 KVSAT=0.4 STK2=1e-8 STETA0=2e-8 
+Vd d 0 0.8
+Vg g 0 1.2
+Vs s 0 0
+Vb b 0 -0.2
+M1 d g s b DUT L=1u W=10u SA=0.5u SB=0.5u SD=0 NF=2
+.temp 27
+.options abstol=1e-15 reltol=1e-10 vntol=1e-12
+.save v(d) v(g) v(s) v(b) i(Vd)
+.op
+.dc Vg 0.4 1.4 0.2
+.end

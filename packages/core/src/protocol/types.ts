@@ -14,7 +14,10 @@ export interface SParameterAnalysisV1 { type: 'sp'; variation: 'dec' | 'oct' | '
 export interface DistoAnalysisV1 { type: 'disto'; variation: 'dec'; points: number; startFreq: number; stopFreq: number; f2OverF1?: number }
 /** Independent-source params.distortionF1 / distortionF2 (DISTOF1 / DISTOF2). */
 export interface DistortionExcitationV1 { magnitude: number; phase?: number }
-export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1 | DistoAnalysisV1;
+/** DC sensitivity; outputNode names a voltage source for current output. Defaults to voltage. */
+export interface SensitivityAnalysisV1 { type: 'sens'; mode: 'dc'; outputNode: string; outputReferenceNode?: string; outputType?: 'voltage' | 'current' }
+export type { TfAnalysisV1, TfResultV1 } from './wire/types.js';
+export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1 | DistoAnalysisV1 | SensitivityAnalysisV1 | import('./wire/types.js').TfAnalysisV1;
 
 export interface CircuitPortV1 { name: string; net: string }
 export interface CircuitComponentV1 {
@@ -97,14 +100,14 @@ export interface AcResultV1 {
   voltagePhasors: Record<string, ComplexPolarV1[]>;
   currentPhasors: Record<string, ComplexPolarV1[]>;
 }
-export type AnalysisResultV1 = OperatingPointResultV1 | DcResultV1 | TransientResultV1 | AcResultV1;
+export type AnalysisResultV1 = OperatingPointResultV1 | DcResultV1 | TransientResultV1 | AcResultV1 | import('./wire/types.js').TfResultV1;
 export interface SimulationResultV1 { status: 'complete'; analyses: AnalysisResultV1[] }
 
 export type ProtocolCompletionV1 = 'complete' | 'failed' | 'limited' | 'cancelled';
 export type ProtocolLimitNameV1 = keyof ResourceLimitsV1;
 export interface ProtocolCapabilityAnalysisV1 {
-  id: `analysis:${AnalysisV1['type']}`;
-  type: AnalysisV1['type'];
+  id: `analysis:${AnalysisV1['type'] | 'tf'}`;
+  type: AnalysisV1['type'] | 'tf';
 }
 export interface ProtocolCapabilityInputV1 {
   id: 'input:spice' | 'input:spice-ts';
