@@ -32,13 +32,20 @@ const nativeAnalysis: Schema = { oneOf: [
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'sp' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
 
-const sensitivityAnalysis = { ...object(['type', 'mode', 'outputNode'], {
-  type: { const: 'sens' }, mode: { const: 'dc' }, outputNode: { type: 'string', pattern: '\\S' },
-  outputReferenceNode: { type: 'string', pattern: '\\S' }, outputType: { enum: ['voltage', 'current'] },
-}), allOf: [{
-  if: { properties: { outputType: { const: 'current' } }, required: ['outputType'] },
-  then: { properties: { outputReferenceNode: false } },
-}] };
+const sensitivityAnalysis = { oneOf: ['dc', 'ac'].map(mode => ({
+  ...object(['type', 'mode', 'outputNode', ...(mode === 'ac' ? ['variation', 'points', 'startFreq', 'stopFreq'] : [])], {
+    type: { const: 'sens' }, mode: { const: mode }, outputNode: { type: 'string', pattern: '\\S' },
+    outputReferenceNode: { type: 'string', pattern: '\\S' }, outputType: { enum: ['voltage', 'current'] },
+    ...(mode === 'ac' ? {
+      variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1),
+      startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 },
+    } : {}),
+  }),
+  allOf: [{
+    if: { properties: { outputType: { const: 'current' } }, required: ['outputType'] },
+    then: { properties: { outputReferenceNode: false } },
+  }],
+})) };
 
 const tfAnalysis = object(['type', 'output', 'source'], {
   type: { const: 'tf' }, output: { type: 'string', pattern: '^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[vV][^\\s(),]*\\s*\\))$' },

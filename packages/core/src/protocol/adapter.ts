@@ -496,7 +496,16 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
   for (const [index, analysis] of document.analyses.entries()) {
     if (analysis.type === 'sens') {
       const path = `/input/document/analyses/${index}`;
-      if (analysis.mode !== 'dc') invalidNativeField(`${path}/mode`);
+      if (analysis.mode !== 'dc' && analysis.mode !== 'ac') invalidNativeField(`${path}/mode`);
+      if (analysis.mode === 'ac') {
+        if (!['dec', 'oct', 'lin'].includes(analysis.variation)) invalidNativeField(`${path}/variation`);
+        for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
+          const value = analysis[field];
+          if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+            || field === 'points' && !Number.isInteger(value)) invalidNativeField(`${path}/${field}`);
+        }
+        if (analysis.stopFreq < analysis.startFreq) invalidNativeField(`${path}/stopFreq`);
+      }
       for (const field of ['outputNode', 'outputReferenceNode'] as const) {
         if (field === 'outputReferenceNode' && analysis[field] === undefined) continue;
         if (typeof analysis[field] !== 'string' || !analysis[field].trim()) invalidNativeField(`${path}/${field}`);
@@ -504,7 +513,8 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
       if (analysis.outputType !== undefined && !['voltage', 'current'].includes(analysis.outputType)) invalidNativeField(`${path}/outputType`);
       if (analysis.outputType === 'current' && analysis.outputReferenceNode !== undefined) invalidNativeField(`${path}/outputReferenceNode`);
       for (const field of Object.keys(analysis)) {
-        if (!['type', 'mode', 'outputNode', 'outputReferenceNode', 'outputType'].includes(field)) {
+        if (!['type', 'mode', 'outputNode', 'outputReferenceNode', 'outputType',
+          ...(analysis.mode === 'ac' ? ['variation', 'points', 'startFreq', 'stopFreq'] : [])].includes(field)) {
           invalidNativeField(`${path}/${field.replaceAll('~', '~0').replaceAll('/', '~1')}`);
         }
       }
@@ -633,7 +643,10 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
     case 'ac': circuit.addAnalysis('ac', analysis); break;
     case 'sp': circuit.addAnalysis('sp', analysis); break;
     case 'disto': circuit.addAnalysis('disto', analysis); break;
-    case 'sens': circuit.addAnalysis('sens', analysis); break;
+    case 'sens':
+      if (analysis.mode === 'dc') circuit.addAnalysis('sens', analysis);
+      else circuit.addAnalysis('sens', analysis);
+      break;
     case 'tf': {
       const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(analysis.output);
       const current = /^i\(\s*(v[^\s(),]*)\s*\)$/i.exec(analysis.output);

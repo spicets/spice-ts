@@ -76,7 +76,7 @@ describe('native DC sensitivity', () => {
   });
 
   it.each([
-    ['mode', undefined], ['mode', 'ac'], ['mode', null], ['mode', 1],
+    ['mode', undefined], ['mode', 'invalid'], ['mode', null], ['mode', 1],
     ['outputNode', undefined], ['outputNode', ''], ['outputNode', '  '], ['outputNode', null], ['outputNode', 1],
     ['outputReferenceNode', ''], ['outputReferenceNode', '  '], ['outputReferenceNode', null], ['outputReferenceNode', 1],
     ['outputType', 'power'], ['outputType', null], ['outputType', 1],
