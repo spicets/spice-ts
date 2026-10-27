@@ -329,7 +329,7 @@ async function requestCircuit(
       return circuit;
     }
     case 'spice-ts':
-      return circuitFromDocument(request.input.document);
+      return circuitFromDocument(request.input.document, guard);
     case 'circuit-json':
       throw new InvalidCircuitError('circuit-json conversion is owned by @spice-ts/circuit-json and is unavailable in core');
   }
@@ -481,7 +481,7 @@ function coreOptions(options?: SimulationOptionsV1): SimulationOptions {
 }
 
 /** Reconstruct a circuit from a validated native protocol document. */
-export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit {
+export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: ProtocolExecutionGuard): Circuit {
   const circuit = new Circuit();
   for (const model of document.models) circuit.addModel(coreModel(model));
   for (const subcircuit of document.subcircuits) circuit.addSubcircuit(coreSubcircuit(subcircuit));
@@ -495,7 +495,28 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     }
     addComponent(circuit, component);
   }
+  let stateNodes: Set<string> | undefined;
+  for (const field of ['initialConditions', 'nodesets'] as const) {
+    const states = document[field];
+    if (states === undefined) continue;
+    const path = `/input/document/${field}`;
+    if (typeof states !== 'object' || states === null || Array.isArray(states)) invalidNativeField(path);
+    const nodes = stateNodes ??= new Set([...circuit.compile(guard).nodeIndexMap.keys()].map(node => node.toLowerCase()));
+    for (const [node, value] of Object.entries(states)) {
+      const ground = ['0', 'gnd'].includes(node.toLowerCase());
+      if (typeof value !== 'number' || !Number.isFinite(value)
+        || (ground ? value !== 0 : !nodes.has(node.toLowerCase()))) {
+        invalidNativeField(`${path}/${node.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+      }
+      circuit.addInitialState(field === 'initialConditions' ? 'ic' : 'nodeset', {
+        node: ground ? '0' : node, value,
+      });
+    }
+  }
   for (const [index, analysis] of document.analyses.entries()) {
+    if (analysis.type === 'tran' && analysis.uic !== undefined && analysis.uic !== true) {
+      invalidNativeField(`/input/document/analyses/${index}/uic`);
+    }
     if (analysis.type === 'dc' && analysis.secondary !== undefined) {
       const path = `/input/document/analyses/${index}/secondary`;
       const secondary = analysis.secondary;
@@ -511,7 +532,7 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
       }
       const name = secondary.source.toUpperCase();
       if (name === analysis.source.toUpperCase()) invalidNativeField(`${path}/source`);
-      const targets = circuit.compile().devices.filter(device => (device instanceof VoltageSource || device instanceof CurrentSource || device instanceof Resistor) && device.name.toUpperCase() === name);
+      const targets = circuit.compile(guard).devices.filter(device => (device instanceof VoltageSource || device instanceof CurrentSource || device instanceof Resistor) && device.name.toUpperCase() === name);
       if (name !== 'TEMP' && targets.length !== 1) invalidNativeField(`${path}/source`);
     }
     if (analysis.type === 'sens') {
@@ -539,7 +560,7 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
         }
       }
       // Use expanded nodes/devices rather than potentially stale declared net labels.
-      const compiled = circuit.compile();
+      const compiled = circuit.compile(guard);
       if (analysis.outputType === 'current') {
         const source = compiled.devices.find(device => device.name.toLowerCase() === analysis.outputNode.toLowerCase());
         if (!(source instanceof VoltageSource)) invalidNativeField(`${path}/outputNode`);
@@ -659,7 +680,7 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
   switch (analysis.type) {
     case 'op': circuit.addAnalysis('op'); break;
     case 'dc': circuit.addAnalysis('dc', analysis); break;
-    case 'tran': circuit.addAnalysis('tran', analysis); break;
+    case 'tran': circuit.addAnalysis('tran', { ...analysis, useInitialConditions: analysis.uic }); break;
     case 'ac': circuit.addAnalysis('ac', analysis); break;
     case 'sp': circuit.addAnalysis('sp', analysis); break;
     case 'disto': circuit.addAnalysis('disto', analysis); break;

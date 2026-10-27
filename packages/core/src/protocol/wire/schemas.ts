@@ -22,7 +22,7 @@ const dcAxis = object(['name', 'unit', 'values'], { name: string, unit: { enum: 
 const analysis: Schema = { oneOf: [
   object(['type'], { type: { const: 'op' } }),
   object(['type', 'source', 'start', 'stop', 'step'], { type: { const: 'dc' }, ...dcSweepProperties, secondary: object(['source', 'start', 'stop', 'step'], dcSweepProperties) }),
-  object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 } }),
+  object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 }, uic: { const: true } }),
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'ac' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
 
@@ -100,6 +100,7 @@ const nativeDocument = object(['format', 'schemaVersion', 'circuit', 'analyses',
   analyses: array(ref('nativeAnalysis')), models: array(ref('model')), subcircuits: array(ref('subcircuit')),
   poleZeroAnalyses: array(ref('poleZeroAnalysis')),
   noiseAnalyses: array(ref('noiseAnalysis')),
+  initialConditions: numberRecord, nodesets: numberRecord,
 });
 const simulationInput: Schema = { oneOf: [
   object(['format', 'source'], { format: { const: 'spice' }, source: string, virtualFiles: { type: 'object', propertyNames: { type: 'string', pattern: '^(?!(?:.*//)|/)(?:(?!\\.{1,2}(?:/|$))[^/\\\\]+)(?:/(?!\\.{1,2}(?:/|$))[^/\\\\]+)*$' }, additionalProperties: string } }),
