@@ -1,4 +1,5 @@
 import type { ModelParams } from '../types.js';
+import { UnsupportedModelParameterError } from '../errors.js';
 import type { DeviceModel } from './device.js';
 import { HFET1 } from './hfet1.js';
 import { resolveHFET1Instance, resolveHFET1Model, type HFET1Model } from './hfet1-model.js';
@@ -19,14 +20,14 @@ export type ResolvedZModel =
   | { kind: 'mesa'; model: MESAModel }
   | { kind: 'mes'; model: MESModel };
 
-export function resolveZModel(model: ModelParams): ResolvedZModel {
+export function resolveZModel(model: ModelParams, temperature = 27, nominalTemperature = 27): ResolvedZModel {
   if (model.type !== 'NHFET' && model.type !== 'NMF') {
     throw new Error(`Unsupported Z-card model type: '${model.type}'`);
   }
   // ngspice INPfindLev: an absent LEVEL is 1; the value is rounded to an integer.
   const level = Math.floor((model.params.LEVEL ?? 1) + 0.5);
   if (level <= 1) return { kind: 'mes', model: resolveMESModel(model) };
-  if (level <= 4) return { kind: 'mesa', model: resolveMESAModel(model) };
+  if (level <= 4) return { kind: 'mesa', model: resolveMESAModel(model, temperature, nominalTemperature) };
   if (level === 5) return { kind: 'hfet', model: resolveHFET1Model(model) };
   throw new Error(`Unsupported ${model.type} model level: ${level}`);
 }
@@ -49,6 +50,7 @@ export function expandZDevice(
   resolved: ResolvedZModel,
   instanceParams: Record<string, number> | undefined,
   internalNode: (suffix: string) => string,
+  circuitTemperature = 27,
 ): ZDeviceExpansion {
   const resistors: ZDeviceExpansion['resistors'] = [];
   const series = (from: string, suffix: string, value: number): string => {
@@ -69,7 +71,18 @@ export function expandZDevice(
     const sourcePrime = series(source, 'rs', values.RS);
     return { resistors, nodes: [drainPrime, gate, sourcePrime] };
   }
-  const values = mesaSeriesResistances(resolved.model, resolveMESAInstance(instanceParams));
+  const values = mesaSeriesResistances(resolved.model, resolveMESAInstance(instanceParams, circuitTemperature));
+  for (const parameter of ['RD', 'RS', 'RG', 'RI', 'RF'] as const) {
+    // ngspice creates prime nodes from the nominal resistance, not its
+    // temperature-scaled value. Dropping these nodes would silently short
+    // zero/negative scaled parasitics; their conductance semantics are not
+    // supported by our explicit-resistor expansion yet.
+    if (resolved.model[parameter] !== 0 && !(values[parameter] > 0)) {
+      throw new UnsupportedModelParameterError(name, parameter,
+        'MESA temperature scaling of a nonzero series resistance to zero or below is not supported',
+        { model: 'MESA' });
+    }
+  }
   const drainPrime = series(drain, 'rd', values.RD);
   const sourcePrime = series(source, 'rs', values.RS);
   const gatePrime = series(gate, 'rg', values.RG);
@@ -93,6 +106,6 @@ export function createZDevice(
     case 'mes':
       return new MES(name, nodes, resolved.model, resolveMESInstance(instanceParams), gmin);
     case 'mesa':
-      return new MESA(name, nodes, resolved.model, resolveMESAInstance(instanceParams), gmin);
+      return new MESA(name, nodes, resolved.model, resolveMESAInstance(instanceParams, circuitTemperature), gmin);
   }
 }
