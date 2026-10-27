@@ -705,6 +705,14 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     if (error instanceof NumericBackendError) throw error;
     throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
   }
+  for (const device of compiled.devices) {
+    const waveform = (device as unknown as Partial<SweepableSource>).waveform;
+    // Validate core-resolved numbers so suffix/exponent overflow is rejected too.
+    if (waveform?.type === 'am' && Object.values(waveform).some(value =>
+      typeof value === 'number' && !Number.isFinite(value))) {
+      unsupported('source-waveform', 'AM coefficients must resolve to finite numbers');
+    }
+  }
   if (compiled.devices.length > componentLimit) {
     throw resourceLimit('maxComponents', componentLimit, compiled.devices.length);
   }

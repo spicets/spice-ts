@@ -21,6 +21,24 @@ const request = (source: string): SimulationRequestV1 => ({
 });
 
 describe('WASM AM transient sources', () => {
+  it('matches the analytic delayed, phased AM voltage at every accepted point', async () => {
+    const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      const result = await engine.simulate(request('V1 in 0 AM(0.2 1 0.5 500 2k 137u 30 -45)\nR1 in 0 1k\n.tran 10u 1m'), { requestId: 'analytic' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error.message);
+      const tran = result.data.analyses[0];
+      if (tran?.type !== 'tran') throw new Error('Expected transient');
+      tran.timeS.forEach((time, i) => {
+        const t = time - 137e-6;
+        const expected = t <= 0 ? 0 : 0.2
+          + (1 + 0.5 * Math.sin(2 * Math.PI * 500 * t + Math.PI / 6))
+          * Math.sin(2 * Math.PI * 2000 * t - Math.PI / 4);
+        expect(tran.voltagesV.in![i]).toBeCloseTo(expected, 12);
+      });
+    } finally { await engine.close(); }
+  });
+
   it.each(fixtures)('matches core timesteps and every signal sample: $name', async ({ name, source }) => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
@@ -63,6 +81,7 @@ describe('WASM AM transient sources', () => {
   it.each(['V', 'I'].flatMap(kind => [
     'AM()', 'AM(0)', 'AM(0 1 0.5 500 2k 137u 30 45 99)',
     'AM(0 nope)', 'AM(0 1', 'AM(0 1) extra',
+    'AM(0 1e999)',
   ].map(waveform => ({ kind, waveform }))))('returns structured unsupported errors: $kind $waveform', async ({ kind, waveform }) => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
