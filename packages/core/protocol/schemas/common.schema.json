@@ -158,6 +158,33 @@
             },
             "uic": {
               "const": true
+            },
+            "fourier": {
+              "type": "object",
+              "required": [
+                "fundamentalHz",
+                "outputs"
+              ],
+              "properties": {
+                "fundamentalHz": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "harmonics": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 199
+                },
+                "outputs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[^\\s(),]+\\s*\\))$"
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -1193,6 +1220,102 @@
             "items": {
               "type": "number"
             }
+          }
+        },
+        "fourier": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "vector",
+              "fundamental",
+              "gridSize",
+              "degree",
+              "periods",
+              "thd",
+              "harmonics"
+            ],
+            "properties": {
+              "vector": {
+                "type": "string"
+              },
+              "fundamental": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "gridSize": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "degree": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "periods": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "thd": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "harmonics": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "harmonic",
+                    "frequency",
+                    "magnitude",
+                    "phase",
+                    "normalizedMagnitude",
+                    "normalizedPhase"
+                  ],
+                  "properties": {
+                    "harmonic": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "frequency": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "magnitude": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "phase": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "normalizedMagnitude": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "normalizedPhase": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
           }
         }
       },

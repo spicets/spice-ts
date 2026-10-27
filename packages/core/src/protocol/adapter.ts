@@ -55,6 +55,7 @@ import {
 import { accumulatedLinearPointCount, directedLinearPointCount } from '../analysis/directed-linear-grid.js';
 import { frequencyPointCount } from '../analysis/frequency-grid.js';
 import { isValidMaxTimestepOption } from '../analysis/max-timestep.js';
+import { nativeFourier, serializeFourier, validateNativeFourier } from './native-four.js';
 
 const MAX_DETAIL_NAMES = 32;
 const API_ERROR_CODES = new Set<SpiceApiErrorV1['code']>([
@@ -86,6 +87,7 @@ export async function validateProtocolV1(
   const compiled = circuit.compile(guard);
   enforcePointLimit(circuit.analyses, guard, requestReltol(request, circuit), compiled.steps[0]);
   validateNativeTfOutputs(request, compiled);
+  validateNativeFourier(request, compiled);
   if (compiled.analyses.length === 0) throw new InvalidCircuitError('No analysis command specified');
   if (!execution?.topologyWarnings) preflightTopology(compiled, protocolSourcePath(request));
   const diagnostics = execution?.topologyWarnings ? topologyWarnings(compiled) : [];
@@ -165,6 +167,7 @@ export async function simulateProtocolV1(
   guard.maximum('maxAnalyses', analyses.length, 'validation');
   const preflight = circuit.compile(guard);
   validateNativeTfOutputs(request, preflight);
+  validateNativeFourier(request, preflight);
   enforcePointLimit(analyses, guard, requestReltol(request, circuit), preflight.steps[0]);
   preflightTopology(preflight, protocolSourcePath(request));
   const options = coreOptions(request.options);
@@ -175,6 +178,9 @@ export async function simulateProtocolV1(
     circuit.analyses.splice(0, circuit.analyses.length, analysis);
     const compiled = circuit.compile(guard);
     const result = await simulate(circuit, options, guard);
+    for (const transient of result.steps ? result.steps.map(step => step.transient) : [result.transient]) {
+      if (transient) transient.fourier = nativeFourier(request, analysisIndex, compiled, transient) ?? transient.fourier;
+    }
     const completedBefore = serialized.length;
     appendAnalysisResult(serialized, result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, circuit);
     for (const completed of serialized.slice(completedBefore)) execution?.onAnalysisComplete?.(completed);
@@ -797,6 +803,7 @@ function serializeTransient(result: TransientResult, analysisIndex: number, node
     type: 'tran', analysisIndex, timeS: [...result.time],
     voltagesV: sortedRecord(nodes, name => [...result.voltage(name)]),
     currentsA: sortedRecord(branches, name => [...result.current(name)]),
+    ...(result.fourier ? { fourier: result.fourier.map(serializeFourier) } : {}),
   }, step);
 }
 

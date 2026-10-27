@@ -10,7 +10,12 @@ export type IntegrationMethodV1 = 'euler' | 'trapezoidal' | 'gear2';
 
 export interface OperatingPointAnalysisV1 { type: 'op' }
 export interface DcAnalysisV1 { type: 'dc'; source: string; start: number; stop: number; step: number; secondary?: { source: string; start: number; stop: number; step: number } }
-export interface TransientAnalysisV1 { type: 'tran'; timestep: number; stopTime: number; startTime?: number; maxTimestep?: number; uic?: true }
+export interface FourierAnalysisV1 { fundamentalHz: number; outputs: string[]; harmonics?: number }
+export interface FourierResultV1 {
+  vector: string; fundamental: number | null; gridSize: number; degree: number; periods: number; thd: number | null;
+  harmonics: { harmonic: number; frequency: number | null; magnitude: number | null; phase: number | null; normalizedMagnitude: number | null; normalizedPhase: number | null }[];
+}
+export interface TransientAnalysisV1 { type: 'tran'; timestep: number; stopTime: number; startTime?: number; maxTimestep?: number; uic?: true; fourier?: FourierAnalysisV1 }
 export interface AcAnalysisV1 { type: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
 export type AnalysisV1 = OperatingPointAnalysisV1 | DcAnalysisV1 | TransientAnalysisV1 | AcAnalysisV1;
 /** Scalar pole-zero request, separate from the v1 result/stream union. */
@@ -124,6 +129,7 @@ export interface DcResultV1 {
 export interface TransientResultV1 {
   type: 'tran'; analysisIndex: number; step?: StepCoordinateV1;
   timeS: number[]; voltagesV: Record<string, number[]>; currentsA: Record<string, number[]>;
+  fourier?: FourierResultV1[];
 }
 export interface ComplexPolarV1 { magnitude: number; phaseDegrees: number }
 export interface AcResultV1 {
