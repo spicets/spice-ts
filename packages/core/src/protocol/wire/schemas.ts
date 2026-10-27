@@ -22,7 +22,10 @@ const dcAxis = object(['name', 'unit', 'values'], { name: string, unit: { enum: 
 const analysis: Schema = { oneOf: [
   object(['type'], { type: { const: 'op' } }),
   object(['type', 'source', 'start', 'stop', 'step'], { type: { const: 'dc' }, ...dcSweepProperties, secondary: object(['source', 'start', 'stop', 'step'], dcSweepProperties) }),
-  object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 }, uic: { const: true } }),
+  object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 }, uic: { const: true }, fourier: object(['fundamentalHz', 'outputs'], {
+    fundamentalHz: { type: 'number', exclusiveMinimum: 0 }, harmonics: { type: 'integer', minimum: 1, maximum: 199 },
+    outputs: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'string', pattern: '^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[^\\s(),]+\\s*\\))$' } },
+  }) }),
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'ac' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
 
@@ -118,7 +121,14 @@ const complexSeriesRecord: Schema = { type: 'object', additionalProperties: arra
 const commonResult = { analysisIndex, step };
 const opResult = object(['type', 'analysisIndex', 'voltagesV', 'currentsA'], { type: { const: 'op' }, ...commonResult, voltagesV: numberRecord, currentsA: numberRecord });
 const dcResult = object(['type', 'analysisIndex', 'axis', 'voltagesV', 'currentsA'], { type: { const: 'dc' }, ...commonResult, axis: dcAxis, secondaryAxis: dcAxis, voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord });
-const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'currentsA'], { type: { const: 'tran' }, ...commonResult, timeS: array(number), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord });
+const nullableNumber: Schema = { type: ['number', 'null'] };
+const fourierResult = object(['vector', 'fundamental', 'gridSize', 'degree', 'periods', 'thd', 'harmonics'], {
+  vector: string, fundamental: nullableNumber, gridSize: integer(1), degree: integer(), periods: integer(1), thd: nullableNumber,
+  harmonics: array(object(['harmonic', 'frequency', 'magnitude', 'phase', 'normalizedMagnitude', 'normalizedPhase'], {
+    harmonic: integer(), frequency: nullableNumber, magnitude: nullableNumber, phase: nullableNumber, normalizedMagnitude: nullableNumber, normalizedPhase: nullableNumber,
+  })),
+});
+const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'currentsA'], { type: { const: 'tran' }, ...commonResult, timeS: array(number), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord, fourier: array(fourierResult) });
 const acResult = object(['type', 'analysisIndex', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, ...commonResult, frequencyHz: array({ type: 'number', minimum: 0 }), voltagePhasors: complexSeriesRecord, currentPhasors: complexSeriesRecord });
 const simulationResult = object(['status', 'analyses'], { status: { const: 'complete' }, analyses: array(ref('analysisResult')) });
 const tfResult = object(['type', 'analysisIndex', 'transferFunction', 'inputResistanceOhm', 'outputResistanceOhm'], { type: { const: 'tf' }, ...commonResult, transferFunction: number, inputResistanceOhm: number, outputResistanceOhm: number });
