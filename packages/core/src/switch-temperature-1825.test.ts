@@ -55,7 +55,7 @@ describe('temperature-independent SW/CSW (#1825)', () => {
 
 describe('unsupported temperature laws remain rejected (#1825)', () => {
   const devices = [
-    ['VDMOS', 'M1 d g 0 m', 'VDMOS', 'M1'],
+    ['self-heating VDMOS', 'M1 d g 0 tj tc m thermal', 'VDMOS RTHJC=1 RTHCA=2', 'M1'],
     ['MES', 'Z1 d g 0 m', 'NMF LEVEL=1', 'Z1'],
     ['MESA', 'Z1 d g 0 m', 'NMF LEVEL=2', 'Z1'],
     ['HFET', 'Z1 d g 0 m', 'NHFET LEVEL=5', 'Z1'],
