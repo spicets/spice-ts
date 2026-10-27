@@ -83,7 +83,8 @@
               "const": "dc"
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\S+$"
             },
             "start": {
               "type": "number"
@@ -92,7 +93,38 @@
               "type": "number"
             },
             "step": {
-              "type": "number"
+              "type": "number",
+              "not": {
+                "const": 0
+              }
+            },
+            "secondary": {
+              "type": "object",
+              "required": [
+                "source",
+                "start",
+                "stop",
+                "step"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "pattern": "^\\S+$"
+                },
+                "start": {
+                  "type": "number"
+                },
+                "stop": {
+                  "type": "number"
+                },
+                "step": {
+                  "type": "number",
+                  "not": {
+                    "const": 0
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -1032,6 +1064,32 @@
           "$ref": "#/$defs/step"
         },
         "axis": {
+          "type": "object",
+          "required": [
+            "name",
+            "unit",
+            "values"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "unit": {
+              "enum": [
+                "V",
+                "A"
+              ]
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "secondaryAxis": {
           "type": "object",
           "required": [
             "name",
