@@ -2,7 +2,7 @@ import type { CompiledCircuit } from '../circuit.js';
 import { ngspiceFourier } from '../parser/control/fourier.js';
 import type { TransientResult } from '../results.js';
 import type { FourierResultV1, SimulationRequestV1 } from './types.js';
-import { ProtocolExecutionError } from './execution-guard.js';
+import { ProtocolExecutionError, type ProtocolExecutionGuard } from './execution-guard.js';
 import { VoltageSource } from '../devices/voltage-source.js';
 
 function invalid(path: string, message = 'Invalid native Fourier field'): never {
@@ -22,7 +22,7 @@ export function validateNativeFourier(request: SimulationRequestV1, compiled: Co
     if (typeof config.fundamentalHz !== 'number' || !Number.isFinite(config.fundamentalHz) || config.fundamentalHz <= 0) invalid(`${path}/fundamentalHz`);
     if (config.harmonics !== undefined && (typeof config.harmonics !== 'number' || !Number.isInteger(config.harmonics) || config.harmonics < 1 || config.harmonics > 199)) invalid(`${path}/harmonics`);
     for (const key of Object.keys(config)) if (!['fundamentalHz', 'outputs', 'harmonics'].includes(key)) invalid(`${path}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`);
-    if (!Array.isArray(config.outputs) || !config.outputs.length) invalid(`${path}/outputs`);
+    if (!Array.isArray(config.outputs) || !config.outputs.length || config.outputs.length > 16) invalid(`${path}/outputs`, 'Fourier requires between 1 and 16 outputs');
     for (const [i, output] of config.outputs.entries()) {
       const voltage = typeof output === 'string' && /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(output);
       const current = typeof output === 'string' && /^i\(\s*([^\s(),]+)\s*\)$/i.exec(output);
@@ -32,13 +32,14 @@ export function validateNativeFourier(request: SimulationRequestV1, compiled: Co
 }
 
 /** Evaluate native Fourier operands against the guarded, expanded circuit snapshot. */
-export function nativeFourier(request: SimulationRequestV1, index: number, compiled: CompiledCircuit, result: TransientResult): import('../results.js').FourierResult[] | undefined {
+export function nativeFourier(request: SimulationRequestV1, index: number, compiled: CompiledCircuit, result: TransientResult, guard: ProtocolExecutionGuard): import('../results.js').FourierResult[] | undefined {
   if (request.input.format !== 'spice-ts') return undefined;
   const analysis = request.input.document.analyses[index];
   if (analysis.type !== 'tran' || !analysis.fourier) return undefined;
   const { fundamentalHz, outputs, harmonics = 9 } = analysis.fourier;
   if (result.time.length < 2 || result.time.at(-1)! - result.time[0] < 1 / fundamentalHz) invalid(`/input/document/analyses/${index}/fourier/fundamentalHz`, 'Fourier period exceeds available waveform span');
   return outputs.map(vector => {
+    guard.checkpoint('solve:fourier-output');
     const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(vector);
     const node = (name: string): number[] => ['0', 'gnd'].includes(name.toLowerCase()) ? result.time.map(() => 0) : result.voltage(compiled.nodeNames.find(n => n.toLowerCase() === name.toLowerCase())!);
     const reference = voltage?.[2] ? node(voltage[2]) : undefined;

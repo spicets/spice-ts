@@ -21,12 +21,16 @@ Each native `tran` analysis may request its own Fourier tables:
   "fourier": { "fundamentalHz": 1000, "outputs": ["v(out)", "v(out,ref)", "i(V1)"], "harmonics": 9 } }
 ```
 
-`fundamentalHz` must be finite and positive. `outputs` is nonempty and supports only
+`fundamentalHz` must be finite and positive. `outputs` has 1–16 entries and supports only
 `v(node)`, `v(node,reference)`, and `i(voltageSource)` (case-insensitive names,
 including expanded subcircuit names; ground is `0` or `gnd`). Arbitrary expressions
 and currents through other device kinds are not supported. `harmonics` is a positive
 integer, defaults to 9, and is capped at 199 for the fixed 200-point grid. It counts
 positive harmonics; the signed DC row is additional, so the default table has 10 rows.
+The output and harmonic caps bound each transient's Fourier work to at most 16
+transforms of 200 rows each (including DC). Cancellation and wall-time limits are
+checked at `solve:fourier-output` before each operand's allocation/transform;
+an individual transform remains synchronous.
 
 The corresponding `tran` result has optional `fourier` tables, in operand order,
 with `vector`, `fundamental` (Hz), `gridSize`, `degree`, `periods`, `thd` (percent),

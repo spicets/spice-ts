@@ -179,7 +179,7 @@ export async function simulateProtocolV1(
     const compiled = circuit.compile(guard);
     const result = await simulate(circuit, options, guard);
     for (const transient of result.steps ? result.steps.map(step => step.transient) : [result.transient]) {
-      if (transient) transient.fourier = nativeFourier(request, analysisIndex, compiled, transient) ?? transient.fourier;
+      if (transient) transient.fourier = nativeFourier(request, analysisIndex, compiled, transient, guard) ?? transient.fourier;
     }
     const completedBefore = serialized.length;
     appendAnalysisResult(serialized, result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, circuit);

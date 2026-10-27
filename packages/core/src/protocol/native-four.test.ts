@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import * as fourierCore from '../parser/control/fourier.js';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { simulateProtocolV1, validateProtocolV1 } from './adapter.js';
 import { executeProtocolV1 } from './envelopes.js';
@@ -19,6 +20,55 @@ function request(): SimulationRequestV1 {
 }
 
 describe('native protocol Fourier', () => {
+  it.each(['cancellation', 'deadline'] as const)('stops between Fourier outputs on %s', async mode => {
+    const input = request();
+    input.options = { limits: { maxWallTimeMs: 5 } };
+    let outputsStarted = 0;
+    let expired = false;
+    const signal = { aborted: false };
+    const transform = vi.spyOn(fourierCore, 'ngspiceFourier');
+    try {
+      await expect(simulateProtocolV1(input, {
+        signal,
+        now: () => expired ? 6 : 0,
+        onSafePoint(point) {
+          // String comparison also lets this regression run against the old safe-point union.
+          if (String(point) === 'solve:fourier-output' && ++outputsStarted === 2) {
+            if (mode === 'cancellation') signal.aborted = true;
+            else expired = true;
+          }
+        },
+      })).rejects.toMatchObject({ apiError: {
+        code: mode === 'cancellation' ? 'CANCELLED' : 'RESOURCE_LIMIT',
+        phase: 'solve', details: { safePoint: 'solve:fourier-output', ...(mode === 'deadline' ? { limit: 'maxWallTimeMs', configured: 5, observed: 6 } : {}) },
+      } });
+      expect(outputsStarted).toBe(2);
+      expect(transform).toHaveBeenCalledTimes(1);
+    } finally {
+      transform.mockRestore();
+    }
+  });
+  it.each([16, 17])('bounds Fourier outputs consistently at 16 (requested %i)', async count => {
+    const input = request();
+    if (input.input.format !== 'spice-ts') throw new Error('native');
+    const analysis = input.input.document.analyses[0];
+    if (analysis.type !== 'tran' || !analysis.fourier) throw new Error('fourier');
+    analysis.fourier.outputs = Array<string>(count).fill('v(out)');
+    analysis.fourier.harmonics = 199;
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    for (const schema of Object.values(protocolSchemasV1)) ajv.addSchema(schema);
+    expect(ajv.validate('https://spice-ts.dev/schemas/v1/simulation-request.schema.json', input)).toBe(count === 16);
+    if (count === 16) {
+      expect((await executeProtocolV1(input)).ok).toBe(true);
+    } else {
+      expect(await executeProtocolV1(input)).toMatchObject({ ok: false, error: {
+        code: 'INVALID_REQUEST', phase: 'validation', details: { path: '/input/document/analyses/0/fourier/outputs' },
+      } });
+      await expect(validateProtocolV1(input)).rejects.toMatchObject({ apiError: {
+        code: 'INVALID_REQUEST', details: { path: '/input/document/analyses/0/fourier/outputs' },
+      } });
+    }
+  });
   it('validates request/result schemas including JSON-safe zero-signal tables', async () => {
     const ajv = new Ajv2020({ allErrors: true, strict: true });
     for (const schema of Object.values(protocolSchemasV1)) ajv.addSchema(schema);
