@@ -2775,7 +2775,7 @@ export class Circuit {
             devices.push(new MOSFET(desc.name, nodeIdxs, {
               TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
               ...modelParams, ...desc.params, polarity,
-            }));
+            }, this._temperature ?? NOMINAL_TEMPERATURE_C));
           } else {
             // #530: never evaluate an unimplemented level (MOS3, BSIM1/2, ...) with Level-1 equations.
             throw new UnsupportedModelLevelError(desc.name, desc.modelName, level, SUPPORTED_MOSFET_LEVELS);
