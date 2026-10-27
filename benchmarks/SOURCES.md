@@ -1,5 +1,23 @@
 # Benchmark sources
 
+## MOS9 instance temperature (#1846)
+
+`fixtures/issue-1846/*.cir` are original project-authored MIT bias decks for
+https://github.com/spicets/spice-ts/issues/1846. No third-party netlists copied.
+The tests consume the identical decks used by ngspice-47 to generate
+`reference.json`: NMOS and PMOS, instance TEMP=75, DTEMP=30 at circuit TEMP=40,
+and both (TEMP wins). Each includes OP and 61 gate-bias DC points, including
+cutoff, with loaded drain/source nodes and body bias. All saved node voltages
+and source currents are checked at every point with a strict 1e-6 relative
+bound (zero references must match exactly).
+
+Regenerate with `spice-heavy python3 benchmarks/fixtures/issue-1846/generate.py`.
+It checks ngspice-47 and runs `ngspice -b -r <temporary-reference.raw> <deck.cir>`
+in ASCII mode. The shared temperature law is unchanged; only the LEVEL=9
+instance override guard is removed. The precedence rule is ngspice-47
+[`mos9temp.c:135-140`](https://github.com/imr/ngspice/blob/ngspice-47/src/spicelib/devices/mos9/mos9temp.c#L135-L140).
+Unported model temperature parameters remain rejected.
+
 ## MOS9 circuit temperature (#1812)
 
 `fixtures/issue-1812/*.cir` are original project-authored MIT bias decks for
