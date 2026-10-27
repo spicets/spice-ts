@@ -745,7 +745,7 @@ function bjtInstanceDescriptorParams(
 ): Record<string, number> | undefined {
   if (!instance) return undefined;
   const params: Record<string, number> = {};
-  for (const name of ['AREA', 'AREAB', 'AREAC', 'M', 'ICVBE', 'ICVCE'] as const) {
+  for (const name of ['AREA', 'AREAB', 'AREAC', 'M', 'ICVBE', 'ICVCE', 'TEMP', 'DTEMP'] as const) {
     if (instance[name] !== undefined) params[name] = instance[name];
   }
   return Object.keys(params).length > 0 ? params : undefined;
@@ -2595,7 +2595,7 @@ export class Circuit {
           if (!model) {
             devices.push(new BJT(desc.name, nodeIndices, {
               polarity: 1, TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
-            }, desc.params));
+            }, desc.params, undefined, this._temperature ?? NOMINAL_TEMPERATURE_C));
             break;
           }
           if (model.type !== 'NPN' && model.type !== 'PNP') {
@@ -2615,12 +2615,12 @@ export class Circuit {
               );
             }
             devices.push(new VBIC(desc.name, nodeIndices, modelParams, polarity, bjtInstanceScale(desc.params), desc.params?.M ?? 1,
-              desc.vbicTerminals?.map(resolveNode)));
+              desc.vbicTerminals?.map(resolveNode), desc.params, this._temperature ?? NOMINAL_TEMPERATURE_C));
           } else {
             devices.push(new BJT(desc.name, nodeIndices, {
               TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C, ...modelParams, polarity,
             }, desc.params,
-              desc.bjtICTerminals?.map(resolveNode)));
+              desc.bjtICTerminals?.map(resolveNode), this._temperature ?? NOMINAL_TEMPERATURE_C));
           }
           break;
         }
@@ -2775,7 +2775,7 @@ export class Circuit {
             devices.push(new MOSFET(desc.name, nodeIdxs, {
               TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
               ...modelParams, ...desc.params, polarity,
-            }));
+            }, this._temperature ?? NOMINAL_TEMPERATURE_C));
           } else {
             // #530: never evaluate an unimplemented level (MOS3, BSIM1/2, ...) with Level-1 equations.
             throw new UnsupportedModelLevelError(desc.name, desc.modelName, level, SUPPORTED_MOSFET_LEVELS);
@@ -3281,7 +3281,9 @@ export class Circuit {
               params: {
                 TC1: model.params[`T${parameter}1`] ?? 0,
                 TC2: model.params[`T${parameter}2`] ?? 0,
-                TNOM: model.params.TNOM ?? model.params.TREF ?? NOMINAL_TEMPERATURE_C,
+                TNOM: model.params.TNOM ?? model.params.TREF ?? this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
+                ...(desc.params?.TEMP !== undefined ? { TEMP: desc.params.TEMP } : {}),
+                ...(desc.params?.DTEMP !== undefined ? { DTEMP: desc.params.DTEMP } : {}),
               },
             });
             if (parameter === 'RC') collector = internal;

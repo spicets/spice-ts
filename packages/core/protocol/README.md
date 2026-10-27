@@ -12,6 +12,16 @@ Result hashes cover only canonical `SimulationResultV1`. Partial hashes cover ca
 
 Committed schemas are in `schemas/`; the exported `protocolSchemasV1` registry contains the same documents. Shared positive and negative conformance fixtures are in `fixtures/`. Structural constraints live in JSON Schema; cross-field rules (case-insensitive uniqueness, sorted record keys, series lengths, stream point ordering/discriminators, and canonical number diagnostics) are checked by `checkConformanceV1`.
 
+## Native sensitivity requests
+
+Native documents accept DC and AC sensitivity analyses. AC uses the core sweep field names, for example
+`{ "type": "sens", "mode": "ac", "outputNode": "out", "variation": "dec", "points": 10, "startFreq": 10, "stopFreq": 1000 }`.
+Use `outputReferenceNode` for differential voltage, or `outputType: "current"` with a voltage-source name in `outputNode` for branch current. Points must be positive integers; frequencies must be finite and positive, with `stopFreq >= startFreq`.
+
+Execute the document with `simulate(circuitFromDocument(document))` from `@spice-ts/core` and read its structured `sensitivity` result, as for DC sensitivity. Generic `simulateProtocolV1` result envelopes still do not support sensitivity. MCP's dedicated `spice_sensitivity` tool consumes the shared request schema and uses its own selectors and result shape.
+
+This is JSON-to-SPICE-text parity within the existing core AC sensitivity slice, not ngspice parity. Nonzero AC excitation with diode/BJT parameter sensitivity remains unsupported; zero-excitation source-magnitude derivatives are supported. Known ngspice losses are tracked in #812.
+
 This subpath has no runtime dependencies and does not import the simulator entry point.
 It supersedes the standalone `@spice-ts/protocol@0.3.0` package without changing protocol v1.
 Import JSON documents from `@spice-ts/core/protocol/schemas/*` and

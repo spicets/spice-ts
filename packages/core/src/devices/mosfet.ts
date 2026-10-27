@@ -31,6 +31,10 @@ export interface MOSFETParams {
   TOX: number | undefined;
   /** Instance multiplier M (mos1temp.c MOS1m, default 1): M parallel copies of the device. */
   M: number;
+  /** Instance temperature in Celsius; takes precedence over DTEMP. */
+  TEMP?: number;
+  /** Offset from circuit temperature in Celsius when TEMP is absent. */
+  DTEMP?: number;
   polarity: number; // 1 for NMOS, -1 for PMOS
 }
 
@@ -575,6 +579,7 @@ export class MOSFET implements DeviceModel {
   readonly effectiveLength: number;
   /** Device temperature (C) and the mos1temp.c values derived from it. */
   private temperature = NOMINAL_TEMPERATURE_C;
+  private circuitTemperature = NOMINAL_TEMPERATURE_C;
   private readonly nominalKelvin: number;
   /** Thermal voltage at the device temperature (mos1temp.c vt). */
   private vt = 0;
@@ -604,6 +609,7 @@ export class MOSFET implements DeviceModel {
     readonly name: string,
     readonly nodes: number[],
     params: Partial<MOSFETParams> & Record<string, number>,
+    circuitTemperature = NOMINAL_TEMPERATURE_C,
   ) {
     this.stateStore = new MosfetStateStore([this]);
     this.suppliedParams = { ...params };
@@ -653,14 +659,20 @@ export class MOSFET implements DeviceModel {
       (this.suppliedParams.CGBO ?? 0) * multiplier * effectiveLength,
     );
     this.oxideCap = params.TOX ? OXIDE_PERMITTIVITY / params.TOX * multiplier * width * effectiveLength : 0;
-    this.applyTemperature();
+    this.setTemperature(circuitTemperature);
     this.storesCharge = this.oxideCap !== 0 || this.overlaps.some(value => value !== 0)
       || this.drainDepletion.active || this.sourceDepletion.active;
     this.integratesTransientCharge = this.storesCharge;
   }
 
   setTemperature(value: number): void {
-    this.temperature = value;
+    // mos1temp.c: TEMP wins, otherwise add DTEMP to CKTtemp (not to the last effective temperature).
+    const effective = this.suppliedParams.TEMP ?? value + (this.suppliedParams.DTEMP ?? 0);
+    if (!Number.isFinite(effective) || effective <= -CONSTCTOK) {
+      throw new InvalidCircuitError(`${this.name}: MOSFET level 1 effective temperature must be finite and above absolute zero (got ${effective} C)`);
+    }
+    this.temperature = effective;
+    this.circuitTemperature = value;
     this.applyTemperature();
   }
 
@@ -731,6 +743,10 @@ export class MOSFET implements DeviceModel {
 
   getTemperature(): number {
     return this.temperature;
+  }
+
+  getCircuitTemperature(): number {
+    return this.circuitTemperature;
   }
 
   /**
