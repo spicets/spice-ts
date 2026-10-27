@@ -330,6 +330,8 @@ export class MOS2 implements DeviceModel {
   /** mos2load.c narrow-channel factor (constant per device). */
   private readonly narrowFactor: number;
   private temperature = 27;
+  private readonly instanceTemperature: number | undefined;
+  private readonly deltaTemperature: number;
   private temp!: MOS2TemperatureState;
   /** Beta = tKP * W * M / Leff (mos2load.c). */
   private beta = 0;
@@ -368,8 +370,11 @@ export class MOS2 implements DeviceModel {
     /** [drain, gate, source, bulk] */
     readonly nodes: number[],
     model: MOS2ModelParams,
-    instance: Partial<MOS2InstanceParams>,
+    instance: Partial<MOS2InstanceParams> & { TEMP?: number; DTEMP?: number },
+    circuitTemperature = 27,
   ) {
+    this.instanceTemperature = instance.TEMP;
+    this.deltaTemperature = instance.DTEMP ?? 0;
     this.model = model;
     this.instance = {
       W: instance.W ?? DEFAULT_MOS_WIDTH,
@@ -392,7 +397,7 @@ export class MOS2 implements DeviceModel {
     this.overlapGD = model.CGDO * M * W;
     this.overlapGB = model.CGBO * M * leff;
     this.narrowFactor = 0.125 * model.DELTA * 2.0 * Math.PI * EPSSIL / this.unscaledOxideCap * leff;
-    this.applyTemperature();
+    this.setTemperature(circuitTemperature);
     this.lastVon = this.temp.tVto * model.polarity;
     const { Cbs, Cbssw, Cbd, Cbdsw } = this.temp;
     this.storesCharge = [this.oxideCap, this.overlapGS, this.overlapGD, this.overlapGB, Cbs, Cbssw, Cbd, Cbdsw]
@@ -400,11 +405,20 @@ export class MOS2 implements DeviceModel {
   }
 
   setTemperature(value: number): void {
+    const effective = this.instanceTemperature ?? value + this.deltaTemperature;
+    if (!Number.isFinite(effective) || effective + CONSTCTOK <= 0) {
+      throw new InvalidCircuitError(`${this.name}: MOS2 effective temperature must be finite and positive Kelvin (TEMP=${effective} C)`);
+    }
     this.temperature = value;
     this.applyTemperature();
   }
 
   getTemperature(): number {
+    // mos2temp.c: explicit TEMP ignores DTEMP; otherwise add DTEMP to CKTtemp.
+    return this.instanceTemperature ?? this.temperature + this.deltaTemperature;
+  }
+
+  getCircuitTemperature(): number {
     return this.temperature;
   }
 
@@ -420,7 +434,7 @@ export class MOS2 implements DeviceModel {
     const arg1 = -egfet1 / (kt1 + kt1) + 1.1150877 / (CONSTBOLTZ * (REFTEMP + REFTEMP));
     const pbfact1 = -2 * vtnom * (1.5 * Math.log(fact1) + CHARGE * arg1);
 
-    const temp = this.temperature + CONSTCTOK;
+    const temp = this.getTemperature() + CONSTCTOK;
     const vt = temp * CONSTKOVERQ;
     const ratio = temp / tnom;
     const fact2 = temp / REFTEMP;

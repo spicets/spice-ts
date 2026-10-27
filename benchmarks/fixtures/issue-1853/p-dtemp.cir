@@ -1,0 +1,15 @@
+MOS2 instance temperature p-dtemp
+Vd supply 0 -3
+Vg g 0 -2
+Vb b 0 0.4
+Rd supply d 1k
+Rs s 0 100
+M1 d g s b MOD L=2u W=10u AD=2p AS=3p DTEMP=20
+.model MOD PMOS LEVEL=2 VTO=-0.7 KP=1e-4 GAMMA=0.4 PHI=0.6 LAMBDA=0.02 TOX=20n UO=600 IS=1e-14 JS=1e-8 CJ=1e-4 CJSW=1e-10 TNOM=27
+.options TEMP=40 RELTOL=1e-12 ABSTOL=1e-20 VNTOL=1e-16
+.op
+.dc Vg 0 -3 -0.05
+.control
+set filetype=ascii
+.endc
+.end
