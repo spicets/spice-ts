@@ -1,6 +1,7 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { Circuit } from '../circuit.js';
 import { circuitFromDocument, simulateProtocolV1, validateProtocolV1 } from './adapter.js';
 import { executeProtocolV1 } from './envelopes.js';
 import { protocolSchemasV1 } from './wire/schemas.js';
@@ -27,6 +28,50 @@ function document(): SpiceTsCircuitDocumentV1 {
 const request = (doc = document()): SimulationRequestV1 => ({ apiVersion: '1', input: { format: 'spice-ts', document: doc } });
 
 describe('native initial state', () => {
+  it.each(['initialConditions', 'nodesets'] as const)('guards hierarchical expansion before validating %s', async field => {
+    const doc = document();
+    doc.circuit.components = [{ ...component('X', 'XTOP', ['out', '0'], {}), subcircuit: 'outer' }];
+    doc.subcircuits = [
+      { name: 'inner', ports: ['a', 'b'], components: [component('R', 'R1', ['a', 'b'], { resistance: 1000 })] },
+      { name: 'outer', ports: ['a', 'b'], components: [{ ...component('X', 'X1', ['a', 'b'], {}), subcircuit: 'inner' }] },
+    ];
+    delete doc.initialConditions;
+    doc[field] = { out: 1 };
+    const bounded = { ...request(doc), options: { limits: { maxSubcircuitDepth: 1 } } };
+    const compile = vi.spyOn(Circuit.prototype, 'compile');
+    try {
+      await expect(validateProtocolV1(bounded)).rejects.toMatchObject({ apiError: {
+        code: 'RESOURCE_LIMIT', phase: 'compile', details: { limit: 'maxSubcircuitDepth', configured: 1, observed: 2 },
+      } });
+      expect(compile).toHaveBeenCalledTimes(1);
+      expect(compile.mock.calls.every(([guard]) => guard !== undefined)).toBe(true);
+    } finally {
+      compile.mockRestore();
+    }
+  });
+  it.each(['initialConditions', 'nodesets'] as const)('normalizes ground aliases in %s before execution', async field => {
+    for (const ground of ['gnd', 'GND', 'GnD', '0']) {
+      const doc = document();
+      doc[field] = { out: 1, [ground]: 0 };
+      expect(await validateProtocolV1(request(doc))).toMatchObject({ status: 'valid' });
+      const compiled = circuitFromDocument(doc).compile();
+      expect(compiled[field === 'initialConditions' ? 'initialConditions' : 'nodeSets']).toContainEqual({ node: '0', value: 0 });
+      const canonical = document();
+      canonical[field] = { out: 1, '0': 0 };
+      expect(await simulateProtocolV1(request(doc))).toEqual(await simulateProtocolV1(request(canonical)));
+    }
+  });
+  it.each(['initialConditions', 'nodesets'] as const)('rejects nonzero ground in %s at the state pointer', async field => {
+    for (const ground of ['0', 'gnd', 'GND', 'GnD']) {
+      for (const value of [-1, 1]) {
+        const doc = document();
+        doc[field] = { [ground]: value };
+        const error = { code: 'INVALID_REQUEST', phase: 'validation', details: { path: `/input/document/${field}/${ground}` } };
+        await expect(validateProtocolV1(request(doc))).rejects.toMatchObject({ apiError: error });
+        expect(await executeProtocolV1(request(doc))).toMatchObject({ ok: false, error });
+      }
+    }
+  });
   it('accepts case-insensitive expanded nodes and ground, but not phantom nets', async () => {
     const doc = document();
     doc.circuit = { nets: ['out', 'phantom'], components: [
