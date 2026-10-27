@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { simulate } from '../simulate.js';
 import { mesaInstanceState, resolveMESAInstance, resolveMESAModel } from './mesa-model.js';
+import { expandZDevice } from './z-device.js';
 
 // Original test circuit. Write this return value verbatim to deck.cir, then
 // ngspice-47: ngspice -b deck.cir. Values printed with numdgt=15.
@@ -46,6 +47,40 @@ describe('MESA temperature ngspice-47 parity (#1878)', () => {
     [op.voltage('d'), op.current('VD'), op.current('VG')].forEach((actual, index) => {
       expect(Math.abs(actual - expected[index])).toBeLessThan(1e-6 * Math.abs(expected[index]));
     });
+  });
+
+  describe.each(['RD', 'RS', 'RG', 'RI', 'RF'])('%s temperature zero crossing', parameter => {
+    it.each([2, 3])('retains the positive-side parasitic at level %d', async level => {
+      const model = resolveMESAModel({ name: 'h', type: 'NMF', params: { LEVEL: level, [parameter]: 20, RTC1: -0.04 } });
+      const expansion = expandZDevice('Z1', ['d', 'g', '0'], { kind: 'mesa', model }, {}, suffix => `z1.${suffix}`, 51);
+      expect(expansion.resistors).toHaveLength(1);
+      expect(expansion.resistors[0].name).toBe(`Z1.${parameter}`);
+      expect(expansion.resistors[0].value).toBeCloseTo(0.8, 12);
+      expect(expansion.nodes).toContain(`z1.${parameter.toLowerCase()}`);
+      const op = (await simulate(mesaTemperatureDeck('.temp 51', '', ` ${parameter}=20 rtc1=-0.04`, level))).dc!;
+      expect(Number.isFinite(op.voltage('d'))).toBe(true);
+    });
+
+    it.each([2, 3].flatMap(level => [52, 53, 75].map(temperature => [level, temperature])))(
+      'rejects nonpositive scaled resistance at level %d, TEMP=%d with a typed error',
+      async (level, temperature) => {
+        // TNOM=27: RTC1=-0.04 crosses zero at 52 C. ngspice keeps its
+        // model-established prime nodes; silently omitting the resistor is wrong.
+        await expect(simulate(mesaTemperatureDeck(`.temp ${temperature}`, '', ` ${parameter}=20 rtc1=-0.04`, level)))
+          .rejects.toMatchObject({
+            code: 'UNSUPPORTED_MODEL_PARAMETER', deviceName: 'Z1', parameter, model: 'MESA',
+          });
+      },
+    );
+  });
+
+  it.each([52, 75])('allows absent parasitics despite a nonpositive scale at TEMP=%d', async temperature => {
+    const model = resolveMESAModel({ name: 'h', type: 'NMF', params: { LEVEL: 2, RTC1: -0.04 } });
+    const expansion = expandZDevice('Z1', ['d', 'g', '0'], { kind: 'mesa', model }, {}, suffix => `z1.${suffix}`, temperature);
+    expect(expansion.resistors).toEqual([]);
+    expect(expansion.nodes).toEqual(['d', 'g', '0', '0', 'd']);
+    const op = (await simulate(mesaTemperatureDeck(`.temp ${temperature}`, '', ' rtc1=-0.04'))).dc!;
+    expect(Number.isFinite(op.voltage('d'))).toBe(true);
   });
 
   // ngspice-47 exits 1 with "unknown parameter (temp)" for this same deck.

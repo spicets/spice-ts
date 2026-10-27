@@ -1,4 +1,5 @@
 import type { ModelParams } from '../types.js';
+import { UnsupportedModelParameterError } from '../errors.js';
 import type { DeviceModel } from './device.js';
 import { HFET1 } from './hfet1.js';
 import { resolveHFET1Instance, resolveHFET1Model, type HFET1Model } from './hfet1-model.js';
@@ -71,6 +72,17 @@ export function expandZDevice(
     return { resistors, nodes: [drainPrime, gate, sourcePrime] };
   }
   const values = mesaSeriesResistances(resolved.model, resolveMESAInstance(instanceParams, circuitTemperature));
+  for (const parameter of ['RD', 'RS', 'RG', 'RI', 'RF'] as const) {
+    // ngspice creates prime nodes from the nominal resistance, not its
+    // temperature-scaled value. Dropping these nodes would silently short
+    // zero/negative scaled parasitics; their conductance semantics are not
+    // supported by our explicit-resistor expansion yet.
+    if (resolved.model[parameter] !== 0 && !(values[parameter] > 0)) {
+      throw new UnsupportedModelParameterError(name, parameter,
+        'MESA temperature scaling of a nonzero series resistance to zero or below is not supported',
+        { model: 'MESA' });
+    }
+  }
   const drainPrime = series(drain, 'rd', values.RD);
   const sourcePrime = series(source, 'rs', values.RS);
   const gatePrime = series(gate, 'rg', values.RG);
