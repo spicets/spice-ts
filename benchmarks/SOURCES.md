@@ -3038,6 +3038,14 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
 - Nine decks cover the issue OP plus NMOS/PMOS gate sweeps at -20/75 C, model TNOM=40, TCVTH/MU, RD polynomial and TEXP0 branches, RS/RG temperature coefficients, quasi-saturation TEXP1 and body-diode IS/N/EG/XTI/RB temperature coefficients. Tests consume all OP and 488 DC points and all saved node voltages/source currents, requiring relative error <=1e-6 or absolute error <=1e-12.
 - Compare with `VDMOS_PARITY_REPORT=1 pnpm -C packages/core exec vitest run src/devices/vdmos-temperature-1845.test.ts`. Additional tests cover `.temp`, `.dc TEMP` and instance TEMP/DTEMP precedence. Nondefault circuit TNOM and self-heating circuit TEMP remain explicitly rejected. This is correctness coverage, not a speed claim.
 
+## VBIC instance TEMP/DTEMP (#1860)
+
+- Original MIT project-authored NPN/PNP netlists and test-consumed ngspice-47 outputs in [fixtures/issue-1860/reference.json](fixtures/issue-1860/reference.json). No third-party netlist/model bytes copied.
+- To reproduce each row, write its `deck` string unchanged to `deck.cir`, then run `spice-heavy env SPICE_ASCIIRAWFILE=1 ngspice -n -b -r out.raw deck.cir`. `reference` holds the final raw point, including collector/base voltage-source branch currents.
+- Six OP decks cover DTEMP, TEMP and both parameters for both polarities. One NPN charge-storage transient covers DTEMP at 10 ns. OP uses relative tolerance 1e-6; transient final currents use 1e-4. Observed worst errors were 3.1143707355e-8 OP and 1.3656411872e-10 transient. Before this change, every instance was explicitly rejected.
+- Important semantic correction to the issue: ngspice-47 VBIC adds DTEMP even when TEMP is explicit, `(TEMP ?? circuitTemp) + DTEMP`, unlike Gummel-Poon. TEMP takes precedence over circuit temperature, not over DTEMP. Both-parameter oracle cases deliberately exercise this difference.
+- Compare with `pnpm -C packages/core exec vitest run src/devices/vbic-instance-temp.test.ts`. This is correctness coverage, not a speed claim.
+
 ## MOS1 instance TEMP/DTEMP (#1856)
 
 - Original project-authored decks, generator and test-consumed oracle in [fixtures/issue-1856](fixtures/issue-1856/), MIT under the repository licence. No third-party netlist/model bytes copied.

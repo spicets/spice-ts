@@ -2608,14 +2608,14 @@ export class Circuit {
               throw new InvalidCircuitError(`VBIC '${desc.name}' does not support instance IC`);
             }
             // ngspice-47 vbic.c has no areab/areac instance parameters.
-            const geometry = ['AREAB', 'AREAC', 'TEMP', 'DTEMP'].filter(name => desc.params?.[name] !== undefined);
+            const geometry = ['AREAB', 'AREAC'].filter(name => desc.params?.[name] !== undefined);
             if (geometry.length > 0) {
               throw new InvalidCircuitError(
                 `VBIC '${desc.name}' does not accept instance parameters: ${geometry.join(', ')}`,
               );
             }
             devices.push(new VBIC(desc.name, nodeIndices, modelParams, polarity, bjtInstanceScale(desc.params), desc.params?.M ?? 1,
-              desc.vbicTerminals?.map(resolveNode)));
+              desc.vbicTerminals?.map(resolveNode), desc.params, this._temperature ?? NOMINAL_TEMPERATURE_C));
           } else {
             devices.push(new BJT(desc.name, nodeIndices, {
               TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C, ...modelParams, polarity,

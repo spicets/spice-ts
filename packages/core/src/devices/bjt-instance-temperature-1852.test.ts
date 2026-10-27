@@ -96,8 +96,8 @@ describe('BJT instance temperature #1852', () => {
     }
   });
 
-  it('keeps VBIC instance temperature explicitly unsupported', async () => {
+  it('accepts VBIC instance temperature (#1860)', async () => {
     await expect(simulate('VBIC temperature guard\nVC c 0 5\nVB b 0 0.6\nQ1 c b 0 QM TEMP=50\n.model QM NPN LEVEL=4\n.op\n.end'))
-      .rejects.toThrow(/VBIC.*instance/);
+      .resolves.toBeDefined();
   });
 });
