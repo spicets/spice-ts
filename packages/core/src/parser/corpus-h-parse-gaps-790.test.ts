@@ -51,14 +51,14 @@ describe('#790 .options names ngspice-47 does not recognise', () => {
 describe('#790 .four', () => {
   // ngspice-47 prints the Fourier table to stdout after .tran (and ignores
   // the card when it writes a rawfile); the transient vectors are unchanged.
-  it('accepts .four after .tran and reports that the table is not computed', async () => {
+  it('computes .four after .tran without a parse warning', async () => {
     const result = await simulate(
       'four\nV1 1 0 SIN(0 1 1k)\nR1 1 2 1k\nR2 2 0 1k\n.tran 10u 2m\n.FOUR 1k V ( 2 )\n.end',
     );
     expect(result.transient).toBeDefined();
     const parseWarnings = result.warnings.filter(warning => warning.type === 'parse');
-    expect(parseWarnings).toHaveLength(1);
-    expect(parseWarnings[0].message).toMatch(/\.four/);
+    expect(parseWarnings).toHaveLength(0);
+    expect(result.transient!.fourier).toHaveLength(1);
   });
 
   // ngspice-47 answers each of these with "Warning: no nodes given" and runs

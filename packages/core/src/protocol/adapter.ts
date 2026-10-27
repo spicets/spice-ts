@@ -19,6 +19,8 @@ import type {
 } from './types.js';
 import { Circuit, type CompiledCircuit } from '../circuit.js';
 import { VoltageSource } from '../devices/voltage-source.js';
+import { CurrentSource } from '../devices/current-source.js';
+import { Resistor } from '../devices/resistor.js';
 import { operatingPointReport } from '../op-report.js';
 import {
   ConvergenceError,
@@ -494,9 +496,36 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     addComponent(circuit, component);
   }
   for (const [index, analysis] of document.analyses.entries()) {
+    if (analysis.type === 'dc' && analysis.secondary !== undefined) {
+      const path = `/input/document/analyses/${index}/secondary`;
+      const secondary = analysis.secondary;
+      if (typeof secondary !== 'object' || secondary === null || Array.isArray(secondary)) invalidNativeField(path);
+      if (typeof secondary.source !== 'string' || !/^[^\s]+$/.test(secondary.source)) invalidNativeField(`${path}/source`);
+      for (const field of ['start', 'stop', 'step'] as const) {
+        if (typeof secondary[field] !== 'number' || !Number.isFinite(secondary[field])) invalidNativeField(`${path}/${field}`);
+      }
+      if (secondary.step === 0 || (secondary.stop > secondary.start && secondary.step < 0)
+        || (secondary.stop < secondary.start && secondary.step > 0)) invalidNativeField(`${path}/step`);
+      for (const field of Object.keys(secondary)) {
+        if (!['source', 'start', 'stop', 'step'].includes(field)) invalidNativeField(`${path}/${field.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+      }
+      const name = secondary.source.toUpperCase();
+      if (name === analysis.source.toUpperCase()) invalidNativeField(`${path}/source`);
+      const targets = circuit.compile().devices.filter(device => (device instanceof VoltageSource || device instanceof CurrentSource || device instanceof Resistor) && device.name.toUpperCase() === name);
+      if (name !== 'TEMP' && targets.length !== 1) invalidNativeField(`${path}/source`);
+    }
     if (analysis.type === 'sens') {
       const path = `/input/document/analyses/${index}`;
-      if (analysis.mode !== 'dc') invalidNativeField(`${path}/mode`);
+      if (analysis.mode !== 'dc' && analysis.mode !== 'ac') invalidNativeField(`${path}/mode`);
+      if (analysis.mode === 'ac') {
+        if (!['dec', 'oct', 'lin'].includes(analysis.variation)) invalidNativeField(`${path}/variation`);
+        for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
+          const value = analysis[field];
+          if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+            || field === 'points' && !Number.isInteger(value)) invalidNativeField(`${path}/${field}`);
+        }
+        if (analysis.stopFreq < analysis.startFreq) invalidNativeField(`${path}/stopFreq`);
+      }
       for (const field of ['outputNode', 'outputReferenceNode'] as const) {
         if (field === 'outputReferenceNode' && analysis[field] === undefined) continue;
         if (typeof analysis[field] !== 'string' || !analysis[field].trim()) invalidNativeField(`${path}/${field}`);
@@ -504,7 +533,8 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
       if (analysis.outputType !== undefined && !['voltage', 'current'].includes(analysis.outputType)) invalidNativeField(`${path}/outputType`);
       if (analysis.outputType === 'current' && analysis.outputReferenceNode !== undefined) invalidNativeField(`${path}/outputReferenceNode`);
       for (const field of Object.keys(analysis)) {
-        if (!['type', 'mode', 'outputNode', 'outputReferenceNode', 'outputType'].includes(field)) {
+        if (!['type', 'mode', 'outputNode', 'outputReferenceNode', 'outputType',
+          ...(analysis.mode === 'ac' ? ['variation', 'points', 'startFreq', 'stopFreq'] : [])].includes(field)) {
           invalidNativeField(`${path}/${field.replaceAll('~', '~0').replaceAll('/', '~1')}`);
         }
       }
@@ -633,7 +663,10 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
     case 'ac': circuit.addAnalysis('ac', analysis); break;
     case 'sp': circuit.addAnalysis('sp', analysis); break;
     case 'disto': circuit.addAnalysis('disto', analysis); break;
-    case 'sens': circuit.addAnalysis('sens', analysis); break;
+    case 'sens':
+      if (analysis.mode === 'dc') circuit.addAnalysis('sens', analysis);
+      else circuit.addAnalysis('sens', analysis);
+      break;
     case 'tf': {
       const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(analysis.output);
       const current = /^i\(\s*(v[^\s(),]*)\s*\)$/i.exec(analysis.output);
@@ -722,14 +755,17 @@ function serializeOp(result: DCResult, analysisIndex: number, nodes: string[], b
 }
 
 function serializeDc(result: DCSweepResult, analysis: Extract<AnalysisCommand, { type: 'dc' }>, analysisIndex: number, nodes: string[], branches: string[], circuit: Circuit, step?: StepCoordinateV1): DcResultV1 {
-  const normalizedSourceName = analysis.source.toUpperCase();
-  const source = circuit.toIR().components.find(component =>
-    (component.type === 'V' || component.type === 'I')
-    && component.name.toUpperCase() === normalizedSourceName,
-  );
+  const components = circuit.toIR().components;
+  const axis = (name: string, values: Float64Array): DcResultV1['axis'] => {
+    const source = components.find(component => component.name.toUpperCase() === name.toUpperCase());
+    return { name: source?.name ?? name, unit: source?.type === 'I' ? 'A' : 'V', values: Array.from(values) };
+  };
   return withStep({
     type: 'dc', analysisIndex,
-    axis: { name: source?.name ?? analysis.source, unit: source?.type === 'I' ? 'A' : 'V', values: Array.from(result.sweepValues) },
+    axis: axis(analysis.source, result.sweepValues),
+    ...(analysis.secondary && result.secondarySweepValues ? {
+      secondaryAxis: axis(analysis.secondary.source, result.secondarySweepValues),
+    } : {}),
     voltagesV: sortedRecord(nodes, name => Array.from(result.voltage(name))),
     currentsA: sortedRecord(branches, name => Array.from(result.current(name))),
   }, step);

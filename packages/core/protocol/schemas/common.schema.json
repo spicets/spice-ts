@@ -83,7 +83,8 @@
               "const": "dc"
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\S+$"
             },
             "start": {
               "type": "number"
@@ -92,7 +93,38 @@
               "type": "number"
             },
             "step": {
-              "type": "number"
+              "type": "number",
+              "not": {
+                "const": 0
+              }
+            },
+            "secondary": {
+              "type": "object",
+              "required": [
+                "source",
+                "start",
+                "stop",
+                "step"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "pattern": "^\\S+$"
+                },
+                "start": {
+                  "type": "number"
+                },
+                "stop": {
+                  "type": "number"
+                },
+                "step": {
+                  "type": "number",
+                  "not": {
+                    "const": 0
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -252,52 +284,129 @@
       "additionalProperties": false
     },
     "sensitivityAnalysis": {
-      "type": "object",
-      "required": [
-        "type",
-        "mode",
-        "outputNode"
-      ],
-      "properties": {
-        "type": {
-          "const": "sens"
-        },
-        "mode": {
-          "const": "dc"
-        },
-        "outputNode": {
-          "type": "string",
-          "pattern": "\\S"
-        },
-        "outputReferenceNode": {
-          "type": "string",
-          "pattern": "\\S"
-        },
-        "outputType": {
-          "enum": [
-            "voltage",
-            "current"
-          ]
-        }
-      },
-      "additionalProperties": false,
-      "allOf": [
+      "oneOf": [
         {
-          "if": {
-            "properties": {
-              "outputType": {
-                "const": "current"
-              }
+          "type": "object",
+          "required": [
+            "type",
+            "mode",
+            "outputNode"
+          ],
+          "properties": {
+            "type": {
+              "const": "sens"
             },
-            "required": [
-              "outputType"
-            ]
-          },
-          "then": {
-            "properties": {
-              "outputReferenceNode": false
+            "mode": {
+              "const": "dc"
+            },
+            "outputNode": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "outputReferenceNode": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "outputType": {
+              "enum": [
+                "voltage",
+                "current"
+              ]
             }
-          }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "outputType": {
+                    "const": "current"
+                  }
+                },
+                "required": [
+                  "outputType"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "outputReferenceNode": false
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "mode",
+            "outputNode",
+            "variation",
+            "points",
+            "startFreq",
+            "stopFreq"
+          ],
+          "properties": {
+            "type": {
+              "const": "sens"
+            },
+            "mode": {
+              "const": "ac"
+            },
+            "outputNode": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "outputReferenceNode": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "outputType": {
+              "enum": [
+                "voltage",
+                "current"
+              ]
+            },
+            "variation": {
+              "enum": [
+                "dec",
+                "oct",
+                "lin"
+              ]
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "startFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "stopFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "outputType": {
+                    "const": "current"
+                  }
+                },
+                "required": [
+                  "outputType"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "outputReferenceNode": false
+                }
+              }
+            }
+          ]
         }
       ]
     },
@@ -955,6 +1064,32 @@
           "$ref": "#/$defs/step"
         },
         "axis": {
+          "type": "object",
+          "required": [
+            "name",
+            "unit",
+            "values"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "unit": {
+              "enum": [
+                "V",
+                "A"
+              ]
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "secondaryAxis": {
           "type": "object",
           "required": [
             "name",

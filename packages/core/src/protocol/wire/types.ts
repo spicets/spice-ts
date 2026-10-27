@@ -9,7 +9,7 @@ export type DeterminismV1 = 'strict' | 'relaxed';
 export type IntegrationMethodV1 = 'euler' | 'trapezoidal' | 'gear2';
 
 export interface OperatingPointAnalysisV1 { type: 'op' }
-export interface DcAnalysisV1 { type: 'dc'; source: string; start: number; stop: number; step: number }
+export interface DcAnalysisV1 { type: 'dc'; source: string; start: number; stop: number; step: number; secondary?: { source: string; start: number; stop: number; step: number } }
 export interface TransientAnalysisV1 { type: 'tran'; timestep: number; stopTime: number; startTime?: number; maxTimestep?: number }
 export interface AcAnalysisV1 { type: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
 export type AnalysisV1 = OperatingPointAnalysisV1 | DcAnalysisV1 | TransientAnalysisV1 | AcAnalysisV1;
@@ -40,8 +40,10 @@ export interface SParameterAnalysisV1 { type: 'sp'; variation: 'dec' | 'oct' | '
 export interface DistoAnalysisV1 { type: 'disto'; variation: 'dec'; points: number; startFreq: number; stopFreq: number; f2OverF1?: number }
 /** Independent-source params.distortionF1 / distortionF2 (DISTOF1 / DISTOF2). */
 export interface DistortionExcitationV1 { magnitude: number; phase?: number }
-/** DC sensitivity; outputNode names a voltage source for current output. Defaults to voltage. */
-export interface SensitivityAnalysisV1 { type: 'sens'; mode: 'dc'; outputNode: string; outputReferenceNode?: string; outputType?: 'voltage' | 'current' }
+/** DC or AC sensitivity; outputNode names a voltage source for current output. Defaults to voltage. */
+export type SensitivityAnalysisV1 = {
+  type: 'sens'; outputNode: string; outputReferenceNode?: string; outputType?: 'voltage' | 'current';
+} & ({ mode: 'dc' } | { mode: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number });
 export interface TfAnalysisV1 { type: 'tf'; output: string; source: string }
 export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1 | DistoAnalysisV1 | SensitivityAnalysisV1 | TfAnalysisV1;
 
@@ -113,6 +115,8 @@ export interface OperatingPointResultV1 {
 export interface DcResultV1 {
   type: 'dc'; analysisIndex: number; step?: StepCoordinateV1;
   axis: { name: string; unit: 'V' | 'A'; values: number[] };
+  /** Point-aligned outer sweep coordinates for nested DC sweeps. */
+  secondaryAxis?: { name: string; unit: 'V' | 'A'; values: number[] };
   voltagesV: Record<string, number[]>; currentsA: Record<string, number[]>;
 }
 export interface TransientResultV1 {

@@ -11,6 +11,20 @@ temperature for channel density, thermal voltage and gate leakage; unported
 temperature coefficients and AC dispersion parameters are typed errors.
 LEVEL=1 is MES, not HFET1; PHFET remains unsupported.
 
+## BJT instance temperature (#1852)
+
+`fixtures/1852/*.cir` are original project-authored MIT decks for
+https://github.com/spicets/spice-ts/issues/1852. No third-party netlists copied.
+They cover NPN/PNP TEMP, DTEMP and TEMP overriding DTEMP, each with OP and a
+61-point DC sweep. Both engines consume identical bytes. All node voltages and
+voltage-source currents must meet strict relative error <= 1e-6, without a floor.
+`oracle.json` is ngspice-47 output consumed by the core regression tests.
+Regenerate with `spice-heavy pnpm exec tsx benchmarks/fixtures/1852/compare.ts --update`;
+compare live with the same command without `--update`.
+Reference semantics are `bjtparm.c` and `bjttemp.c` from ngspice-47
+(https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/bjt,
+BSD-3-Clause source, not copied).
+
 ## MOS9 instance temperature (#1846)
 
 `fixtures/issue-1846/*.cir` are original project-authored MIT bias decks for
@@ -3027,6 +3041,22 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
 - Before: all six OP/DC parity tests failed with ignored instance fields. After: worst relative errors n-temp/n-both/p-temp/p-both 1.939e-7, n-dtemp 1.612e-8, p-dtemp 1.127e-8. Compare: `spice-heavy pnpm -C packages/core exec vitest run src/devices/mos2-instance-temperature-1853.test.ts`.
 - Regression coverage includes repeated DC TEMP sweep restoration, invalid effective temperature with last-valid-state preservation, and AC/transient equivalence to the same effective circuit temperature with nonzero junction capacitances. No performance claim.
 
+## Dot-card Fourier regression (#1871)
+
+- Source: self-authored half-wave diode rectifier in `packages/core/src/parser/dot-four-1871.test.ts`, MIT under the repository licence. No third-party model or netlist copied.
+- Reference: ngspice-47 `ngspice -b half-four.cir`, with `half-four.cir` containing the exact exported `deck` string from that test. Do not use `-r`: ngspice suppresses `.four` tables when writing a rawfile.
+- The test consumes the printed DC and all nine nonzero harmonic magnitudes/phases and THD from the identical deck. Relative magnitude/DC/THD bound is 1e-3; circular phase error bound is 0.1 degree. No solver tolerance overrides or speed claim. The existing control Fourier kernel supplies the 200-point, last-period linear interpolation.
+- The malformed corpus-g `FOURIER/bad_dot_four_line1.cir` is covered using the existing licensed corpus file. ngspice-47 emits parse warnings then crashes on that unchanged file; spice-ts preserves structured nonfatal Fourier diagnostics instead.
+
+## XSPICE d_state (#1864)
+
+- Source: self-authored counter/reset decks and state table in [xspice/d-state](xspice/d-state/), MIT under the repository licence. No third-party deck or code copied.
+- Semantic reference: ngspice-47 [`digital/d_state`](https://github.com/imr/ngspice/tree/ngspice-47/src/xspice/icm/digital/d_state), Public Domain code model. Ordered header/continuation rows, wildcard inputs, Moore outputs with strengths, clock/reset delays and reset priority.
+- Regenerate the test-consumed oracle with `spice-heavy python3 benchmarks/xspice/d-state/reference.py`; internally `ngspice -b -r <case>.raw <case>.cir`. Deck and state SHA-256 digests enforce identical bytes.
+- Before: counter rejected with UnsupportedCodeModelError. After: counter (1506 points) and nonzero-state asynchronous reset (1511 points) maximum bidirectional interpolated DAC error 1.1102230246251565e-16 V. Uses existing XSPICE digital DAC tolerance (9 decimal places), not circuit-specific relaxation. No speed claim.
+- Test: `pnpm -C packages/core exec vitest run src/devices/xspice/d-state.test.ts`.
+
+
 ## VDMOS circuit temperature (#1845)
 
 - Source: original project-authored decks, generator and test-consumed oracle vectors in [fixtures/issue-1845](fixtures/issue-1845/), MIT under the repository licence. No third-party netlists copied.
@@ -3034,3 +3064,20 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
 - Regenerate with `spice-heavy python3 benchmarks/fixtures/issue-1845/generate.py` (requires ngspice-47). Internally runs `ngspice -b -r <temporary-reference.raw> <id>.cir`. Both simulators receive identical committed decks, including the ASCII-output control setting.
 - Nine decks cover the issue OP plus NMOS/PMOS gate sweeps at -20/75 C, model TNOM=40, TCVTH/MU, RD polynomial and TEXP0 branches, RS/RG temperature coefficients, quasi-saturation TEXP1 and body-diode IS/N/EG/XTI/RB temperature coefficients. Tests consume all OP and 488 DC points and all saved node voltages/source currents, requiring relative error <=1e-6 or absolute error <=1e-12.
 - Compare with `VDMOS_PARITY_REPORT=1 pnpm -C packages/core exec vitest run src/devices/vdmos-temperature-1845.test.ts`. Additional tests cover `.temp`, `.dc TEMP` and instance TEMP/DTEMP precedence. Nondefault circuit TNOM and self-heating circuit TEMP remain explicitly rejected. This is correctness coverage, not a speed claim.
+
+## VBIC instance TEMP/DTEMP (#1860)
+
+- Original MIT project-authored NPN/PNP netlists and test-consumed ngspice-47 outputs in [fixtures/issue-1860/reference.json](fixtures/issue-1860/reference.json). No third-party netlist/model bytes copied.
+- To reproduce each row, write its `deck` string unchanged to `deck.cir`, then run `spice-heavy env SPICE_ASCIIRAWFILE=1 ngspice -n -b -r out.raw deck.cir`. `reference` holds the final raw point, including collector/base voltage-source branch currents.
+- Six OP decks cover DTEMP, TEMP and both parameters for both polarities. One NPN charge-storage transient covers DTEMP at 10 ns. OP uses relative tolerance 1e-6; transient final currents use 1e-4. Observed worst errors were 3.1143707355e-8 OP and 1.3656411872e-10 transient. Before this change, every instance was explicitly rejected.
+- Important semantic correction to the issue: ngspice-47 VBIC adds DTEMP even when TEMP is explicit, `(TEMP ?? circuitTemp) + DTEMP`, unlike Gummel-Poon. TEMP takes precedence over circuit temperature, not over DTEMP. Both-parameter oracle cases deliberately exercise this difference.
+- Compare with `pnpm -C packages/core exec vitest run src/devices/vbic-instance-temp.test.ts`. This is correctness coverage, not a speed claim.
+
+## MOS1 instance TEMP/DTEMP (#1856)
+
+- Original project-authored decks, generator and test-consumed oracle in [fixtures/issue-1856](fixtures/issue-1856/), MIT under the repository licence. No third-party netlist/model bytes copied.
+- Semantic reference: ngspice-47 [`mos1temp.c`](https://github.com/imr/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/mos1/mos1temp.c), BSD-style ngspice licence.
+- Regenerate: `spice-heavy python3 benchmarks/fixtures/issue-1856/generate.py` (requires ngspice-47). Internally runs `ngspice -b -r <temporary-reference.raw> <id>.cir`. Both simulators consume identical committed deck bytes, SHA-256 checked by tests.
+- Six decks cover NMOS/PMOS with TEMP=75, DTEMP=20, or TEMP=75 plus DTEMP=20 at circuit TEMP=40. Compare every saved node voltage and source current in OP and 61-point gate DC sweeps. Strict maximum relative error <=1e-6 with no absolute floor (expected zero requires exact zero). Identical Newton settings across every deck: RELTOL=1e-12, ABSTOL=1e-20, VNTOL=1e-16, matching the existing MOS2 fixture policy to resolve tiny off-state values. No comparison-tolerance tuning.
+- Before/after worst relative error: n-temp/n-both 1.0000020731469028 -> 6.326616566333835e-8; n-dtemp 1.0000283663007765 -> 3.0612747774503273e-9; p-temp/p-both 1.000000989459728 -> 6.326616566333835e-8; p-dtemp 1.0000060833954625 -> 3.0612747774503273e-9.
+- Compare: `spice-heavy pnpm -C packages/core exec vitest run src/devices/mos1-instance-temperature-1856.test.ts`. Also covers repeated circuit TEMP sweep restoration, structured invalid-temperature rejection with last-valid-state preservation, initial ambient resolution, and AC/transient equivalence with nonzero bulk and gate capacitances. This is correctness evidence, not a speed claim.

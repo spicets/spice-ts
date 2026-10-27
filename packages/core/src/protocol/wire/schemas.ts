@@ -16,10 +16,12 @@ const analysisIndex = integer();
 const step = ref('step');
 const numberRecord: Schema = { type: 'object', additionalProperties: number };
 const numberSeriesRecord: Schema = { type: 'object', additionalProperties: array(number) };
+const dcSweepProperties = { source: { type: 'string', pattern: '^\\S+$' }, start: number, stop: number, step: { type: 'number', not: { const: 0 } } };
+const dcAxis = object(['name', 'unit', 'values'], { name: string, unit: { enum: ['V', 'A'] }, values: array(number) });
 
 const analysis: Schema = { oneOf: [
   object(['type'], { type: { const: 'op' } }),
-  object(['type', 'source', 'start', 'stop', 'step'], { type: { const: 'dc' }, source: string, start: number, stop: number, step: number }),
+  object(['type', 'source', 'start', 'stop', 'step'], { type: { const: 'dc' }, ...dcSweepProperties, secondary: object(['source', 'start', 'stop', 'step'], dcSweepProperties) }),
   object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 } }),
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'ac' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
@@ -32,13 +34,20 @@ const nativeAnalysis: Schema = { oneOf: [
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'sp' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
 
-const sensitivityAnalysis = { ...object(['type', 'mode', 'outputNode'], {
-  type: { const: 'sens' }, mode: { const: 'dc' }, outputNode: { type: 'string', pattern: '\\S' },
-  outputReferenceNode: { type: 'string', pattern: '\\S' }, outputType: { enum: ['voltage', 'current'] },
-}), allOf: [{
-  if: { properties: { outputType: { const: 'current' } }, required: ['outputType'] },
-  then: { properties: { outputReferenceNode: false } },
-}] };
+const sensitivityAnalysis = { oneOf: ['dc', 'ac'].map(mode => ({
+  ...object(['type', 'mode', 'outputNode', ...(mode === 'ac' ? ['variation', 'points', 'startFreq', 'stopFreq'] : [])], {
+    type: { const: 'sens' }, mode: { const: mode }, outputNode: { type: 'string', pattern: '\\S' },
+    outputReferenceNode: { type: 'string', pattern: '\\S' }, outputType: { enum: ['voltage', 'current'] },
+    ...(mode === 'ac' ? {
+      variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1),
+      startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 },
+    } : {}),
+  }),
+  allOf: [{
+    if: { properties: { outputType: { const: 'current' } }, required: ['outputType'] },
+    then: { properties: { outputReferenceNode: false } },
+  }],
+})) };
 
 const tfAnalysis = object(['type', 'output', 'source'], {
   type: { const: 'tf' }, output: { type: 'string', pattern: '^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[vV][^\\s(),]*\\s*\\))$' },
@@ -107,7 +116,7 @@ const complexRecord: Schema = { type: 'object', additionalProperties: ref('compl
 const complexSeriesRecord: Schema = { type: 'object', additionalProperties: array(ref('complex')) };
 const commonResult = { analysisIndex, step };
 const opResult = object(['type', 'analysisIndex', 'voltagesV', 'currentsA'], { type: { const: 'op' }, ...commonResult, voltagesV: numberRecord, currentsA: numberRecord });
-const dcResult = object(['type', 'analysisIndex', 'axis', 'voltagesV', 'currentsA'], { type: { const: 'dc' }, ...commonResult, axis: object(['name', 'unit', 'values'], { name: string, unit: { enum: ['V', 'A'] }, values: array(number) }), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord });
+const dcResult = object(['type', 'analysisIndex', 'axis', 'voltagesV', 'currentsA'], { type: { const: 'dc' }, ...commonResult, axis: dcAxis, secondaryAxis: dcAxis, voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord });
 const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'currentsA'], { type: { const: 'tran' }, ...commonResult, timeS: array(number), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord });
 const acResult = object(['type', 'analysisIndex', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, ...commonResult, frequencyHz: array({ type: 'number', minimum: 0 }), voltagePhasors: complexSeriesRecord, currentPhasors: complexSeriesRecord });
 const simulationResult = object(['status', 'analyses'], { status: { const: 'complete' }, analyses: array(ref('analysisResult')) });

@@ -7,6 +7,7 @@ import { resolveXferData, resolveXferFile } from './xfer.js';
 export function xspiceFilePath(model: XspiceModelCard): string | undefined {
   if (model.codeModel === 'filesource' || model.codeModel === 'file_source') return String(model.params.get('file')?.[0] ?? 'filesource.txt');
   if (model.codeModel === 'd_source') return String(model.params.get('input_file')?.[0] ?? 'source.txt');
+  if (model.codeModel === 'd_state') return String(model.params.get('state_file')?.[0] ?? 'state.txt');
   if (model.codeModel === 'table2d' || model.codeModel === 'table3d') {
     return String(model.params.get('file')?.[0] ?? `${model.codeModel === 'table2d' ? '2D' : '3D'}-table-model.txt`);
   }
