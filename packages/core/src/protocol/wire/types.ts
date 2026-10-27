@@ -10,7 +10,7 @@ export type IntegrationMethodV1 = 'euler' | 'trapezoidal' | 'gear2';
 
 export interface OperatingPointAnalysisV1 { type: 'op' }
 export interface DcAnalysisV1 { type: 'dc'; source: string; start: number; stop: number; step: number; secondary?: { source: string; start: number; stop: number; step: number } }
-export interface TransientAnalysisV1 { type: 'tran'; timestep: number; stopTime: number; startTime?: number; maxTimestep?: number }
+export interface TransientAnalysisV1 { type: 'tran'; timestep: number; stopTime: number; startTime?: number; maxTimestep?: number; uic?: true }
 export interface AcAnalysisV1 { type: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
 export type AnalysisV1 = OperatingPointAnalysisV1 | DcAnalysisV1 | TransientAnalysisV1 | AcAnalysisV1;
 /** Scalar pole-zero request, separate from the v1 result/stream union. */
@@ -65,6 +65,8 @@ export interface SubcircuitV1 {
 export interface SpiceTsCircuitDocumentV1 {
   format: 'spice-ts';
   schemaVersion: '1.0';
+  initialConditions?: Record<string, number>;
+  nodesets?: Record<string, number>;
   circuit: { components: CircuitComponentV1[]; nets: string[] };
   analyses: NativeAnalysisV1[];
   poleZeroAnalyses?: PoleZeroAnalysisV1[];

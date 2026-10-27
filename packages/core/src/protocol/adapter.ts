@@ -495,7 +495,24 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     }
     addComponent(circuit, component);
   }
+  for (const field of ['initialConditions', 'nodesets'] as const) {
+    const states = document[field];
+    if (states === undefined) continue;
+    const path = `/input/document/${field}`;
+    if (typeof states !== 'object' || states === null || Array.isArray(states)) invalidNativeField(path);
+    const nodes = new Set([...circuit.compile().nodeIndexMap.keys()].map(node => node.toLowerCase()));
+    for (const [node, value] of Object.entries(states)) {
+      if (typeof value !== 'number' || !Number.isFinite(value)
+        || !['0', 'gnd'].includes(node.toLowerCase()) && !nodes.has(node.toLowerCase())) {
+        invalidNativeField(`${path}/${node.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+      }
+      circuit.addInitialState(field === 'initialConditions' ? 'ic' : 'nodeset', { node, value });
+    }
+  }
   for (const [index, analysis] of document.analyses.entries()) {
+    if (analysis.type === 'tran' && analysis.uic !== undefined && analysis.uic !== true) {
+      invalidNativeField(`/input/document/analyses/${index}/uic`);
+    }
     if (analysis.type === 'dc' && analysis.secondary !== undefined) {
       const path = `/input/document/analyses/${index}/secondary`;
       const secondary = analysis.secondary;
@@ -649,7 +666,7 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
   switch (analysis.type) {
     case 'op': circuit.addAnalysis('op'); break;
     case 'dc': circuit.addAnalysis('dc', analysis); break;
-    case 'tran': circuit.addAnalysis('tran', analysis); break;
+    case 'tran': circuit.addAnalysis('tran', { ...analysis, useInitialConditions: analysis.uic }); break;
     case 'ac': circuit.addAnalysis('ac', analysis); break;
     case 'sp': circuit.addAnalysis('sp', analysis); break;
     case 'disto': circuit.addAnalysis('disto', analysis); break;

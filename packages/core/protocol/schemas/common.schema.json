@@ -155,6 +155,9 @@
             "maxTimestep": {
               "type": "number",
               "exclusiveMinimum": 0
+            },
+            "uic": {
+              "const": true
             }
           },
           "additionalProperties": false
@@ -702,6 +705,18 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/noiseAnalysis"
+          }
+        },
+        "initialConditions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "nodesets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
           }
         }
       },
