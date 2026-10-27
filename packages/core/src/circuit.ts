@@ -30,6 +30,7 @@ import { VDMOS } from './devices/vdmos.js';
 import { isVdmosModelType, resolveVdmosModel } from './devices/vdmos-model.js';
 import { JFET, resolveNJFETParams } from './devices/jfet.js';
 import { HFET1 } from './devices/hfet1.js';
+import { MESA } from './devices/mesa.js';
 import { createZDevice, expandZDevice, resolveZModel } from './devices/z-device.js';
 import { BehavioralCurrentSource, BehavioralSource, BehavioralVoltageSource } from './devices/behavioral-source.js';
 import {
@@ -2233,10 +2234,11 @@ export class Circuit {
         const boundedBjt = desc.type === 'Q' && !isVBICLevel(passiveParams.LEVEL);
         const boundedMos1 = desc.type === 'M' && (passiveParams.LEVEL ?? 1) === 1
           && !isVdmosModelType(this._models.get(desc.modelName ?? '')?.type ?? '');
-        if (!boundedBjt && !boundedMos1 && !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type)) {
+        const boundedMesa = desc.type === 'Z' && [2, 3].includes(passiveParams.LEVEL ?? 1);
+        if (!boundedBjt && !boundedMos1 && !boundedMesa && !['J', 'D', 'R', 'C', 'L', 'V', 'I', 'B'].includes(desc.type)) {
           throw new InvalidCircuitError(
             `.options TNOM=${this._nominalTemperature} is unsupported for ${desc.type} '${desc.name}': `
-            + 'circuit TNOM currently supports only BJTs, MOS1, JFETs, diodes, R/C/L and independent or behavioral sources',
+            + 'circuit TNOM currently supports only BJTs, MOS1, MESA levels 2/3, JFETs, diodes, R/C/L and independent or behavioral sources',
           );
         }
       }
@@ -2638,7 +2640,7 @@ export class Circuit {
         case 'Z': {
           const model = this.requireModel('Z-card', desc);
           devices.push(createZDevice(
-            desc.name, nodeIndices, resolveZModel(model), desc.params, this._simulationOptions.deviceGmin,
+            desc.name, nodeIndices, resolveZModel(model, this._temperature, this._nominalTemperature), desc.params, this._simulationOptions.deviceGmin,
             this._temperature ?? NOMINAL_TEMPERATURE_C,
           ));
           break;
@@ -2957,7 +2959,7 @@ export class Circuit {
       if (device instanceof Resistor || device instanceof VBIC || device instanceof BehavioralSource
         || device instanceof Diode || device instanceof BJT || device instanceof MOSFET
         || device instanceof MOS2 || device instanceof MOS6 || device instanceof MOS3
-        || device instanceof ClassicBsimMosfet || device instanceof HFET1
+        || device instanceof ClassicBsimMosfet || device instanceof HFET1 || device instanceof MESA
         // VDMOStempUpdate already handles instance TEMP/DTEMP and model TNOM.
         // Keep the separate self-heating network outside this validated surface.
         || (device instanceof VDMOS && !device.selfHeating)
@@ -3463,8 +3465,10 @@ export class Circuit {
         const model = this._models.get(modelName);
         if (!model) throw new InvalidCircuitError(`Z-card '${desc.name}' references unknown model '${modelName}'`);
         const expansion = expandZDevice(
-          desc.name, [desc.nodes[0], desc.nodes[1], desc.nodes[2]], resolveZModel(model), desc.params,
+          desc.name, [desc.nodes[0], desc.nodes[1], desc.nodes[2]],
+          resolveZModel(model, this._temperature, this._nominalTemperature), desc.params,
           suffix => internalNodeName(desc.name, suffix),
+          this._temperature,
         );
         for (const resistor of expansion.resistors) result.push({ type: 'R', ...resistor });
         result.push({ ...desc, nodes: expansion.nodes });
