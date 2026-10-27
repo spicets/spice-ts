@@ -1,0 +1,9 @@
+* SPDX-License-Identifier: MIT; self-authored enabled two-bit sequencer
+0 0s 0s 0 -> 0
+        1 -> 1
+1 1s 0s 0 -> 1
+        1 -> 2
+2 0s 1s 0 -> 2
+        1 -> 3
+3 1s 1s 0 -> 3
+        1 -> 0
