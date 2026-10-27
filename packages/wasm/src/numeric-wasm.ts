@@ -94,7 +94,7 @@ export async function simulateLinearOpWasmV1(
         || (['C', 'L'].includes(deviceType(device.name) ?? '')
           && (device as { ic?: number }).ic !== undefined)
         || waveform?.type === 'sin' || waveform?.type === 'pwl'
-        || waveform?.type === 'exp' || waveform?.type === 'sffm';
+        || waveform?.type === 'exp' || waveform?.type === 'sffm' || waveform?.type === 'am';
     })) {
       return simulateAdaptiveTransient(prepared, request, exports, maxPoints);
     }
@@ -999,8 +999,15 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       const pwl = /^\S+\s+\S+\s+\S+\s+PWL\s*\([^)]*\)\s*$/i.test(card);
       const exp = /^\S+\s+\S+\s+\S+\s+EXP\s*\([^)]*\)\s*$/i.test(card);
       const sffm = /^\S+\s+\S+\s+\S+\s+SFFM\s*\([^)]*\)\s*$/i.test(card);
-      if (tokens.length !== 4 && !dc && !pulse && !sin && !pwl && !exp && !sffm) {
-        unsupported('source-waveform', 'Transient sources must use a constant, DC, PULSE, SIN, PWL, EXP, or SFFM value');
+      const am = /^\S+\s+\S+\s+\S+\s+AM\s*\(([^)]*)\)\s*$/i.exec(card);
+      if (/^AM\b/i.test(tokens[3] ?? '')) {
+        const args = am?.[1]?.trim().split(/[\s,]+/) ?? [];
+        if (!am || args.length < 2 || args.length > 8 || args.some(value => !SPICE_NUMBER.test(value))) {
+          unsupported('source-waveform', 'AM sources require 2 to 8 numeric coefficients in parentheses');
+        }
+      }
+      if (tokens.length !== 4 && !dc && !pulse && !sin && !pwl && !exp && !sffm && !am) {
+        unsupported('source-waveform', 'Transient sources must use a constant, DC, PULSE, SIN, PWL, EXP, SFFM, or AM value');
       }
     } else if (!validAcSourceTokens(tokens)) {
       unsupported('source-waveform', 'AC sources must use constant, DC, AC, or DC plus AC values');
