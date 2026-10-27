@@ -1,5 +1,19 @@
 # Benchmark sources
 
+## BJT instance temperature (#1852)
+
+`fixtures/1852/*.cir` are original project-authored MIT decks for
+https://github.com/spicets/spice-ts/issues/1852. No third-party netlists copied.
+They cover NPN/PNP TEMP, DTEMP and TEMP overriding DTEMP, each with OP and a
+61-point DC sweep. Both engines consume identical bytes. All node voltages and
+voltage-source currents must meet strict relative error <= 1e-6, without a floor.
+`oracle.json` is ngspice-47 output consumed by the core regression tests.
+Regenerate with `spice-heavy pnpm exec tsx benchmarks/fixtures/1852/compare.ts --update`;
+compare live with the same command without `--update`.
+Reference semantics are `bjtparm.c` and `bjttemp.c` from ngspice-47
+(https://github.com/imr/ngspice/tree/ngspice-47/src/spicelib/devices/bjt,
+BSD-3-Clause source, not copied).
+
 ## MOS9 circuit temperature (#1812)
 
 `fixtures/issue-1812/*.cir` are original project-authored MIT bias decks for

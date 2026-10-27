@@ -11,6 +11,10 @@ export interface BJTInstanceParams {
   AREAC?: number;
   /** Parallel multiplier (ngspice `m`). */
   M?: number;
+  /** Absolute Celsius temperature, overriding circuit TEMP and DTEMP. */
+  TEMP?: number;
+  /** Celsius offset from circuit temperature when TEMP is absent. */
+  DTEMP?: number;
   /** Initial physical base-emitter voltage, used only with transient UIC. */
   ICVBE?: number;
   /** Initial physical collector-emitter voltage, used only with transient UIC. */
@@ -36,7 +40,7 @@ export interface ParsedBJTInstance {
  */
 const STRICT_NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?[a-z]*$/i;
 
-const INSTANCE_KEYWORDS: readonly (keyof BJTInstanceParams)[] = ['AREA', 'AREAB', 'AREAC', 'M'];
+const INSTANCE_KEYWORDS: readonly (keyof BJTInstanceParams)[] = ['AREA', 'AREAB', 'AREAC', 'M', 'TEMP', 'DTEMP'];
 
 const isKeywordOrFlag = (token: string): boolean =>
   token.includes('=') || token.toUpperCase() === 'OFF';
@@ -58,7 +62,7 @@ const isKeywordOrFlag = (token: string): boolean =>
  * (or OFF=0/1) is consumed as an initial-state hint: the solver already starts
  * nonlinear devices from its zero solution, so it must not disable the
  * transistor at the converged operating point. Every other instance keyword
- * (TEMP, DTEMP, ...) is rejected rather than ignored. IC=vbe[,vce] is
+ * is rejected rather than ignored. TEMP/DTEMP select instance temperature. IC=vbe[,vce] is
  * returned separately from scaling and used only with transient UIC.
  *
  * The substrate and thermal terminals are returned to the circuit, which
@@ -136,6 +140,13 @@ export function parseBJTInstance(
   }
   for (const name of INSTANCE_KEYWORDS) {
     const value = params[name];
+    if (name === 'TEMP' || name === 'DTEMP') {
+      if (value !== undefined && !Number.isFinite(value)) fail(`BJT ${name} must be finite: '${line}'`);
+      if (name === 'TEMP' && value !== undefined && value <= -273.15) {
+        fail(`BJT TEMP must be above absolute zero: '${line}'`);
+      }
+      continue;
+    }
     if (value !== undefined && !(value > 0 && Number.isFinite(value))) {
       fail(`BJT ${name} must be a finite number greater than zero: '${line}'`);
     }

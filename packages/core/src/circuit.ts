@@ -745,7 +745,7 @@ function bjtInstanceDescriptorParams(
 ): Record<string, number> | undefined {
   if (!instance) return undefined;
   const params: Record<string, number> = {};
-  for (const name of ['AREA', 'AREAB', 'AREAC', 'M', 'ICVBE', 'ICVCE'] as const) {
+  for (const name of ['AREA', 'AREAB', 'AREAC', 'M', 'ICVBE', 'ICVCE', 'TEMP', 'DTEMP'] as const) {
     if (instance[name] !== undefined) params[name] = instance[name];
   }
   return Object.keys(params).length > 0 ? params : undefined;
@@ -2595,7 +2595,7 @@ export class Circuit {
           if (!model) {
             devices.push(new BJT(desc.name, nodeIndices, {
               polarity: 1, TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C,
-            }, desc.params));
+            }, desc.params, undefined, this._temperature ?? NOMINAL_TEMPERATURE_C));
             break;
           }
           if (model.type !== 'NPN' && model.type !== 'PNP') {
@@ -2608,7 +2608,7 @@ export class Circuit {
               throw new InvalidCircuitError(`VBIC '${desc.name}' does not support instance IC`);
             }
             // ngspice-47 vbic.c has no areab/areac instance parameters.
-            const geometry = ['AREAB', 'AREAC'].filter(name => desc.params?.[name] !== undefined);
+            const geometry = ['AREAB', 'AREAC', 'TEMP', 'DTEMP'].filter(name => desc.params?.[name] !== undefined);
             if (geometry.length > 0) {
               throw new InvalidCircuitError(
                 `VBIC '${desc.name}' does not accept instance parameters: ${geometry.join(', ')}`,
@@ -2620,7 +2620,7 @@ export class Circuit {
             devices.push(new BJT(desc.name, nodeIndices, {
               TNOM: this._nominalTemperature ?? NOMINAL_TEMPERATURE_C, ...modelParams, polarity,
             }, desc.params,
-              desc.bjtICTerminals?.map(resolveNode)));
+              desc.bjtICTerminals?.map(resolveNode), this._temperature ?? NOMINAL_TEMPERATURE_C));
           }
           break;
         }
@@ -3277,6 +3277,8 @@ export class Circuit {
                 TC1: model.params[`T${parameter}1`] ?? 0,
                 TC2: model.params[`T${parameter}2`] ?? 0,
                 TNOM: model.params.TNOM ?? model.params.TREF ?? NOMINAL_TEMPERATURE_C,
+                ...(desc.params?.TEMP !== undefined ? { TEMP: desc.params.TEMP } : {}),
+                ...(desc.params?.DTEMP !== undefined ? { DTEMP: desc.params.DTEMP } : {}),
               },
             });
             if (parameter === 'RC') collector = internal;
