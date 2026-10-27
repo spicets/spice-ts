@@ -720,7 +720,20 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   // rejecting capacitor-only nodes before optional numerical gmin is applied.
   if ((analysis === 'op' || analysis === 'dc')
     && compiled.devices.some(device => deviceType(device.name) === 'C')) {
-    preflightTopology(compiled);
+    // Match core protocol locations using original lines, not normalized cards.
+    const paths = new Map<string, string>();
+    source.split(/\r?\n/).forEach((line, index) => {
+      const trimmed = line.trim();
+      if (trimmed === '' || trimmed.startsWith('*') || trimmed.startsWith('.')) return;
+      const name = trimmed.split(/\s+/, 1)[0];
+      if (name) paths.set(name.toUpperCase(), `/input/source/lines/${index}`);
+    });
+    preflightTopology(compiled, deviceName => {
+      const rootName = deviceName.split('.', 1)[0]!.toUpperCase();
+      return paths.get(deviceName.toUpperCase())
+        ?? paths.get(rootName)
+        ?? `/compiled/devices/${deviceName.replaceAll('~', '~0').replaceAll('/', '~1')}`;
+    });
   }
   validateControlledSourceValues(compiled);
   validateSwitchValues(compiled);

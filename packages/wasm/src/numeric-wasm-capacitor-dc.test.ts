@@ -19,6 +19,14 @@ function expectParity(actual: number, expected: number): void {
 }
 
 describe('WASM capacitors are open circuits in OP/DC', () => {
+  it('advertises capacitor support for OP and DC', async () => {
+    const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      expect(wasm.capabilities.numericWasm?.devicesByAnalysis.op).toContain('C');
+      expect(wasm.capabilities.numericWasm?.devicesByAnalysis.dc).toContain('C');
+    } finally { await wasm.close(); }
+  });
+
   it.each(fixtures.flatMap(fixture => analyses.flatMap(analysis => [false, true].map(ic => ({
     ...fixture, analysis, ic,
   })))))('matches every core voltage/current: $name $analysis IC=$ic', async ({ source, analysis, ic }) => {
@@ -57,21 +65,24 @@ describe('WASM capacitors are open circuits in OP/DC', () => {
     } finally { await wasm.close(); await core.close(); }
   });
 
-  it.each(analyses.flatMap(analysis => [undefined, 1e-12].map(gmin => ({ analysis, gmin }))))(
-    'matches core structured outcome for a capacitor-only floating node: $analysis gmin=$gmin', async ({ analysis, gmin }) => {
+  it.each([
+    { name: 'flat', source: 'V1 in 0 5\nC1 in floating 1u IC=123', sourcePath: '/input/source/lines/1' },
+    { name: 'hierarchical', source: 'V1 in 0 5\nX1 in cell\n.subckt cell in\nC1 in floating 1u IC=123\n.ends cell', sourcePath: '/input/source/lines/1' },
+  ].flatMap(fixture => analyses.flatMap(analysis => [undefined, 1e-12].map(gmin => ({ ...fixture, analysis, gmin })))))(
+    'matches core structured outcome for a $name capacitor-only floating node: $analysis gmin=$gmin', async ({ source, sourcePath, analysis, gmin }) => {
       const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
       const core = await createSpiceEngine({ backend: 'spice-ts-js' });
       try {
-        const input = request(`V1 in 0 5\nC1 in floating 1u IC=123\n${analysis}`, gmin === undefined ? undefined : { gmin });
+        const input = request(`${source}\n${analysis}`, gmin === undefined ? undefined : { gmin });
         const reference = await core.simulate(input, { requestId: 'floating-core' });
         const actual = await wasm.simulate(input, { requestId: 'floating-wasm' });
         expect(reference.ok).toBe(false);
         if (reference.ok) throw new Error('Expected a missing DC reference');
         expect(reference.error).toMatchObject({ code: 'INVALID_CIRCUIT', phase: 'validation' });
-        expect(actual).toMatchObject({ ok: false, error: {
-          code: reference.error.code, phase: reference.error.phase, retryable: reference.error.retryable,
-          message: reference.error.message,
-        } });
+        expect(reference.error.details).toMatchObject({ sourcePaths: [sourcePath] });
+        expect(actual.ok).toBe(false);
+        if (actual.ok) throw new Error('Expected a missing DC reference');
+        expect(actual.error).toEqual(reference.error);
       } finally { await wasm.close(); await core.close(); }
     },
   );
