@@ -397,6 +397,7 @@ export class MOS6 implements DeviceModel {
     readonly nodes: number[],
     model: MOS6ModelParams,
     instance: Partial<MOS6InstanceParams> & { TEMP?: number; DTEMP?: number },
+    circuitTemperature = 27,
   ) {
     this.instanceTemperature = instance.TEMP;
     this.deltaTemperature = instance.DTEMP ?? 0;
@@ -420,7 +421,7 @@ export class MOS6 implements DeviceModel {
     this.overlapGS = model.CGSO * W;
     this.overlapGD = model.CGDO * W;
     this.overlapGB = model.CGBO * this.effectiveLength;
-    this.applyTemperature();
+    this.setTemperature(circuitTemperature);
     this.lastVon = this.temp.tVto * model.polarity;
     const { Cbs, Cbssw, Cbd, Cbdsw } = this.temp;
     this.storesCharge = [this.oxideCap, this.overlapGS, this.overlapGD, this.overlapGB, Cbs, Cbssw, Cbd, Cbdsw]

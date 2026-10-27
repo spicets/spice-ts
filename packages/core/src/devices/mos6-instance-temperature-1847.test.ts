@@ -45,6 +45,21 @@ describe('MOS6 instance temperature ngspice-47 parity (#1847)', () => {
     });
   }
 
+  it.each(['', 'TEMP=27', 'TEMP=40'])('guards unported laws at initial effective temperature (%s)', async circuitTemperature => {
+    for (const [instance, effective] of [['TEMP=75', 75], ['DTEMP=30', circuitTemperature === 'TEMP=40' ? 70 : 57]] as const) {
+      const netlist = deck('n-temp').replace('TEMP=75', instance).replace('TEMP=40', circuitTemperature)
+        .replace('LEVEL=6', 'LEVEL=6 UTE=0.1');
+      await expect(simulate(netlist)).rejects.toMatchObject({
+        code: 'UNSUPPORTED_TEMPERATURE', parameter: 'UTE', temperature: effective,
+      });
+    }
+  });
+
+  it('validates against actual circuit temperature, not the constructor default', async () => {
+    const netlist = deck('n-dtemp').replace('DTEMP=30', 'DTEMP=-13').replace('LEVEL=6', 'LEVEL=6 UTE=0.1');
+    await expect(simulate(netlist)).resolves.toBeDefined();
+  });
+
   it.each(['temp', 'dtemp', 'both'])('%s follows circuit changes without accumulating DTEMP', async variant => {
     const netlist = deck(`n-${variant}`);
     const circuit = parse(netlist);
