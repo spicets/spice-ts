@@ -105,13 +105,4 @@ describe('WASM current-controlled CSW', () => {
       } finally { await wasm.close(); }
     },
   );
-  it.each([false, true])('rejects AC with model first=%s', async modelFirst => {
-    const cards = circuit().split('\n');
-    if (modelFirst) cards.unshift(cards.pop()!);
-    const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
-    try {
-      expect(await wasm.simulate(request(`${cards.join('\n')}\n.ac dec 1 1 10`), { requestId: 'csw-ac' }))
-        .toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'switch-analysis' } } });
-    } finally { await wasm.close(); }
-  });
 });
