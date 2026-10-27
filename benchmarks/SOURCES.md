@@ -3030,6 +3030,13 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
 - Before: all six OP/DC parity tests failed with ignored instance fields. After: worst relative errors n-temp/n-both/p-temp/p-both 1.939e-7, n-dtemp 1.612e-8, p-dtemp 1.127e-8. Compare: `spice-heavy pnpm -C packages/core exec vitest run src/devices/mos2-instance-temperature-1853.test.ts`.
 - Regression coverage includes repeated DC TEMP sweep restoration, invalid effective temperature with last-valid-state preservation, and AC/transient equivalence to the same effective circuit temperature with nonzero junction capacitances. No performance claim.
 
+## Dot-card Fourier regression (#1871)
+
+- Source: self-authored half-wave diode rectifier in `packages/core/src/parser/dot-four-1871.test.ts`, MIT under the repository licence. No third-party model or netlist copied.
+- Reference: ngspice-47 `ngspice -b half-four.cir`, with `half-four.cir` containing the exact exported `deck` string from that test. Do not use `-r`: ngspice suppresses `.four` tables when writing a rawfile.
+- The test consumes the printed DC and all nine nonzero harmonic magnitudes/phases and THD from the identical deck. Relative magnitude/DC/THD bound is 1e-3; circular phase error bound is 0.1 degree. No solver tolerance overrides or speed claim. The existing control Fourier kernel supplies the 200-point, last-period linear interpolation.
+- The malformed corpus-g `FOURIER/bad_dot_four_line1.cir` is covered using the existing licensed corpus file. ngspice-47 emits parse warnings then crashes on that unchanged file; spice-ts preserves structured nonfatal Fourier diagnostics instead.
+
 ## XSPICE d_state (#1864)
 
 - Source: self-authored counter/reset decks and state table in [xspice/d-state](xspice/d-state/), MIT under the repository licence. No third-party deck or code copied.
@@ -3037,6 +3044,7 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
 - Regenerate the test-consumed oracle with `spice-heavy python3 benchmarks/xspice/d-state/reference.py`; internally `ngspice -b -r <case>.raw <case>.cir`. Deck and state SHA-256 digests enforce identical bytes.
 - Before: counter rejected with UnsupportedCodeModelError. After: counter (1506 points) and nonzero-state asynchronous reset (1511 points) maximum bidirectional interpolated DAC error 1.1102230246251565e-16 V. Uses existing XSPICE digital DAC tolerance (9 decimal places), not circuit-specific relaxation. No speed claim.
 - Test: `pnpm -C packages/core exec vitest run src/devices/xspice/d-state.test.ts`.
+
 
 ## VDMOS circuit temperature (#1845)
 
