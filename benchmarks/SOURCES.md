@@ -3030,6 +3030,14 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
 - Before: all six OP/DC parity tests failed with ignored instance fields. After: worst relative errors n-temp/n-both/p-temp/p-both 1.939e-7, n-dtemp 1.612e-8, p-dtemp 1.127e-8. Compare: `spice-heavy pnpm -C packages/core exec vitest run src/devices/mos2-instance-temperature-1853.test.ts`.
 - Regression coverage includes repeated DC TEMP sweep restoration, invalid effective temperature with last-valid-state preservation, and AC/transient equivalence to the same effective circuit temperature with nonzero junction capacitances. No performance claim.
 
+## XSPICE d_state (#1864)
+
+- Source: self-authored counter/reset decks and state table in [xspice/d-state](xspice/d-state/), MIT under the repository licence. No third-party deck or code copied.
+- Semantic reference: ngspice-47 [`digital/d_state`](https://github.com/imr/ngspice/tree/ngspice-47/src/xspice/icm/digital/d_state), Public Domain code model. Ordered header/continuation rows, wildcard inputs, Moore outputs with strengths, clock/reset delays and reset priority.
+- Regenerate the test-consumed oracle with `spice-heavy python3 benchmarks/xspice/d-state/reference.py`; internally `ngspice -b -r <case>.raw <case>.cir`. Deck and state SHA-256 digests enforce identical bytes.
+- Before: counter rejected with UnsupportedCodeModelError. After: counter (1506 points) and nonzero-state asynchronous reset (1511 points) maximum bidirectional interpolated DAC error 1.1102230246251565e-16 V. Uses existing XSPICE digital DAC tolerance (9 decimal places), not circuit-specific relaxation. No speed claim.
+- Test: `pnpm -C packages/core exec vitest run src/devices/xspice/d-state.test.ts`.
+
 ## VDMOS circuit temperature (#1845)
 
 - Source: original project-authored decks, generator and test-consumed oracle vectors in [fixtures/issue-1845](fixtures/issue-1845/), MIT under the repository licence. No third-party netlists copied.
