@@ -54,11 +54,11 @@ All guards reuse `UnsupportedModelParameterError`, exported here as
   input resistance. RGATEMOD=3 adds a mid-gate for OP/DC/AC (see LOAD.md).
   Alternate CAPMOD/PERMOD values conservatively reject.
 - Nondefault model WPE parameters in `LAYOUT_DEFAULTS` reject, including L/W/P
-  coefficients. LOD stress parameters support static OP/DC (see `__fixtures__/lod/README.md`).
+  coefficients. LOD stress parameters support OP/DC/AC/transient (see `__fixtures__/lod/README.md`).
 - Instance TRNQSMOD/ACNQSMOD/RBODYMOD/GEOMOD/RGEOMOD/WNFLAG
   must be zero (RBODYMOD=1 is also supported). RGATEMOD accepts 0/1/2/3 and overrides the model selector.
   SCA/SCB/SCC/SC must match their resolved defaults. Nondefault SA/SB/SD support
-  static OP/DC only and explicitly reject AC/transient.
+  OP/DC, quasi-static AC and capMod=2 transient.
 - Positive RSH plus explicitly given positive NRD or NRS enables the corresponding
   prime node for OP/DC. Positive RSH alone does not create nodes with baseline
   RGEOMOD and absent squares, despite their resolved default of 1.

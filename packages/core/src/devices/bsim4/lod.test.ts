@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { simulate } from '../../simulate.js';
 import { parse } from '../../parser/index.js';
-import { UnsupportedModelParameterError } from '../../errors.js';
 import { setupBsim4Instance, setupBsim4Model } from './setup.js';
 import { preprocessBsim4 } from './temp.js';
 
@@ -38,7 +37,7 @@ describe('BSIM4 static length-of-diffusion stress', () => {
     });
     console.info(`${item.deck}: maxRelative=${maxRelative}`);
   });
-  for (const method of ['stampDynamic', 'stampAC'] as const) it(`rejects direct LOD ${method} before stamping`, () => {
+  for (const method of ['stampDynamic', 'stampAC'] as const) it(`supports direct LOD ${method} stamping`, () => {
     const device = new BSIM4('M', [0, 1, -1, -1], { LEVEL: 54 },
       { sa: 5e-7, sb: 5e-7, sd: 2e-7, nf: 2 }, 1);
     const stamps: number[] = [];
@@ -49,8 +48,9 @@ describe('BSIM4 static length-of-diffusion stress', () => {
       getVoltage: node => node === 1 ? 1.4 : 0.7, getCurrent: () => 0,
       time: 0, dt: 0, numNodes: 2, sourceScale: 1, useDcSourceValue: true,
     };
-    expect(() => device[method](ctx, 1e3)).toThrow(UnsupportedModelParameterError);
-    expect(stamps).toEqual([]);
+    expect(() => device[method](ctx, 1e3)).not.toThrow();
+    expect(stamps.length).toBeGreaterThan(0);
+    expect(stamps.every(Number.isFinite)).toBe(true);
   });
   for (const nf of [10000.5, 9007199254740994, Number.MAX_VALUE]) it(`rejects excessive active LOD NF=${nf} during setup`, () => {
     const model = setupBsim4Model();
@@ -84,8 +84,8 @@ describe('BSIM4 static length-of-diffusion stress', () => {
     expect(createHash('sha256').update(JSON.stringify(process({ sa: 0, sb: 0 }))).digest('hex'))
       .toBe('c37555f607098596d55dbf05e839cb749aeaa0645075ddf84daa683aac9f4324');
   });
-  for (const analysis of ['.ac dec 1 1k 1meg', '.tran 1n 10n']) it(`rejects unvalidated LOD ${analysis}`, () => {
+  for (const analysis of ['.ac dec 1 1k 1meg', '.tran 1n 10n']) it(`accepts LOD ${analysis}`, () => {
     const deck = readFileSync(new URL('nf2.cir', base), 'utf8').replace('.op\n', `${analysis}\n`);
-    expect(() => parse(deck).compile()).toThrow(UnsupportedModelParameterError);
+    expect(() => parse(deck).compile()).not.toThrow();
   });
 });

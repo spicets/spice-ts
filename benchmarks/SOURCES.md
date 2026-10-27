@@ -2952,9 +2952,14 @@ Pinned per-file URLs, original/committed SHA256, licence hashes and static selec
 
 ## BSIM4 static SA/SB/SD length-of-diffusion stress (#1832)
 
+Dynamic follow-up (#1842): original MIT `lod/ac.cir` and `lod/tran.cir` in
+`packages/core/src/devices/bsim4/__fixtures__/`, with test-consumed ngspice-47
+vectors and `generate-dynamic.py`. Both engines receive identical hashed
+deck bytes. See the fixture README for commands, fixed tolerances and errors.
+
 - Original MIT decks, generator and test-consumed oracle in `packages/core/src/devices/bsim4/__fixtures__/lod/`. No third-party model cards. Six OP cases and 36 VGS sweep points use identical committed deck bytes in both engines, SHA-256 checked.
 - Equation source: ngspice-47 commit `a80f6e3e95d51534905b1f23410a951802666656`, [b4temp.c:1574-1702](https://github.com/imr/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/bsim4/b4temp.c#L1574-L1702), ECL-2.0. The later native MULU0 overwrite is deliberately preserved. See the fixture README for scope and regeneration command.
-- Before: six parity tests reject KU0. After: maximum measured relative error 3.91e-15 for saved node voltages and drain currents (limit 1e-6). WPE and nondefault-layout AC/transient remain unsupported. No speed claim.
+- Before: six parity tests reject KU0. After: maximum measured relative error 3.91e-15 for saved node voltages and drain currents (limit 1e-6). Dynamic LOD is covered by #1842 above; WPE remains unsupported. No speed claim.
 
 ## Resistor instance TEMP/DTEMP at circuit temperature (#1808)
 

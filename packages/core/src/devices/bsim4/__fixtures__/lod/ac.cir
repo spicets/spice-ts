@@ -1,0 +1,12 @@
+Original MIT BSIM4 LOD common-source AC regression
+.model DUT NMOS LEVEL=54 VERSION=4.8 KU0=1e-7 KVTH0=2e-8 KVSAT=0.4 STK2=1e-8 STETA0=2e-8
+Vdd vdd 0 1.8
+Vin in 0 DC 1.2 AC 1
+Rd vdd out 2k
+M1 out in 0 0 DUT L=1u W=10u SA=0.5u SB=0.5u SD=0.2u NF=2
+Cload out 0 100f
+.temp 27
+.options abstol=1e-15 reltol=1e-10 vntol=1e-12
+.save v(out)
+.ac dec 5 1k 1g
+.end
