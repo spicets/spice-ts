@@ -97,7 +97,7 @@ export interface SpiceEngineCapabilitiesV1 {
       op: readonly ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
       dc: readonly ['R', 'I', 'V', 'D', 'J', 'S', 'W'];
       tran: readonly ['R', 'C', 'L', 'I', 'V', 'J', 'S', 'W'];
-      ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S'];
+      ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S', 'W'];
     };
     fallback: 'reject';
     limits: typeof NUMERIC_WASM_LIMITS;
@@ -221,7 +221,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
           op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'] as const,
           dc: ['R', 'I', 'V', 'D', 'J', 'S', 'W'] as const,
           tran: ['R', 'C', 'L', 'I', 'V', 'J', 'S', 'W'] as const,
-          ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S'] as const,
+          ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S', 'W'] as const,
         },
         fallback: 'reject' as const,
         limits: NUMERIC_WASM_LIMITS,
