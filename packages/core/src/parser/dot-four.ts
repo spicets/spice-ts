@@ -45,6 +45,16 @@ export function addFourierCard(circuit: Circuit, text: string, line: number): vo
   } catch (error) { warn(error instanceof Error ? error.message : String(error)); }
 }
 
+/** Stepped runs bypass frontend Fourier evaluation; never silently discard cards. */
+export function warnSteppedFourierCards(circuit: Circuit, warnings: SimulationWarning[]): void {
+  for (const card of registry.get(circuit)?.cards ?? []) {
+    warnings.push({
+      type: 'parse', code: 'FOURIER', line: card.line,
+      message: '.four with .step is not implemented; Fourier results are not computed for stepped runs',
+    });
+  }
+}
+
 export function evaluateFourierCards(circuit: Circuit, transient: TransientResult, warnings: SimulationWarning[]): void {
   const config = registry.get(circuit);
   if (!config?.cards.length) return;

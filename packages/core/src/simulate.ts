@@ -1,5 +1,5 @@
 import { Circuit } from './circuit.js';
-import { evaluateFourierCards } from './parser/dot-four.js';
+import { evaluateFourierCards, warnSteppedFourierCards } from './parser/dot-four.js';
 import { squaredNoiseOutput } from './results.js';
 import type { CompiledCircuit } from './circuit.js';
 import { parse, parseAsync, parseControlAnalysisCard, parseControlOptions } from './parser/index.js';
@@ -147,6 +147,7 @@ export async function simulate(
   validateCircuit(compiled, warnings);
 
   if (compiled.steps.length > 0) {
+    warnSteppedFourierCards(circuit, warnings);
     if (measures.length > 0) {
       throw new UnsupportedMeasureError(
         '.meas with .step is not implemented (ngspice measures each step run separately)',

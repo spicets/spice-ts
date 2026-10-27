@@ -55,6 +55,43 @@ describe('.four (#1871)', () => {
     ]);
   });
 
+  it.each([
+    ['string', false], ['string', true], ['parsed', false], ['parsed', true],
+  ] as const)('warns instead of silently dropping .four with .step (%s, workers=%s)', async (inputType, workers) => {
+    const input = `Stepped Fourier request
+V1 in 0 SIN(0 2 1k)
+R1 in out 1k
+R2 out 0 1k
+.tran 10u 2m
+.four 1k v(out)
+.step R1 list 1k 2k
+.end`;
+    let workerRuns = 0;
+    const result = await simulate(inputType === 'string' ? input : parse(input), {
+      stepWorkers: workers ? {
+        maxWorkers: 2,
+        workerFactory: async () => ({
+          run: async task => {
+            workerRuns++;
+            return simulate(task.netlist, { ...task.options, stepWorkers: false });
+          },
+          terminate: () => undefined,
+        }),
+      } : false,
+    });
+    expect(result.steps).toHaveLength(2);
+    expect(workerRuns).toBe(workers && inputType === 'string' ? 2 : 0);
+    const warnings = result.warnings.filter(w => w.code === 'FOURIER');
+    expect(warnings.length).toBeGreaterThan(0);
+    // Worker results also carry their own per-run unsupported diagnostic.
+    for (const warning of warnings) {
+      expect(warning).toEqual(expect.objectContaining({
+        type: 'parse', code: 'FOURIER', line: 6,
+        message: expect.stringContaining('.four with .step is not implemented'),
+      }));
+    }
+  });
+
   it('keeps malformed corpus-g .four cards diagnostic rather than silently dropping them', () => {
     const input = readFileSync(new URL('../../../../benchmarks/corpus/corpus-g/fixtures/FOURIER/bad_dot_four_line1.cir', import.meta.url), 'utf8');
     const circuit = parse(input);
