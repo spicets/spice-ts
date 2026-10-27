@@ -27,6 +27,27 @@ direct DC TEMP hooks); 5 pass. After: all 16 pass. Across the 12 identical decks
 speed claim or an aggregate-corpus result. Existing unsupported instance
 TEMP/DTEMP and unported dialect temperature-field guards are unchanged.
 
+## MOS6 instance TEMP/DTEMP (#1847)
+
+`fixtures/issue-1847/*.cir` are original project-authored MIT decks from
+https://github.com/spicets/spice-ts/issues/1847. No third-party fixture bytes.
+The test-consumed `reference.json` records SHA-256 of each identical deck and
+ngspice-47 OP/DC outputs. Six cases cover NMOS/PMOS, circuit TEMP=40 C,
+instance TEMP=75 C, DTEMP=30 C, and both. Each has 61 gate-sweep points
+(0 to 3 V in 0.05 V increments for NMOS, mirrored for PMOS).
+Regenerate with `spice-heavy python3 benchmarks/fixtures/issue-1847/generate.py`.
+Each invocation is `ngspice -b -r <temporary-reference.raw> <fixture.cir>`.
+Semantic reference is Berkeley-licensed ngspice-47 commit
+`a80f6e3e95d51534905b1f23410a951802666656`,
+[`mos6par.c:25-32`](https://github.com/ngspice/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/mos6/mos6par.c#L25-L32)
+and [`mos6temp.c:130-138`](https://github.com/ngspice/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/mos6/mos6temp.c#L130-L138).
+TEMP is Celsius, DTEMP is a temperature difference. Explicit TEMP ignores DTEMP;
+otherwise the effective temperature is circuit TEMP plus DTEMP.
+Generated on Darwin arm64 with Homebrew ngspice-47 (KLU). Before: all six decks
+rejected. After: all six run, with worst relative OP/DC error 6.327e-8 for i(Vd)
+and 1.025e-10 for node voltages, below 1e-6 at every point with exact zeros.
+Other temperature-law guards remain. No speed or aggregate-corpus claim.
+
 ## MOS6 circuit temperature (#1806)
 
 `fixtures/issue-1806/*.cir` are original project-authored MIT decks from
