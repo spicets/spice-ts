@@ -10,6 +10,7 @@ import { VoltageSource } from '../devices/voltage-source.js';
 import { CurrentSource } from '../devices/current-source.js';
 import { ClassicBsimMosfet } from '../devices/bsim12-load.js';
 import { Resistor } from '../devices/resistor.js';
+import { MOS6 } from '../devices/mos6.js';
 import { NOMINAL_TEMPERATURE_C } from '../devices/junction-temperature.js';
 import { ConvergenceError, InvalidCircuitError, UnsupportedTemperatureError } from '../errors.js';
 import {
@@ -180,9 +181,9 @@ function resolveSweepTarget(
     const expressions = temperatureExpressionTarget(compiled, sourceNames);
     if (expressions) return expressions;
     const thermalDevices = devices.filter(device => device.setTemperature && device.getTemperature);
-    // Resistor getTemperature includes instance TEMP/DTEMP. Restore CKTtemp,
+    // Resistor/MOS6 getTemperature includes instance TEMP/DTEMP. Restore CKTtemp,
     // not the effective instance temperature, to avoid applying DTEMP twice.
-    const original = thermalDevices.map(device => device instanceof Resistor
+    const original = thermalDevices.map(device => device instanceof Resistor || device instanceof MOS6
       ? device.getCircuitTemperature() : device.getTemperature!());
     return {
       set: value => thermalDevices.forEach(device => device.setTemperature!(value)),

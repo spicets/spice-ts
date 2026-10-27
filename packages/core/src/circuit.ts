@@ -2733,6 +2733,7 @@ export class Circuit {
               desc.name, nodeIdxs,
               resolveMOS6Model(desc.modelName!, modelParams, polarity),
               desc.params ?? {},
+              this._temperature ?? NOMINAL_TEMPERATURE_C,
             ));
           } else if (level === 4 || level === 5) {
             // BSIM1 (LEVEL=4) / BSIM2 (LEVEL=5); expandPassiveParasitics gave [D', G, S', B].

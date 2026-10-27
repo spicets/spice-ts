@@ -50,9 +50,11 @@ describe('MOS6 circuit temperature ngspice-47 parity (#1806)', () => {
     await expect(simulate(deck('n-tnom27-temp50').replace('LEVEL=6', `LEVEL=6 ${parameter}=0.1`)))
       .rejects.toMatchObject({ code: 'UNSUPPORTED_TEMPERATURE', deviceName: 'M1', temperature: 50, parameter });
   });
-  it.each(['TEMP', 'DTEMP'])('rejects unported instance %s rather than ignoring it', async parameter => {
-    await expect(simulate(deck('n-tnom27-temp50').replace('W=10u', `W=10u ${parameter}=80`)))
-      .rejects.toMatchObject({ code: 'UNSUPPORTED_TEMPERATURE', deviceName: 'M1', parameter });
+  it.each(['TEMP', 'DTEMP'])('still rejects unported model laws with instance %s', async parameter => {
+    await expect(simulate(deck('n-tnom27-temp50').replace('W=10u', `W=10u ${parameter}=80`)
+      .replace('LEVEL=6', 'LEVEL=6 UTE=0.1')))
+      .rejects.toMatchObject({ code: 'UNSUPPORTED_TEMPERATURE', deviceName: 'M1', parameter: 'UTE',
+        temperature: parameter === 'TEMP' ? 80 : 130 });
   });
   it('guards direct temperature hooks without mutating the last valid state', () => {
     const circuit = parse(deck('n-tnom27-temp27').replace('LEVEL=6', 'LEVEL=6 UTE=0.1')).compile();
