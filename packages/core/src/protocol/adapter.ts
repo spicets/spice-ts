@@ -18,6 +18,7 @@ import type {
   TransientResultV1,
 } from './types.js';
 import { Circuit, type CompiledCircuit } from '../circuit.js';
+import { VoltageSource } from '../devices/voltage-source.js';
 import { operatingPointReport } from '../op-report.js';
 import {
   ConvergenceError,
@@ -493,6 +494,33 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     addComponent(circuit, component);
   }
   for (const [index, analysis] of document.analyses.entries()) {
+    if (analysis.type === 'sens') {
+      const path = `/input/document/analyses/${index}`;
+      if (analysis.mode !== 'dc') invalidNativeField(`${path}/mode`);
+      for (const field of ['outputNode', 'outputReferenceNode'] as const) {
+        if (field === 'outputReferenceNode' && analysis[field] === undefined) continue;
+        if (typeof analysis[field] !== 'string' || !analysis[field].trim()) invalidNativeField(`${path}/${field}`);
+      }
+      if (analysis.outputType !== undefined && !['voltage', 'current'].includes(analysis.outputType)) invalidNativeField(`${path}/outputType`);
+      if (analysis.outputType === 'current' && analysis.outputReferenceNode !== undefined) invalidNativeField(`${path}/outputReferenceNode`);
+      for (const field of Object.keys(analysis)) {
+        if (!['type', 'mode', 'outputNode', 'outputReferenceNode', 'outputType'].includes(field)) {
+          invalidNativeField(`${path}/${field.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+        }
+      }
+      // Use expanded nodes/devices rather than potentially stale declared net labels.
+      const compiled = circuit.compile();
+      if (analysis.outputType === 'current') {
+        const source = compiled.devices.find(device => device.name.toLowerCase() === analysis.outputNode.toLowerCase());
+        if (!(source instanceof VoltageSource)) invalidNativeField(`${path}/outputNode`);
+      } else {
+        for (const field of ['outputNode', 'outputReferenceNode'] as const) {
+          const name = analysis[field]?.toLowerCase();
+          if (name === undefined || name === '0' || name === 'gnd') continue;
+          if (![...compiled.nodeIndexMap].some(([node, index]) => node.toLowerCase() === name && index >= 0)) invalidNativeField(`${path}/${field}`);
+        }
+      }
+    }
     if (analysis.type === 'tf') {
       const path = `/input/document/analyses/${index}`;
       if (typeof analysis.source !== 'string' || !/^[^\s]+$/.test(analysis.source)) invalidNativeField(`${path}/source`);
@@ -605,6 +633,7 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
     case 'ac': circuit.addAnalysis('ac', analysis); break;
     case 'sp': circuit.addAnalysis('sp', analysis); break;
     case 'disto': circuit.addAnalysis('disto', analysis); break;
+    case 'sens': circuit.addAnalysis('sens', analysis); break;
     case 'tf': {
       const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(analysis.output);
       const current = /^i\(\s*(v[^\s(),]*)\s*\)$/i.exec(analysis.output);
@@ -613,6 +642,7 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
       else invalidNativeField('/input/document/analyses/output');
       break;
     }
+
   }
 }
 

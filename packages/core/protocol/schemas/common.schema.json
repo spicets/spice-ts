@@ -176,6 +176,9 @@
           "$ref": "#/$defs/distoAnalysis"
         },
         {
+          "$ref": "#/$defs/sensitivityAnalysis"
+        },
+        {
           "type": "object",
           "required": [
             "type",
@@ -247,6 +250,56 @@
         }
       },
       "additionalProperties": false
+    },
+    "sensitivityAnalysis": {
+      "type": "object",
+      "required": [
+        "type",
+        "mode",
+        "outputNode"
+      ],
+      "properties": {
+        "type": {
+          "const": "sens"
+        },
+        "mode": {
+          "const": "dc"
+        },
+        "outputNode": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "outputReferenceNode": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "outputType": {
+          "enum": [
+            "voltage",
+            "current"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outputType": {
+                "const": "current"
+              }
+            },
+            "required": [
+              "outputType"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outputReferenceNode": false
+            }
+          }
+        }
+      ]
     },
     "poleZeroAnalysis": {
       "type": "object",
