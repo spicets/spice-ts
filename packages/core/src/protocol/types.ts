@@ -14,8 +14,10 @@ export interface SParameterAnalysisV1 { type: 'sp'; variation: 'dec' | 'oct' | '
 export interface DistoAnalysisV1 { type: 'disto'; variation: 'dec'; points: number; startFreq: number; stopFreq: number; f2OverF1?: number }
 /** Independent-source params.distortionF1 / distortionF2 (DISTOF1 / DISTOF2). */
 export interface DistortionExcitationV1 { magnitude: number; phase?: number }
-/** DC sensitivity; outputNode names a voltage source for current output. Defaults to voltage. */
-export interface SensitivityAnalysisV1 { type: 'sens'; mode: 'dc'; outputNode: string; outputReferenceNode?: string; outputType?: 'voltage' | 'current' }
+/** DC or AC sensitivity; outputNode names a voltage source for current output. Defaults to voltage. */
+export type SensitivityAnalysisV1 = {
+  type: 'sens'; outputNode: string; outputReferenceNode?: string; outputType?: 'voltage' | 'current';
+} & ({ mode: 'dc' } | { mode: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number });
 export type { TfAnalysisV1, TfResultV1 } from './wire/types.js';
 export type NativeAnalysisV1 = AnalysisV1 | SParameterAnalysisV1 | DistoAnalysisV1 | SensitivityAnalysisV1 | import('./wire/types.js').TfAnalysisV1;
 

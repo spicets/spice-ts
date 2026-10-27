@@ -1,0 +1,11 @@
+BJT instance temperature #1852, original MIT fixture
+VC vc 0 -5
+VB vb 0 -0.8
+RL vc c 100
+RB vb b 1k
+Q1 c b 0 QM DTEMP=23
+.model QM pnp TNOM=27 IS=1e-14 BF=150 BR=4 XTB=1.5 ISE=1e-13 NE=1.5 ISC=2e-13 NC=2
++ CJE=10p CJC=5p VJE=0.75 VJC=0.7 VAF=60 IKF=10m
+.options temp=27 reltol=1e-10 abstol=1e-15 vntol=1e-12
+.dc VB -0.5 -0.8 -0.005
+.end
