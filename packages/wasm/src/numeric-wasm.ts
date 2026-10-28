@@ -1,4 +1,4 @@
-import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, preflightTopology, VCCS, VCVS, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
 import type {
   JsonObject,
   SimulationRequestV1,
@@ -720,11 +720,28 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     || compiled.analyses.length !== 1 || compiled.analyses[0]?.type !== analysis) {
     unsupported('analysis', `Exactly one unstepped .${analysis} analysis is supported`);
   }
-  const devices = analysis === 'op' || analysis === 'dc'
-    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W']
-    : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
+  const devices = ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
   if (compiled.devices.some(device => !devices.includes(deviceType(device.name) ?? ''))) {
     unsupported('device', `Only ${devices.join(', ')} devices are supported for .${analysis}`);
+  }
+  // Newly supported DC capacitors must follow core's topology policy, including
+  // rejecting capacitor-only nodes before optional numerical gmin is applied.
+  if ((analysis === 'op' || analysis === 'dc')
+    && compiled.devices.some(device => deviceType(device.name) === 'C')) {
+    // Match core protocol locations using original lines, not normalized cards.
+    const paths = new Map<string, string>();
+    source.split(/\r?\n/).forEach((line, index) => {
+      const trimmed = line.trim();
+      if (trimmed === '' || trimmed.startsWith('*') || trimmed.startsWith('.')) return;
+      const name = trimmed.split(/\s+/, 1)[0];
+      if (name) paths.set(name.toUpperCase(), `/input/source/lines/${index}`);
+    });
+    preflightTopology(compiled, deviceName => {
+      const rootName = deviceName.split('.', 1)[0]!.toUpperCase();
+      return paths.get(deviceName.toUpperCase())
+        ?? paths.get(rootName)
+        ?? `/compiled/devices/${deviceName.replaceAll('~', '~0').replaceAll('/', '~1')}`;
+    });
   }
   validateControlledSourceValues(compiled);
   validateSwitchValues(compiled);
@@ -828,9 +845,7 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
 }
 
 function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', temperatureEnabled: boolean): void {
-  const allowedDevices = analysis === 'op' || analysis === 'dc'
-    ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W']
-    : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
+  const allowedDevices = ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
   for (const card of cards) {
     if (/^\.options\b/i.test(card)) {
       const options = card.replace(/^\.options\s*/i, '');
