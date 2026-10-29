@@ -3090,3 +3090,16 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
 - Six decks cover NMOS/PMOS with TEMP=75, DTEMP=20, or TEMP=75 plus DTEMP=20 at circuit TEMP=40. Compare every saved node voltage and source current in OP and 61-point gate DC sweeps. Strict maximum relative error <=1e-6 with no absolute floor (expected zero requires exact zero). Identical Newton settings across every deck: RELTOL=1e-12, ABSTOL=1e-20, VNTOL=1e-16, matching the existing MOS2 fixture policy to resolve tiny off-state values. No comparison-tolerance tuning.
 - Before/after worst relative error: n-temp/n-both 1.0000020731469028 -> 6.326616566333835e-8; n-dtemp 1.0000283663007765 -> 3.0612747774503273e-9; p-temp/p-both 1.000000989459728 -> 6.326616566333835e-8; p-dtemp 1.0000060833954625 -> 3.0612747774503273e-9.
 - Compare: `spice-heavy pnpm -C packages/core exec vitest run src/devices/mos1-instance-temperature-1856.test.ts`. Also covers repeated circuit TEMP sweep restoration, structured invalid-temperature rejection with last-valid-state preservation, initial ambient resolution, and AC/transient equivalence with nonzero bulk and gate capacitances. This is correctness evidence, not a speed claim.
+
+## Embedded sensor/ADC bucket (#1900, #1889)
+
+- Original project-authored MIT-licensed netlists in [embedded-sensors-1889](embedded-sensors-1889/); source: https://github.com/spicets/spice-ts. No third-party netlists or model cards copied. Idealized examples are not hardware validation.
+- The fixed-resistance thermistor approximates one operating point, not a temperature-dependent model. Both engines receive the same committed bytes. Reproduce with `spice-heavy pnpm exec tsx benchmarks/embedded-sensors-1889/run.ts`; validate the receipt offline with `node --test benchmarks/embedded-sensors-1889/report.test.mjs`.
+- SHA-256 per deck:
+  - `anti-alias.cir`: `08957c2c44dbfa863197b2e791af9bc3d4f7eb5eaa0e5ccea95952cdcafa32b5`
+  - `two-stage.cir`: `3cdba8abfd9f9ba55a946dd5710b528c5a11077146e4a609bc4b5143e719cb78`
+  - `loaded-divider.cir`: `248c0e48cbee9c12817932d4051627e4c54a658d772dd3c76494c628f81148df`
+  - `thermistor.cir`: `4d592fb182458a11b2559333f8a7ae228a0c2cb4847bd24b98dc113efa481805`
+  - `differential.cir`: `31da390e323c8d5ae3032e5db010259492ac13a97d9218073d85d157e72542d9`
+  - `rlc-input.cir`: `d8c47ba80ad513e8e139abdfc66537b6025b366cc19be84c6c073954d9efcf46`
+  - `shunt-sense.cir`: `15fd2add903919c92817448a8e54f7d7efbbeaa6c10afb45c91b33888ffc49b2`
