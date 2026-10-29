@@ -22,7 +22,7 @@ const CAPABILITIES: ProtocolCapabilitiesV1 = {
   analyses: [
     { id: 'analysis:op', type: 'op' },
     { id: 'analysis:dc', type: 'dc' },
-    { id: 'analysis:tran', type: 'tran' },
+    { id: 'analysis:tran', type: 'tran', features: ['measurements:tran'] },
     { id: 'analysis:ac', type: 'ac' },
     { id: 'analysis:tf', type: 'tf' },
   ],

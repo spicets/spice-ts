@@ -19,10 +19,24 @@ const numberSeriesRecord: Schema = { type: 'object', additionalProperties: array
 const dcSweepProperties = { source: { type: 'string', pattern: '^\\S+$' }, start: number, stop: number, step: { type: 'number', not: { const: 0 } } };
 const dcAxis = object(['name', 'unit', 'values'], { name: string, unit: { enum: ['V', 'A'] }, values: array(number) });
 
+const measurementVector = { type: 'string', pattern: '^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$' };
+const crossing = object(['vector', 'value'], { vector: measurementVector, value: number, rise: { oneOf: [integer(1), { const: 'last' }] }, fall: { oneOf: [integer(1), { const: 'last' }] }, cross: { oneOf: [integer(1), { const: 'last' }] }, td: number });
+const measurementName = { type: 'string', pattern: '^[a-zA-Z][a-zA-Z0-9_]*$' };
+const measurement: Schema = { oneOf: [
+  object(['name', 'kind', 'trig', 'targ'], { name: measurementName, kind: { const: 'trig' }, trig: crossing, targ: crossing }),
+  object(['name', 'kind', 'vector', 'at'], { name: measurementName, kind: { const: 'find' }, vector: measurementVector, at: number }),
+  object(['name', 'kind', 'vector', 'when'], { name: measurementName, kind: { const: 'find' }, vector: measurementVector, when: crossing }),
+  object(['name', 'kind', 'vector'], { name: measurementName, kind: { enum: ['avg', 'min', 'max', 'pp', 'rms', 'integ'] }, vector: measurementVector, from: number, to: number }),
+] };
+const measurementResult: Schema = { oneOf: [
+  object(['name', 'value'], { name: string, value: number, unit: string }),
+  object(['name', 'diagnostic'], { name: string, diagnostic: object(['code', 'message'], { code: { const: 'MEASUREMENT_FAILED' }, message: string }) }),
+] };
+
 const analysis: Schema = { oneOf: [
   object(['type'], { type: { const: 'op' } }),
   object(['type', 'source', 'start', 'stop', 'step'], { type: { const: 'dc' }, ...dcSweepProperties, secondary: object(['source', 'start', 'stop', 'step'], dcSweepProperties) }),
-  object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 }, uic: { const: true }, fourier: object(['fundamentalHz', 'outputs'], {
+  object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 }, uic: { const: true }, measurements: { type: 'array', maxItems: 100, items: measurement }, fourier: object(['fundamentalHz', 'outputs'], {
     fundamentalHz: { type: 'number', exclusiveMinimum: 0 }, harmonics: { type: 'integer', minimum: 1, maximum: 199 },
     outputs: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'string', pattern: '^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[^\\s(),]+\\s*\\))$' } },
   }) }),
@@ -129,7 +143,7 @@ const fourierResult = object(['vector', 'fundamental', 'gridSize', 'degree', 'pe
     harmonic: integer(), frequency: nullableNumber, magnitude: nullableNumber, phase: nullableNumber, normalizedMagnitude: nullableNumber, normalizedPhase: nullableNumber,
   })),
 });
-const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'currentsA'], { type: { const: 'tran' }, ...commonResult, timeS: array(number), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord, fourier: array(fourierResult) });
+const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'currentsA'], { type: { const: 'tran' }, ...commonResult, timeS: array(number), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord, fourier: array(fourierResult), measurements: array(measurementResult) });
 const acResult = object(['type', 'analysisIndex', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, ...commonResult, frequencyHz: array({ type: 'number', minimum: 0 }), voltagePhasors: complexSeriesRecord, currentPhasors: complexSeriesRecord });
 const simulationResult = object(['status', 'analyses'], { status: { const: 'complete' }, analyses: array(ref('analysisResult')) });
 const tfResult = object(['type', 'analysisIndex', 'transferFunction', 'inputResistanceOhm', 'outputResistanceOhm'], { type: { const: 'tf' }, ...commonResult, transferFunction: number, inputResistanceOhm: number, outputResistanceOhm: number });

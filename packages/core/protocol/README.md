@@ -12,6 +12,33 @@ Result hashes cover only canonical `SimulationResultV1`. Partial hashes cover ca
 
 Committed schemas are in `schemas/`; the exported `protocolSchemasV1` registry contains the same documents. Shared positive and negative conformance fixtures are in `fixtures/`. Structural constraints live in JSON Schema; cross-field rules (case-insensitive uniqueness, sorted record keys, series lengths, stream point ordering/discriminators, and canonical number diagnostics) are checked by `checkConformanceV1`.
 
+## Native transient measurements
+
+Native `tran` requests may include up to 100 `measurements`, evaluated independently
+for each analysis and each step with the same core evaluator as SPICE `.meas`:
+
+```json
+{ "type": "tran", "timestep": 0.00001, "stopTime": 0.001,
+  "measurements": [
+    { "name": "delay", "kind": "trig", "trig": { "vector": "v(out)", "value": 0.2, "rise": 1 }, "targ": { "vector": "v(out)", "value": 0.2, "fall": 1 } },
+    { "name": "sample", "kind": "find", "vector": "v(out)", "at": 0.0002 },
+    { "name": "cross", "kind": "find", "vector": "v(in)", "when": { "vector": "v(out)", "value": 0.2, "rise": 1 } },
+    { "name": "rms", "kind": "rms", "vector": "v(out)", "from": 0, "to": 0.001 }
+  ] }
+```
+
+Window functions are `avg`, `min`, `max`, `pp`, `rms`, and `integ`; `from` and
+`to` are optional. Crossings support one of `rise`, `fall`, or `cross` (positive
+integer or `"last"`) and optional `td`. Names are case-insensitively unique;
+results use lower-case names, matching text `.meas`. Vector operands follow the
+core `.meas` vector resolver; unresolved operands yield a failed measurement.
+Results contain either `{ name, value }` or `{ name, diagnostic: { code:
+"MEASUREMENT_FAILED", message } }`. Invalid requests yield `INVALID_REQUEST`
+with a JSON pointer. `solve:measurement` checks cancellation and wall time
+before each synchronous measurement. The capability envelope advertises
+`measurements:tran` on the transient analysis. Only native `spice-ts` documents
+are supported; this does not change the numerical evaluator or WASM.
+
 ## Native transient Fourier tables
 
 Each native `tran` analysis may request its own Fourier tables:
