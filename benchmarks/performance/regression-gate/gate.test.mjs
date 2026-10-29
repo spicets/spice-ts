@@ -16,6 +16,13 @@ test('exactly ten percent passes, 10.01 percent fails', () => {
   candidate.cases['rc-10'].samples.forEach(s => { s.warm = 110.01; });
   assert.equal(compare(base, candidate).ok, false);
 });
+test('different package versions compare normally and remain in receipts', () => {
+  const base = receipt(), candidate = receipt();
+  candidate.version = '0.4.1';
+  assert.equal(compare(base, candidate).ok, true);
+  assert.equal(base.version, '0.4.0');
+  assert.equal(candidate.version, '0.4.1');
+});
 test('missing and invalid baselines fail', () => {
   assert.throws(() => compare(null, receipt()));
   const base = receipt(); base.cases['rc-100'].samples[0].cold = 0;
@@ -23,8 +30,8 @@ test('missing and invalid baselines fail', () => {
   const short = receipt(); short.cases['rc-10'].samples.pop();
   assert.throws(() => compare(short, receipt()));
 });
-test('mismatched output, deck, runtime and environment fail', () => {
-  for (const change of [r => r.cases['rc-10'].deck = 'c'.repeat(64), r => r.cases['rc-10'].samples[0].output = 'c'.repeat(64), r => r.runtime = 'other', r => r.environment = 'other']) {
+test('mismatched output, deck, engine, runtime and environment fail', () => {
+  for (const change of [r => r.cases['rc-10'].deck = 'c'.repeat(64), r => r.cases['rc-10'].samples[0].output = 'c'.repeat(64), r => r.engine = 'other', r => r.runtime = 'other', r => r.environment = 'other']) {
     const r = receipt(); change(r); assert.throws(() => compare(receipt(), r));
   }
 });

@@ -25,7 +25,7 @@ function validate(r) {
 export function compare(base, candidate) {
   const count = validate(base);
   if (validate(candidate) !== count) throw new Error('sample count mismatch');
-  for (const k of ['engine', 'version', 'runtime', 'environment']) if (base[k] !== candidate[k]) throw new Error(`${k} mismatch`);
+  for (const k of ['engine', 'runtime', 'environment']) if (base[k] !== candidate[k]) throw new Error(`${k} mismatch`);
   const rows = [];
   for (const id of cases) {
     const a = base.cases[id], b = candidate.cases[id];

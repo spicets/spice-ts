@@ -4,7 +4,7 @@ The PR workflow checks out the event base and head commits separately, builds bo
 
 Each cold sample measures a fresh Node process including startup, module import, parsing, simulation, and output hashing. Each warm sample measures a second parse and simulation in a fresh process after one untimed run with the module already imported. Output hashing is outside the warm timer. This is a same-engine regression check, not an ngspice comparison or a 0.3.x performance claim.
 
-The worker checks every transient time, voltage and current value is finite and hashes all vector names, lengths and IEEE-754 values. Every sample and both revisions must match exactly. Equal hashes mean matched-point max and RMS errors are both zero; no tolerance is applied. Metadata, sample counts, timing validity and deck hashes must also match. A median exceeding 110% of base fails. CI uploads raw samples, decks, SHA metadata, medians and errors even when the comparison fails.
+The worker checks every transient time, voltage and current value is finite and hashes all vector names, lengths and IEEE-754 values. Every sample and both revisions must match exactly. Equal hashes mean matched-point max and RMS errors are both zero; no tolerance is applied. Engine, runtime, environment, sample counts and deck hashes must also match, and timings must be valid. Each receipt records its revision's package version, which may differ. A median exceeding 110% of base fails. CI uploads raw samples, decks, SHA metadata, medians and errors even when the comparison fails.
 
 Run locally after building core at each revision:
 
