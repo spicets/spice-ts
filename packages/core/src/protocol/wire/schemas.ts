@@ -112,6 +112,7 @@ const simulationInput: Schema = { oneOf: [
 ] };
 const limits = object([], Object.fromEntries(['maxSourceBytes', 'maxVirtualFiles', 'maxIncludeDepth', 'maxComponents', 'maxSubcircuitDepth', 'maxAnalyses', 'maxResultPoints', 'maxSerializedResultBytes', 'maxWallTimeMs'].map((key) => [key, integer()])));
 const options = object([], {
+  temperature: { type: 'number', exclusiveMinimum: -273.15 }, nominalTemperature: { type: 'number', exclusiveMinimum: -273.15 },
   backend, determinism, limits: ref('limits'), abstol: { type: 'number', minimum: 0 }, vntol: { type: 'number', minimum: 0 }, reltol: { type: 'number', minimum: 0 },
   maxIterations: integer(1), maxTransientIterations: integer(1), maxTimestep: { type: 'number', exclusiveMinimum: 0 }, integrationMethod: { enum: ['euler', 'trapezoidal', 'gear2'] }, trtol: { type: 'number', exclusiveMinimum: 0 }, gmin: { type: 'number', minimum: 0 },
 });
@@ -143,6 +144,7 @@ const apiError = object(['code', 'message', 'retryable', 'phase', 'details'], {
   message: string, retryable: { type: 'boolean' }, phase: { enum: ['validation', 'parse', 'compile', 'solve', 'serialize', 'transport'] }, details: { type: 'object', additionalProperties: ref('jsonValue') },
 });
 const resolvedOptionsProperties = {
+  temperature: { type: 'number', exclusiveMinimum: -273.15 }, nominalTemperature: { type: 'number', exclusiveMinimum: -273.15 },
   backend, abstol: number, vntol: number, reltol: number, maxIterations: integer(), maxTransientIterations: integer(), maxTimestep: number,
   integrationMethod: { enum: ['euler', 'trapezoidal', 'gear2'] }, trtol: number, gmin: number, determinism, limits: ref('limits'),
 };

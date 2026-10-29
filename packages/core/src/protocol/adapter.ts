@@ -105,7 +105,9 @@ export async function operatingPointReportProtocolV1(request: SimulationRequestV
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   // Preserve OP report semantics: SPICE analysis/control commands are ignored.
-  const input = request.input.format === 'spice' ? request.input.source : await requestCircuit(request, guard);
+  const input = request.input.format === 'spice'
+    ? applyProtocolTemperatures(await parseTitlelessAsync(request.input.source), request.options)
+    : await requestCircuit(request, guard);
   return operatingPointReport(input, coreOptions(request.options));
 }
 
@@ -317,6 +319,18 @@ function jsonPointerSegment(value: string): string {
   return value.replaceAll('~', '~0').replaceAll('/', '~1');
 }
 
+function applyProtocolTemperatures(circuit: Circuit, options?: SimulationOptionsV1): Circuit {
+  for (const field of ['temperature', 'nominalTemperature'] as const) {
+    const value = options?.[field];
+    if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value <= -273.15)) {
+      throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', message: `${field} must be a finite Celsius value above absolute zero`, phase: 'validation', retryable: false, details: { path: `/options/${field}` } });
+    }
+  }
+  if (options?.temperature !== undefined) circuit.setTemperature(options.temperature);
+  if (options?.nominalTemperature !== undefined) circuit.setNominalTemperature(options.nominalTemperature);
+  return circuit;
+}
+
 async function requestCircuit(
   request: SimulationRequestV1,
   guard: ProtocolExecutionGuard,
@@ -332,10 +346,10 @@ async function requestCircuit(
       // Interpreted ngspice control scripts run an open-ended analysis sequence
       // that the protocol's per-analysis limits and result envelope cannot bound.
       if (circuit.controlScript) throw new UnsupportedProtocolAnalysisError('.control script');
-      return circuit;
+      return applyProtocolTemperatures(circuit, request.options);
     }
     case 'spice-ts':
-      return circuitFromDocument(request.input.document, guard);
+      return applyProtocolTemperatures(circuitFromDocument(request.input.document, guard), request.options);
     case 'circuit-json':
       throw new InvalidCircuitError('circuit-json conversion is owned by @spice-ts/circuit-json and is unavailable in core');
   }

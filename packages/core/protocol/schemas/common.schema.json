@@ -958,6 +958,14 @@
       "type": "object",
       "required": [],
       "properties": {
+        "temperature": {
+          "type": "number",
+          "exclusiveMinimum": -273.15
+        },
+        "nominalTemperature": {
+          "type": "number",
+          "exclusiveMinimum": -273.15
+        },
         "backend": {
           "enum": [
             "spice-ts-js",
@@ -1617,6 +1625,14 @@
         "determinism"
       ],
       "properties": {
+        "temperature": {
+          "type": "number",
+          "exclusiveMinimum": -273.15
+        },
+        "nominalTemperature": {
+          "type": "number",
+          "exclusiveMinimum": -273.15
+        },
         "backend": {
           "enum": [
             "spice-ts-js",
