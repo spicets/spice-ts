@@ -8,7 +8,9 @@
     "arch": "arm64",
     "cpu": "Apple M5 Pro"
   },
-  "coreTree": "37d8ce05a186eb0b29ea1d43e7fe11fe6a3951bd",
+  "coreTree": "305d6e9fcf8ac5dc253fc6b893b34b402b532ab9",
+  "coreBundleSha256": "42dd8dadae0dfa97ff2ecd6eaeb75be59cf25ed91fb4c09f3819f5a0ffbb457f",
+  "coreBuildCommand": "pnpm -C packages/core build (after removing packages/core/dist)",
   "command": "spice-heavy pnpm exec tsx benchmarks/embedded-gpio-1889/run.ts",
   "matchRule": "matched = both engines succeed, every spice-ts analysis has an ngspice counterpart, and for every common signal max|spice-ts - ngspice| <= 0.01 x max(peak |ngspice signal|, floor). The floor is uniform per quantity (#593): 0.0001 V for node voltages v(...) and 1e-10 A for branch currents i(...), so a signal whose ngspice peak is zero or tiny matches when the absolute difference is at most the ngspice-47 default VNTOL (0.000001 V) or ABSTOL (1e-12 A); every other quantity (pole/zero roots, noise spectra) keeps 1e-12. Deck .options tolerances are not consulted. Errors are taken at spice-ts points with ngspice interpolated (transient breakpoint alignment as in the aggregate report).",
   "runtimeNote": "Cold process wall time including adapter and startup; not solver-only or browser performance.",
@@ -155,8 +157,8 @@
         }
       ],
       "runtime": {
-        "ngspiceWallMs": 82.87195800000006,
-        "spiceTsWallMs": 1052.814042
+        "ngspiceWallMs": 37.5408750000006,
+        "spiceTsWallMs": 496.93974999999955
       }
     },
     {
@@ -359,8 +361,8 @@
         }
       ],
       "runtime": {
-        "ngspiceWallMs": 36.424749999999904,
-        "spiceTsWallMs": 844.0117500000001
+        "ngspiceWallMs": 27.78216600000087,
+        "spiceTsWallMs": 527.4626669999998
       }
     },
     {
@@ -592,8 +594,8 @@
         }
       ],
       "runtime": {
-        "ngspiceWallMs": 48.49737499999992,
-        "spiceTsWallMs": 704.1213749999997
+        "ngspiceWallMs": 33.765166999999565,
+        "spiceTsWallMs": 577.4063750000005
       }
     },
     {
@@ -825,8 +827,8 @@
         }
       ],
       "runtime": {
-        "ngspiceWallMs": 32.6701250000001,
-        "spiceTsWallMs": 757.1233749999997
+        "ngspiceWallMs": 30.659999999999854,
+        "spiceTsWallMs": 542.510209
       }
     },
     {
@@ -1087,8 +1089,8 @@
         }
       ],
       "runtime": {
-        "ngspiceWallMs": 43.65091600000051,
-        "spiceTsWallMs": 635.0158339999998
+        "ngspiceWallMs": 32.66462500000125,
+        "spiceTsWallMs": 567.6036669999994
       }
     },
     {
@@ -1233,8 +1235,8 @@
         }
       ],
       "runtime": {
-        "ngspiceWallMs": 30.893874999999753,
-        "spiceTsWallMs": 710.9811669999999
+        "ngspiceWallMs": 29.69945800000096,
+        "spiceTsWallMs": 549.4274580000001
       }
     }
   ]

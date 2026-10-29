@@ -27,23 +27,16 @@ for details; RMS/absolute metrics are retained under `comparisons`.
 
 ## Observed results
 
-On the machine and versions in `report.json`, all six completed on both engines
-and met the shared criterion. The initial baseline for these new fixtures was no
-corpus or measurement; no speedup from this change is claimed. Worst normalized
-errors and cold process wall times are below. Times include process startup and
-adapter overhead, are one sample each, and do **not** predict browser or
-steady-state solver performance.
+The committed `report.json` is the authoritative source of observed outcomes,
+errors and timings; inspect its `fixtures` array for all six decks, including
+any losses. The initial baseline was no corpus or measurement; no speedup is
+claimed. Timings are single samples in fixed engine order, include process
+startup and adapter overhead, and do **not** predict browser or steady-state
+solver performance.
 
-| Deck | Outcome | Worst normalized error | ngspice ms | spice-ts ms |
-|---|---|---:|---:|---:|
-| gpio-led | matched | 0.000347 | 82.87 | 1052.81 |
-| gpio-open-drain | matched | 0.00000759 | 36.42 | 844.01 |
-| gpio-npn-switch | matched | 0.0000074 | 48.50 | 704.12 |
-| gpio-mosfet-load | matched | 0.0000354 | 32.67 | 757.12 |
-| gpio-flyback | matched | 0.000681 | 43.65 | 635.02 |
-| gpio-debounce | matched | 3.42e-13 | 30.89 | 710.98 |
+The runner rejects dirty core inputs, removes the ignored core build output,
+rebuilds it, and records both the clean core tree and built bundle SHA-256.
 
 This is a **partial GPIO bucket**, not the requested 20–30 circuit corpus.
 Buck/boost, H-bridge, ADC anti-alias, RLC and additional embedded circuits remain
-in #1889. No simulator gap was found in these six; outcomes would include losses
-rather than filtering them out.
+in #1889. Outcomes include losses rather than filtering them out.
