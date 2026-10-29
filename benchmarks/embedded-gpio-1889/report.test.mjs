@@ -15,8 +15,13 @@ function validateReport(report) {
     const bytes = readFileSync(`${root}/${row.id}.cir`);
     assert.equal(createHash('sha256').update(bytes).digest('hex'), row.sha256);
     assert.ok(['matched', 'mismatch', 'spice-ts-loss', 'ngspice-failed', 'both-failed', 'not-compared'].includes(row.outcome), row.outcome);
-    assert.ok(row.ngspice.status);
-    assert.ok(row.spiceTs.status);
+    const ng = row.ngspice.status;
+    const spice = row.spiceTs.status;
+    assert.ok(['success', 'failed', 'unsupported'].includes(ng), `invalid ngspice status: ${ng}`);
+    assert.ok(['success', 'failed', 'unsupported'].includes(spice), `invalid spice-ts status: ${spice}`);
+    const allowed = ng !== 'success' ? [spice !== 'success' ? 'both-failed' : 'ngspice-failed']
+      : spice !== 'success' ? ['spice-ts-loss'] : ['matched', 'mismatch', 'not-compared'];
+    assert.ok(allowed.includes(row.outcome), `inconsistent outcome: ${ng}/${spice}/${row.outcome}`);
     assert.ok(row.runtime.ngspiceWallMs >= 0 && row.runtime.spiceTsWallMs >= 0);
     if (row.outcome === 'matched') assert.ok(row.comparedSignals > 0 && row.worstNormalizedError <= 0.01);
   }
@@ -26,12 +31,27 @@ test('every selected original GPIO deck has an honest, reproducible outcome', ()
   validateReport(JSON.parse(readFileSync(`${root}/report.json`, 'utf8')));
 });
 
-test('honestly reported engine failures and uncomparable results pass the gate', () => {
+test('report status pairs agree with each outcome', () => {
   const report = JSON.parse(readFileSync(`${root}/report.json`, 'utf8'));
-  for (const outcome of ['spice-ts-loss', 'ngspice-failed', 'both-failed', 'not-compared']) {
-    report.fixtures[0].outcome = outcome;
-    report.fixtures[0].spiceTs.status = 'failed';
-    validateReport(report);
+  const outcomes = ['matched', 'mismatch', 'spice-ts-loss', 'ngspice-failed', 'both-failed', 'not-compared'];
+  for (const ng of ['success', 'failed', 'unsupported']) {
+    for (const spice of ['success', 'failed', 'unsupported']) {
+      const allowed = ng !== 'success' ? [spice !== 'success' ? 'both-failed' : 'ngspice-failed']
+        : spice !== 'success' ? ['spice-ts-loss'] : ['matched', 'mismatch', 'not-compared'];
+      for (const outcome of outcomes) {
+        Object.assign(report.fixtures[0], { outcome });
+        report.fixtures[0].ngspice.status = ng;
+        report.fixtures[0].spiceTs.status = spice;
+        const check = () => validateReport(report);
+        if (allowed.includes(outcome)) assert.doesNotThrow(check, `${ng}/${spice}/${outcome}`);
+        else assert.throws(check, undefined, `${ng}/${spice}/${outcome}`);
+      }
+    }
+  }
+  for (const engine of ['ngspice', 'spiceTs']) {
+    const invalid = JSON.parse(readFileSync(`${root}/report.json`, 'utf8'));
+    invalid.fixtures[0][engine].status = 'unknown';
+    assert.throws(() => validateReport(invalid), undefined, `${engine} unknown status`);
   }
 });
 
