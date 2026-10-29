@@ -1,0 +1,326 @@
+{
+  "description": "Cold fresh-process RC ladder operating-point wall time; solve includes validation and result mapping, ngspice includes output.",
+  "runs": 5,
+  "node": "v22.23.4",
+  "host": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M5 Pro",
+    "memoryBytes": 51539607552
+  },
+  "spiceTs": {
+    "version": "0.4.0",
+    "sha": "3e25974387b0aa107b47ecc6d6e9ac30b26660d6"
+  },
+  "ngspice": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n******",
+  "comparison030": "Not reproduced: no matching 0.3.0 run with this harness.",
+  "rows": [
+    {
+      "nodes": 10,
+      "netlistSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+      "samples": [
+        {
+          "spice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "importMs": 41.76112499999999,
+            "parseMs": 10.159042,
+            "setupMs": 10.631709,
+            "solveMs": 5.1575830000000025,
+            "totalMs": 121.26391699999999
+          },
+          "ngspice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "totalMs": 27.374666999999988
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "importMs": 36.165499999999994,
+            "parseMs": 9.624250000000004,
+            "setupMs": 11.295750000000012,
+            "solveMs": 5.139332999999979,
+            "totalMs": 115.04870799999998
+          },
+          "ngspice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "totalMs": 22.329291000000012
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "importMs": 42.455458,
+            "parseMs": 10.134584000000004,
+            "setupMs": 12.430499999999995,
+            "solveMs": 4.821791000000005,
+            "totalMs": 122.94462499999997
+          },
+          "ngspice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "totalMs": 29.162917000000107
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "importMs": 35.691582999999994,
+            "parseMs": 9.826499999999996,
+            "setupMs": 11.497083000000003,
+            "solveMs": 4.285958999999991,
+            "totalMs": 118.1142910000001
+          },
+          "ngspice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "totalMs": 25.358874999999898
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "importMs": 36.399874999999994,
+            "parseMs": 8.749166000000002,
+            "setupMs": 10.365583,
+            "solveMs": 4.130251000000001,
+            "totalMs": 111.90595799999994
+          },
+          "ngspice": {
+            "deckSha256": "e664109940aacb8f658ac77b525f275b41de83f05313153f3692f182c630cfd3",
+            "totalMs": 24.076416999999992
+          }
+        }
+      ],
+      "spice": {
+        "importMs": {
+          "median": 36.399874999999994,
+          "min": 35.691582999999994
+        },
+        "parseMs": {
+          "median": 9.826499999999996,
+          "min": 8.749166000000002
+        },
+        "setupMs": {
+          "median": 11.295750000000012,
+          "min": 10.365583
+        },
+        "solveMs": {
+          "median": 4.821791000000005,
+          "min": 4.130251000000001
+        },
+        "totalMs": {
+          "median": 118.1142910000001,
+          "min": 111.90595799999994
+        }
+      },
+      "ngspice": {
+        "median": 25.358874999999898,
+        "min": 22.329291000000012
+      }
+    },
+    {
+      "nodes": 100,
+      "netlistSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+      "samples": [
+        {
+          "spice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "importMs": 36.988917,
+            "parseMs": 13.471666999999997,
+            "setupMs": 11.53649999999999,
+            "solveMs": 6.034500000000023,
+            "totalMs": 146.2242500000001
+          },
+          "ngspice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "totalMs": 26.212125000000015
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "importMs": 36.227833000000004,
+            "parseMs": 13.274459000000007,
+            "setupMs": 11.883124999999993,
+            "solveMs": 5.667791000000008,
+            "totalMs": 119.5720409999999
+          },
+          "ngspice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "totalMs": 25.641582999999855
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "importMs": 37.557917,
+            "parseMs": 12.927208,
+            "setupMs": 11.118332999999993,
+            "solveMs": 5.619042000000007,
+            "totalMs": 120.74879099999998
+          },
+          "ngspice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "totalMs": 30.86504200000013
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "importMs": 41.071792,
+            "parseMs": 14.287334000000001,
+            "setupMs": 12.135374999999996,
+            "solveMs": 5.532250000000005,
+            "totalMs": 124.074208
+          },
+          "ngspice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "totalMs": 33.52595900000006
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "importMs": 38.421125,
+            "parseMs": 14.661166999999999,
+            "setupMs": 11.708792000000003,
+            "solveMs": 6.999707999999998,
+            "totalMs": 122.22312499999998
+          },
+          "ngspice": {
+            "deckSha256": "15ce8908b7465b56132cf0f97ed03d1e5f95c8ddfedba37b32bb4c02bfe71c5e",
+            "totalMs": 25.574958999999808
+          }
+        }
+      ],
+      "spice": {
+        "importMs": {
+          "median": 37.557917,
+          "min": 36.227833000000004
+        },
+        "parseMs": {
+          "median": 13.471666999999997,
+          "min": 12.927208
+        },
+        "setupMs": {
+          "median": 11.708792000000003,
+          "min": 11.118332999999993
+        },
+        "solveMs": {
+          "median": 5.667791000000008,
+          "min": 5.532250000000005
+        },
+        "totalMs": {
+          "median": 122.22312499999998,
+          "min": 119.5720409999999
+        }
+      },
+      "ngspice": {
+        "median": 26.212125000000015,
+        "min": 25.574958999999808
+      }
+    },
+    {
+      "nodes": 1000,
+      "netlistSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+      "samples": [
+        {
+          "spice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "importMs": 44.719916,
+            "parseMs": 54.63829100000001,
+            "setupMs": 18.592083000000002,
+            "solveMs": 15.484291999999996,
+            "totalMs": 184.34916700000008
+          },
+          "ngspice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "totalMs": 34.14912499999991
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "importMs": 36.754791999999995,
+            "parseMs": 36.672250000000005,
+            "setupMs": 18.32199999999999,
+            "solveMs": 15.124583000000001,
+            "totalMs": 161.5342079999998
+          },
+          "ngspice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "totalMs": 35.640542000000096
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "importMs": 36.493291,
+            "parseMs": 37.197416000000004,
+            "setupMs": 18.670125,
+            "solveMs": 15.485499999999988,
+            "totalMs": 163.15629200000012
+          },
+          "ngspice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "totalMs": 34.893249999999625
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "importMs": 37.280083000000005,
+            "parseMs": 36.304125000000006,
+            "setupMs": 18.752916999999997,
+            "solveMs": 15.108542,
+            "totalMs": 163.30258300000014
+          },
+          "ngspice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "totalMs": 34.15279099999998
+          }
+        },
+        {
+          "spice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "importMs": 36.986917000000005,
+            "parseMs": 36.953792,
+            "setupMs": 18.309541999999993,
+            "solveMs": 15.443791000000004,
+            "totalMs": 158.26520900000014
+          },
+          "ngspice": {
+            "deckSha256": "0d8e2b677411d9cfd5f4a0b1763e338115bb21b41f75ca06b31eadf4474072f8",
+            "totalMs": 35.82820800000036
+          }
+        }
+      ],
+      "spice": {
+        "importMs": {
+          "median": 36.986917000000005,
+          "min": 36.493291
+        },
+        "parseMs": {
+          "median": 36.953792,
+          "min": 36.304125000000006
+        },
+        "setupMs": {
+          "median": 18.592083000000002,
+          "min": 18.309541999999993
+        },
+        "solveMs": {
+          "median": 15.443791000000004,
+          "min": 15.108542
+        },
+        "totalMs": {
+          "median": 163.15629200000012,
+          "min": 158.26520900000014
+        }
+      },
+      "ngspice": {
+        "median": 34.893249999999625,
+        "min": 34.14912499999991
+      }
+    }
+  ]
+}
