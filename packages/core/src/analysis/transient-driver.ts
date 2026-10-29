@@ -136,6 +136,10 @@ export interface TransientSim {
   peekInitialStep(): TransientStep;
   /** Advance one converged timestep. Throws {@link ConvergenceError} on failure. */
   advance(): TransientStep;
+  /** Advance one accepted timestep. Alias for advance(). */
+  step(): TransientStep;
+  /** Advance to an exact accepted time, returning newly accepted samples. */
+  advanceTo(targetTime: number): TransientStep[];
   /** Convenience: loop {@link advance} until `simTime >= targetTime`. */
   advanceUntil(targetTime: number): TransientStep[];
   /** Change an independent DC source at the current accepted time. */
@@ -262,6 +266,7 @@ class TransientSimImpl implements TransientSim {
   private readonly reactiveTruncation: LinearReactiveTruncation;
 
   private time = 0;
+  private advanceTarget: number | undefined;
   private dt: number;
   private prevB: Float64Array | undefined;
   private historyWorkspace: Float64Array | undefined;
@@ -396,6 +401,10 @@ class TransientSimImpl implements TransientSim {
     return this.buildStep(this.advanceSolution());
   }
 
+  step(): TransientStep {
+    return this.advance();
+  }
+
   /**
    * Advance one accepted timepoint and return its solution vector without
    * building the name-keyed {@link TransientStep} Maps. Internal fast path for
@@ -407,6 +416,9 @@ class TransientSimImpl implements TransientSim {
     const prevSol = new Float64Array(this.assembler.solution);
     let discontinuityRecoveryAttempted = false;
     this.selectStep();
+    if (this.advanceTarget !== undefined) {
+      this.dt = Math.min(this.dt, this.advanceTarget - this.time);
+    }
     this.processEvents();
 
     while (true) {
@@ -418,15 +430,21 @@ class TransientSimImpl implements TransientSim {
       }
 
       let nextTime = this.time + this.dt;
+      if (nextTime <= this.time) throw new TimestepTooSmallError(this.time, this.dt);
       if (this.config.stopTime !== undefined && this.time < this.config.stopTime) {
         nextTime = Math.min(nextTime, this.config.stopTime);
       }
       const nextBreak = this.breakpoints.peek();
-      if (nextBreak !== undefined && nextTime >= nextBreak - MIN_BREAK) {
+      if (nextBreak !== undefined && nextTime >= nextBreak - MIN_BREAK
+        && (this.advanceTarget === undefined || nextBreak <= this.advanceTarget)) {
         // Snap to the breakpoint — either we'd cross it, or we're within
         // tolerance and would leave a microscopic leftover step on the
         // other side.
         nextTime = nextBreak;
+      }
+      if (this.advanceTarget !== undefined && nextTime === this.time + this.dt
+        && this.dt >= this.advanceTarget - this.time) {
+        nextTime = this.advanceTarget;
       }
       // ngspice dctran.c integrates with CKTdelta and advances CKTtime by it.
       // `(time + dt) - time` is not always `dt` in floating point; using the
@@ -587,7 +605,8 @@ class TransientSimImpl implements TransientSim {
         ? actualDt
         : Math.min(minimum, actualDt);
 
-      if (this.breakpoints.isNear(this.time)) {
+      if (this.breakpoints.isNear(this.time)
+        && (this.advanceTarget === undefined || this.breakpoints.peek()! <= this.time)) {
         this.breakpoints.pop();
         this.justCrossedBreakpoint = true;
       }
@@ -707,6 +726,22 @@ class TransientSimImpl implements TransientSim {
       if (this.isDone) break;
     }
     return steps;
+  }
+
+  advanceTo(targetTime: number): TransientStep[] {
+    if (this.disposed) throw new InvalidCircuitError('TransientSim has been disposed');
+    if (!Number.isFinite(targetTime) || targetTime < this.time
+      || (this.config.stopTime !== undefined && targetTime > this.config.stopTime)) {
+      throw new InvalidCircuitError('Target time must be finite and between the current time and stop time');
+    }
+    const steps: TransientStep[] = [];
+    this.advanceTarget = targetTime;
+    try {
+      while (this.time < targetTime) steps.push(this.advance());
+      return steps;
+    } finally {
+      this.advanceTarget = undefined;
+    }
   }
 
   setSourceValue(name: string, value: number): void {

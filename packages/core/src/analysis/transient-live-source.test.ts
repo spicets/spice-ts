@@ -27,10 +27,13 @@ R1 in out 1k
 C1 out 0 1u
 .tran 10u 4m
 .end`);
-    sim.advanceUntil(1e-3);
-    const changeTime = sim.simTime;
+    const target = 1e-3;
+    const before = sim.advanceTo(target);
+    expect(before.at(-1)!.time).toBe(target);
+    expect(sim.simTime).toBe(target);
+    const changeTime = target;
     sim.setSourceValue('V1', 1);
-    const samples = sim.advanceUntil(4e-3);
+    const samples = sim.advanceTo(4e-3);
     const reference = await simulate(`PWL reference
 V1 in 0 PWL(0 0 ${changeTime} 0 ${changeTime + 1e-9} 1 4m 1)
 R1 in out 1k

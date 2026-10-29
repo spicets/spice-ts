@@ -167,11 +167,11 @@ The resolver is platform-agnostic — use `fetch()` in the browser, `readFile()`
 ### Interactive transient simulation
 
 `createTransientSim` compiles a parsed circuit once and keeps the solver and device histories
-between calls. `advance()` returns one accepted sample; `advanceUntil(time)` returns new
-samples through the first accepted time at or beyond the requested time, or the configured
-stop time if the session has not already reached it. It does not force a sample exactly at
-the requested time. Check `isDone` before advancing and read `simTime` to know when the last
-sample was accepted.
+between calls. `step()` (also available as `advance()`) returns one accepted sample;
+`advanceTo(time)` returns new samples and lands at the exact requested accepted time. The
+finite target must be at or after `simTime` and no later than the configured stop time;
+requesting the current time returns an empty array. `advanceUntil(time)` retains its existing
+behavior: it may overshoot to the next accepted time. Check `isDone` before advancing.
 
 ```ts
 import { createTransientSim, parse } from '@spice-ts/core';
@@ -184,9 +184,9 @@ C1 out 0 1u
 .end`);
 const sim = await createTransientSim(circuit);
 const initial = sim.peekInitialStep();
-const before = sim.advanceUntil(1e-3);
+const before = sim.advanceTo(1e-3);
 sim.setSourceValue('Vgpio', 3.3);
-const after = sim.advanceUntil(2e-3);
+const after = sim.advanceTo(2e-3);
 sim.dispose();
 ```
 
@@ -195,8 +195,8 @@ current accepted time. Its new value applies to subsequent steps; the already-re
 does not change. Names are case-insensitive, values must be finite, and time-dependent sources
 and RF ports cannot be replaced. A change restarts integration order at the discontinuity but
 preserves the circuit's physical state. `reset()` restarts from a DC operating point using the
-latest source values. For a transition at a precise time, account for `advanceUntil` potentially
-overshooting it; scheduled source transitions are not supported by this method.
+latest source values. Use `advanceTo` before updating a source at a precise time; scheduled
+source transitions are not supported.
 
 ### `SimulationOptions`
 
