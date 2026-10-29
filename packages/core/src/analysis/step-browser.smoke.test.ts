@@ -70,7 +70,10 @@ async function pageDebuggerUrl(
           ? new URL(announcement).port
           : (await readFile(join(profileDirectory, 'DevToolsActivePort'), 'utf8')).split('\n')[0];
         const response = await fetch(`http://127.0.0.1:${port}/json/list`, {
-          signal: AbortSignal.timeout(Math.max(1, Math.ceil(Math.min(1_000, deadline - performance.now())))),
+          // DevTools can listen while Chrome's main thread is still starting.
+          // Aborting and retrying every second can starve every slow response;
+          // allow headers and body the remaining (still bounded) startup budget.
+          signal: AbortSignal.timeout(Math.max(1, Math.ceil(deadline - performance.now()))),
         });
         const targets = await response.json() as Array<{ type: string; webSocketDebuggerUrl: string }>;
         const page = targets.find(target => target.type === 'page');
@@ -203,15 +206,16 @@ describe('production browser step worker', () => {
     }
   });
 
-  it.each(['delayed page', 'hung endpoint'] as const)('handles a %s during startup', async mode => {
+  it.each(['delayed page', 'slow response', 'hung endpoint'] as const)('handles a %s during startup', async mode => {
     const profileDirectory = await mkdtemp(join(tmpdir(), 'spice-ts-starting-browser-'));
     temporaryDirectories.push(profileDirectory);
     let requests = 0;
-    const server = createServer((_request, response) => {
+    const server = createServer(async (_request, response) => {
       requests++;
       if (mode === 'hung endpoint') return;
+      if (mode === 'slow response') await delay(1_200);
       response.setHeader('content-type', 'application/json');
-      response.end(JSON.stringify(requests === 1 ? [] : [
+      response.end(JSON.stringify(mode === 'delayed page' && requests === 1 ? [] : [
         { type: 'page', webSocketDebuggerUrl: 'ws://example.test/page' },
       ]));
     });
@@ -221,10 +225,10 @@ describe('production browser step worker', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('No test server address');
       await writeFile(join(profileDirectory, 'DevToolsActivePort'), `${address.port}\n`);
-      const result = pageDebuggerUrl(profileDirectory, child, mode === 'delayed page' ? 2_000 : 150);
-      if (mode === 'delayed page') {
+      const result = pageDebuggerUrl(profileDirectory, child, mode === 'hung endpoint' ? 150 : 2_500);
+      if (mode !== 'hung endpoint') {
         await expect(result).resolves.toBe('ws://example.test/page');
-        expect(requests).toBe(2);
+        expect(requests).toBe(mode === 'delayed page' ? 2 : 1);
       } else {
         await expect(result).rejects.toThrow('Chrome DevTools endpoint did not become ready within 150ms');
         expect(requests).toBeGreaterThan(0);
