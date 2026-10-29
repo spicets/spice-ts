@@ -5,7 +5,8 @@ import type { AnalysisResultV1, ResourceLimitsV1, SpiceApiErrorV1 } from './type
  *
  * Parsing checks once per preprocessed and parsed line; compilation checks once
  * per instantiated device; Newton checks before each iteration; transient and
- * AC check before each output point; serialization checks after each analysis.
+ * AC check before each output point; native Fourier checks before each operand's
+ * allocation/transform; serialization checks after each analysis.
  */
 export type ProtocolSafePointV1 =
   | 'parse:line'
@@ -13,6 +14,7 @@ export type ProtocolSafePointV1 =
   | 'solve:newton-iteration'
   | 'solve:transient-step'
   | 'solve:ac-point'
+  | 'solve:fourier-output'
   | 'serialize:analysis';
 
 export interface ProtocolAbortSignalV1 {
