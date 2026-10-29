@@ -18,6 +18,8 @@ import {
 } from '../convergence-telemetry.js';
 import type { ProtocolExecutionGuard } from '../protocol/execution-guard.js';
 import { Inductor } from '../devices/inductor.js';
+import { VoltageSource } from '../devices/voltage-source.js';
+import { CurrentSource } from '../devices/current-source.js';
 import { MOS2 } from '../devices/mos2.js';
 import { maxTimestepOption, runnableTransient, transientStepCap } from './max-timestep.js';
 import { chargeTruncatedNodes } from './transient-node-truncation.js';
@@ -136,6 +138,8 @@ export interface TransientSim {
   advance(): TransientStep;
   /** Convenience: loop {@link advance} until `simTime >= targetTime`. */
   advanceUntil(targetTime: number): TransientStep[];
+  /** Change an independent DC source at the current accepted time. */
+  setSourceValue(name: string, value: number): void;
   /** Re-run DC operating point, clear history, reset simTime to 0. */
   reset(): void;
   /** Release solver memory. Subsequent calls throw. */
@@ -703,6 +707,21 @@ class TransientSimImpl implements TransientSim {
       if (this.isDone) break;
     }
     return steps;
+  }
+
+  setSourceValue(name: string, value: number): void {
+    if (this.disposed) throw new InvalidCircuitError('TransientSim has been disposed');
+    if (!Number.isFinite(value)) throw new InvalidCircuitError('Source value must be finite');
+    const source = this.compiled.devices.find(device => device.name.toLowerCase() === name.toLowerCase());
+    if (!(source instanceof VoltageSource || source instanceof CurrentSource)
+      || source.waveform.type !== 'dc' || (source instanceof VoltageSource && source.port)) {
+      throw new InvalidCircuitError(`Expected an independent DC source: ${name}`);
+    }
+    if (source.waveform.value === value) return;
+    source.waveform = { ...source.waveform, value };
+    // Restart the integration order at the accepted point, just as at a
+    // waveform breakpoint, without discarding device or matrix state.
+    this.justCrossedBreakpoint = true;
   }
 
   reset(): void {

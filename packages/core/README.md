@@ -164,6 +164,40 @@ The resolver is platform-agnostic — use `fetch()` in the browser, `readFile()`
 
 `TransientSim.peekInitialStep(): TransientStep` snapshots the current accepted state without advancing or solving again. Call it before `advance()` (or after `reset()`) to include t=0; after advancing it returns the current point. Each call returns detached voltage/current Maps.
 
+### Interactive transient simulation
+
+`createTransientSim` compiles a parsed circuit once and keeps the solver and device histories
+between calls. `advance()` returns one accepted sample; `advanceUntil(time)` returns new
+samples through the first accepted time at or beyond the requested time, or the configured
+stop time if the session has not already reached it. It does not force a sample exactly at
+the requested time. Check `isDone` before advancing and read `simTime` to know when the last
+sample was accepted.
+
+```ts
+import { createTransientSim, parse } from '@spice-ts/core';
+
+const circuit = parse(`GPIO example
+Vgpio in 0 DC 0
+R1 in out 1k
+C1 out 0 1u
+.tran 10u 10m
+.end`);
+const sim = await createTransientSim(circuit);
+const initial = sim.peekInitialStep();
+const before = sim.advanceUntil(1e-3);
+sim.setSourceValue('Vgpio', 3.3);
+const after = sim.advanceUntil(2e-3);
+sim.dispose();
+```
+
+`setSourceValue(name, value)` changes an independent **DC** voltage or current source at the
+current accepted time. Its new value applies to subsequent steps; the already-returned sample
+does not change. Names are case-insensitive, values must be finite, and time-dependent sources
+and RF ports cannot be replaced. A change restarts integration order at the discontinuity but
+preserves the circuit's physical state. `reset()` restarts from a DC operating point using the
+latest source values. For a transition at a precise time, account for `advanceUntil` potentially
+overshooting it; scheduled source transitions are not supported by this method.
+
 ### `SimulationOptions`
 
 | Option | Default | Description |
