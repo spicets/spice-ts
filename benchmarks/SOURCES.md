@@ -3016,6 +3016,11 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
 - Before: all six OP/DC parity tests failed with ignored instance fields. After: worst relative errors n-temp/n-both/p-temp/p-both 1.939e-7, n-dtemp 1.612e-8, p-dtemp 1.127e-8. Compare: `spice-heavy pnpm -C packages/core exec vitest run src/devices/mos2-instance-temperature-1853.test.ts`.
 - Regression coverage includes repeated DC TEMP sweep restoration, invalid effective temperature with last-valid-state preservation, and AC/transient equivalence to the same effective circuit temperature with nonzero junction capacitances. No performance claim.
 
+## Embedded GPIO maker slice (#1889)
+
+- Six original project-authored [GPIO decks](embedded-gpio-1889/), MIT under the repository [LICENSE](../LICENSE); no third-party circuit or model-card bytes. Public source: https://github.com/spicets/spice-ts/tree/main/benchmarks/embedded-gpio-1889.
+- Both simulators receive identical deck bytes. Report, matching rule, cold-process timings, limitations and regeneration command are in the slice README and test-consumed report. This is six of the requested 20–30 circuits, not the completed corpus.
+
 ## VDMOS circuit temperature (#1845)
 
 - Source: original project-authored decks, generator and test-consumed oracle vectors in [fixtures/issue-1845](fixtures/issue-1845/), MIT under the repository licence. No third-party netlists copied.
