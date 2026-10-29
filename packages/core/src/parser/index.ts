@@ -280,7 +280,6 @@ function parseNetlist(
     script.constants = controlConstants;
     attachControlScript(circuit, script, controlAnalysisIndex, hasStepAnalysis);
   }
-  assertMaxOrderIsNoOp(circuit);
 
   if (atTemperature) circuit.reparseAtTemperature = celsius => {
     const deck = atTemperature(celsius);
@@ -744,10 +743,6 @@ function parseDotCommand(
       const xspiceTrtol = takeXspiceTrtolOption(optionTokens, lineNumber, context);
       circuit.setSimulationOptions(parseSimulationOptions(optionTokens, lineNumber, context, {
         warn: message => circuit.addParseWarning(message),
-        maxOrder: order => {
-          if (order > 3) pendingMaxOrders.set(circuit, { order, lineNumber, context });
-          else pendingMaxOrders.delete(circuit);
-        },
       }));
       if (temperature !== undefined) circuit.setTemperature(temperature);
       if (nominalTemperature !== undefined) circuit.setNominalTemperature(nominalTemperature);
@@ -983,37 +978,6 @@ function takeXspiceTrtolOption(
 interface SimulationOptionHooks {
   /** Receive a non-fatal parse diagnostic. */
   warn?(message: string): void;
-  /**
-   * Receive an accepted ngspice MAXORD (1..6). Without this hook, orders above
-   * 2 are rejected because their effect depends on the deck's final METHOD.
-   */
-  maxOrder?(order: number): void;
-}
-
-interface PendingMaxOrder {
-  readonly order: number;
-  readonly lineNumber: number;
-  readonly context: string;
-}
-
-/** The last MAXORD above 3 of each circuit being parsed, checked after the last card. */
-const pendingMaxOrders = new WeakMap<Circuit, PendingMaxOrder>();
-
-/**
- * ngspice-47 dctran.c raises the trapezoidal order only from 1 to 2, so any
- * MAXORD >= 2 leaves METHOD=TRAP unchanged. With METHOD=GEAR, MAXORD above 3
- * enables Gear orders spice-ts does not implement. The API method name remains
- * gear2 for compatibility; MAXORD=3 enables the shared BDF3 integration path.
- */
-function assertMaxOrderIsNoOp(circuit: Circuit): void {
-  const pending = pendingMaxOrders.get(circuit);
-  pendingMaxOrders.delete(circuit);
-  if (pending === undefined || circuit.simulationOptions.integrationMethod !== 'gear2') return;
-  throw new ParseError(
-    `Unsupported .options maxord=${pending.order} with method=gear (spice-ts implements Gear orders 1 through 3 only)`,
-    pending.lineNumber,
-    pending.context,
-  );
 }
 
 /** cp_setparse() reads a numeric word as a number, which the string METHOD option rejects. */
@@ -1160,21 +1124,6 @@ function parseSimulationOptions(
       // ngspice-47 if_option() rounds a real value; cktsopt.c clamps to 1..6.
       const order = Math.min(6, Math.max(1, Math.floor(value + 0.5)));
 
-      if (order > 3 && hooks.maxOrder === undefined) {
-        throw new ParseError(
-          `Unsupported .options maxord=${order} outside a netlist .options card`,
-          lineNumber,
-          context,
-        );
-      }
-      if (order > 3 && options.integrationMethod === 'gear2') {
-        throw new ParseError(
-          `Unsupported .options maxord=${order} with method=gear (spice-ts implements Gear orders 1 through 3 only)`,
-          lineNumber,
-          context,
-        );
-      }
-      hooks.maxOrder?.(order);
       options.maxOrder = order;
       continue;
     }
