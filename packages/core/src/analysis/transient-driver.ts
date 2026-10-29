@@ -144,7 +144,7 @@ export interface TransientSim {
   advanceUntil(targetTime: number): TransientStep[];
   /** Change an independent DC source at the current accepted time. */
   setSourceValue(name: string, value: number): void;
-  /** Re-run DC operating point, clear history, reset simTime to 0. */
+  /** Clear history and reset time to 0. Re-solve DC using current sources, or restore the original initial-condition seed without a DC solve for UIC. Source updates remain in effect. */
   reset(): void;
   /** Release solver memory. Subsequent calls throw. */
   dispose(): void;

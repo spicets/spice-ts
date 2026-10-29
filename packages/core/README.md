@@ -194,9 +194,11 @@ sim.dispose();
 current accepted time. Its new value applies to subsequent steps; the already-returned sample
 does not change. Names are case-insensitive, values must be finite, and time-dependent sources
 and RF ports cannot be replaced. A change restarts integration order at the discontinuity but
-preserves the circuit's physical state. `reset()` restarts from a DC operating point using the
-latest source values. Use `advanceTo` before updating a source at a precise time; scheduled
-source transitions are not supported.
+preserves the circuit's physical state. For a normal transient, `reset()` recomputes the DC
+operating point using the latest source values. With UIC, it instead restores the original
+initial-condition seed without a DC solve; the latest source values still apply to subsequent
+steps. Use `advanceTo` before updating a source at a precise time; scheduled source transitions
+are not supported.
 
 ### `SimulationOptions`
 

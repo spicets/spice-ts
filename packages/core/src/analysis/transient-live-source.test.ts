@@ -45,6 +45,9 @@ C1 out 0 1u
     const compared = samples.filter(s => s.time >= changeTime + 1e-4 && s.time <= times[times.length - 1]);
     expect(compared.length).toBeGreaterThan(10);
     for (const sample of compared) {
+      // Independent RC step response: R = 1 kΩ, C = 1 µF, τ = 1 ms.
+      const analytic = 1 - Math.exp(-(sample.time - changeTime) / 1e-3);
+      expect(Math.abs(sample.voltages.get('out')! - analytic)).toBeLessThan(0.003);
       const upper = times.findIndex(t => t >= sample.time);
       if (upper <= 0) continue;
       const fraction = (sample.time - times[upper - 1]) / (times[upper] - times[upper - 1]);
@@ -68,6 +71,21 @@ R1 out 0 1k
     expect(sim.peekInitialStep().voltages.get('out')).toBeCloseTo(1, 6);
     sim.dispose();
     expect(() => sim.setSourceValue('I1', 0)).toThrow();
+  });
+
+  it('restores the original UIC seed on reset while retaining the updated source', async () => {
+    const sim = await createTransientSim(`UIC reset
+V1 in 0 DC 1
+R1 in out 1k
+C1 out 0 1u IC=0
+.tran 10u 4m UIC
+.end`);
+    sim.setSourceValue('V1', 2);
+    sim.advanceTo(1e-3);
+    sim.reset();
+    expect(sim.peekInitialStep().voltages.get('in')).toBeCloseTo(0, 8);
+    expect(sim.peekInitialStep().voltages.get('out')).toBeCloseTo(0, 8);
+    expect(sim.advanceTo(2e-3).at(-1)!.voltages.get('out')).toBeCloseTo(2 * (1 - Math.exp(-2)), 3);
   });
 
   it('rejects overwriting time-dependent source waveforms', async () => {
