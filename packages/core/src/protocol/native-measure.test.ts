@@ -44,6 +44,29 @@ describe('native transient measurements', () => {
     expect(expected.measurements?.every(m => m.status === 'ok')).toBe(true);
     expect(tran.measurements).toEqual(expected.measurements?.map(m => ({ name: m.name, value: m.value })));
   });
+  it('resolves differential voltages for find and crossing measurements', async () => {
+    const input = request();
+    if (input.input.format !== 'spice-ts') throw new Error('native');
+    const analysis = input.input.document.analyses[0];
+    if (analysis.type !== 'tran') throw new Error('tran');
+    analysis.measurements = [
+      { name: 'forward', kind: 'find', vector: 'v(in,out)', at: 0.0001220703125 },
+      { name: 'reverse', kind: 'find', vector: 'v(out,in)', at: 0.0001220703125 },
+      { name: 'ground', kind: 'find', vector: 'v(0,out)', at: 0.0001220703125 },
+      { name: 'crossing', kind: 'find', vector: 'v(in,out)', when: { vector: 'v(in,out)', value: 0.25, rise: 1 } },
+      { name: 'unknown', kind: 'find', vector: 'v(in,absent)', at: 0.0001220703125 },
+    ];
+    const result = await simulateProtocolV1(input);
+    const text = await simulate(parseTitleless(`${deck}\n.tran 0.0000152587890625 0.0009765625\n.meas tran forward find v(in,out) at=0.0001220703125\n.meas tran reverse find v(out,in) at=0.0001220703125\n.meas tran ground find v(0,out) at=0.0001220703125\n.meas tran crossing find v(in,out) when v(in,out)=0.25 rise=1`));
+    expect(result.analyses[0]).toMatchObject({ measurements: [
+      { name: 'forward', value: 0.5 }, { name: 'reverse', value: -0.5 },
+      { name: 'ground', value: -0.5 }, { name: 'crossing', value: 0.25 },
+      { name: 'unknown', diagnostic: { code: 'MEASUREMENT_FAILED' } },
+    ] });
+    expect(text.measurements?.map(m => ({ name: m.name, value: m.value }))).toEqual(
+      (result.analyses[0] as { measurements: unknown[] }).measurements.slice(0, 4),
+    );
+  });
   it.each([
     [{ name: 'x', kind: 'wat' }, 'kind'],
     [{ name: 'x', kind: 'trig', trig: { vector: 'v(out)', value: 0.25 } }, 'targ'],
