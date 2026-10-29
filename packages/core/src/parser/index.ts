@@ -1,4 +1,5 @@
 import { Circuit } from '../circuit.js';
+import { addFourierCard, takeFourierOptions } from './dot-four.js';
 import { parseUrcParams } from '../devices/urc.js';
 import { assertControlledSourceCard, withoutNodePairParentheses } from './controlled-source.js';
 import { ParseError } from '../errors.js';
@@ -737,7 +738,7 @@ function parseDotCommand(
     case '.OPT':
     case '.OPTION':
     case '.OPTIONS': {
-      const { fields: optionTokens, warning } = splitXyceOptionPackage(tokens.slice(1));
+      const { fields: optionTokens, warning } = splitXyceOptionPackage(takeFourierOptions(circuit, tokens.slice(1)));
       if (warning !== undefined) circuit.addParseWarning(warning);
       const temperature = takeCircuitTemperatureOption(optionTokens, lineNumber, context);
       const nominalTemperature = takeCircuitTemperatureOption(optionTokens, lineNumber, context, 'tnom');
@@ -822,13 +823,7 @@ function parseDotCommand(
       break;
     case '.FOUR':
     case '.FOURIER': {
-      // ngspice-47 `.four f0 ov1 [ov2 ...]` prints a Fourier table of the
-      // transient outputs to stdout (and skips it when writing a rawfile); the
-      // analysis vectors are unchanged. A card without a frequency or an output
-      // only draws "no nodes given" and the deck still runs (#790).
-      circuit.addParseWarning(
-        `.four Fourier analysis is not computed: spice-ts returns the transient vectors, and ngspice-47 only prints the table (line ${lineNumber})`,
-      );
+      addFourierCard(circuit, context, lineNumber);
       break;
     }
     case '.INCLUDE':
