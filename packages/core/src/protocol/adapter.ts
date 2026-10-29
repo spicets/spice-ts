@@ -56,6 +56,7 @@ import { accumulatedLinearPointCount, directedLinearPointCount } from '../analys
 import { frequencyPointCount } from '../analysis/frequency-grid.js';
 import { isValidMaxTimestepOption } from '../analysis/max-timestep.js';
 import { nativeFourier, serializeFourier, validateNativeFourier } from './native-four.js';
+import { nativeMeasurements, validateNativeMeasurements } from './native-measure.js';
 
 const MAX_DETAIL_NAMES = 32;
 const API_ERROR_CODES = new Set<SpiceApiErrorV1['code']>([
@@ -88,6 +89,7 @@ export async function validateProtocolV1(
   enforcePointLimit(circuit.analyses, guard, requestReltol(request, circuit), compiled.steps[0]);
   validateNativeTfOutputs(request, compiled);
   validateNativeFourier(request, compiled);
+  validateNativeMeasurements(request);
   if (compiled.analyses.length === 0) throw new InvalidCircuitError('No analysis command specified');
   if (!execution?.topologyWarnings) preflightTopology(compiled, protocolSourcePath(request));
   const diagnostics = execution?.topologyWarnings ? topologyWarnings(compiled) : [];
@@ -170,6 +172,7 @@ export async function simulateProtocolV1(
   const preflight = circuit.compile(guard);
   validateNativeTfOutputs(request, preflight);
   validateNativeFourier(request, preflight);
+  validateNativeMeasurements(request);
   enforcePointLimit(analyses, guard, requestReltol(request, circuit), preflight.steps[0]);
   preflightTopology(preflight, protocolSourcePath(request));
   const options = coreOptions(request.options);
@@ -185,7 +188,16 @@ export async function simulateProtocolV1(
     }
     const completedBefore = serialized.length;
     appendAnalysisResult(serialized, result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, circuit);
-    for (const completed of serialized.slice(completedBefore)) execution?.onAnalysisComplete?.(completed);
+    const completedAnalyses = serialized.slice(completedBefore);
+    const transients = result.steps ? result.steps.map(step => step.transient) : [result.transient];
+    for (const [i, completed] of completedAnalyses.entries()) {
+      const transient = transients[i];
+      if (completed.type === 'tran' && transient) {
+        const measurements = nativeMeasurements(request, analysisIndex, analysis, transient, guard);
+        if (measurements) completed.measurements = measurements;
+      }
+      execution?.onAnalysisComplete?.(completed);
+    }
     guard.checkpoint('serialize:analysis');
     guard.maximum('maxResultPoints', resultPointCount(serialized), 'serialize');
     guard.maximum(

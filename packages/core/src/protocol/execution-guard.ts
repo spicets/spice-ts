@@ -15,6 +15,7 @@ export type ProtocolSafePointV1 =
   | 'solve:transient-step'
   | 'solve:ac-point'
   | 'solve:fourier-output'
+  | 'solve:measurement'
   | 'serialize:analysis';
 
 export interface ProtocolAbortSignalV1 {
