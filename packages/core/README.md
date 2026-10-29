@@ -200,3 +200,6 @@ Pair with [`@spice-ts/ui`](https://www.npmjs.com/package/@spice-ts/ui) for React
 ## License
 
 MIT · See the [spice-ts monorepo](https://github.com/spicets/spice-ts) for benchmarks, roadmap, and contributing guide.
+## Protocol circuit temperatures
+
+Protocol v1 requests may set `options.temperature` (TEMP) and `options.nominalTemperature` (TNOM) in degrees Celsius. Both must be finite and greater than -273.15; invalid values return `INVALID_REQUEST` with `/options/<field>`. Request values override SPICE text `.temp` and `.options TNOM`; unspecified values retain netlist settings or the 27 °C default. MCP streaming metadata reports explicitly set effective values in `resolvedOptions`; omitted fields use the 27 °C default. These options apply to native `spice-ts`, converted `circuit-json`, and SPICE text requests.

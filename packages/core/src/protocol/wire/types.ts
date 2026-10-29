@@ -90,6 +90,9 @@ export interface ResourceLimitsV1 {
   maxWallTimeMs?: number;
 }
 export interface SimulationOptionsV1 {
+  /** Circuit and model nominal temperatures in degrees Celsius. */
+  temperature?: number;
+  nominalTemperature?: number;
   backend?: BackendV1;
   determinism?: DeterminismV1;
   limits?: ResourceLimitsV1;
@@ -158,6 +161,8 @@ export interface SpiceApiErrorV1 {
 }
 
 export interface ResolvedOptionsV1 {
+  temperature?: number;
+  nominalTemperature?: number;
   backend: BackendV1;
   abstol: number;
   vntol: number;

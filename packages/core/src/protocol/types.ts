@@ -64,6 +64,9 @@ export interface ResourceLimitsV1 {
   maxWallTimeMs?: number;
 }
 export interface SimulationOptionsV1 {
+  /** Circuit and model nominal temperatures in degrees Celsius. */
+  temperature?: number;
+  nominalTemperature?: number;
   backend?: 'spice-ts-js' | 'spice-ts-wasm' | 'ngspice-wasm';
   determinism?: 'strict' | 'relaxed';
   limits?: ResourceLimitsV1;
