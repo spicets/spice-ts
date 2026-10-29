@@ -4,6 +4,8 @@ import { arch, cpus, platform, release } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import type { ClassicCircuit } from '../corpus/classic/report.js';
 import { runBoundedSimulatePacked, runNgspicePacked, MATCH_RULE } from '../corpus/corpus-f/outcomes.js';
+import { normalizedSignalErrors, pairedReferenceSeries } from '../corpus/corpus-f/lib.js';
+import { lazyExecution } from '../corpus/corpus-f/packed.js';
 import { reduceRow, type Circuit } from '../corpus/corpus-j/parity.js';
 
 const root = 'benchmarks/embedded-sensors-1889';
@@ -35,6 +37,7 @@ async function main() {
       analyses: ['tran'], unmappedAnalyses: [], sameNameAs: [], includeClosure: [] } as unknown as Circuit;
     const ngTimes: number[] = [], tsTimes: number[] = [];
     let row: ReturnType<typeof reduceRow> | undefined;
+    let normalizedErrors: ReturnType<typeof normalizedSignalErrors>['errors'] = [];
     for (let attempt = 0; attempt < 3; attempt++) {
       const startNg = performance.now();
       const ng = await runNgspicePacked(bytes, circuit);
@@ -45,10 +48,12 @@ async function main() {
       const current = reduceRow(circuit, ng, ts);
       if (row && (row.outcome !== current.outcome || row.ngspice.status !== current.ngspice.status || row.spiceTs.status !== current.spiceTs.status)) throw new Error(`Inconsistent outcomes across runs: ${id}`);
       row = current;
+      normalizedErrors = ng.status === 'success' && ts.status === 'success'
+        ? normalizedSignalErrors(current.comparisons, pairedReferenceSeries(lazyExecution(ts), lazyExecution(ng.execution))).errors : [];
     }
     if (!row) throw new Error(`No result for ${id}`);
     const median = (samplesMs: number[]) => ({ samplesMs, medianMs: [...samplesMs].sort((a, b) => a - b)[1] });
-    const result = { ...row, runtime: { ngspice: median(ngTimes), spiceTs: median(tsTimes) } };
+    const result = { ...row, normalizedErrors, runtime: { ngspice: median(ngTimes), spiceTs: median(tsTimes) } };
     fixtures.push(result);
     console.log(JSON.stringify({ id, outcome: row.outcome, error: row.worstNormalizedError, ng: row.ngspice.status, ts: row.spiceTs.status }));
   }

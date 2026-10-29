@@ -20,9 +20,40 @@ function validate(report, readDeck = id => readFileSync(`${root}/${id}.cir`)) {
     const allowed = ng !== 'success' ? [ts !== 'success' ? 'both-failed' : 'ngspice-failed']
       : ts !== 'success' ? ['spice-ts-loss'] : ['matched', 'mismatch', 'not-compared'];
     assert.ok(allowed.includes(row.outcome));
+    assert.equal(row.comparedAnalyses, row.comparisons.length);
+    const measured = [];
+    for (const comparison of row.comparisons) {
+      const metrics = comparison.metrics.signals;
+      assert.deepEqual([...comparison.signals].sort(), Object.keys(metrics).sort());
+      for (const [signal, metric] of Object.entries(metrics)) {
+        assert.ok(['compared', 'missing'].includes(metric.status));
+        if (metric.status === 'compared' && metric.sampleCount > 0) measured.push({ analysis: comparison.analysis, signal, metric });
+        if (row.outcome === 'matched') assert.ok(metric.status === 'compared' && metric.sampleCount > 0);
+      }
+      if (row.outcome === 'matched') {
+        assert.ok(!comparison.unmatched && Object.keys(metrics).length > 0);
+        assert.ok(!(comparison.metrics.sweepGroups ?? []).some(group => group.unmatched));
+      }
+    }
+    assert.equal(row.comparedSignals, measured.length);
+    assert.equal(row.normalizedErrors.length, measured.length);
+    for (let i = 0; i < measured.length; i++) {
+      const { analysis, signal, metric } = measured[i], error = row.normalizedErrors[i];
+      assert.equal(error.analysis, analysis);
+      assert.equal(error.signal, signal);
+      assert.equal(error.absoluteMax, metric.absoluteError.max);
+      assert.ok(Number.isFinite(error.ngspicePeak) && error.ngspicePeak >= 0);
+      const floor = signal.startsWith('v(') ? 1e-4 : signal.startsWith('i(') ? 1e-10 : 1e-12;
+      assert.equal(error.normalized, error.absoluteMax / Math.max(error.ngspicePeak, floor));
+      assert.ok(Number.isFinite(error.normalized) && error.normalized >= 0);
+    }
+    const worst = row.normalizedErrors.reduce((a, b) => !a || b.normalized > a.normalized ? b : a, null);
+    assert.equal(row.worstNormalizedError, worst ? Number(worst.normalized.toPrecision(3)) : null);
+    assert.equal(row.worstSignal, worst ? `${worst.analysis} ${worst.signal}` : null);
     if (row.outcome === 'matched') {
       assert.ok(row.comparedSignals > 0 && row.worstNormalizedError !== null && row.worstNormalizedError <= 0.01);
-      assert.ok(row.comparisons.length > 0);
+      assert.ok(row.comparisons.length > 0 && worst.normalized <= 0.01);
+      assert.equal(row.comparedAnalyses, new Set(row.spiceTs.analyses.map(analysis => analysis.split(':')[0])).size);
     }
     for (const engine of ['ngspice', 'spiceTs']) {
       assert.equal(row.runtime[engine].samplesMs.length, 3);
@@ -49,5 +80,27 @@ test('a falsely reported match is rejected', () => {
 test('missing or duplicated rows are rejected', () => {
   const report = readReport();
   report.fixtures[0] = report.fixtures[1];
+  assert.throws(() => validate(report));
+});
+
+test('missing signal coverage cannot be reported as matched', () => {
+  const report = readReport();
+  const signals = report.fixtures[0].comparisons[0].metrics.signals;
+  signals[Object.keys(signals)[0]].status = 'missing';
+  assert.throws(() => validate(report));
+});
+test('summary coverage cannot disagree with comparison metrics', () => {
+  const report = readReport();
+  report.fixtures[0].comparedSignals++;
+  assert.throws(() => validate(report));
+});
+test('summary error cannot hide a detailed signal error', () => {
+  const report = readReport();
+  report.fixtures[0].worstNormalizedError = 0;
+  assert.throws(() => validate(report));
+});
+test('detailed absolute error cannot disagree with normalized evidence', () => {
+  const report = readReport();
+  report.fixtures[0].comparisons[0].metrics.signals[Object.keys(report.fixtures[0].comparisons[0].metrics.signals)[0]].absoluteError.max = 1;
   assert.throws(() => validate(report));
 });
