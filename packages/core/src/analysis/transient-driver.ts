@@ -334,7 +334,9 @@ class TransientSimImpl implements TransientSim {
     this.compiled = compiled;
     this.options = options;
     this.config = config;
-    this.useGear3 = options.maxOrder === 3 || config.experimentalGearOrder === 3;
+    // ngspice-47 dctran.c:822-831 only trials order 1 -> 2 even for MAXORD > 3.
+    this.useGear3 = options.maxOrder === 3 || (options.integrationMethod === 'gear2' && options.maxOrder > 3)
+      || config.experimentalGearOrder === 3;
     this.convergenceTelemetry = config.convergence ?? createConvergenceTelemetry();
     for (const device of compiled.devices) {
       device.setTransientTimestep?.(config.timestep, config.stopTime);
@@ -1031,7 +1033,7 @@ class TransientSimImpl implements TransientSim {
     dt: number, integration: ChargeIntegration, chargeBound: number,
   ): { bound: number; orderOne: boolean } {
     const variableOrder = this.integrationMethod === 'trapezoidal'
-      || (this.integrationMethod === 'gear2' && this.options.maxOrder === 3);
+      || (this.integrationMethod === 'gear2' && this.options.maxOrder >= 3);
     if (this.firstStepPending) {
       this.firstStepPending = false;
       return { bound: dt, orderOne: variableOrder };
