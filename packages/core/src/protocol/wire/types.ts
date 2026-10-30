@@ -83,6 +83,7 @@ export interface SubcircuitV1 {
 export interface SpiceTsCircuitDocumentV1 {
   format: 'spice-ts';
   schemaVersion: '1.0';
+  globalNodes?: string[];
   initialConditions?: Record<string, number>;
   nodesets?: Record<string, number>;
   circuit: { components: CircuitComponentV1[]; nets: string[] };

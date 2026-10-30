@@ -1254,6 +1254,13 @@
         "schemaVersion": {
           "const": "1.0"
         },
+        "globalNodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\S+(?![\\s\\S])"
+          }
+        },
         "circuit": {
           "type": "object",
           "required": [

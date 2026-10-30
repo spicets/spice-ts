@@ -525,6 +525,13 @@ function coreOptions(options?: SimulationOptionsV1): SimulationOptions {
 /** Reconstruct a circuit from a validated native protocol document. */
 export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: ProtocolExecutionGuard): Circuit {
   const circuit = new Circuit();
+  if (document.globalNodes !== undefined) {
+    if (!Array.isArray(document.globalNodes)) invalidNativeField('/input/document/globalNodes');
+    for (const [index, name] of document.globalNodes.entries()) {
+      if (typeof name !== 'string' || name.length === 0 || /\s/.test(name)) invalidNativeField(`/input/document/globalNodes/${index}`);
+    }
+    circuit.addGlobalNodes(document.globalNodes);
+  }
   for (const model of document.models) circuit.addModel(coreModel(model));
   for (const subcircuit of document.subcircuits) circuit.addSubcircuit(coreSubcircuit(subcircuit));
   for (const [index, component] of document.circuit.components.entries()) {
