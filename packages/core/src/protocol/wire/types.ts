@@ -21,7 +21,7 @@ export type TransientMeasurementV1 =
   | ({ name: string; kind: 'find'; vector: string } & ({ at: number; when?: never } | { when: MeasurementCrossingV1; at?: never }))
   | { name: string; kind: 'avg' | 'min' | 'max' | 'pp' | 'rms' | 'integ'; vector: string; from?: number; to?: number };
 export type AcMeasurementV1 =
-  | { name: string; kind: 'find'; vector: string; at: number }
+  | ({ name: string; kind: 'find'; vector: string } & ({ at: number; when?: never } | { when: MeasurementCrossingV1; at?: never }))
   | { name: string; kind: 'avg' | 'min' | 'max' | 'pp' | 'rms' | 'integ'; vector: string; from?: number; to?: number };
 export type DcMeasurementV1 = Exclude<TransientMeasurementV1, { kind: 'trig' }>;
 export type DcMeasurementResultV1 = TransientMeasurementResultV1;

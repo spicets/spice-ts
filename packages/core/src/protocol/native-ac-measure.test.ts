@@ -21,6 +21,56 @@ const schema = () => { const ajv = new Ajv2020({ strict: true }); for (const s o
 const requestSchema = 'https://spice-ts.dev/schemas/v1/simulation-request.schema.json';
 
 describe('native AC measurements', () => {
+  it('matches SPICE FIND WHEN on the RC low-pass', async () => {
+    const input = request();
+    setMeasurements(input, [{ name: 'threshold', kind: 'find', vector: 'vm(out)', when: { vector: 'vdb(out)', value: -3, fall: 1 } }]);
+    const text = await simulate(parseTitleless('V1 in 0 AC 1\nR1 in out 1k\nC1 out 0 100n\n.ac dec 20 10 100000\n.meas ac threshold find vm(out) when vdb(out)=-3 fall=1'));
+    const result = await simulateProtocolV1(input);
+    const ac = result.analyses[0]; if (ac.type !== 'ac') throw new Error('ac');
+    const actual = ac.measurements![0]; if (!('value' in actual)) throw new Error('measurement failed');
+    const expected = text.measurements![0].value!;
+    expect(Number.isFinite(actual.value)).toBe(true);
+    expect(Math.abs(actual.value - expected)).toBeLessThanOrEqual(1e-12 + 1e-10 * Math.abs(expected));
+    console.log('FIND WHEN native/text:', actual.value, expected);
+  });
+  it.each([
+    ['fall', 'vdb(out)', -3, 'fall', 1],
+    ['phase', 'vp(out)', -0.7, 'fall', 'last'],
+    ['cross', 'vdb(out)', -3, 'cross', 'last'],
+  ] as const)('matches text for %s crossing', async (name, vector, value, selector, occurrence) => {
+    const input = request();
+    setMeasurements(input, [{ name, kind: 'find', vector: 'vm(out)', when: { vector, value, [selector]: occurrence } }]);
+    const text = await simulate(parseTitleless(`V1 in 0 AC 1\nR1 in out 1k\nC1 out 0 100n\n.ac dec 20 10 100000\n.meas ac ${name} find vm(out) when ${vector}=${value} ${selector}=${occurrence}`));
+    expect(schema().validate(requestSchema, input)).toBe(true);
+    const result = await simulateProtocolV1(input);
+    const ac = result.analyses[0]; if (ac.type !== 'ac') throw new Error('ac');
+    const actual = ac.measurements![0]; if (!('value' in actual)) throw new Error('measurement failed');
+    const expected = text.measurements![0].value!;
+    expect(Number.isFinite(actual.value) && Number.isFinite(expected)).toBe(true);
+    expect(Math.abs(actual.value - expected)).toBeLessThanOrEqual(1e-12 + 1e-10 * Math.abs(expected));
+  });
+  it('matches an ascending high-pass crossing', async () => {
+    const input = request(); if (input.input.format !== 'spice-ts') throw new Error('native');
+    const components = input.input.document.circuit.components;
+    components[1] = { ...components[1], type: 'C', params: { capacitance: 100e-9 } };
+    components[2] = { ...components[2], type: 'R', params: { resistance: 1000 } };
+    setMeasurements(input, [{ name: 'ascending', kind: 'find', vector: 'vp(out)', when: { vector: 'vdb(out)', value: -3, rise: 1 } }]);
+    const text = await simulate(parseTitleless('V1 in 0 AC 1\nC1 in out 100n\nR1 out 0 1k\n.ac dec 20 10 100000\n.meas ac ascending find vp(out) when vdb(out)=-3 rise=1'));
+    const result = await simulateProtocolV1(input);
+    const ac = result.analyses[0]; if (ac.type !== 'ac') throw new Error('ac');
+    const actual = ac.measurements![0]; if (!('value' in actual)) throw new Error('measurement failed');
+    const expected = text.measurements![0].value!;
+    expect(Number.isFinite(actual.value) && Number.isFinite(expected)).toBe(true);
+    expect(Math.abs(actual.value - expected)).toBeLessThanOrEqual(1e-12 + 1e-10 * Math.abs(expected));
+  });
+  it('returns a diagnostic for a missing crossing', async () => {
+    const input = request(); setMeasurements(input, [{ name: 'missing', kind: 'find', vector: 'vm(out)', when: { vector: 'vdb(out)', value: 10, rise: 1 } }]);
+    const text = await simulate(parseTitleless('V1 in 0 AC 1\nR1 in out 1k\nC1 out 0 100n\n.ac dec 20 10 100000\n.meas ac missing find vm(out) when vdb(out)=10 rise=1'));
+    const result = await simulateProtocolV1(input);
+    expect(text.measurements![0].status).not.toBe('ok');
+    expect(result.analyses[0]).toMatchObject({ measurements: [{ name: 'missing', diagnostic: { code: 'MEASUREMENT_FAILED' } }] });
+    expect(JSON.stringify(result)).not.toMatch(/NaN|Infinity/);
+  });
   it('evaluates FIND AT magnitude', async () => {
     const result = await simulateProtocolV1(request());
     expect(result.analyses[0]).toMatchObject({ type: 'ac', measurements: [{ name: 'sample', value: expect.any(Number) }] });
@@ -54,7 +104,14 @@ describe('native AC measurements', () => {
     [[{ name: 'x', kind: 'min', vector: 'v(out)' }], '/0/vector'],
     [[{ name: 'x', kind: 'min', vector: 'vm(out,in)' }], '/0/vector'],
     [[{ name: 'x', kind: 'min', vector: 'vm(out)+1' }], '/0/vector'],
-    [[{ name: 'x', kind: 'find', vector: 'vm(out)', when: {} }], '/0/when'],
+    [[{ name: 'x', kind: 'find', vector: 'vm(out)', when: {} }], '/0/when/vector'],
+    [[{ name: 'x', kind: 'find', vector: 'vm(out)', when: { vector: 'v(out)', value: -3 } }], '/0/when/vector'],
+    [[{ name: 'x', kind: 'find', vector: 'vm(out)', at: 1, when: { vector: 'vdb(out)', value: -3 } }], '/0'],
+    [[{ name: 'x', kind: 'find', vector: 'vm(out)', when: { vector: 'vdb(out)', value: -3, fall: 0 } }], '/0/when/fall'],
+    [[{ name: 'x', kind: 'find', vector: 'vm(out)', when: { vector: 'vdb(out)', value: -3, cross: 1.5 } }], '/0/when/cross'],
+    [[{ name: 'x', kind: 'find', vector: 'vm(out)', when: { vector: 'vdb(out)', value: Infinity } }], '/0/when/value'],
+    [[{ name: 'x', kind: 'find', vector: 'vm(out)', when: { vector: 'vp(out)', value: 0, rise: 1, fall: 1 } }], '/0/when'],
+
     [[{ name: 'x', kind: 'trig' }], '/0/kind'],
     [[{ name: 'x', kind: 'min', vector: 'vm(out)', extra: 1 }], '/0/extra'],
     [[{ name: 'x', kind: 'min', vector: 'vm(out)' }, { name: 'X', kind: 'max', vector: 'vm(out)' }], '/1/name'],
@@ -62,7 +119,7 @@ describe('native AC measurements', () => {
   ])('rejects invalid AC measurements at exact path', async (entries, suffix) => {
     const input = request(); setMeasurements(input, entries);
     expect(await executeProtocolV1(input)).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST', details: { path: `/input/document/analyses/0/measurements${suffix}` } } });
-    if (suffix !== '/1/name' && suffix !== '/0/to' && suffix !== '/0/at') expect(schema().validate(requestSchema, input)).toBe(false);
+    if (suffix !== '/1/name' && suffix !== '/0/to' && suffix !== '/0/at' && suffix !== '/0/when/value') expect(schema().validate(requestSchema, input)).toBe(false);
   });
   it('preserves measurement failure diagnostics', async () => {
     const input = request(); setMeasurements(input, [{ name: 'missing', kind: 'find', vector: 'vm(absent)', at: 1000 }, { name: 'outside', kind: 'find', vector: 'vm(out)', at: 1e9 }]);
