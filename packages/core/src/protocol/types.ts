@@ -101,7 +101,7 @@ export interface SimulationOptionsV1 {
   trtol?: number;
   gmin?: number;
 }
-export interface SimulationRequestV1 { apiVersion: '1'; input: SimulationInputV1; options?: SimulationOptionsV1 }
+export interface SimulationRequestV1 { apiVersion: '1'; input: SimulationInputV1; options?: SimulationOptionsV1; outputs?: string[] }
 
 export interface StepCoordinateV1 { index: number; parameter: string; value: number }
 export interface OperatingPointResultV1 {

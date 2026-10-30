@@ -217,7 +217,7 @@ export const commonSchemaV1 = {
     port: object(['name', 'net'], { name: string, net: string }), component, model,
     subcircuit: object(['name', 'ports', 'components'], { name: { type: 'string', minLength: 1 }, ports: array(string), components: array(ref('component')), models: array(ref('model')) }),
     nativeDocument, simulationInput, limits, options,
-    simulationRequest: object(['apiVersion', 'input'], { apiVersion: { const: '1' }, input: ref('simulationInput'), options: ref('options') }),
+    simulationRequest: object(['apiVersion', 'input'], { apiVersion: { const: '1' }, input: ref('simulationInput'), options: ref('options'), outputs: { type: 'array', minItems: 1, maxItems: 64, items: { type: 'string', maxLength: 256, pattern: '^[vViI]\\([^\\s(),]+\\)(?![\\s\\S])' } } }),
     complex, opResult, dcResult, tranResult, acResult, tfResult, tfAnalysis,
     analysisResult: { oneOf: [ref('opResult'), ref('dcResult'), ref('tranResult'), ref('acResult'), ref('tfResult')] }, simulationResult,
     diagnostic, apiError, resolvedOptions, runMetadata, partialRunMetadata, successEnvelope, failureEnvelope,

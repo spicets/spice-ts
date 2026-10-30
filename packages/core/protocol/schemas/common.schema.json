@@ -1544,6 +1544,16 @@
         },
         "options": {
           "$ref": "#/$defs/options"
+        },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 256,
+            "pattern": "^[vViI]\\([^\\s(),]+\\)(?![\\s\\S])"
+          }
         }
       },
       "additionalProperties": false
