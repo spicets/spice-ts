@@ -128,7 +128,7 @@ const nativeDocument: Schema = { ...object(['format', 'schemaVersion', 'circuit'
   noiseAnalyses: array(ref('noiseAnalysis')),
   initialConditions: numberRecord, nodesets: numberRecord,
 }), allOf: [{ if: { properties: { temperatureSweep: {} }, required: ['temperatureSweep'] }, then: { properties: {
-  analyses: { type: 'array', items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } },
+  analyses: { type: 'array', minItems: 1, items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } },
   poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 },
 } } }] };
 const simulationInput: Schema = { oneOf: [

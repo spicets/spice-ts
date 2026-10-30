@@ -579,6 +579,7 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
     for (const [index, value] of sweep.values.entries()) {
       if (typeof value !== 'number' || !Number.isFinite(value) || value <= -273.15) invalidNativeField(`${path}/values/${index}`);
     }
+    if (document.analyses.length === 0) invalidNativeField('/input/document/analyses');
     for (const [index, analysis] of document.analyses.entries()) {
       if (analysis?.type !== 'op') invalidNativeField(`/input/document/analyses/${index}/type`);
     }

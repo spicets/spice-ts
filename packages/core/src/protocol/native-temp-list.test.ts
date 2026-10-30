@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { readFileSync } from 'node:fs';
-import { mapProtocolErrorV1, simulateProtocolV1 } from './adapter.js';
+import { mapProtocolErrorV1, simulateProtocolV1, validateProtocolV1 } from './adapter.js';
 import type { SimulationRequestV1, SpiceTsCircuitDocumentV1 } from './types.js';
 
 const document: SpiceTsCircuitDocumentV1 = {
@@ -15,6 +15,12 @@ const document: SpiceTsCircuitDocumentV1 = {
 const netlist = 'V1 in 0 1\nR1 in out 1k\nD1 out 0 DM\n.model DM D(IS=1e-12)';
 
 describe('native TEMP LIST', () => {
+  it('rejects a sweep without an OP analysis in both entrypoints', async () => {
+    const request: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice-ts', document: { ...document, analyses: [], temperatureSweep: { values: [0, 27, 75] } } } };
+    for (const execute of [simulateProtocolV1, validateProtocolV1]) {
+      await expect(execute(request).catch(mapProtocolErrorV1)).resolves.toMatchObject({ code: 'INVALID_REQUEST', details: { path: '/input/document/analyses' } });
+    }
+  });
   it('matches ordered text sweep results', async () => {
     const native = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice-ts', document: { ...document, temperatureSweep: { values: [0, 27, 75] } } } } as SimulationRequestV1);
     const text = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice', source: `${netlist}\n.step TEMP LIST 0 27 75\n.op` } });
@@ -65,6 +71,7 @@ describe('native TEMP LIST', () => {
     expect(validate({ ...request, input: { ...request.input, document: { ...request.input.document, temperatureSweep: { values: Array(16).fill(27) } } } })).toBe(true);
     for (const values of [[], Array(17).fill(27), [NaN], [Infinity], [-273.15]]) expect(validate({ ...request, input: { ...request.input, document: { ...request.input.document, temperatureSweep: { values } } } })).toBe(false);
     expect(validate({ ...request, options: { temperature: 27 } })).toBe(false);
+    expect(validate({ ...request, input: { ...request.input, document: { ...request.input.document, analyses: [] } } })).toBe(false);
     expect(validate({ ...request, input: { ...request.input, document: { ...request.input.document, analyses: [{ type: 'dc', source: 'V1', start: 0, stop: 1, step: 1 }] } } })).toBe(false);
   });
   it('retains result limits and cancellation', async () => {
