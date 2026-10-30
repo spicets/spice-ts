@@ -7,6 +7,19 @@ import { executeTool, MCP_TOOLS } from './server.js';
 const trace = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1, 2, 3, 4, 5, 6], voltagesV: { out: [0, 2, 0, 2, 0, 2, 0] }, currentsA: {} }] };
 
 describe('crossing occurrence', () => {
+  it('counts initial falling departures and plateaus before later crossings', () => {
+    const base = { kind: 'cross', signal: 'v(out)', analysis: 0, value: 1, edge: 'falling' };
+    for (const [timeS, out, first, second] of [
+      [[0, 1, 2, 3], [1, 0, 2, 0], 0, 2.5],
+      [[0, 1, 2, 3, 4], [1, 1, 0, 2, 0], 1, 3.5],
+    ] as const) {
+      const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [...timeS], voltagesV: { out: [...out] }, currentsA: {} }] };
+      const items = [base, { ...base, kind: 'when', occurrence: 2 }, { ...base, edge: 'either', occurrence: 1 }, { ...base, from: first + 0.1, occurrence: 1 }];
+      expect(measureResult(input, items).measurements).toEqual([
+        { value: first, unit: 's' }, { value: second, unit: 's' }, { value: first, unit: 's' }, { value: second, unit: 's' },
+      ]);
+    }
+  });
   it('selects the second and third rising crossings', () => {
     const items = [2, 3].map(occurrence => ({ kind: occurrence === 2 ? 'cross' : 'when', signal: 'v(out)', analysis: 0, value: 1, edge: 'rising', occurrence }));
     expect(measureResult(trace, items).measurements).toEqual([{ value: 2.5, unit: 's' }, { value: 4.5, unit: 's' }]);
@@ -71,8 +84,17 @@ describe('crossing occurrence', () => {
       process.stdout.write(`${name}: mcp=${result.value} core=${reference.value} delta=${result.value - reference.value}\n`);
       expect(Math.abs(result.value - reference.value)).toBeLessThan(1e-9);
     }
-    const response = await executeTool('spice_measure', { request: { apiVersion: '1', input: { format: 'spice', source } }, measurements: [...specs, { kind: 'cross', analysis: 0, signal: 'i(V1)', value: -0.0005, edge: 'falling', occurrence: 2 }] });
+    const currentSpec = { kind: 'cross', analysis: 0, signal: 'i(V1)', value: -0.0005, edge: 'falling', occurrence: 2 };
+    const current = tran.current('V1');
+    const currentCrossings: number[] = [];
+    for (let i = 1; i < tran.time.length; i++) {
+      if (current[i - 1] > currentSpec.value && current[i] <= currentSpec.value) {
+        currentCrossings.push(tran.time[i - 1] + (tran.time[i] - tran.time[i - 1]) * (currentSpec.value - current[i - 1]) / (current[i] - current[i - 1]));
+      }
+    }
+    expect(currentCrossings.length).toBeGreaterThanOrEqual(2);
+    const response = await executeTool('spice_measure', { request: { apiVersion: '1', input: { format: 'spice', source } }, measurements: [...specs, currentSpec] });
     expect(response.isError).not.toBe(true);
-    expect(response.structuredContent).toMatchObject({ measurements: [actual[0], actual[1], { value: expect.any(Number), unit: 's' }] });
+    expect(response.structuredContent).toMatchObject({ measurements: [actual[0], actual[1], { value: currentCrossings[1], unit: 's' }] });
   });
 });

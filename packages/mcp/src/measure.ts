@@ -170,9 +170,11 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       if (!data.axisUnit) return error('INVALID_MEASUREMENT', 'Crossings require a swept analysis');
       const target = m.value!;
       let count = 0;
+      let initialPlateau = y[0] === target;
       for (let i = 1; i < x.length; i++) {
         const rising = y[i - 1] < target && y[i] >= target;
-        const falling = y[i - 1] > target && y[i] <= target;
+        const falling = (y[i - 1] > target && y[i] <= target) || (initialPlateau && y[i] < target);
+        if (y[i] !== target) initialPlateau = false;
         if (!(m.edge === 'rising' ? rising : m.edge === 'falling' ? falling : rising || falling)) continue;
         const at = x[i - 1] + (x[i] - x[i - 1]) * ((target - y[i - 1]) / (y[i] - y[i - 1]));
         if (at >= lo && at <= hi && ++count === (m.occurrence ?? 1)) return { value: at, unit: data.axisUnit };
