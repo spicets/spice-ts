@@ -1,4 +1,5 @@
 import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { addFourier, parseFourierCards } from './fourier.js';
 import type {
   JsonObject,
   SimulationRequestV1,
@@ -55,6 +56,7 @@ interface PreparedPassiveAc extends PreparedNumericBase {
 
 interface PreparedPassiveTran extends PreparedNumericBase {
   analysis: 'tran';
+  fourier: ReturnType<typeof parseFourierCards>;
   hierarchical: boolean;
   transient: Extract<CompiledCircuit['analyses'][number], { type: 'tran' }>;
   normalizedSource: string;
@@ -96,9 +98,21 @@ export async function simulateLinearOpWasmV1(
         || waveform?.type === 'sin' || waveform?.type === 'pwl'
         || waveform?.type === 'exp' || waveform?.type === 'sffm' || waveform?.type === 'am';
     })) {
-      return simulateAdaptiveTransient(prepared, request, exports, maxPoints);
+      const result = await simulateAdaptiveTransient(prepared, request, exports, maxPoints);
+      const transientResult = result.analyses[0];
+      if (prepared.fourier.length && transientResult?.type === 'tran') {
+        addFourier(transientResult, prepared.fourier);
+        enforceSerializedResultLimit(result, request);
+      }
+      return result;
     }
-    return simulateTransient(prepared, request, exports);
+    const result = simulateTransient(prepared, request, exports);
+    const transientResult = result.analyses[0];
+    if (prepared.fourier.length && transientResult?.type === 'tran') {
+      addFourier(transientResult, prepared.fourier);
+      enforceSerializedResultLimit(result, request);
+    }
+    return result;
   }
   return simulateAc(prepared, request, exports);
 }
@@ -784,7 +798,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
         backend: 'spice-ts-wasm', feature: 'tran-controls',
       });
     }
-    return { analysis, compiled, order, transient: compiledAnalysis, normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
+    return { analysis, compiled, order, transient: compiledAnalysis, fourier: parseFourierCards(cards), normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
   }
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
   const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
@@ -832,6 +846,7 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
     ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
   for (const card of cards) {
+    if (analysis === 'tran' && /^\.(?:four|fourier)(?:\s|$)/i.test(card)) continue;
     if (/^\.options\b/i.test(card)) {
       const options = card.replace(/^\.options\s*/i, '');
       const option = new RegExp(`\\b(?:TEMP|TNOM)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
