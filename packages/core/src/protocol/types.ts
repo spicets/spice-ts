@@ -58,6 +58,8 @@ export interface SpiceTsCircuitDocumentV1 {
   format: 'spice-ts';
   schemaVersion: '1.0';
   globalNodes?: string[];
+  /** One OP-only temperature list in degrees Celsius. */
+  temperatureSweep?: { values: number[] };
   initialConditions?: Record<string, number>;
   nodesets?: Record<string, number>;
   circuit: { components: CircuitComponentV1[]; nets: string[] };

@@ -1254,6 +1254,24 @@
         "schemaVersion": {
           "const": "1.0"
         },
+        "temperatureSweep": {
+          "type": "object",
+          "required": [
+            "values"
+          ],
+          "properties": {
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "number",
+                "exclusiveMinimum": -273.15
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "globalNodes": {
           "type": "array",
           "items": {
@@ -1330,7 +1348,45 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "temperatureSweep": {}
+            },
+            "required": [
+              "temperatureSweep"
+            ]
+          },
+          "then": {
+            "properties": {
+              "analyses": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "op"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                }
+              },
+              "poleZeroAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "noiseAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
     },
     "simulationInput": {
       "oneOf": [
@@ -1556,7 +1612,46 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "not": {
+        "type": "object",
+        "required": [
+          "input",
+          "options"
+        ],
+        "properties": {
+          "input": {
+            "type": "object",
+            "required": [
+              "format",
+              "document"
+            ],
+            "properties": {
+              "format": {
+                "const": "spice-ts"
+              },
+              "document": {
+                "type": "object",
+                "required": [
+                  "temperatureSweep"
+                ],
+                "properties": {
+                  "temperatureSweep": {}
+                }
+              }
+            }
+          },
+          "options": {
+            "type": "object",
+            "required": [
+              "temperature"
+            ],
+            "properties": {
+              "temperature": {}
+            }
+          }
+        }
+      }
     },
     "complex": {
       "type": "object",
