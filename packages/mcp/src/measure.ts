@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ'] as const;
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
   from?: number; to?: number; at?: number; value?: number;
@@ -78,6 +78,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     if (m.step === undefined && analyses.length !== 1) return error('AMBIGUOUS_ANALYSIS', `Analysis has ${analyses.length} steps; select a zero-based step index`);
     const analysis = m.step === undefined ? analyses[0] : analyses.find(a => (a.step?.index ?? 0) === m.step);
     if (!analysis) return error('UNKNOWN_STEP', 'No step with this index in the selected analysis');
+    if (m.kind === 'integ' && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', 'Integral requires a transient analysis');
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', 'Signal or projection is unavailable');
     let { x, y } = data;
@@ -121,15 +122,16 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const max = samples.reduce((a, b) => Math.max(a, b));
       value = m.kind === 'min' ? min : m.kind === 'max' ? max : max - min;
     } else if (hi === lo) {
-      value = m.kind === 'rms' ? Math.abs(samples[0]) : samples[0];
+      value = m.kind === 'integ' ? 0 : m.kind === 'rms' ? Math.abs(samples[0]) : samples[0];
     } else {
       let integral = 0;
       for (let i = 1; i < points.length; i++) {
         const a = samples[i - 1]; const b = samples[i];
         integral += (points[i] - points[i - 1]) * (m.kind === 'rms' ? (a * a + a * b + b * b) / 3 : (a + b) / 2);
       }
-      value = m.kind === 'rms' ? Math.sqrt(integral / (hi - lo)) : integral / (hi - lo);
+      value = m.kind === 'integ' ? integral : m.kind === 'rms' ? Math.sqrt(integral / (hi - lo)) : integral / (hi - lo);
     }
+    if (m.kind === 'integ') unit += '*s';
     return Number.isFinite(value) ? { value, unit } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
   }) };
 }
