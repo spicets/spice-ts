@@ -6,7 +6,7 @@ Bidirectional conversion between tscircuit `circuit-json` documents and the spic
 import { fromCircuitJSON, toCircuitJSON } from '@spice-ts/circuit-json';
 ```
 
-`fromCircuitJSON` supports simple resistors, capacitors, inductors, diodes/LEDs, DC and sinewave/square voltage/current sources, enhancement-mode MOSFETs, BJTs, source ports, source nets, and source traces. PCB, schematic, and CAD elements produce nonfatal `LAYOUT_ONLY` diagnostics. Unsupported simulation elements or parameters produce error diagnostics and no circuit value.
+`fromCircuitJSON` supports simple resistors, capacitors, inductors, diodes/LEDs, DC and sinewave/square voltage/current sources, triangle voltage sources, enhancement-mode MOSFETs, BJTs, source ports, source nets, and source traces. PCB, schematic, and CAD elements produce nonfatal `LAYOUT_ONLY` diagnostics. Unsupported simulation elements or parameters produce error diagnostics and no circuit value.
 
 | circuit-json element | SPICE / IR mapping | Value |
 | --- | --- | --- |
@@ -60,5 +60,18 @@ and timing value exactly in double precision. Unequal edges, equal edges other
 than `PER * 1e-6`, omitted/zero edges (which core may default from TSTEP), finite
 pulse counts, DC operating-point overrides, AC annotations and extra parameters
 produce `LOSSY_EXPORT` diagnostics, not silent approximations. With `allowLossy`,
-any returned subset remains explicitly marked lossy. Triangle and sawtooth
-continue to return explicit `UNSUPPORTED_PARAMETER` diagnostics.
+any returned subset remains explicitly marked lossy. Sawtooth sources and triangle
+current sources continue to return explicit `UNSUPPORTED_PARAMETER` diagnostics.
+
+## Triangle voltage sources
+
+`simple_voltage_source` with `wave_shape: 'triangle'` maps to generic
+`PULSE(voltage - peak_to_peak_voltage / 2, voltage + peak_to_peak_voltage / 2, TD, PER / 2, PER / 2, 0, PER)`.
+`PER` is `1 / frequency` and `TD` is `phase / 360 * PER`, with phase defaulting
+to zero. As with square sources, phase is a nonnegative initial delay, not a
+phase advance: the source holds its first level until TD, then ramps up and
+down. Frequency must be finite and positive; voltage and signed peak-to-peak
+voltage must be finite, including zero amplitude. The adapter rejects conflicting
+waveform timing fields and unrepresentable derived parameters. Export recognizes
+only symmetric zero-plateau PULSE sources whose levels and timing survive exact
+re-import; other PULSE parameters produce `LOSSY_EXPORT` rather than approximation.

@@ -75,7 +75,7 @@ describe('sinewave voltage sources (#1721)', () => {
     expect(toCircuitJSON(ir).diagnostics).toContainEqual(expect.objectContaining({ code: 'LOSSY_EXPORT', path: '/components/0/params/amplitude' }));
   });
 
-  it.each(['triangle', 'sawtooth'])('keeps %s unsupported', wave_shape => {
+  it.each(['sawtooth'])('keeps %s unsupported', wave_shape => {
     const result = fromCircuitJSON(source({ ...sine, wave_shape }));
     expect(result.value).toBeUndefined();
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'UNSUPPORTED_PARAMETER', path: '/0/wave_shape' }));
