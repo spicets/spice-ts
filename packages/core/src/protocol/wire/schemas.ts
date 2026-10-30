@@ -29,6 +29,12 @@ const measurement: Schema = { oneOf: [
   object(['name', 'kind', 'vector'], { name: measurementName, kind: { enum: ['avg', 'min', 'max', 'pp', 'rms', 'integ'] }, vector: measurementVector, from: number, to: number }),
 ] };
 const dcMeasurement: Schema = { oneOf: (measurement.oneOf as Schema[]).slice(1) };
+const acVector = { type: 'string', pattern: '^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$' };
+const frequency = { type: 'number', minimum: 0 };
+const acMeasurement: Schema = { oneOf: [
+  object(['name', 'kind', 'vector', 'at'], { name: measurementName, kind: { const: 'find' }, vector: acVector, at: frequency }),
+  object(['name', 'kind', 'vector'], { name: measurementName, kind: { enum: ['avg', 'min', 'max', 'pp', 'rms', 'integ'] }, vector: acVector, from: frequency, to: frequency }),
+] };
 const measurementResult: Schema = { oneOf: [
   object(['name', 'value'], { name: string, value: number, unit: string }),
   object(['name', 'diagnostic'], { name: string, diagnostic: object(['code', 'message'], { code: { const: 'MEASUREMENT_FAILED' }, message: string }) }),
@@ -41,7 +47,7 @@ const analysis: Schema = { oneOf: [
     fundamentalHz: { type: 'number', exclusiveMinimum: 0 }, harmonics: { type: 'integer', minimum: 1, maximum: 199 },
     outputs: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'string', pattern: '^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[^\\s(),]+\\s*\\))$' } },
   }) }),
-  object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'ac' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
+  object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'ac' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 }, measurements: { type: 'array', maxItems: 100, items: acMeasurement } }),
 ] };
 
 const nativeAnalysis: Schema = { oneOf: [
@@ -145,7 +151,7 @@ const fourierResult = object(['vector', 'fundamental', 'gridSize', 'degree', 'pe
   })),
 });
 const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'currentsA'], { type: { const: 'tran' }, ...commonResult, timeS: array(number), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord, fourier: array(fourierResult), measurements: array(measurementResult) });
-const acResult = object(['type', 'analysisIndex', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, ...commonResult, frequencyHz: array({ type: 'number', minimum: 0 }), voltagePhasors: complexSeriesRecord, currentPhasors: complexSeriesRecord });
+const acResult = object(['type', 'analysisIndex', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, ...commonResult, frequencyHz: array({ type: 'number', minimum: 0 }), measurements: array(measurementResult), voltagePhasors: complexSeriesRecord, currentPhasors: complexSeriesRecord });
 const simulationResult = object(['status', 'analyses'], { status: { const: 'complete' }, analyses: array(ref('analysisResult')) });
 const tfResult = object(['type', 'analysisIndex', 'transferFunction', 'inputResistanceOhm', 'outputResistanceOhm'], { type: { const: 'tf' }, ...commonResult, transferFunction: number, inputResistanceOhm: number, outputResistanceOhm: number });
 const diagnostic = object(['severity', 'code', 'message'], {

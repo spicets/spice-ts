@@ -45,7 +45,7 @@ A native single-source `dc` sweep may also supply `measurements`, using the same
 `find` (`at` or `when`) and window kinds as transient, evaluated against the sweep
 axis. The corresponding DC result contains the same value or per-measurement
 `MEASUREMENT_FAILED` diagnostic shape. Capability `measurements:dc` advertises
-this support. TRIG/TARG, AC and nested DC measurements are rejected. The core
+this support. TRIG/TARG and nested DC measurements are rejected. The core
 measurement evaluator does not attach units to these values; the protocol likewise
 omits the optional unit rather than inferring one.
 
@@ -98,3 +98,14 @@ This subpath has no runtime dependencies and does not import the simulator entry
 It supersedes the standalone `@spice-ts/protocol@0.3.0` package without changing protocol v1.
 Import JSON documents from `@spice-ts/core/protocol/schemas/*` and
 `@spice-ts/core/protocol/fixtures/*`.
+
+## Native AC measurements
+
+Native `ac` analyses accept up to 100 measurements. Use `find` with `at` in
+Hz, or `avg`, `min`, `max`, `pp`, `rms`, and `integ` with optional `from`
+and `to` in Hz. Vectors are limited to `vm(node)`, `vdb(node)`, and `vp(node)`;
+differential operands and expressions are not supported. Frequencies must be
+finite and nonnegative. The shared text measurement engine determines window
+and out-of-range behavior. A failed measurement returns `MEASUREMENT_FAILED`
+instead of a scalar. The capability is `measurements:ac`. Circuit-json
+measurements remain unsupported.

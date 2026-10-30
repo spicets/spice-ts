@@ -1,7 +1,7 @@
 import { evaluateMeasureCards, measureCard, measurePlot } from '../measure/dot-measure.js';
-import type { DCSweepResult, TransientResult } from '../results.js';
+import type { ACResult, DCSweepResult, TransientResult } from '../results.js';
 import type { AnalysisDirective } from '../types.js';
-import type { SimulationRequestV1, TransientMeasurementV1, TransientMeasurementResultV1 } from './types.js';
+import type { SimulationRequestV1, AcMeasurementV1, TransientMeasurementV1, TransientMeasurementResultV1 } from './types.js';
 import { ProtocolExecutionError, type ProtocolExecutionGuard } from './execution-guard.js';
 
 function invalid(path: string): never {
@@ -9,6 +9,7 @@ function invalid(path: string): never {
 }
 
 const vector = /^(?:v\([^\s(),]+(?:,[^\s(),]+)?\)|i\([^\s(),]+\))$/i;
+const acVector = /^v(?:m|db|p)\([^\s(),]+\)$/i;
 const name = /^[a-z][a-z0-9_]*$/i;
 const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 
@@ -24,7 +25,7 @@ export function validateNativeMeasurements(request: SimulationRequestV1): void {
     const entries = (analysis as { measurements?: unknown }).measurements;
     if (entries === undefined) continue;
     const path = `/input/document/analyses/${i}/measurements`;
-    if ((analysis.type !== 'tran' && analysis.type !== 'dc') || !Array.isArray(entries) || entries.length > 100 || (analysis.type === 'dc' && analysis.secondary !== undefined)) invalid(path);
+    if ((analysis.type !== 'tran' && analysis.type !== 'dc' && analysis.type !== 'ac') || !Array.isArray(entries) || entries.length > 100 || (analysis.type === 'dc' && analysis.secondary !== undefined)) invalid(path);
     const names = new Set<string>();
     const object = (x: unknown, at: string): Record<string, unknown> => {
       if (!x || typeof x !== 'object' || Array.isArray(x)) invalid(at);
@@ -46,18 +47,18 @@ export function validateNativeMeasurements(request: SimulationRequestV1): void {
       if (typeof o.name !== 'string' || !name.test(o.name) || names.has(o.name.toLowerCase())) invalid(`${at}/name`);
       names.add(o.name.toLowerCase());
       if (o.kind === 'trig') {
-        if (analysis.type === 'dc') invalid(`${at}/kind`);
+        if (analysis.type !== 'tran') invalid(`${at}/kind`);
         fields(o, ['name', 'kind', 'trig', 'targ'], at); crossing(o.trig, `${at}/trig`); crossing(o.targ, `${at}/targ`);
       } else if (o.kind === 'find') {
-        fields(o, ['name', 'kind', 'vector', 'at', 'when'], at);
-        if (typeof o.vector !== 'string' || !vector.test(o.vector)) invalid(`${at}/vector`);
+        fields(o, analysis.type === 'ac' ? ['name', 'kind', 'vector', 'at'] : ['name', 'kind', 'vector', 'at', 'when'], at);
+        if (typeof o.vector !== 'string' || !(analysis.type === 'ac' ? acVector : vector).test(o.vector)) invalid(`${at}/vector`);
         if ((o.at === undefined) === (o.when === undefined)) invalid(at);
-        if (o.at !== undefined && !finite(o.at)) invalid(`${at}/at`);
+        if (o.at !== undefined && (!finite(o.at) || (analysis.type === 'ac' && o.at < 0))) invalid(`${at}/at`);
         if (o.when !== undefined) crossing(o.when, `${at}/when`);
       } else if (['avg', 'min', 'max', 'pp', 'rms', 'integ'].includes(o.kind as string)) {
         fields(o, ['name', 'kind', 'vector', 'from', 'to'], at);
-        if (typeof o.vector !== 'string' || !vector.test(o.vector)) invalid(`${at}/vector`);
-        for (const key of ['from', 'to']) if (o[key] !== undefined && !finite(o[key])) invalid(`${at}/${key}`);
+        if (typeof o.vector !== 'string' || !(analysis.type === 'ac' ? acVector : vector).test(o.vector)) invalid(`${at}/vector`);
+        for (const key of ['from', 'to']) if (o[key] !== undefined && (!finite(o[key]) || (analysis.type === 'ac' && (o[key] as number) < 0))) invalid(`${at}/${key}`);
         if (finite(o.from) && finite(o.to) && o.from > o.to) invalid(`${at}/to`);
       } else invalid(`${at}/kind`);
     }
@@ -67,18 +68,18 @@ export function validateNativeMeasurements(request: SimulationRequestV1): void {
 function clause(c: import('./types.js').MeasurementCrossingV1, when = false): string {
   return `${c.vector}${when ? '=' : ' val='}${c.value}${c.rise !== undefined ? ` rise=${c.rise}` : ''}${c.fall !== undefined ? ` fall=${c.fall}` : ''}${c.cross !== undefined ? ` cross=${c.cross}` : ''}${c.td !== undefined ? ` td=${c.td}` : ''}`;
 }
-function card(m: TransientMeasurementV1, analysis: 'tran' | 'dc'): string {
+function card(m: TransientMeasurementV1 | AcMeasurementV1, analysis: 'tran' | 'dc' | 'ac'): string {
   const prefix = `.meas ${analysis} ${m.name} `;
   if (m.kind === 'trig') return `${prefix}trig ${clause(m.trig)} targ ${clause(m.targ)}`;
   if (m.kind === 'find') return `${prefix}find ${m.vector} ${'at' in m && m.at !== undefined ? `at=${m.at}` : `when ${clause(m.when!, true)}`}`;
   return `${prefix}${m.kind} ${m.vector}${m.from === undefined ? '' : ` from=${m.from}`}${m.to === undefined ? '' : ` to=${m.to}`}`;
 }
 
-export function nativeMeasurements(request: SimulationRequestV1, index: number, directive: AnalysisDirective, result: TransientResult | DCSweepResult, guard: ProtocolExecutionGuard): TransientMeasurementResultV1[] | undefined {
+export function nativeMeasurements(request: SimulationRequestV1, index: number, directive: AnalysisDirective, result: TransientResult | DCSweepResult | ACResult, guard: ProtocolExecutionGuard): TransientMeasurementResultV1[] | undefined {
   if (request.input.format !== 'spice-ts') return undefined;
   const analysis = request.input.document.analyses[index];
-  if ((analysis.type !== 'tran' && analysis.type !== 'dc') || !analysis.measurements) return undefined;
-  const plot = measurePlot(directive, analysis.type === 'tran' ? { transient: result as TransientResult, warnings: [] } : { dcSweep: result as DCSweepResult, warnings: [] });
+  if ((analysis.type !== 'tran' && analysis.type !== 'dc' && analysis.type !== 'ac') || !analysis.measurements) return undefined;
+  const plot = measurePlot(directive, analysis.type === 'tran' ? { transient: result as TransientResult, warnings: [] } : analysis.type === 'dc' ? { dcSweep: result as DCSweepResult, warnings: [] } : { ac: result as ACResult, warnings: [] });
   if (!plot) return undefined;
   const values = new Map<string, number>();
   return analysis.measurements.map((measurement, i) => {
