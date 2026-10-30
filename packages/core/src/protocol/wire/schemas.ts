@@ -120,6 +120,7 @@ const model = object(['name', 'type', 'params'], {
 });
 const nativeDocument = object(['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'], {
   format: { const: 'spice-ts' }, schemaVersion: { const: '1.0' },
+  globalNodes: { type: 'array', items: { type: 'string', pattern: '^[A-Za-z0-9_.:+-]+(?![\\s\\S])' } },
   circuit: object(['components', 'nets'], { components: array(ref('component')), nets: { type: 'array', items: { type: 'string', not: { const: '0' } }, uniqueItems: true } }),
   analyses: array(ref('nativeAnalysis')), models: array(ref('model')), subcircuits: array(ref('subcircuit')),
   poleZeroAnalyses: array(ref('poleZeroAnalysis')),
