@@ -344,7 +344,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_optimize',
-    description: 'Deterministic bounded search over one to three top-level SPICE .param values toward a scalar spice_measure objective. Golden-section search for one parameter, coordinate descent for two or three. Absolute objective tolerance, default 40 and hard maximum 100 evaluations. Returns best parameters, achieved value and ordered history; TARGET_NOT_REACHED means no convergence, not proof of global infeasibility. One shared wall-time budget.',
+    description: 'Deterministic bounded search over one to three top-level SPICE .param or R/C/L component values toward a scalar spice_measure objective. Component targets support SPICE text and native spice-ts JSON. Golden-section search for one parameter, coordinate descent for two or three. Absolute objective tolerance, default 40 and hard maximum 100 evaluations. Returns best parameters, achieved value and ordered history; TARGET_NOT_REACHED means no convergence, not proof of global infeasibility. One shared wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'parameters', 'objective', 'target'],
       properties: { ...requestInputSchema.properties, ...optimizeProperties },

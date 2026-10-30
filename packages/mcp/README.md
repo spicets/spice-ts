@@ -212,6 +212,15 @@ to tune an RC low-pass cutoff to 1 kHz. The SPICE request must declare the named
 top-level `.param` values; names are case-insensitive and bounds are inclusive.
 `objective` uses the existing `spice_measure` scalar selector contract.
 
+Each parameter may specify `kind: 'component'` to optimize a top-level R, C,
+or L scalar directly, for example `{ kind: 'component', name: 'R2', min: 1000,
+max: 9000 }`. Component bounds must be strictly positive. Both SPICE text and
+native spice-ts JSON requests are supported for component targets. Omitted
+`kind` (or `kind: 'param'`) retains the SPICE `.param` behavior. Targets are
+case-insensitive and must be unique across the search; subcircuit components
+and other device types are not supported. Parameter and component targets can be
+combined in a SPICE request.
+
 One parameter uses golden-section search on absolute target error; two or three
 use two coordinate-descent passes from the bounds' midpoint. Endpoints are sampled
 and repeated parameter tuples are cached. `maxEvaluations` defaults to 40 and has a
