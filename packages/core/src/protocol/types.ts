@@ -3,7 +3,7 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 export type JsonObject = { [key: string]: JsonValue };
 
 export interface OperatingPointAnalysisV1 { type: 'op' }
-export interface DcAnalysisV1 { type: 'dc'; source: string; start: number; stop: number; step: number; secondary?: { source: string; start: number; stop: number; step: number } }
+export interface DcAnalysisV1 { type: 'dc'; source: string; start: number; stop: number; step: number; secondary?: { source: string; start: number; stop: number; step: number }; measurements?: DcMeasurementV1[] }
 export interface FourierAnalysisV1 { fundamentalHz: number; outputs: string[]; harmonics?: number }
 export interface FourierResultV1 {
   vector: string; fundamental: number | null; gridSize: number; degree: number; periods: number; thd: number | null;
@@ -14,6 +14,8 @@ export type TransientMeasurementV1 =
   | { name: string; kind: 'trig'; trig: MeasurementCrossingV1; targ: MeasurementCrossingV1 }
   | ({ name: string; kind: 'find'; vector: string } & ({ at: number; when?: never } | { when: MeasurementCrossingV1; at?: never }))
   | { name: string; kind: 'avg' | 'min' | 'max' | 'pp' | 'rms' | 'integ'; vector: string; from?: number; to?: number };
+export type DcMeasurementV1 = Exclude<TransientMeasurementV1, { kind: 'trig' }>;
+export type DcMeasurementResultV1 = TransientMeasurementResultV1;
 export type TransientMeasurementResultV1 = { name: string; value: number; unit?: string } | { name: string; diagnostic: { code: 'MEASUREMENT_FAILED'; message: string } };
 export interface TransientAnalysisV1 { type: 'tran'; timestep: number; stopTime: number; startTime?: number; maxTimestep?: number; uic?: true; fourier?: FourierAnalysisV1; measurements?: TransientMeasurementV1[] }
 export interface AcAnalysisV1 { type: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
@@ -107,6 +109,7 @@ export interface DcResultV1 {
   axis: { name: string; unit: 'V' | 'A'; values: number[] };
   /** Point-aligned outer sweep coordinates for nested DC sweeps. */
   secondaryAxis?: { name: string; unit: 'V' | 'A'; values: number[] };
+  measurements?: DcMeasurementResultV1[];
   voltagesV: Record<string, number[]>; currentsA: Record<string, number[]>;
 }
 export interface TransientResultV1 {
@@ -130,7 +133,7 @@ export type ProtocolLimitNameV1 = keyof ResourceLimitsV1;
 export interface ProtocolCapabilityAnalysisV1 {
   id: `analysis:${AnalysisV1['type'] | 'tf'}`;
   type: AnalysisV1['type'] | 'tf';
-  features?: ('measurements:tran')[];
+  features?: ('measurements:tran' | 'measurements:dc')[];
 }
 export interface ProtocolCapabilityInputV1 {
   id: 'input:spice' | 'input:spice-ts';

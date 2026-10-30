@@ -39,6 +39,16 @@ before each synchronous measurement. The capability envelope advertises
 `measurements:tran` on the transient analysis. Only native `spice-ts` documents
 are supported; this does not change the numerical evaluator or WASM.
 
+## Native DC measurements
+
+A native single-source `dc` sweep may also supply `measurements`, using the same
+`find` (`at` or `when`) and window kinds as transient, evaluated against the sweep
+axis. The corresponding DC result contains the same value or per-measurement
+`MEASUREMENT_FAILED` diagnostic shape. Capability `measurements:dc` advertises
+this support. TRIG/TARG, AC and nested DC measurements are rejected. The core
+measurement evaluator does not attach units to these values; the protocol likewise
+omits the optional unit rather than inferring one.
+
 ## Native transient Fourier tables
 
 Each native `tran` analysis may request its own Fourier tables:

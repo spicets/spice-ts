@@ -21,7 +21,7 @@ const CAPABILITIES: ProtocolCapabilitiesV1 = {
   capabilityId: 'protocol-v1',
   analyses: [
     { id: 'analysis:op', type: 'op' },
-    { id: 'analysis:dc', type: 'dc' },
+    { id: 'analysis:dc', type: 'dc', features: ['measurements:dc'] },
     { id: 'analysis:tran', type: 'tran', features: ['measurements:tran'] },
     { id: 'analysis:ac', type: 'ac' },
     { id: 'analysis:tf', type: 'tf' },

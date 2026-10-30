@@ -28,6 +28,7 @@ const measurement: Schema = { oneOf: [
   object(['name', 'kind', 'vector', 'when'], { name: measurementName, kind: { const: 'find' }, vector: measurementVector, when: crossing }),
   object(['name', 'kind', 'vector'], { name: measurementName, kind: { enum: ['avg', 'min', 'max', 'pp', 'rms', 'integ'] }, vector: measurementVector, from: number, to: number }),
 ] };
+const dcMeasurement: Schema = { oneOf: (measurement.oneOf as Schema[]).slice(1) };
 const measurementResult: Schema = { oneOf: [
   object(['name', 'value'], { name: string, value: number, unit: string }),
   object(['name', 'diagnostic'], { name: string, diagnostic: object(['code', 'message'], { code: { const: 'MEASUREMENT_FAILED' }, message: string }) }),
@@ -35,7 +36,7 @@ const measurementResult: Schema = { oneOf: [
 
 const analysis: Schema = { oneOf: [
   object(['type'], { type: { const: 'op' } }),
-  object(['type', 'source', 'start', 'stop', 'step'], { type: { const: 'dc' }, ...dcSweepProperties, secondary: object(['source', 'start', 'stop', 'step'], dcSweepProperties) }),
+  { ...object(['type', 'source', 'start', 'stop', 'step'], { type: { const: 'dc' }, ...dcSweepProperties, secondary: object(['source', 'start', 'stop', 'step'], dcSweepProperties), measurements: { type: 'array', maxItems: 100, items: dcMeasurement } }), not: { type: 'object', properties: { secondary: {}, measurements: {} }, required: ['secondary', 'measurements'] } },
   object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 }, uic: { const: true }, measurements: { type: 'array', maxItems: 100, items: measurement }, fourier: object(['fundamentalHz', 'outputs'], {
     fundamentalHz: { type: 'number', exclusiveMinimum: 0 }, harmonics: { type: 'integer', minimum: 1, maximum: 199 },
     outputs: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'string', pattern: '^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[^\\s(),]+\\s*\\))$' } },
@@ -135,7 +136,7 @@ const complexRecord: Schema = { type: 'object', additionalProperties: ref('compl
 const complexSeriesRecord: Schema = { type: 'object', additionalProperties: array(ref('complex')) };
 const commonResult = { analysisIndex, step };
 const opResult = object(['type', 'analysisIndex', 'voltagesV', 'currentsA'], { type: { const: 'op' }, ...commonResult, voltagesV: numberRecord, currentsA: numberRecord });
-const dcResult = object(['type', 'analysisIndex', 'axis', 'voltagesV', 'currentsA'], { type: { const: 'dc' }, ...commonResult, axis: dcAxis, secondaryAxis: dcAxis, voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord });
+const dcResult = object(['type', 'analysisIndex', 'axis', 'voltagesV', 'currentsA'], { type: { const: 'dc' }, ...commonResult, axis: dcAxis, secondaryAxis: dcAxis, voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord, measurements: array(measurementResult) });
 const nullableNumber: Schema = { type: ['number', 'null'] };
 const fourierResult = object(['vector', 'fundamental', 'gridSize', 'degree', 'periods', 'thd', 'harmonics'], {
   vector: string, fundamental: nullableNumber, gridSize: integer(1), degree: integer(), periods: integer(1), thd: nullableNumber,

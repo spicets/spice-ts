@@ -125,9 +125,165 @@
                 }
               },
               "additionalProperties": false
+            },
+            "measurements": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector",
+                      "at"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                      },
+                      "at": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector",
+                      "when"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                      },
+                      "when": {
+                        "type": "object",
+                        "required": [
+                          "vector",
+                          "value"
+                        ],
+                        "properties": {
+                          "vector": {
+                            "type": "string",
+                            "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "rise": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "fall": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "cross": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "td": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "enum": [
+                          "avg",
+                          "min",
+                          "max",
+                          "pp",
+                          "rms",
+                          "integ"
+                        ]
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                      },
+                      "from": {
+                        "type": "number"
+                      },
+                      "to": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              }
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "not": {
+            "type": "object",
+            "properties": {
+              "secondary": {},
+              "measurements": {}
+            },
+            "required": [
+              "secondary",
+              "measurements"
+            ]
+          }
         },
         {
           "type": "object",
@@ -1452,6 +1608,61 @@
             "items": {
               "type": "number"
             }
+          }
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "diagnostic"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "diagnostic": {
+                    "type": "object",
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "MEASUREMENT_FAILED"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         }
       },
