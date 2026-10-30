@@ -1,10 +1,12 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'delay'] as const;
+type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
   from?: number; to?: number; at?: number; value?: number;
   edge?: 'rising' | 'falling' | 'either';
+  trigger?: Crossing; target?: Crossing;
 };
 type MeasurementErrorCode = 'INVALID_MEASUREMENT' | 'UNKNOWN_SIGNAL' | 'UNKNOWN_ANALYSIS' | 'AMBIGUOUS_ANALYSIS' | 'UNKNOWN_STEP' | 'OUT_OF_RANGE' | 'NO_CROSSING' | 'NON_FINITE_RESULT';
 type MeasurementResult = { value: number; unit: string } | { error: { code: MeasurementErrorCode; message: string } };
@@ -12,13 +14,18 @@ type MeasurementResult = { value: number; unit: string } | { error: { code: Meas
 export const measurementListSchema = {
   type: 'array', minItems: 1, maxItems: 128,
   items: {
-    type: 'object', required: ['kind', 'signal', 'analysis'], additionalProperties: false,
+    type: 'object', required: ['kind', 'analysis'], additionalProperties: false,
+    allOf: [{ if: { properties: { kind: { const: 'delay' } } }, then: { required: ['trigger', 'target'] }, else: { required: ['signal'] } }],
     properties: {
       kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256 },
       analysis: { type: 'integer', minimum: 0 },
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
       edge: { enum: ['rising', 'falling', 'either'] },
+      ...Object.fromEntries(['trigger', 'target'].map(key => [key, {
+        type: 'object', description: 'Transient crossing; counted independently within from/to. Delay is target time minus trigger time, in seconds.', required: ['signal', 'threshold'], additionalProperties: false,
+        properties: { signal: { type: 'string', minLength: 1, maxLength: 256 }, threshold: { type: 'number' }, edge: { enum: ['rising', 'falling', 'either'], description: 'Defaults to either.' }, occurrence: { type: 'integer', minimum: 1, description: 'One-based crossing number; defaults to 1.' } },
+      }])),
     },
   },
 };
@@ -30,14 +37,21 @@ function error(code: MeasurementErrorCode, message: string): MeasurementResult {
 function valid(value: unknown): value is Measurement {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const m = value as Measurement;
-  return kinds.includes(m.kind) && typeof m.signal === 'string' && m.signal.length > 0 && m.signal.length <= 256
+  const crossingValid = (c: Crossing | undefined): boolean => !!c && typeof c === 'object' && !Array.isArray(c)
+    && typeof c.signal === 'string' && c.signal.length > 0 && c.signal.length <= 256
+    && typeof c.threshold === 'number' && Number.isFinite(c.threshold)
+    && (c.edge === undefined || ['rising', 'falling', 'either'].includes(c.edge))
+    && (c.occurrence === undefined || (Number.isSafeInteger(c.occurrence) && c.occurrence > 0))
+    && Object.keys(c).every(key => ['signal', 'threshold', 'edge', 'occurrence'].includes(key));
+  return kinds.includes(m.kind) && (m.kind === 'delay' ? crossingValid(m.trigger) && crossingValid(m.target) && m.signal === undefined : typeof m.signal === 'string' && m.signal.length > 0 && m.signal.length <= 256 && m.trigger === undefined && m.target === undefined)
     && Number.isInteger(m.analysis) && m.analysis >= 0
     && (m.step === undefined || (Number.isInteger(m.step) && m.step >= 0))
     && ['from', 'to', 'at', 'value'].every(key => {
       const n = (m as unknown as Record<string, unknown>)[key];
       return n === undefined || (typeof n === 'number' && Number.isFinite(n));
     })
-    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge'].includes(key))
+    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'trigger', 'target'].includes(key))
+    && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
     && (m.edge === undefined || ['rising', 'falling', 'either'].includes(m.edge))
     && (m.from === undefined || m.to === undefined || m.from <= m.to)
     && (m.kind !== 'at' || m.at !== undefined)
@@ -78,6 +92,34 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     if (m.step === undefined && analyses.length !== 1) return error('AMBIGUOUS_ANALYSIS', `Analysis has ${analyses.length} steps; select a zero-based step index`);
     const analysis = m.step === undefined ? analyses[0] : analyses.find(a => (a.step?.index ?? 0) === m.step);
     if (!analysis) return error('UNKNOWN_STEP', 'No step with this index in the selected analysis');
+    if (m.kind === 'delay') {
+      if (analysis.type !== 'tran') return error('INVALID_MEASUREMENT', 'Delay requires a transient analysis');
+      const crossing = (spec: Crossing): MeasurementResult => {
+        const data = series(analysis, spec.signal);
+        if (!data) return error('UNKNOWN_SIGNAL', `Signal ${spec.signal} is unavailable`);
+        const { x, y } = data;
+        if (!x.length || x.length !== y.length || ![...x, ...y].every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal has empty or non-finite data');
+        if (x.some((v, i) => i > 0 && v <= x[i - 1])) return error('INVALID_MEASUREMENT', 'Analysis axis must be strictly increasing');
+        const lo = m.from ?? x[0]; const hi = m.to ?? x[x.length - 1];
+        if (lo < x[0] || hi > x[x.length - 1] || lo > hi) return error('OUT_OF_RANGE', 'Measurement lies outside the analysis window');
+        let count = 0;
+        for (let i = 1; i < x.length; i++) {
+          const rising = y[i - 1] < spec.threshold && y[i] >= spec.threshold;
+          const falling = y[i - 1] > spec.threshold && y[i] <= spec.threshold;
+          if (!(spec.edge === 'rising' ? rising : spec.edge === 'falling' ? falling : rising || falling)) continue;
+          const time = x[i - 1] + (x[i] - x[i - 1]) * ((spec.threshold - y[i - 1]) / (y[i] - y[i - 1]));
+          if (time <= lo || time > hi) continue;
+          if (++count === (spec.occurrence ?? 1)) return { value: time, unit: 's' };
+        }
+        return error('NO_CROSSING', `No crossing for ${spec.signal} in the selected window`);
+      };
+      const trigger = crossing(m.trigger!);
+      if ('error' in trigger) return trigger;
+      const target = crossing(m.target!);
+      if ('error' in target) return target;
+      const value = target.value - trigger.value;
+      return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
+    }
     if (m.kind === 'integ' && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', 'Integral requires a transient analysis');
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', 'Signal or projection is unavailable');
