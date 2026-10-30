@@ -567,8 +567,10 @@ function coreOptions(options?: SimulationOptionsV1): SimulationOptions {
 /** Reconstruct a circuit from a validated native protocol document. */
 export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: ProtocolExecutionGuard): Circuit {
   const circuit = new Circuit();
-  for (const key of ['step', 'steps', 'sweep', 'sweeps']) {
-    if (Object.hasOwn(document, key)) invalidNativeField(`/input/document/${key}`);
+  for (const key of Object.keys(document)) {
+    if (!['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits', 'temperatureSweep', 'globalNodes', 'poleZeroAnalyses', 'noiseAnalyses', 'initialConditions', 'nodesets'].includes(key)) {
+      invalidNativeField(`/input/document/${jsonPointerSegment(key)}`);
+    }
   }
   if (document.temperatureSweep !== undefined) {
     const sweep = document.temperatureSweep;

@@ -21,6 +21,20 @@ describe('native TEMP LIST', () => {
       await expect(execute(request).catch(mapProtocolErrorV1)).resolves.toMatchObject({ code: 'INVALID_REQUEST', details: { path: '/input/document/analyses' } });
     }
   });
+  it('rejects unknown document keys consistently with the shipped schema', async () => {
+    const ajv = new Ajv2020({ strict: true });
+    for (const name of ['common', 'simulation-request']) ajv.addSchema(JSON.parse(readFileSync(new URL(`../../protocol/schemas/${name}.schema.json`, import.meta.url), 'utf8')));
+    const validate = ajv.getSchema('https://spice-ts.dev/schemas/v1/simulation-request.schema.json')!;
+    for (const [field, path] of [['temperatureSweeps', 'temperatureSweeps'], ['extra~/key', 'extra~0~1key']]) {
+      for (const sweep of [undefined, { values: [27] }]) {
+        const request = { apiVersion: '1', input: { format: 'spice-ts', document: { ...document, ...(sweep && { temperatureSweep: sweep }), [field]: [{ values: [75] }] } } } as unknown as SimulationRequestV1;
+        expect(validate(request)).toBe(false);
+        for (const execute of [simulateProtocolV1, validateProtocolV1]) {
+          await expect(execute(request).catch(mapProtocolErrorV1)).resolves.toMatchObject({ code: 'INVALID_REQUEST', details: { path: `/input/document/${path}` } });
+        }
+      }
+    }
+  });
   it('matches ordered text sweep results', async () => {
     const native = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice-ts', document: { ...document, temperatureSweep: { values: [0, 27, 75] } } } } as SimulationRequestV1);
     const text = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice', source: `${netlist}\n.step TEMP LIST 0 27 75\n.op` } });
