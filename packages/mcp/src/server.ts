@@ -455,7 +455,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_measure',
-    description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; optional step selects the zero-based SimulationResultV1 step.index (required for multiple steps). Unstepped analyses accept step 0 only. Signals are v(node), i(branch), mag(v(node)), or db(v(node)). Cross/when return the first matching axis coordinate.',
+    description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; optional step selects the zero-based SimulationResultV1 step.index (required for multiple steps). Unstepped analyses accept step 0 only. Signals are v(node), i(branch), or AC projections mag(...), db(...), and phase(...) of either signal. Phase is unwrapped in frequency order and returned in degrees; zero or non-finite phasors fail. Cross/when return the first matching axis coordinate.',
     inputSchema: {
       ...requestInputSchema,
       required: ['request', 'measurements'],

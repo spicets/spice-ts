@@ -64,10 +64,10 @@ function valid(value: unknown): value is Measurement {
 
 function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]; unit: string; axisUnit: string } | undefined {
   if (a.type === 'tf') return undefined;
-  const match = /^(?:(db|mag)\()?([vi])\(([^()]+)\)\)?$/i.exec(signal);
+  const match = /^(?:(db|mag|phase)\()?([vi])\(([^()]+)\)\)?$/i.exec(signal);
   if (!match) return undefined;
   const [, transform, quantity, name] = match;
-  // Only AC phasors have magnitude / dB projections.
+  // Projections are available only for AC phasors.
   if (transform && (a.type !== 'ac' || !signal.endsWith('))'))) return undefined;
   if (!transform && signal.endsWith('))')) return undefined;
   const voltage = quantity.toLowerCase() === 'v';
@@ -76,12 +76,24 @@ function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]
     : (voltage ? a.voltagesV : a.currentsA);
   const key = Object.keys(values).find(key => key.toLowerCase() === name.toLowerCase());
   if (key === undefined) return undefined;
+  const projection = transform?.toLowerCase();
   const y = a.type === 'ac'
-    ? (voltage ? a.voltagePhasors : a.currentPhasors)[key].map(p => transform?.toLowerCase() === 'db' ? 20 * Math.log10(p.magnitude) : p.magnitude)
+    ? (voltage ? a.voltagePhasors : a.currentPhasors)[key].map(p => projection === 'phase'
+      ? (p.magnitude > 0 && Number.isFinite(p.magnitude) && Number.isFinite(p.phaseDegrees) ? p.phaseDegrees : NaN)
+      : projection === 'db' ? 20 * Math.log10(p.magnitude) : p.magnitude)
     : a.type === 'op' ? [(voltage ? a.voltagesV : a.currentsA)[key]] : (voltage ? a.voltagesV : a.currentsA)[key];
+  if (a.type === 'ac' && projection === 'phase') {
+    const descending = a.frequencyHz.length > 1 && a.frequencyHz[0] > a.frequencyHz[a.frequencyHz.length - 1];
+    if (descending) y.reverse();
+    for (let i = 1; i < y.length; i++) {
+      const delta = y[i] - y[i - 1];
+      y[i] = y[i - 1] + ((delta + 180) % 360 + 360) % 360 - 180;
+    }
+    if (descending) y.reverse();
+  }
   return {
     x: a.type === 'ac' ? a.frequencyHz : a.type === 'tran' ? a.timeS : a.type === 'dc' ? a.axis.values : [0],
-    y, unit: transform?.toLowerCase() === 'db' ? 'dB' : voltage ? 'V' : 'A',
+    y, unit: projection === 'phase' ? 'deg' : projection === 'db' ? 'dB' : voltage ? 'V' : 'A',
     axisUnit: a.type === 'ac' ? 'Hz' : a.type === 'tran' ? 's' : a.type === 'dc' ? a.axis.unit : '',
   };
 }
