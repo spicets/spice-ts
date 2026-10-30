@@ -4,17 +4,19 @@ const metricNames = ['dcGainDb', 'f3dbHz', 'unityGainHz', 'phaseMarginDeg', 'gai
 type Metric = typeof metricNames[number];
 const reasonCodes = ['NON_FINITE_GAIN', 'NO_HALF_POWER_CROSSING', 'NO_UNITY_GAIN_CROSSING', 'NO_PHASE_CROSSING'] as const;
 type ReasonCode = typeof reasonCodes[number];
-export interface AcMetricsArgs { output: string; input?: string; analysis?: number }
+export interface AcMetricsArgs { output: string; input?: string; analysis?: number; groupDelayAtHz?: number }
 export const acMetricsProperties = {
   output: { type: 'string', minLength: 1, maxLength: 256 },
   input: { type: 'string', minLength: 1, maxLength: 256 },
   analysis: { type: 'integer', minimum: 0 },
+  groupDelayAtHz: { type: 'number', exclusiveMinimum: 0, description: 'Frequency in Hz for group delay. Sample delays use centered phase differences, or one-sided differences at endpoints; between samples delays are linearly interpolated in Hz. No extrapolation; adjacent phase changes must be below 180 degrees.' },
 };
 export const acMetricsOutputSchema = {
   type: 'object', additionalProperties: false,
   required: [...metricNames, 'referenceFrequencyHz', 'reasons'],
   properties: {
     ...Object.fromEntries(metricNames.map(key => [key, { type: ['number', 'null'] }])),
+    groupDelaySeconds: { type: 'number' },
     referenceFrequencyHz: { type: 'number', exclusiveMinimum: 0 },
     reasons: {
       type: 'object', additionalProperties: false,
@@ -30,7 +32,10 @@ function invalid(message: string, details: Record<string, string> = {}): never {
 export function acMetricsArgs(raw: unknown): AcMetricsArgs {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) invalid('Expected AC metric selectors');
   const a = raw as Record<string, unknown>;
-  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis'].includes(key))
+  if (a.groupDelayAtHz !== undefined && (typeof a.groupDelayAtHz !== 'number' || !Number.isFinite(a.groupDelayAtHz) || a.groupDelayAtHz <= 0)) {
+    invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
+  }
+  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'groupDelayAtHz'].includes(key))
     || typeof a.output !== 'string' || !a.output.length || a.output.length > 256
     || (a.input !== undefined && (typeof a.input !== 'string' || !a.input.length || a.input.length > 256))
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))) {
@@ -41,6 +46,9 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
 
 /** Reduce a single AC sweep; never extrapolate a crossing outside sampled frequencies. */
 export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
+  if (args.groupDelayAtHz !== undefined && (!Number.isFinite(args.groupDelayAtHz) || args.groupDelayAtHz <= 0)) {
+    invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
+  }
   const selected = result.analyses.filter(a => args.analysis === undefined ? a.type === 'ac' : a.analysisIndex === args.analysis);
   if (selected.length !== 1 || selected[0].type !== 'ac') invalid('Select exactly one AC analysis; stepped analyses must be run separately');
   const a = selected[0];
@@ -54,6 +62,10 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   const f = a.frequencyHz;
   if (!f.length || out.length !== f.length || (input && input.length !== f.length)
     || f.some((v, i) => !Number.isFinite(v) || v <= 0 || (i > 0 && v <= f[i - 1]))) invalid('AC frequencies must be finite, positive and increasing');
+  if (args.groupDelayAtHz !== undefined) {
+    if (f.length < 2) invalid('Group delay requires at least two frequency samples', { reason: 'INSUFFICIENT_GROUP_DELAY_POINTS' });
+    if (args.groupDelayAtHz < f[0] || args.groupDelayAtHz > f[f.length - 1]) invalid('Group delay frequency is outside the sweep', { reason: 'GROUP_DELAY_OUT_OF_RANGE' });
+  }
   const db: number[] = []; const phase: number[] = [];
   for (let i = 0; i < f.length; i++) {
     const p = out[i]; const q = input?.[i];
@@ -61,6 +73,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
       || (q && (!Number.isFinite(q.magnitude) || q.magnitude <= 0 || !Number.isFinite(q.phaseDegrees)))) {
       invalid('Transfer function contains invalid phasors or a zero input', { reason: 'UNDEFINED_TRANSFER' });
     }
+    if (args.groupDelayAtHz !== undefined && p.magnitude === 0) invalid('Group delay is undefined for zero output magnitude', { reason: 'UNDEFINED_TRANSFER' });
     db.push(20 * Math.log10(p.magnitude / (q?.magnitude ?? 1)));
     let angle = p.phaseDegrees - (q?.phaseDegrees ?? 0);
     // Choose the principal initial phase, then unwrap relative to the preceding sample.
@@ -95,6 +108,19 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   // Sampled maximum only: do not invent an inter-sample resonant peak.
   let peakIndex = 0;
   for (let i = 1; i < db.length; i++) if (db[i] > db[peakIndex]) peakIndex = i;
+  let groupDelaySeconds: number | undefined;
+  if (args.groupDelayAtHz !== undefined) {
+    // Differentiate unwrapped transfer phase at samples, then interpolate in linear Hz.
+    const delayAt = (i: number) => {
+      const left = Math.max(0, i - 1); const right = Math.min(f.length - 1, i + 1);
+      return -(phase[right] - phase[left]) / 360 / (f[right] - f[left]);
+    };
+    const right = f.findIndex(hz => hz >= args.groupDelayAtHz!);
+    const left = Math.max(0, right - 1);
+    const fraction = left === right ? 0 : (args.groupDelayAtHz - f[left]) / (f[right] - f[left]);
+    groupDelaySeconds = delayAt(left) + fraction * (delayAt(right) - delayAt(left));
+    if (!Number.isFinite(groupDelaySeconds)) invalid('Group delay is not finite', { reason: 'UNDEFINED_TRANSFER' });
+  }
   return {
     dcGainDb: finite('dcGainDb', db[0], 'NON_FINITE_GAIN'),
     f3dbHz: finite('f3dbHz', bandwidth?.hz, 'NO_HALF_POWER_CROSSING'),
@@ -104,5 +130,6 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     peakingDb: finite('peakingDb', db[peakIndex] - db[0], 'NON_FINITE_GAIN'),
     peakFrequencyHz: finite('peakFrequencyHz', Number.isFinite(db[peakIndex]) ? f[peakIndex] : undefined, 'NON_FINITE_GAIN'),
     referenceFrequencyHz: f[0], reasons,
+    ...(groupDelaySeconds === undefined ? {} : { groupDelaySeconds }),
   };
 }
