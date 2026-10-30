@@ -121,6 +121,16 @@ describe('spice_corners protocol-v1', () => {
     ] } });
   });
 
+  it('isolates component overrides for circuit-json input', async () => {
+    const response = await executeTool('spice_corners', {
+      ...dividerArgs, request: { apiVersion: '1', input: protocolInputs[2] },
+      corners: [{ name: 'unsupported', components: { R2: 2000 } }, { name: 'nominal' }],
+    });
+    expect(response).toMatchObject({ structuredContent: { corners: [
+      { status: 'failed', error: { code: 'INVALID_REQUEST' } }, { status: 'complete', value: 0.75 },
+    ] } });
+  });
+
   it.each([
     { format: 'spice-ts', document: '{broken' },
     { format: 'spice-ts', document: {} },

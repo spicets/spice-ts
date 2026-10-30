@@ -3,9 +3,10 @@ import type { SimulationRequestV1, SpiceApiErrorV1 } from '@spice-ts/core/protoc
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { measurementListSchema } from './measure.js';
 import { overrideParameters, ParameterOverrideError, paramsSchema } from './params.js';
+import { overrideComponent } from './sweep.js';
 
 export const MAX_CORNERS = 64;
-type Corner = { name: string; params?: Record<string, number>; temp?: number };
+type Corner = { name: string; params?: Record<string, number>; temp?: number; components?: Record<string, number> };
 type CornerResult = { name: string; status: 'complete'; value: number; unit: string }
   | { name: string; status: 'failed'; error: unknown };
 type CornerSummary = { min: { name: string; value: number }; max: { name: string; value: number }; spread: number; unit: string };
@@ -15,6 +16,7 @@ export const cornersProperties = {
   corners: { type: 'array', minItems: 1, maxItems: MAX_CORNERS, items: {
     type: 'object', required: ['name'], additionalProperties: false, properties: {
       name: { type: 'string', minLength: 1, maxLength: 128 }, params: paramsSchema,
+      components: { type: 'object', description: 'Case-insensitive top-level R/C/L component value overrides. Values must be finite and positive.', additionalProperties: { type: 'number', exclusiveMinimum: 0 } },
       temp: { type: 'number', exclusiveMinimum: -273.15, description: 'Circuit temperature in degrees Celsius. Overrides SPICE temperature cards or native request options.temperature.' },
     },
   } },
@@ -42,7 +44,7 @@ export async function runCorners(
   const names = new Set<string>();
   for (const c of args.corners) {
     if (!record(c) || typeof c.name !== 'string' || !c.name.trim() || c.name.length > 128 || names.has(c.name)
-      || Object.keys(c).some(k => !['name', 'params', 'temp'].includes(k))
+      || Object.keys(c).some(k => !['name', 'params', 'temp', 'components'].includes(k))
       || (c.temp !== undefined && (typeof c.temp !== 'number' || !Number.isFinite(c.temp) || c.temp <= -273.15))) invalid('Invalid or duplicate corner name or temperature');
     names.add(c.name);
   }
@@ -53,6 +55,17 @@ export async function runCorners(
     let entry: CornerResult;
     try {
       let changed = overrideParameters(request, corner.params);
+      if (corner.components !== undefined) {
+        if (originalFormat === 'circuit-json') invalid('Component overrides require SPICE text or native spice-ts JSON input');
+        if (!record(corner.components)) invalid('components must be a record of positive finite numbers');
+        const entries = Object.entries(corner.components);
+        const keys = entries.map(([name]) => name.toLowerCase());
+        if (new Set(keys).size !== keys.length || entries.some(([name, value]) =>
+          !/^[A-Za-z_][\w.:-]*$/.test(name) || typeof value !== 'number' || !Number.isFinite(value) || value <= 0)) {
+          invalid('Invalid or duplicate component override');
+        }
+        for (const [name, value] of entries) changed = overrideComponent(changed, name, value as number);
+      }
       if (corner.temp !== undefined && originalFormat === 'circuit-json') invalid('Temperature overrides require SPICE text input');
       if (corner.temp !== undefined && changed.input.format === 'spice-ts') {
         changed = { ...changed, options: { ...changed.options, temperature: corner.temp } };
