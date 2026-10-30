@@ -3103,3 +3103,16 @@ deck bytes. See the fixture README for commands, fixed tolerances and errors.
   - `differential.cir`: `31da390e323c8d5ae3032e5db010259492ac13a97d9218073d85d157e72542d9`
   - `rlc-input.cir`: `d8c47ba80ad513e8e139abdfc66537b6025b366cc19be84c6c073954d9efcf46`
   - `shunt-sense.cir`: `15fd2add903919c92817448a8e54f7d7efbbeaa6c10afb45c91b33888ffc49b2`
+
+## Embedded PWM/power bucket (#1901, #1889)
+
+- Original project-authored MIT-licensed netlists in [embedded-power-1889](embedded-power-1889/); source: https://github.com/spicets/spice-ts. No third-party netlist or model card bytes copied. Idealized, not hardware validation.
+- Both engines receive identical committed bytes. Reproduce with `spice-heavy pnpm exec tsx benchmarks/embedded-power-1889/run.ts`; validate offline with `node --test benchmarks/embedded-power-1889/report.test.mjs`. See the README and report for all results, losses and environment.
+- SHA-256 per deck:
+  - `pwm-rc-dac.cir`: `30846d55494db5ba04c7e185e9b1c8ec303960ddd9560be3b1a0f36f396c117e`
+  - `pwm-rlc.cir`: `a520f5b37222d60a6b244d554eaf5da56602efb8cc1a0ec44ce470860c65d7db`
+  - `mos-half-bridge.cir`: `962cd148d8664d925c8c41a7faf3e258f57af73c8314ac6bde51a4f6e8c74e02`
+  - `diode-inductive.cir`: `d879a35a8f103f20a0ceee23097fe64c20719bd900e7cba8f733f58987bca4ab`
+  - `bjt-high-side.cir`: `33e5cba87af79edcfa58fc4ad6ddbe9b97019081c5e45d3138275ef0f60a63df`
+  - `switch-buck.cir`: `093353fff35d5452dff7bae0055a43dc847b723b36675b940ef580c0d777a05c`
+  - `switch-boost.cir`: `8b5fac4684975eb2779318715c3443cfef7b347ee27f6f384e5172c974ed572f`
