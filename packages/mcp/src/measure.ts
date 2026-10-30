@@ -5,7 +5,7 @@ type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling'
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
   from?: number; to?: number; at?: number; value?: number;
-  edge?: 'rising' | 'falling' | 'either';
+  edge?: 'rising' | 'falling' | 'either'; occurrence?: number;
   trigger?: Crossing; target?: Crossing;
 };
 type MeasurementErrorCode = 'INVALID_MEASUREMENT' | 'UNKNOWN_SIGNAL' | 'UNKNOWN_ANALYSIS' | 'AMBIGUOUS_ANALYSIS' | 'UNKNOWN_STEP' | 'OUT_OF_RANGE' | 'NO_CROSSING' | 'NON_FINITE_RESULT';
@@ -19,6 +19,9 @@ export const measurementListSchema = {
       if: { properties: { kind: { const: 'delay' } } },
       then: { required: ['trigger', 'target'], not: { anyOf: ['signal', 'at', 'value', 'edge'].map(key => ({ required: [key] })) } },
       else: { required: ['signal'], not: { anyOf: ['trigger', 'target'].map(key => ({ required: [key] })) } },
+    }, {
+      if: { properties: { kind: { enum: ['cross', 'when'] } } },
+      else: { not: { required: ['occurrence'] } },
     }],
     properties: {
       kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256 },
@@ -26,6 +29,7 @@ export const measurementListSchema = {
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
       edge: { enum: ['rising', 'falling', 'either'] },
+      occurrence: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER, description: 'One-based crossing within from/to; defaults to 1.' },
       ...Object.fromEntries(['trigger', 'target'].map(key => [key, {
         type: 'object', description: 'Transient crossing; counted independently within from/to. Delay is target time minus trigger time, in seconds.', required: ['signal', 'threshold'], additionalProperties: false,
         properties: { signal: { type: 'string', minLength: 1, maxLength: 256 }, threshold: { type: 'number' }, edge: { enum: ['rising', 'falling', 'either'], description: 'Defaults to either.' }, occurrence: { type: 'integer', minimum: 1, description: 'One-based crossing number; defaults to 1.' } },
@@ -54,8 +58,9 @@ function valid(value: unknown): value is Measurement {
       const n = (m as unknown as Record<string, unknown>)[key];
       return n === undefined || (typeof n === 'number' && Number.isFinite(n));
     })
-    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'trigger', 'target'].includes(key))
+    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'occurrence', 'trigger', 'target'].includes(key))
     && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
+    && (m.occurrence === undefined || (['cross', 'when'].includes(m.kind) && Number.isSafeInteger(m.occurrence) && m.occurrence > 0))
     && (m.edge === undefined || ['rising', 'falling', 'either'].includes(m.edge))
     && (m.from === undefined || m.to === undefined || m.from <= m.to)
     && (m.kind !== 'at' || m.at !== undefined)
@@ -161,24 +166,24 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       return y[i - 1] + (y[i] - y[i - 1]) * ((at - x[i - 1]) / (x[i] - x[i - 1]));
     };
     if (m.kind === 'at') return { value: interpolate(m.at!), unit: data.unit };
+    if (m.kind === 'cross' || m.kind === 'when') {
+      if (!data.axisUnit) return error('INVALID_MEASUREMENT', 'Crossings require a swept analysis');
+      const target = m.value!;
+      let count = 0;
+      for (let i = 1; i < x.length; i++) {
+        const rising = y[i - 1] < target && y[i] >= target;
+        const falling = y[i - 1] > target && y[i] <= target;
+        if (!(m.edge === 'rising' ? rising : m.edge === 'falling' ? falling : rising || falling)) continue;
+        const at = x[i - 1] + (x[i] - x[i - 1]) * ((target - y[i - 1]) / (y[i] - y[i - 1]));
+        if (at >= lo && at <= hi && ++count === (m.occurrence ?? 1)) return { value: at, unit: data.axisUnit };
+      }
+      return error('NO_CROSSING', 'No crossing in the selected window');
+    }
     const points = [lo, ...x.filter(v => v > lo && v < hi), ...(hi > lo ? [hi] : [])];
     const samples = points.map(interpolate);
     let value: number;
     let unit = data.unit;
-    if (m.kind === 'cross' || m.kind === 'when') {
-      unit = data.axisUnit;
-      if (!unit) return error('INVALID_MEASUREMENT', 'Crossings require a swept analysis');
-      const target = m.value!;
-      const i = samples.findIndex((v, i) => {
-        if (i === 0) return false;
-        const prev = samples[i - 1];
-        const rising = prev < target && v >= target;
-        const falling = prev > target && v <= target;
-        return m.edge === 'rising' ? rising : m.edge === 'falling' ? falling : rising || falling;
-      });
-      if (i < 0) return error('NO_CROSSING', 'No crossing in the selected window');
-      value = points[i - 1] + (points[i] - points[i - 1]) * ((target - samples[i - 1]) / (samples[i] - samples[i - 1]));
-    } else if (m.kind === 'min' || m.kind === 'max' || m.kind === 'pp') {
+    if (m.kind === 'min' || m.kind === 'max' || m.kind === 'pp') {
       const min = samples.reduce((a, b) => Math.min(a, b));
       const max = samples.reduce((a, b) => Math.max(a, b));
       value = m.kind === 'min' ? min : m.kind === 'max' ? max : max - min;
