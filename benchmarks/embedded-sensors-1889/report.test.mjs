@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { validateEvidence } from '../embedded-report-1889.mjs';
 
 const root = 'benchmarks/embedded-sensors-1889';
 const ids = ['anti-alias', 'two-stage', 'loaded-divider', 'thermistor', 'differential', 'rlc-input', 'shunt-sense'];
@@ -21,6 +22,7 @@ function validate(report, readDeck = id => readFileSync(`${root}/${id}.cir`)) {
       : ts !== 'success' ? ['spice-ts-loss'] : ['matched', 'mismatch', 'not-compared'];
     assert.ok(allowed.includes(row.outcome));
     if (row.outcome === 'matched') {
+      validateEvidence(row);
       assert.ok(row.comparedSignals > 0 && row.worstNormalizedError !== null && row.worstNormalizedError <= 0.01);
       assert.ok(row.comparisons.length > 0);
     }
@@ -49,5 +51,29 @@ test('a falsely reported match is rejected', () => {
 test('missing or duplicated rows are rejected', () => {
   const report = readReport();
   report.fixtures[0] = report.fixtures[1];
+  assert.throws(() => validate(report));
+});
+
+test('missing signal evidence is rejected', () => {
+  const report = readReport();
+  const comparison = report.fixtures[0].comparisons[0];
+  delete comparison.metrics.signals[comparison.signals[0]];
+  assert.throws(() => validate(report));
+});
+test('missing sample evidence is rejected', () => {
+  const report = readReport();
+  const comparison = report.fixtures[0].comparisons[0];
+  comparison.metrics.signals[comparison.signals[0]].sampleCount = 0;
+  assert.throws(() => validate(report));
+});
+test('false normalized headline is rejected', () => {
+  const report = readReport();
+  report.fixtures[0].worstNormalizedError = 0;
+  assert.throws(() => validate(report));
+});
+
+test('tampered normalized evidence is rejected', () => {
+  const report = readReport();
+  report.fixtures[0].normalizedErrors[0].normalized = 0.02;
   assert.throws(() => validate(report));
 });

@@ -4,6 +4,8 @@ import { arch, cpus, platform, release } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import type { ClassicCircuit } from '../corpus/classic/report.js';
 import { runBoundedSimulatePacked, runNgspicePacked, MATCH_RULE } from '../corpus/corpus-f/outcomes.js';
+import { normalizedSignalErrors, pairedReferenceSeries } from '../corpus/corpus-f/lib.js';
+import { lazyExecution } from '../corpus/corpus-f/packed.js';
 import { reduceRow, type Circuit } from '../corpus/corpus-j/parity.js';
 
 const root = 'benchmarks/embedded-sensors-1889';
@@ -34,7 +36,7 @@ async function main() {
       sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length, licence: 'MIT', revision: 'project-authored',
       analyses: ['tran'], unmappedAnalyses: [], sameNameAs: [], includeClosure: [] } as unknown as Circuit;
     const ngTimes: number[] = [], tsTimes: number[] = [];
-    let row: ReturnType<typeof reduceRow> | undefined;
+    let row: (ReturnType<typeof reduceRow> & { normalizedErrors: ReturnType<typeof normalizedSignalErrors>['errors'] }) | undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
       const startNg = performance.now();
       const ng = await runNgspicePacked(bytes, circuit);
@@ -42,7 +44,9 @@ async function main() {
       const startTs = performance.now();
       const ts = await runBoundedSimulatePacked(bytes, { ...circuit, category: 'embedded-sensors', ngspice: { expectedStatus: 'pass' }, spiceTs: { expectedStatus: 'pass' } } as unknown as ClassicCircuit);
       tsTimes.push(performance.now() - startTs);
-      const current = reduceRow(circuit, ng, ts);
+      const reduced = reduceRow(circuit, ng, ts);
+      const { errors } = normalizedSignalErrors(reduced.comparisons, pairedReferenceSeries(lazyExecution(ts), lazyExecution(ng.execution)));
+      const current = { ...reduced, normalizedErrors: errors };
       if (row && (row.outcome !== current.outcome || row.ngspice.status !== current.ngspice.status || row.spiceTs.status !== current.spiceTs.status)) throw new Error(`Inconsistent outcomes across runs: ${id}`);
       row = current;
     }

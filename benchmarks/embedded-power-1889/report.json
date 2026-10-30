@@ -157,22 +157,45 @@
           }
         }
       ],
+      "normalizedErrors": [
+        {
+          "analysis": "tran",
+          "signal": "i(vdrive)",
+          "absoluteMax": 2.255072756134069e-16,
+          "ngspicePeak": 0.0003299833356526954,
+          "normalized": 6.833898904845041e-13
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(out)",
+          "absoluteMax": 2.403632848313464e-14,
+          "ngspicePeak": 0.5258637025607598,
+          "normalized": 4.570828594194028e-14
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(pwm)",
+          "absoluteMax": 2.2368773500147654e-12,
+          "ngspicePeak": 3.3,
+          "normalized": 6.778416212165956e-13
+        }
+      ],
       "runtime": {
         "ngspice": {
           "samplesMs": [
-            60.69629199999963,
-            32.66500000000087,
-            31.165541999998823
+            62.88287499999569,
+            49.298832999993465,
+            35.971916999988025
           ],
-          "medianMs": 32.66500000000087
+          "medianMs": 49.298832999993465
         },
         "spiceTs": {
           "samplesMs": [
-            533.4018329999999,
-            546.556208,
-            507.3877909999992
+            2059.329833999989,
+            1986.5508340000088,
+            1901.7246659999946
           ],
-          "medianMs": 533.4018329999999
+          "medianMs": 1986.5508340000088
         }
       }
     },
@@ -375,22 +398,59 @@
           }
         }
       ],
+      "normalizedErrors": [
+        {
+          "analysis": "tran",
+          "signal": "i(l1)",
+          "absoluteMax": 8.257283745649602e-16,
+          "ngspicePeak": 0.08365717890049258,
+          "normalized": 9.870382738427463e-15
+        },
+        {
+          "analysis": "tran",
+          "signal": "i(vdrive)",
+          "absoluteMax": 8.604228440844963e-16,
+          "ngspicePeak": 0.08365717890049258,
+          "normalized": 1.0285104702226936e-14
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(in)",
+          "absoluteMax": 2.2396529075763283e-12,
+          "ngspicePeak": 4.069857009418804,
+          "normalized": 5.503026033575961e-13
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(out)",
+          "absoluteMax": 1.8207657603852567e-14,
+          "ngspicePeak": 3.654512304495286,
+          "normalized": 4.982240060173275e-15
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(pwm)",
+          "absoluteMax": 2.2368773500147654e-12,
+          "ngspicePeak": 3.3,
+          "normalized": 6.778416212165956e-13
+        }
+      ],
       "runtime": {
         "ngspice": {
           "samplesMs": [
-            29.7879580000008,
-            31.6634580000009,
-            30.468166000000565
+            45.400582999995095,
+            58.53833400001167,
+            40.9641249999986
           ],
-          "medianMs": 30.468166000000565
+          "medianMs": 45.400582999995095
         },
         "spiceTs": {
           "samplesMs": [
-            509.3328330000004,
-            531.814875,
-            498.4152920000015
+            2682.5306249999994,
+            2218.972167,
+            2105.3986670000013
           ],
-          "medianMs": 509.3328330000004
+          "medianMs": 2218.972167
         }
       }
     },
@@ -593,22 +653,59 @@
           }
         }
       ],
+      "normalizedErrors": [
+        {
+          "analysis": "tran",
+          "signal": "i(vdd)",
+          "absoluteMax": 0.000009090237174593993,
+          "ngspicePeak": 0.01600000000479405,
+          "normalized": 0.0005681398232418939
+        },
+        {
+          "analysis": "tran",
+          "signal": "i(vgate)",
+          "absoluteMax": 0,
+          "ngspicePeak": 0,
+          "normalized": 0
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(gate)",
+          "absoluteMax": 6.776801342311956e-13,
+          "ngspicePeak": 5,
+          "normalized": 1.355360268462391e-13
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(out)",
+          "absoluteMax": 0.0024353894684079336,
+          "ngspicePeak": 4.405124837690205,
+          "normalized": 0.0005528536779640761
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(supply)",
+          "absoluteMax": 0,
+          "ngspicePeak": 5,
+          "normalized": 0
+        }
+      ],
       "runtime": {
         "ngspice": {
           "samplesMs": [
-            25.833458000000974,
-            24.612291000001278,
-            27.78754200000003
+            31.894957999989856,
+            37.74700000000303,
+            38.84604199999012
           ],
-          "medianMs": 25.833458000000974
+          "medianMs": 37.74700000000303
         },
         "spiceTs": {
           "samplesMs": [
-            462.7721250000013,
-            523.4565000000002,
-            486.46954099999857
+            2168.4462090000015,
+            2009.4986670000071,
+            2242.214500000002
           ],
-          "medianMs": 486.46954099999857
+          "medianMs": 2168.4462090000015
         }
       }
     },
@@ -869,22 +966,73 @@
           }
         }
       ],
+      "normalizedErrors": [
+        {
+          "analysis": "tran",
+          "signal": "i(lcoil)",
+          "absoluteMax": 5.779224827029417e-7,
+          "ngspicePeak": 0.0265043494549249,
+          "normalized": 0.00002180481674095778
+        },
+        {
+          "analysis": "tran",
+          "signal": "i(vdd)",
+          "absoluteMax": 2.571324129070629e-7,
+          "ngspicePeak": 0.02645000000547235,
+          "normalized": 0.000009721452281809592
+        },
+        {
+          "analysis": "tran",
+          "signal": "i(vdrive)",
+          "absoluteMax": 0,
+          "ngspicePeak": 0,
+          "normalized": 0
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(coil)",
+          "absoluteMax": 0.000011558449654280878,
+          "ngspicePeak": 4.9999999998998,
+          "normalized": 0.0000023116899309025017
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(gate)",
+          "absoluteMax": 2.2368773500147654e-12,
+          "ngspicePeak": 3.3,
+          "normalized": 6.778416212165956e-13
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(out)",
+          "absoluteMax": 0.006779795368224484,
+          "ngspicePeak": 5.625178058798523,
+          "normalized": 0.0012052588020071624
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(supply)",
+          "absoluteMax": 0,
+          "ngspicePeak": 5,
+          "normalized": 0
+        }
+      ],
       "runtime": {
         "ngspice": {
           "samplesMs": [
-            28.361457999999402,
-            28.568249999998443,
-            29.386874999998327
+            48.0379580000008,
+            47.605458000005456,
+            38.8892909999995
           ],
-          "medianMs": 28.568249999998443
+          "medianMs": 47.605458000005456
         },
         "spiceTs": {
           "samplesMs": [
-            460.1548330000005,
-            469.8853340000005,
-            475.7454170000001
+            2415.8564170000027,
+            2358.6468329999916,
+            2165.0229170000093
           ],
-          "medianMs": 469.8853340000005
+          "medianMs": 2358.6468329999916
         }
       }
     },
@@ -1116,22 +1264,66 @@
           }
         }
       ],
+      "normalizedErrors": [
+        {
+          "analysis": "tran",
+          "signal": "i(vdd)",
+          "absoluteMax": 0.00017352373160327283,
+          "ngspicePeak": 0.1932308820939881,
+          "normalized": 0.0008980124176986904
+        },
+        {
+          "analysis": "tran",
+          "signal": "i(vdrive)",
+          "absoluteMax": 0.0000028173847451155518,
+          "ngspicePeak": 0.002511002059482965,
+          "normalized": 0.0011220161028843096
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(base)",
+          "absoluteMax": 0.006198246439253374,
+          "ngspicePeak": 5.524204530862523,
+          "normalized": 0.0011220161028841576
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(drive)",
+          "absoluteMax": 3.3884006711559778e-12,
+          "ngspicePeak": 5,
+          "normalized": 6.776801342311956e-13
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(out)",
+          "absoluteMax": 0.0026858914383218746,
+          "ngspicePeak": 6.207738026930085,
+          "normalized": 0.0004326682966758714
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(supply)",
+          "absoluteMax": 0,
+          "ngspicePeak": 5,
+          "normalized": 0
+        }
+      ],
       "runtime": {
         "ngspice": {
           "samplesMs": [
-            23.368333000000348,
-            23.53900000000067,
-            24.75250000000051
+            46.70691700000316,
+            49.38812499999767,
+            41.04250000001048
           ],
-          "medianMs": 23.53900000000067
+          "medianMs": 46.70691700000316
         },
         "spiceTs": {
           "samplesMs": [
-            454.6451250000009,
-            464.309792,
-            388.67062500000065
+            2478.5666670000064,
+            2051.5917090000003,
+            2460.846166999996
           ],
-          "medianMs": 454.6451250000009
+          "medianMs": 2460.846166999996
         }
       }
     },
@@ -1392,22 +1584,73 @@
           }
         }
       ],
+      "normalizedErrors": [
+        {
+          "analysis": "tran",
+          "signal": "i(l1)",
+          "absoluteMax": 1.2077670419330389e-8,
+          "ngspicePeak": 0.751706622200349,
+          "normalized": 1.60670001602186e-8
+        },
+        {
+          "analysis": "tran",
+          "signal": "i(vdd)",
+          "absoluteMax": 1.0047227050336005e-8,
+          "ngspicePeak": 0.7517062237782657,
+          "normalized": 1.3365895788165888e-8
+        },
+        {
+          "analysis": "tran",
+          "signal": "i(vdrive)",
+          "absoluteMax": 0,
+          "ngspicePeak": 0,
+          "normalized": 0
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(ctrl)",
+          "absoluteMax": 2.2368773500147654e-12,
+          "ngspicePeak": 3.3,
+          "normalized": 6.778416212165956e-13
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(out)",
+          "absoluteMax": 3.2007340333706225e-8,
+          "ngspicePeak": 2.288525706450323,
+          "normalized": 1.3986008653296727e-8
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(supply)",
+          "absoluteMax": 0,
+          "ngspicePeak": 5,
+          "normalized": 0
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(sw)",
+          "absoluteMax": 0.00019730091786351878,
+          "ngspicePeak": 4.999998855489603,
+          "normalized": 0.000039460192605223896
+        }
+      ],
       "runtime": {
         "ngspice": {
           "samplesMs": [
-            33.657499999999345,
-            28.850792000001093,
-            25.20270900000105
+            40.01504099999147,
+            44.62054200000421,
+            38.09891699999571
           ],
-          "medianMs": 28.850792000001093
+          "medianMs": 40.01504099999147
         },
         "spiceTs": {
           "samplesMs": [
-            534.8974170000001,
-            464.219959,
-            419.12083399999756
+            1994.536374999996,
+            2293.0216669999936,
+            2296.0137079999986
           ],
-          "medianMs": 464.219959
+          "medianMs": 2293.0216669999936
         }
       }
     },
@@ -1668,22 +1911,73 @@
           }
         }
       ],
+      "normalizedErrors": [
+        {
+          "analysis": "tran",
+          "signal": "i(l1)",
+          "absoluteMax": 0.000017325791383915323,
+          "ngspicePeak": 0.7774581851579752,
+          "normalized": 0.00002228517457873933
+        },
+        {
+          "analysis": "tran",
+          "signal": "i(vdd)",
+          "absoluteMax": 0.000017325791383915323,
+          "ngspicePeak": 0.7774581851579752,
+          "normalized": 0.00002228517457873933
+        },
+        {
+          "analysis": "tran",
+          "signal": "i(vdrive)",
+          "absoluteMax": 0,
+          "ngspicePeak": 0,
+          "normalized": 0
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(ctrl)",
+          "absoluteMax": 2.2368773500147654e-12,
+          "ngspicePeak": 3.3,
+          "normalized": 6.778416212165956e-13
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(out)",
+          "absoluteMax": 0.00008370566605808705,
+          "ngspicePeak": 3.666172482129022,
+          "normalized": 0.000022831895243913194
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(supply)",
+          "absoluteMax": 4.440892098500626e-16,
+          "ngspicePeak": 3.3,
+          "normalized": 1.345724878333523e-16
+        },
+        {
+          "analysis": "tran",
+          "signal": "v(sw)",
+          "absoluteMax": 0.0021170834774961733,
+          "ngspicePeak": 4.3730712950869,
+          "normalized": 0.0004841182168410322
+        }
+      ],
       "runtime": {
         "ngspice": {
           "samplesMs": [
-            25.210583000000042,
-            25.581458000000566,
-            28.42500000000291
+            43.2274999999936,
+            48.94420899999386,
+            40.03733300000022
           ],
-          "medianMs": 25.581458000000566
+          "medianMs": 43.2274999999936
         },
         "spiceTs": {
           "samplesMs": [
-            420.9404590000013,
-            411.73733300000094,
-            456.59658299999865
+            3138.120833000008,
+            2877.0466250000027,
+            2623.9341249999998
           ],
-          "medianMs": 420.9404590000013
+          "medianMs": 2877.0466250000027
         }
       }
     }

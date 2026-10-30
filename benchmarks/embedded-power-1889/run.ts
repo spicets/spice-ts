@@ -1,9 +1,12 @@
+import { renderPowerSummary } from '../embedded-report-1889.mjs';
 import { createHash } from 'node:crypto';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { arch, cpus, platform, release } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import type { ClassicCircuit } from '../corpus/classic/report.js';
 import { runBoundedSimulatePacked, runNgspicePacked, MATCH_RULE } from '../corpus/corpus-f/outcomes.js';
+import { normalizedSignalErrors, pairedReferenceSeries } from '../corpus/corpus-f/lib.js';
+import { lazyExecution } from '../corpus/corpus-f/packed.js';
 import { reduceRow, type Circuit } from '../corpus/corpus-j/parity.js';
 
 const root = 'benchmarks/embedded-power-1889';
@@ -34,7 +37,7 @@ async function main() {
       sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length, licence: 'MIT', revision: 'project-authored',
       analyses: ['tran'], unmappedAnalyses: [], sameNameAs: [], includeClosure: [] } as unknown as Circuit;
     const ngTimes: number[] = [], tsTimes: number[] = [];
-    let row: ReturnType<typeof reduceRow> | undefined;
+    let row: (ReturnType<typeof reduceRow> & { normalizedErrors: ReturnType<typeof normalizedSignalErrors>['errors'] }) | undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
       const startNg = performance.now();
       const ng = await runNgspicePacked(bytes, circuit);
@@ -42,7 +45,9 @@ async function main() {
       const startTs = performance.now();
       const ts = await runBoundedSimulatePacked(bytes, { ...circuit, category: 'embedded-power', ngspice: { expectedStatus: 'pass' }, spiceTs: { expectedStatus: 'pass' } } as unknown as ClassicCircuit);
       tsTimes.push(performance.now() - startTs);
-      const current = reduceRow(circuit, ng, ts);
+      const reduced = reduceRow(circuit, ng, ts);
+      const { errors } = normalizedSignalErrors(reduced.comparisons, pairedReferenceSeries(lazyExecution(ts), lazyExecution(ng.execution)));
+      const current = { ...reduced, normalizedErrors: errors };
       if (row && (row.outcome !== current.outcome || row.ngspice.status !== current.ngspice.status || row.spiceTs.status !== current.spiceTs.status)) throw new Error(`Inconsistent outcomes across runs: ${id}`);
       row = current;
     }
@@ -54,11 +59,16 @@ async function main() {
   }
   if (cleanCoreTree() !== coreTree) throw new Error('Core tree changed during benchmark');
   if (createHash('sha256').update(await readFile('packages/core/dist/index.js')).digest('hex') !== coreBundleSha256) throw new Error('Core bundle changed during benchmark');
-  await writeFile(`${root}/report.json`, JSON.stringify({ schemaVersion: 'embedded-power-1889/v1', ngspice: ngspice.trim(), node: process.version,
+  const report = { schemaVersion: 'embedded-power-1889/v1', ngspice: ngspice.trim(), node: process.version,
     machine: { platform: platform(), release: release(), arch: arch(), cpu: cpus()[0]?.model },
     coreTree, coreBundleSha256, coreBuildCommand: 'pnpm -C packages/core build (after removing packages/core/dist)',
     command: `spice-heavy pnpm exec tsx ${root}/run.ts`, matchRule: MATCH_RULE,
     spiceTsVersion: JSON.parse(await readFile('packages/core/package.json', 'utf8')).version,
-    runtimeNote: 'Median of three cold process wall times including adapter and startup; not solver-only or browser performance.', fixtures }, null, 2) + '\n');
+    runtimeNote: 'Median of three cold process wall times including adapter and startup; not solver-only or browser performance.', fixtures };
+  const readme = await readFile(`${root}/README.md`, 'utf8');
+  const updated = readme.replace(/<!-- BEGIN GENERATED RESULTS -->[\s\S]*?<!-- END GENERATED RESULTS -->/, renderPowerSummary(report));
+  if (updated === readme && !readme.includes(renderPowerSummary(report))) throw new Error('Missing generated results markers');
+  await writeFile(`${root}/report.json`, JSON.stringify(report, null, 2) + '\n');
+  await writeFile(`${root}/README.md`, updated);
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
