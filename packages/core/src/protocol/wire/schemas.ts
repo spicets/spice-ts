@@ -31,8 +31,10 @@ const measurement: Schema = { oneOf: [
 const dcMeasurement: Schema = { oneOf: (measurement.oneOf as Schema[]).slice(1) };
 const acVector = { type: 'string', pattern: '^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$' };
 const frequency = { type: 'number', minimum: 0 };
+const acCrossing = { ...object(['vector', 'value'], { vector: acVector, value: number, rise: { oneOf: [integer(1), { const: 'last' }] }, fall: { oneOf: [integer(1), { const: 'last' }] }, cross: { oneOf: [integer(1), { const: 'last' }] }, td: number }), not: { anyOf: [{ type: 'object', properties: { rise: {}, fall: {} }, required: ['rise', 'fall'] }, { type: 'object', properties: { rise: {}, cross: {} }, required: ['rise', 'cross'] }, { type: 'object', properties: { fall: {}, cross: {} }, required: ['fall', 'cross'] }] } };
 const acMeasurement: Schema = { oneOf: [
   object(['name', 'kind', 'vector', 'at'], { name: measurementName, kind: { const: 'find' }, vector: acVector, at: frequency }),
+  object(['name', 'kind', 'vector', 'when'], { name: measurementName, kind: { const: 'find' }, vector: acVector, when: acCrossing }),
   object(['name', 'kind', 'vector'], { name: measurementName, kind: { enum: ['avg', 'min', 'max', 'pp', 'rms', 'integ'] }, vector: acVector, from: frequency, to: frequency }),
 ] };
 const measurementResult: Schema = { oneOf: [

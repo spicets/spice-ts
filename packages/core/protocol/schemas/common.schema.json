@@ -685,6 +685,119 @@
                     "required": [
                       "name",
                       "kind",
+                      "vector",
+                      "when"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$"
+                      },
+                      "when": {
+                        "type": "object",
+                        "required": [
+                          "vector",
+                          "value"
+                        ],
+                        "properties": {
+                          "vector": {
+                            "type": "string",
+                            "pattern": "^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "rise": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "fall": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "cross": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "td": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "not": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "rise": {},
+                                "fall": {}
+                              },
+                              "required": [
+                                "rise",
+                                "fall"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "rise": {},
+                                "cross": {}
+                              },
+                              "required": [
+                                "rise",
+                                "cross"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "fall": {},
+                                "cross": {}
+                              },
+                              "required": [
+                                "fall",
+                                "cross"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
                       "vector"
                     ],
                     "properties": {

@@ -36,7 +36,7 @@ export function validateNativeMeasurements(request: SimulationRequestV1): void {
     };
     const crossing = (x: unknown, at: string) => {
       const o = object(x, at); fields(o, ['vector', 'value', 'rise', 'fall', 'cross', 'td'], at);
-      if (typeof o.vector !== 'string' || !vector.test(o.vector)) invalid(`${at}/vector`);
+      if (typeof o.vector !== 'string' || !(analysis.type === 'ac' ? acVector : vector).test(o.vector)) invalid(`${at}/vector`);
       if (!finite(o.value)) invalid(`${at}/value`);
       if (['rise', 'fall', 'cross'].filter(k => o[k] !== undefined).length > 1) invalid(at);
       for (const key of ['rise', 'fall', 'cross']) if (o[key] !== undefined && !(Number.isInteger(o[key]) && (o[key] as number) > 0) && o[key] !== 'last') invalid(`${at}/${key}`);
@@ -50,7 +50,7 @@ export function validateNativeMeasurements(request: SimulationRequestV1): void {
         if (analysis.type !== 'tran') invalid(`${at}/kind`);
         fields(o, ['name', 'kind', 'trig', 'targ'], at); crossing(o.trig, `${at}/trig`); crossing(o.targ, `${at}/targ`);
       } else if (o.kind === 'find') {
-        fields(o, analysis.type === 'ac' ? ['name', 'kind', 'vector', 'at'] : ['name', 'kind', 'vector', 'at', 'when'], at);
+        fields(o, ['name', 'kind', 'vector', 'at', 'when'], at);
         if (typeof o.vector !== 'string' || !(analysis.type === 'ac' ? acVector : vector).test(o.vector)) invalid(`${at}/vector`);
         if ((o.at === undefined) === (o.when === undefined)) invalid(at);
         if (o.at !== undefined && (!finite(o.at) || (analysis.type === 'ac' && o.at < 0))) invalid(`${at}/at`);
