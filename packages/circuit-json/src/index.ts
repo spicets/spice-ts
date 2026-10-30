@@ -31,14 +31,15 @@ function sourceParams(element: ElementRecord, valueField: 'voltage' | 'current')
   if (element.wave_shape === 'sinewave') {
     return { waveform: 'sin', offset, amplitude, frequency: element.frequency as number, phase: (element.phase as number | undefined) ?? 0 };
   }
-  if (element.wave_shape === 'square' || element.wave_shape === 'triangle') {
+  if (element.wave_shape === 'square' || element.wave_shape === 'triangle' || element.wave_shape === 'sawtooth') {
     const period = 1 / (element.frequency as number);
     const triangle = element.wave_shape === 'triangle';
+    const sawtooth = element.wave_shape === 'sawtooth';
     return {
       waveform: 'pulse', v1: offset - amplitude, v2: offset + amplitude,
       delay: ((element.phase as number | undefined) ?? 0) / 360 * period,
-      rise: triangle ? period / 2 : period * 1e-6, fall: triangle ? period / 2 : period * 1e-6,
-      width: triangle ? 0 : ((element.duty_cycle as number | undefined) ?? 0.5) * period, period,
+      rise: triangle ? period / 2 : sawtooth ? period - period * 1e-6 : period * 1e-6, fall: triangle ? period / 2 : period * 1e-6,
+      width: triangle || sawtooth ? 0 : ((element.duty_cycle as number | undefined) ?? 0.5) * period, period,
     };
   }
   return { waveform: 'dc', dc: offset };
@@ -230,10 +231,12 @@ function validateComponentFields(
           `/${index}/${key}`, element,
         ));
       }
-    } else if (element.wave_shape === 'square' || element.wave_shape === 'triangle') {
+    } else if (element.wave_shape === 'square' || element.wave_shape === 'triangle' || (ftype === 'simple_voltage_source' && element.wave_shape === 'sawtooth')) {
       const triangle = element.wave_shape === 'triangle';
+      const sawtooth = element.wave_shape === 'sawtooth';
+      const shape = sawtooth ? 'Sawtooth' : triangle ? 'Triangle' : 'Square';
       const diagnosticCount = diagnostics.length;
-      for (const key of ['frequency', peakField, 'phase', ...(triangle ? [] : ['duty_cycle'])]) {
+      for (const key of ['frequency', peakField, 'phase', ...(triangle || sawtooth ? [] : ['duty_cycle'])]) {
         allowed.add(key);
         const value = element[key];
         if ((key === 'phase' || key === 'duty_cycle') && value === undefined) continue;
@@ -242,7 +245,7 @@ function validateComponentFields(
           && (key !== 'phase' || value >= 0)
           && (key !== 'duty_cycle' || (value > 0 && value < 1));
         if (!valid) diagnostics.push(importDiagnostic(
-          'UNSUPPORTED_PARAMETER', `${triangle ? 'Triangle' : 'Square'} parameter ${key} is outside its supported numeric range`,
+          'UNSUPPORTED_PARAMETER', `${shape} parameter ${key} is outside its supported numeric range`,
           `/${index}/${key}`, element,
         ));
       }
@@ -253,15 +256,15 @@ function validateComponentFields(
         const checks: Array<[string, boolean]> = [
           ['frequency', positiveFinite(params.period) && positiveFinite(params.rise) && positiveFinite(params.fall)],
           [peakField, isFiniteNumber(params.v1) && isFiniteNumber(params.v2)
-            && (element[peakField] === 0 || (amplitude !== 0 && (!triangle
+            && (element[peakField] === 0 || (amplitude !== 0 && (!triangle && !sawtooth
               || (params.v2 as number) - (params.v1 as number) === element[peakField])))],
-          ...(!triangle ? [['duty_cycle', positiveFinite(params.width)] as [string, boolean]] : []),
+          ...(!triangle && !sawtooth ? [['duty_cycle', positiveFinite(params.width)] as [string, boolean]] : []),
           ['phase', isFiniteNumber(params.delay)
             && (((element.phase as number | undefined) ?? 0) === 0 || positiveFinite(params.delay))],
         ];
         for (const [key, valid] of checks) {
           if (!valid) diagnostics.push(importDiagnostic(
-            'UNSUPPORTED_PARAMETER', `${triangle ? 'Triangle' : 'Square'} parameter ${key} produces unrepresentable PULSE parameters`,
+            'UNSUPPORTED_PARAMETER', `${shape} parameter ${key} produces unrepresentable PULSE parameters`,
             `/${index}/${key}`, element,
           ));
         }
@@ -666,12 +669,14 @@ function mapExportComponent(
         const period = params.period as number;
         const triangle = params.width === 0
           && params.rise === period / 2 && params.fall === period / 2;
+        const sawtooth = component.type === 'V' && params.width === 0
+          && params.rise === period - period * 1e-6 && params.fall === period * 1e-6;
         const offset = (params.v1 as number) / 2 + (params.v2 as number) / 2;
         const peakToPeak = (params.v2 as number) - (params.v1 as number);
         fields = {
-          [valueField]: offset, wave_shape: triangle ? 'triangle' : 'square', [peakField]: peakToPeak,
+          [valueField]: offset, wave_shape: triangle ? 'triangle' : sawtooth ? 'sawtooth' : 'square', [peakField]: peakToPeak,
           frequency: 1 / period, phase: (params.delay as number) / period * 360,
-          ...(triangle ? {} : { duty_cycle: (params.width as number) / period }),
+          ...(triangle || sawtooth ? {} : { duty_cycle: (params.width as number) / period }),
         };
         // Re-import must reproduce every timing/level exactly. In particular,
         // equal but noncanonical edges cannot be represented by this schema.
@@ -681,10 +686,10 @@ function mapExportComponent(
           if (isFiniteNumber(params[key]) && params[key] === reconstructed[key]
             && (key !== 'period' || period > 0)
             && (key !== 'delay' || (params.delay as number) >= 0)
-            && (key !== 'width' || (triangle ? params.width === 0 : ((params.width as number) > 0 && (params.width as number) < period)))
+            && (key !== 'width' || (triangle || sawtooth ? params.width === 0 : ((params.width as number) > 0 && (params.width as number) < period)))
             && (!['rise', 'fall'].includes(key) || (params[key] as number) > 0)) continue;
           diagnostics.push(exportDiagnostic(
-            `PULSE parameter ${key} on ${component.id} cannot be represented exactly as a ${triangle ? 'triangle' : 'square'} wave`,
+            `PULSE parameter ${key} on ${component.id} cannot be represented exactly as a ${triangle ? 'triangle' : sawtooth ? 'sawtooth' : 'square'} wave`,
             `/components/${index}/params/${key}`, component,
           ));
         }
