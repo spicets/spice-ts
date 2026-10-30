@@ -60,10 +60,10 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   const out = node(args.output);
   const input = args.input === undefined ? undefined : node(args.input);
   const f = a.frequencyHz;
+  if (args.groupDelayAtHz !== undefined && f.length < 2) invalid('Group delay requires at least two frequency samples', { reason: 'INSUFFICIENT_GROUP_DELAY_POINTS' });
   if (!f.length || out.length !== f.length || (input && input.length !== f.length)
     || f.some((v, i) => !Number.isFinite(v) || v <= 0 || (i > 0 && v <= f[i - 1]))) invalid('AC frequencies must be finite, positive and increasing');
   if (args.groupDelayAtHz !== undefined) {
-    if (f.length < 2) invalid('Group delay requires at least two frequency samples', { reason: 'INSUFFICIENT_GROUP_DELAY_POINTS' });
     if (args.groupDelayAtHz < f[0] || args.groupDelayAtHz > f[f.length - 1]) invalid('Group delay frequency is outside the sweep', { reason: 'GROUP_DELAY_OUT_OF_RANGE' });
   }
   const db: number[] = []; const phase: number[] = [];

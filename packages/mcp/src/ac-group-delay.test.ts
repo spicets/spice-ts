@@ -67,6 +67,12 @@ describe('AC group delay', () => {
     diagnostic(() => acMetrics(sweep([1], () => 0), { output: 'out', groupDelayAtHz: 1 }), 'INSUFFICIENT_GROUP_DELAY_POINTS');
   });
 
+  it('reports insufficient points for an empty sweep only when group delay is requested', () => {
+    const result = sweep([], () => 0);
+    diagnostic(() => acMetrics(result, { output: 'out', groupDelayAtHz: 1 }), 'INSUFFICIENT_GROUP_DELAY_POINTS');
+    expect(() => acMetrics(result, { output: 'out' })).toThrow('AC frequencies must be finite, positive and increasing');
+  });
+
   it('rejects invalid and zero phasors instead of reporting a fabricated delay', () => {
     for (const node of ['out', 'in'] as const) for (const field of ['magnitude', 'phaseDegrees'] as const) {
       const result = sweep([1, 10], () => 0);
