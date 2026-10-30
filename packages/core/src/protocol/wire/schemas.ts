@@ -118,15 +118,19 @@ const component: Schema = { ...object(['type', 'id', 'name', 'ports', 'params'],
 const model = object(['name', 'type', 'params'], {
   name: { type: 'string', minLength: 1 }, type: { type: 'string', minLength: 1 }, params: { type: 'object', additionalProperties: ref('jsonValue') },
 });
-const nativeDocument = object(['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'], {
+const nativeDocument: Schema = { ...object(['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'], {
   format: { const: 'spice-ts' }, schemaVersion: { const: '1.0' },
+  temperatureSweep: object(['values'], { values: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'number', exclusiveMinimum: -273.15 } } }),
   globalNodes: { type: 'array', items: { type: 'string', pattern: '^[A-Za-z0-9_.:+-]+(?![\\s\\S])' } },
   circuit: object(['components', 'nets'], { components: array(ref('component')), nets: { type: 'array', items: { type: 'string', not: { const: '0' } }, uniqueItems: true } }),
   analyses: array(ref('nativeAnalysis')), models: array(ref('model')), subcircuits: array(ref('subcircuit')),
   poleZeroAnalyses: array(ref('poleZeroAnalysis')),
   noiseAnalyses: array(ref('noiseAnalysis')),
   initialConditions: numberRecord, nodesets: numberRecord,
-});
+}), allOf: [{ if: { properties: { temperatureSweep: {} }, required: ['temperatureSweep'] }, then: { properties: {
+  analyses: { type: 'array', minItems: 1, items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } },
+  poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 },
+} } }] };
 const simulationInput: Schema = { oneOf: [
   object(['format', 'source'], { format: { const: 'spice' }, source: string, virtualFiles: { type: 'object', propertyNames: { type: 'string', pattern: '^(?!(?:.*//)|/)(?:(?!\\.{1,2}(?:/|$))[^/\\\\]+)(?:/(?!\\.{1,2}(?:/|$))[^/\\\\]+)*$' }, additionalProperties: string } }),
   object(['format', 'document'], { format: { const: 'spice-ts' }, document: ref('nativeDocument') }),
@@ -217,7 +221,10 @@ export const commonSchemaV1 = {
     port: object(['name', 'net'], { name: string, net: string }), component, model,
     subcircuit: object(['name', 'ports', 'components'], { name: { type: 'string', minLength: 1 }, ports: array(string), components: array(ref('component')), models: array(ref('model')) }),
     nativeDocument, simulationInput, limits, options,
-    simulationRequest: object(['apiVersion', 'input'], { apiVersion: { const: '1' }, input: ref('simulationInput'), options: ref('options'), outputs: { type: 'array', minItems: 1, maxItems: 64, items: { type: 'string', maxLength: 256, pattern: '^[vViI]\\([^\\s(),]+\\)(?![\\s\\S])' } } }),
+    simulationRequest: { ...object(['apiVersion', 'input'], { apiVersion: { const: '1' }, input: ref('simulationInput'), options: ref('options'), outputs: { type: 'array', minItems: 1, maxItems: 64, items: { type: 'string', maxLength: 256, pattern: '^[vViI]\\([^\\s(),]+\\)(?![\\s\\S])' } } }), not: { type: 'object', required: ['input', 'options'], properties: {
+      input: { type: 'object', required: ['format', 'document'], properties: { format: { const: 'spice-ts' }, document: { type: 'object', required: ['temperatureSweep'], properties: { temperatureSweep: {} } } } },
+      options: { type: 'object', required: ['temperature'], properties: { temperature: {} } },
+    } } },
     complex, opResult, dcResult, tranResult, acResult, tfResult, tfAnalysis,
     analysisResult: { oneOf: [ref('opResult'), ref('dcResult'), ref('tranResult'), ref('acResult'), ref('tfResult')] }, simulationResult,
     diagnostic, apiError, resolvedOptions, runMetadata, partialRunMetadata, successEnvelope, failureEnvelope,

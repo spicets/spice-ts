@@ -412,6 +412,7 @@ async function requestCircuit(
       return applyProtocolTemperatures(circuit, request.options);
     }
     case 'spice-ts':
+      if (request.input.document.temperatureSweep !== undefined && request.options?.temperature !== undefined) invalidNativeField('/options/temperature');
       return applyProtocolTemperatures(circuitFromDocument(request.input.document, guard), request.options);
     case 'circuit-json':
       throw new InvalidCircuitError('circuit-json conversion is owned by @spice-ts/circuit-json and is unavailable in core');
@@ -566,6 +567,28 @@ function coreOptions(options?: SimulationOptionsV1): SimulationOptions {
 /** Reconstruct a circuit from a validated native protocol document. */
 export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: ProtocolExecutionGuard): Circuit {
   const circuit = new Circuit();
+  for (const key of Object.keys(document)) {
+    if (!['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits', 'temperatureSweep', 'globalNodes', 'poleZeroAnalyses', 'noiseAnalyses', 'initialConditions', 'nodesets'].includes(key)) {
+      invalidNativeField(`/input/document/${jsonPointerSegment(key)}`);
+    }
+  }
+  if (document.temperatureSweep !== undefined) {
+    const sweep = document.temperatureSweep;
+    const path = '/input/document/temperatureSweep';
+    if (!sweep || typeof sweep !== 'object' || Array.isArray(sweep)) invalidNativeField(path);
+    for (const key of Object.keys(sweep)) if (key !== 'values') invalidNativeField(`${path}/${jsonPointerSegment(key)}`);
+    if (!Array.isArray(sweep.values) || sweep.values.length < 1 || sweep.values.length > 16) invalidNativeField(`${path}/values`);
+    for (const [index, value] of sweep.values.entries()) {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= -273.15) invalidNativeField(`${path}/values/${index}`);
+    }
+    if (document.analyses.length === 0) invalidNativeField('/input/document/analyses');
+    for (const [index, analysis] of document.analyses.entries()) {
+      if (analysis?.type !== 'op') invalidNativeField(`/input/document/analyses/${index}/type`);
+    }
+    if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
+    if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
+    circuit.addStep('TEMP', { values: sweep.values });
+  }
   if (document.globalNodes !== undefined) {
     if (!Array.isArray(document.globalNodes)) invalidNativeField('/input/document/globalNodes');
     for (const [index, name] of document.globalNodes.entries()) {
