@@ -60,6 +60,29 @@ describe('native global nodes', () => {
     expect(nodes.some(node => /x[12].*vdd/i.test(node))).toBe(false);
     expect(nodes.filter(node => node.toLowerCase() === 'vdd')).toHaveLength(1);
   });
+  it.each(['spice-ts-js', 'ngspice-wasm'] as const)('rejects comment injection before executing %s', async backend => {
+    const doc = document();
+    doc.globalNodes = ['unused;comment', 'VDD'];
+    expect(await executeProtocolV1({ ...request(doc), options: { backend } })).toMatchObject({
+      ok: false, error: { code: 'INVALID_REQUEST', details: { path: '/input/document/globalNodes/0' } },
+    });
+  }, 20_000);
+  it.each(['spice-ts-js', 'ngspice-wasm'] as const)('preserves shared supply on %s', async backend => {
+    const doc = document();
+    doc.globalNodes = ['unused', 'VDD'];
+    const result = await simulateProtocolV1({ ...request(doc), options: { backend } });
+    const op = result.analyses[0];
+    if (op.type !== 'op') throw new Error('Unexpected analysis type');
+    expect(op.voltagesV.out1).toBeCloseTo(2, 6);
+    expect(op.currentsA.V1).toBeCloseTo(-0.004, 8);
+  }, 20_000);
+  it.each(['unused;comment', 'bad$comment', 'bad,split', 'bad=split', 'bad(node)', 'bad\n'])('rejects unsafe token %j', async name => {
+    const doc = document();
+    doc.globalNodes = [name, 'VDD'];
+    expect(await executeProtocolV1(request(doc))).toMatchObject({
+      ok: false, error: { code: 'INVALID_REQUEST', details: { path: '/input/document/globalNodes/0' } },
+    });
+  });
   it('uses the core duplicate, case and ground semantics', () => {
     const circuit = circuitFromDocument(document());
     expect(circuit.globalNodes).toEqual(['VDD', 'gnd']);
@@ -80,7 +103,7 @@ describe('native global nodes', () => {
     for (const name of Object.keys(protocolSchemasV1)) ajv.addSchema(JSON.parse(readFileSync(new URL(`../../protocol/schemas/${name}.schema.json`, import.meta.url), 'utf8')));
     const valid = ajv.getSchema('https://spice-ts.dev/schemas/v1/simulation-request.schema.json')!;
     expect(valid(request(document()))).toBe(true);
-    for (const value of [null, 'VDD', [42], [''], ['bad node'], ['VDD\n']]) {
+    for (const value of [null, 'VDD', [42], [''], ['bad node'], ['VDD\n'], ['unused;comment', 'VDD'], ['bad$comment'], ['bad,split'], ['bad=split']]) {
       const doc = document();
       Object.assign(doc, { globalNodes: value });
       expect(valid(request(doc))).toBe(false);

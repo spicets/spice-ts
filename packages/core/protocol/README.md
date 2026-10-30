@@ -88,7 +88,9 @@ not leak between analyses. This adds no WASM or Fourier numerical changes.
 
 Native documents can declare shared hierarchical nodes with the optional
 document-level `globalNodes` array, for example `"globalNodes": ["VDD", "VSS"]`.
-Each entry must be a nonempty node name without whitespace. Declarations are
+Each entry must be nonempty and contain only ASCII letters, digits, `_`, `.`,
+`:`, `+`, or `-`. This conservative token set prevents SPICE comments and
+separators from changing the serialized `.global` directive. Declarations are
 case-insensitive and duplicates retain the first spelling, as in `Circuit`.
 The node `0` is already global and is not recorded; `gnd` follows the core
 ground alias behavior. Without this field, hierarchical nodes remain local.

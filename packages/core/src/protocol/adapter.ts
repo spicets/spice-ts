@@ -528,7 +528,7 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
   if (document.globalNodes !== undefined) {
     if (!Array.isArray(document.globalNodes)) invalidNativeField('/input/document/globalNodes');
     for (const [index, name] of document.globalNodes.entries()) {
-      if (typeof name !== 'string' || name.length === 0 || /\s/.test(name)) invalidNativeField(`/input/document/globalNodes/${index}`);
+      if (typeof name !== 'string' || !/^[A-Za-z0-9_.:+-]+(?![\s\S])/.test(name)) invalidNativeField(`/input/document/globalNodes/${index}`);
     }
     circuit.addGlobalNodes(document.globalNodes);
   }
