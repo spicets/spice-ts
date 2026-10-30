@@ -9,6 +9,12 @@ const trace = { status: 'complete' as const, analyses: [{ type: 'tran' as const,
 const delay = { kind: 'delay', analysis: 0, trigger: { signal: 'v(input)', threshold: 1, edge: 'rising', occurrence: 2 }, target: { signal: 'v(output)', threshold: 1, edge: 'rising', occurrence: 2 } };
 
 describe('transient delay measurements', () => {
+  it('counts a falling departure after an initial threshold plateau', () => {
+    const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1, 2, 3, 4], voltagesV: { a: [1, 1, 0, 2, 0] }, currentsA: {} }] };
+    const fall = { signal: 'v(a)', threshold: 1, edge: 'falling' };
+    const item = { kind: 'delay', analysis: 0, trigger: fall, target: { ...fall, occurrence: 2 } };
+    expect(measureResult(input, [item]).measurements).toEqual([{ value: 2.5, unit: 's' }]);
+  });
   it('counts an initial threshold departure as the first falling crossing', () => {
     const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1, 2, 3, 4], voltagesV: { a: [1, 0, 2, 0, 0] }, currentsA: {} }] };
     const fall = { signal: 'v(a)', threshold: 1, edge: 'falling' };

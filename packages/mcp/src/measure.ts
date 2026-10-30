@@ -107,10 +107,12 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         const lo = m.from ?? x[0]; const hi = m.to ?? x[x.length - 1];
         if (lo < x[0] || hi > x[x.length - 1] || lo > hi) return error('OUT_OF_RANGE', 'Measurement lies outside the analysis window');
         let count = 0;
+        let initialPlateau = y[0] === spec.threshold;
         for (let i = 1; i < x.length; i++) {
           const rising = y[i - 1] < spec.threshold && y[i] >= spec.threshold;
           const falling = (y[i - 1] > spec.threshold && y[i] <= spec.threshold)
-            || (i === 1 && y[i - 1] === spec.threshold && y[i] < spec.threshold);
+            || (initialPlateau && y[i] < spec.threshold);
+          if (y[i] !== spec.threshold) initialPlateau = false;
           if (!(spec.edge === 'rising' ? rising : spec.edge === 'falling' ? falling : rising || falling)) continue;
           const time = x[i - 1] + (x[i] - x[i - 1]) * ((spec.threshold - y[i - 1]) / (y[i] - y[i - 1]));
           if (time < lo || time > hi) continue;
