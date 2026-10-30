@@ -26,6 +26,19 @@ pnpm -C packages/core build && pnpm exec tsx benchmarks/corpus/corpus-d-spice3/c
 This corpus is not registered in `benchmarks/aggregate-report.ts` or `benchmarks/SOURCES.md` yet.
 That registration is #524 lane 4.
 
+The `tran_gear5` and `tran_gear6` translated decks now run in both engines. On
+ngspice-47, their worst spice-ts vs ngspice transient difference is 6.8834e-15 V
+at `v(2)` (586 aligned points). Against the ahkab fixed-order references the
+worst differences are 0.54059 V and 0.52742 V respectively. See `RESULTS.md`
+for the full report. `compare.ts` reports errors without a pass/fail tolerance.
+
+For ngspice-47, [dctran.c:822-831](https://github.com/ngspice/ngspice/blob/a80f6e3/src/spicelib/analysis/dctran.c#L822-L831)
+trials only order 1 to 2. [nicomcof.c:52-64](https://github.com/ngspice/ngspice/blob/a80f6e3/src/maths/ni/nicomcof.c#L52-L64)
+provides coefficients for orders 1 through 6, and [cktterr.c:60-75](https://github.com/ngspice/ngspice/blob/a80f6e3/src/spicelib/analysis/cktterr.c#L60-L75)
+indexes the error estimate by the actual order. A higher MAXORD is a cap, not
+a request to run that order. These are source-derived conclusions, not an
+instrumented native order trace.
+
 ## Caveats stated per deck
 
 - `method=gearN` becomes `.options method=gear maxord=N`. SPICE3/ngspice Gear is variable-order up

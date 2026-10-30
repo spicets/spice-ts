@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { InvalidCircuitError } from '../errors.js';
 import { parse } from '../parser/index.js';
 import { simulate, simulateStream } from '../simulate.js';
 import { resolveOptions } from '../types.js';
@@ -28,8 +29,21 @@ describe('ngspice MAXORD order cap (#983)', () => {
     expect(() => resolveOptions({ maxOrder })).toThrow('maxOrder must be an integer from 1 to 6');
   });
 
-  it('rejects unimplemented higher Gear orders at the API boundary', () => {
-    expect(() => resolveOptions({ integrationMethod: 'gear2', maxOrder: 4 })).toThrow('Gear orders 1 through 3 only');
+  it('rejects Gear API maxOrder=7 with a typed error', () => {
+    expect(() => resolveOptions({ integrationMethod: 'gear2', maxOrder: 7 })).toThrow(InvalidCircuitError);
+  });
+
+  it.each([4, 5, 6])('runs an RLC with Gear maxord=%i through netlist and API', async maxOrder => {
+    const rlc = `Gear RLC\nV1 in 0 PULSE(0 1 0 1n 1n 1u 2u)\nR1 in out 1k\nL1 out cap 1m\nC1 cap 0 1n\n.tran 20n 1u\n`;
+    const netlist = (await simulate(`${rlc}.options method=gear maxord=${maxOrder}\n.end`)).transient!;
+    const api = (await simulate(rlc, { integrationMethod: 'gear2', maxOrder })).transient!;
+    const capped = (await simulate(rlc, { integrationMethod: 'gear2', maxOrder: 3 })).transient!;
+    expect(netlist.time.at(-1)).toBeCloseTo(1e-6, 15);
+    expect(netlist.voltage('cap').every(Number.isFinite)).toBe(true);
+    expect(netlist.time).toEqual(api.time);
+    expect(netlist.voltage('cap')).toEqual(api.voltage('cap'));
+    expect(api.time).toEqual(capped.time);
+    expect(api.voltage('cap')).toEqual(capped.voltage('cap'));
   });
 
   it('runs Gear with an order-three cap through public netlist and API boundaries', async () => {

@@ -62,7 +62,7 @@ S-parameter keys use `Sij` when both one-based indices are single digits (for ex
 - `spice_sensitivity`: DC or complex AC `.sens` derivatives for voltage/differential voltage or independent voltage-source current, ranked by normalised magnitude (per frequency for AC).
 - `spice_tf`: native small-signal gain and input/output resistances. Accepts exactly one of `netlist` (legacy SPICE text) or `request` (a protocol-v1 simulation request with `spice`, `spice-ts`, or `circuit-json` input), plus `output: "v(out)"` or `"i(vsrc)"` and `input_source: "V1"` (an independent voltage/current source). For example: `{ request: { apiVersion: "1", input: { format: "spice", source: "V1 in 0 1\nR1 in out 1k\nR2 out 0 3k" } }, output: "v(out)", input_source: "V1" }`. Native documents must be objects, not JSON strings; circuit-json requires an `analyses` array (use `[]` to let the tool select TF). Returns exact selector names, `transfer_function`, `input_resistance`, `output_resistance`, and `units` (V/V, V/A, A/V or A/A; resistances in ohm). Optional `params: { name: number }` uses case-insensitive top-level SPICE parameter overrides; non-SPICE inputs reject `params`, including `{}`. Request solver options and resource limits are preserved. Nonfatal conversion diagnostics appear in `_meta.conversionDiagnostics`; fatal conversion errors retain `error.details.diagnostics`. A matching `.tf` is allowed; conflicting analyses, steps and control blocks are rejected.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
-- `spice_corners`: run protocol-v1 `spice`, `spice-ts` JSON, or `circuit-json` input across up to 64 uniquely named deterministic corners with `{ request, corners: [{ name, params?, temp? }], measurement }`. Native documents must be objects, not JSON strings; circuit-json requires an explicit `analyses` array. Parameter and temperature overrides require SPICE text; JSON corners with either override return per-corner `INVALID_REQUEST` errors without preventing other corners from running. `params` contains finite numeric top-level `.param` overrides; `temp` is Celsius above absolute zero and overrides earlier temperature cards. Uses one `spice_measure` selector. Returns ordered `{ name, status, value, unit }` or `{ name, status: 'failed', error }` entries and `summary: { min: { name, value }, max: { name, value }, spread, unit }` over successful corners only (null if none succeed, first corner wins ties). Shares the existing worker quota, response cap and one wall-time budget. Unlike a single-parameter sweep or random sampling, corners are explicit heterogeneous cases.
+- `spice_corners`: run protocol-v1 `spice`, `spice-ts` JSON, or `circuit-json` input across up to 64 uniquely named deterministic corners with `{ request, corners: [{ name, params?, temp? }], measurement }`. Native documents must be objects, not JSON strings; circuit-json requires an explicit `analyses` array. Parameter overrides require SPICE text. Temperature overrides support SPICE text and native `spice-ts` JSON; circuit-json temperature overrides and JSON parameter overrides return per-corner `INVALID_REQUEST` errors without preventing other corners from running. `params` contains finite numeric top-level `.param` overrides; `temp` is Celsius above absolute zero and overrides earlier temperature cards for SPICE text or request-level `options.temperature` for native JSON. Uses one `spice_measure` selector. Returns ordered `{ name, status, value, unit }` or `{ name, status: 'failed', error }` entries and `summary: { min: { name, value }, max: { name, value }, spread, unit }` over successful corners only (null if none succeed, first corner wins ties). Shares the existing worker quota, response cap and one wall-time budget. Unlike a single-parameter sweep or random sampling, corners are explicit heterogeneous cases.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, sampled peaking, and loop stability margins without vectors.
 - `spice_impedance`: measure differential port impedance with `{ request, port: { positive: "in", negative: "0" }, sweep?: { variation: "dec", points: 100, startFreq: 10, stopFreq: 100000 }, params?: { name: number } }`. Accepts the usual SPICE or circuit-json protocol request. Use one existing AC sweep or supply `sweep` to override it. Injects a collision-free 1 A AC current from negative to positive on an isolated copy, zeroes all other independent-source AC magnitudes (including subcircuit sources), and preserves DC bias and dependent sources. Returns `points` with `frequencyHz`, `magnitudeOhm`, `phaseDeg`, `resistanceOhm`, and `reactanceOhm`; `summary.min`/`max` are sampled magnitude extrema with frequencies. `summary.resonanceHz` estimates isolated phase-zero crossings by phase interpolation in log frequency (DEC/OCT) or linear frequency (LIN), never extrapolates, and excludes flat zero-phase regions and phase wraps. Increase sweep density to resolve narrow resonances. Ground aliases `0`/`gnd` and node names are case-insensitive. Stable tool-local errors are `UNKNOWN_NODE`, `SHORTED_PORT` (identical terminals), and `MISSING_AC_SWEEP`; invalid/conflicting analyses, steps, and control blocks are rejected. Parameter overrides apply before elaboration and require SPICE text. All normal document, point, output, concurrency, wall-time and cancellation limits apply.
@@ -175,9 +175,11 @@ The usual `spice_measure` selectors also support transient, DC and AC reductions
 
 `runs` is an integer from 1 through 1000; `seed` is an explicit unsigned 32-bit integer.
 Each of 1–128 case-insensitive, unique tolerance targets must be a positive literal
-top-level R/C/L scalar in SPICE text, with no extra card parameters or continuation.
-Numeric engineering suffixes T/G/MEG/K/M/U/N/P/F are supported. Expressions,
-includes, model cards, subcircuit-local targets and JSON inputs are not supported.
+top-level R/C/L scalar in SPICE text or native spice-ts JSON. Text cards cannot have
+extra parameters or continuations; native components must have a numeric `resistance`,
+`capacitance`, or `inductance` matching their type. SPICE numeric engineering suffixes
+T/G/MEG/K/M/U/N/P/F are supported. Expressions, includes, model cards,
+subcircuit-local targets and circuit-json inputs are not supported.
 Each draw starts from the original nominal value, independently per target and run,
 in caller-supplied target order. Inputs are not mutated.
 
@@ -209,6 +211,15 @@ Call `spice_optimize` with `{ request, parameters: [{ name: 'rval', min: 100, ma
 to tune an RC low-pass cutoff to 1 kHz. The SPICE request must declare the named
 top-level `.param` values; names are case-insensitive and bounds are inclusive.
 `objective` uses the existing `spice_measure` scalar selector contract.
+
+Each parameter may specify `kind: 'component'` to optimize a top-level R, C,
+or L scalar directly, for example `{ kind: 'component', name: 'R2', min: 1000,
+max: 9000 }`. Component bounds must be strictly positive. Both SPICE text and
+native spice-ts JSON requests are supported for component targets. Omitted
+`kind` (or `kind: 'param'`) retains the SPICE `.param` behavior. Targets are
+case-insensitive and must be unique across the search; subcircuit components
+and other device types are not supported. Parameter and component targets can be
+combined in a SPICE request.
 
 One parameter uses golden-section search on absolute target error; two or three
 use two coordinate-descent passes from the bounds' midpoint. Endpoints are sampled

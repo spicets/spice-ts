@@ -1,0 +1,10 @@
+BJT high side driver original MIT circuit
+Vdd supply 0 5
+Vdrive drive 0 PULSE(5 0 1u 10n 10n 5u 10u)
+Rb drive base 2.2k
+Q1 out base supply PNP1
+Rload out 0 470
+Cload out 0 1n
+.model PNP1 PNP (IS=1e-14 BF=100)
+.tran 100n 40u
+.end

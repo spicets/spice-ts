@@ -1,0 +1,7 @@
+PWM RC DAC original MIT circuit
+Vdrive pwm 0 PULSE(0 3.3 1u 10n 10n 4u 10u)
+R1 pwm out 10k
+C1 out 0 10n
+Rload out 0 100k
+.tran 100n 50u
+.end

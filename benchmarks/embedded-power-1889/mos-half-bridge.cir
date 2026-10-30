@@ -1,0 +1,11 @@
+Complementary MOS half bridge original MIT circuit
+Vdd supply 0 5
+Vgate gate 0 PULSE(0 5 1u 50n 50n 5u 10u)
+Mp out gate supply supply PM
+Mn out gate 0 0 NM
+Rload out 0 1k
+Cload out 0 1n
+.model NM NMOS (LEVEL=1 VTO=1 KP=0.002)
+.model PM PMOS (LEVEL=1 VTO=-1 KP=0.002)
+.tran 100n 40u
+.end

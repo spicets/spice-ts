@@ -15,7 +15,7 @@ export const cornersProperties = {
   corners: { type: 'array', minItems: 1, maxItems: MAX_CORNERS, items: {
     type: 'object', required: ['name'], additionalProperties: false, properties: {
       name: { type: 'string', minLength: 1, maxLength: 128 }, params: paramsSchema,
-      temp: { type: 'number', exclusiveMinimum: -273.15, description: 'Circuit temperature in degrees Celsius. Overrides earlier .temp/.options TEMP cards.' },
+      temp: { type: 'number', exclusiveMinimum: -273.15, description: 'Circuit temperature in degrees Celsius. Overrides SPICE temperature cards or native request options.temperature.' },
     },
   } },
   measurement: measurementListSchema.items,
@@ -28,7 +28,7 @@ function invalid(message: string): never {
 
 /** Named deterministic runs share the server's quota and one outer deadline. */
 export async function runCorners(
-  args: unknown, request: SimulationRequestV1,
+  args: unknown, request: SimulationRequestV1, originalFormat: SimulationRequestV1['input']['format'],
   execute: (request: SimulationRequestV1, measurements: unknown[]) => Promise<CallToolResult>,
   check: (result: CornersResult) => void,
 ): Promise<CornersResult> {
@@ -53,7 +53,10 @@ export async function runCorners(
     let entry: CornerResult;
     try {
       let changed = overrideParameters(request, corner.params);
-      if (corner.temp !== undefined && changed.input.format !== 'spice') invalid('Temperature overrides require SPICE text input');
+      if (corner.temp !== undefined && originalFormat === 'circuit-json') invalid('Temperature overrides require SPICE text input');
+      if (corner.temp !== undefined && changed.input.format === 'spice-ts') {
+        changed = { ...changed, options: { ...changed.options, temperature: corner.temp } };
+      }
       if (corner.temp !== undefined && changed.input.format === 'spice') {
         const source = changed.input.source;
         const index = /^\s*\.end\s*(?:[;$].*)?$/im.exec(source)?.index ?? source.length;

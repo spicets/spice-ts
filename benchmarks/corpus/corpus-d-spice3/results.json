@@ -1,7 +1,7 @@
 {
   "tools": {
     "ngspice": "ngspice-47",
-    "spiceTs": "0.3.0",
+    "spiceTs": "0.4.0",
     "platform": "darwin-arm64"
   },
   "results": [
@@ -60,11 +60,20 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "error": "Parse error at line 15: Unsupported dot command: '.temp' .temp 26.85"
+        "status": "success",
+        "analyses": [
+          "op"
+        ]
       },
-      "spiceTsVsNgspice": [],
+      "spiceTsVsNgspice": [
+        {
+          "analysis": "op",
+          "signals": 3,
+          "points": 1,
+          "worstSignal": "i(v1)",
+          "worstAbsMax": 2.5851981944047253e-9
+        }
+      ],
       "ngspiceVsAhkab": [
         {
           "analysis": "op",
@@ -74,7 +83,15 @@
           "worstAbsMax": 9.767580322339597e-7
         }
       ],
-      "spiceTsVsAhkab": []
+      "spiceTsVsAhkab": [
+        {
+          "analysis": "op",
+          "signals": 3,
+          "points": 1,
+          "worstSignal": "i(v1)",
+          "worstAbsMax": 9.793432304006089e-7
+        }
+      ]
     },
     {
       "id": "ekv-bias-sweep",
@@ -137,11 +154,20 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "error": "Parse error at line 9: Unsupported source waveform 'AM' V1 1 0 DC 0 AM(0 10 10 100 1K 1M)"
+        "status": "success",
+        "analyses": [
+          "tran"
+        ]
       },
-      "spiceTsVsNgspice": [],
+      "spiceTsVsNgspice": [
+        {
+          "analysis": "tran",
+          "signals": 5,
+          "points": 2011,
+          "worstSignal": "i(v1)",
+          "worstAbsMax": 5.826450433232822e-13
+        }
+      ],
       "ngspiceVsAhkab": [
         {
           "analysis": "tran",
@@ -151,7 +177,15 @@
           "worstAbsMax": 0.008962446792274648
         }
       ],
-      "spiceTsVsAhkab": []
+      "spiceTsVsAhkab": [
+        {
+          "analysis": "tran",
+          "signals": 5,
+          "points": 2006,
+          "worstSignal": "v(1)",
+          "worstAbsMax": 0.0089624467922782
+        }
+      ]
     },
     {
       "id": "fft-source-transient",
@@ -198,9 +232,9 @@
         {
           "analysis": "tran",
           "signals": 4,
-          "points": 2278,
+          "points": 376,
           "worstSignal": "v(2)",
-          "worstAbsMax": 0.6313849479933995
+          "worstAbsMax": 1.4155343563970746e-14
         }
       ],
       "ngspiceVsAhkab": [
@@ -230,9 +264,9 @@
         {
           "analysis": "tran",
           "signals": 4,
-          "points": 2275,
+          "points": 369,
           "worstSignal": "v(2)",
-          "worstAbsMax": 0.015321569549555575
+          "worstAbsMax": 0.6264400283734468
         }
       ]
     },
@@ -248,11 +282,28 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "error": "Parse error at line 20: Unsupported dot command: '.temp' .temp 26.85"
+        "status": "success",
+        "analyses": [
+          "op",
+          "tran"
+        ]
       },
-      "spiceTsVsNgspice": [],
+      "spiceTsVsNgspice": [
+        {
+          "analysis": "op",
+          "signals": 4,
+          "points": 1,
+          "worstSignal": "v(2)",
+          "worstAbsMax": 2.461530485876506e-16
+        },
+        {
+          "analysis": "tran",
+          "signals": 4,
+          "points": 517,
+          "worstSignal": "v(1)",
+          "worstAbsMax": 0.00014400819159809952
+        }
+      ],
       "ngspiceVsAhkab": [
         {
           "analysis": "op",
@@ -269,7 +320,22 @@
           "worstAbsMax": 0.0150710928906852
         }
       ],
-      "spiceTsVsAhkab": []
+      "spiceTsVsAhkab": [
+        {
+          "analysis": "op",
+          "signals": 4,
+          "points": 1,
+          "worstSignal": "i(v1)",
+          "worstAbsMax": 0
+        },
+        {
+          "analysis": "tran",
+          "signals": 4,
+          "points": 514,
+          "worstSignal": "v(1)",
+          "worstAbsMax": 0.015071861257223595
+        }
+      ]
     },
     {
       "id": "ekv-ring-oscillator",
@@ -295,11 +361,28 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "error": "Parse error at line 31: Unsupported dot command: '.temp' .temp 26.85"
+        "status": "success",
+        "analyses": [
+          "op",
+          "tran"
+        ]
       },
-      "spiceTsVsNgspice": [],
+      "spiceTsVsNgspice": [
+        {
+          "analysis": "op",
+          "signals": 10,
+          "points": 1,
+          "worstSignal": "v(8)",
+          "worstAbsMax": 9.850183862205278e-16
+        },
+        {
+          "analysis": "tran",
+          "signals": 10,
+          "points": 5019,
+          "worstSignal": "v(7)",
+          "worstAbsMax": 0.0024584706721384464
+        }
+      ],
       "ngspiceVsAhkab": [
         {
           "analysis": "op",
@@ -316,7 +399,22 @@
           "worstAbsMax": 0.019550615604217114
         }
       ],
-      "spiceTsVsAhkab": []
+      "spiceTsVsAhkab": [
+        {
+          "analysis": "op",
+          "signals": 10,
+          "points": 1,
+          "worstSignal": "i(v1)",
+          "worstAbsMax": 0
+        },
+        {
+          "analysis": "tran",
+          "signals": 10,
+          "points": 5013,
+          "worstSignal": "v(7)",
+          "worstAbsMax": 0.02002960190908354
+        }
+      ]
     },
     {
       "id": "pwm-switch",
@@ -340,11 +438,28 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "error": "Parse error at line 16: Unsupported .options field: 'maxord' .options method=gear maxord=3"
+        "status": "success",
+        "analyses": [
+          "op",
+          "tran"
+        ]
       },
-      "spiceTsVsNgspice": [],
+      "spiceTsVsNgspice": [
+        {
+          "analysis": "op",
+          "signals": 4,
+          "points": 1,
+          "worstSignal": "i(l1)",
+          "worstAbsMax": 0
+        },
+        {
+          "analysis": "tran",
+          "signals": 4,
+          "points": 586,
+          "worstSignal": "v(2)",
+          "worstAbsMax": 6.8833827526759706e-15
+        }
+      ],
       "ngspiceVsAhkab": [
         {
           "analysis": "op",
@@ -361,7 +476,22 @@
           "worstAbsMax": 0.6024507881791776
         }
       ],
-      "spiceTsVsAhkab": []
+      "spiceTsVsAhkab": [
+        {
+          "analysis": "op",
+          "signals": 4,
+          "points": 1,
+          "worstSignal": "i(l1)",
+          "worstAbsMax": 0
+        },
+        {
+          "analysis": "tran",
+          "signals": 4,
+          "points": 578,
+          "worstSignal": "v(2)",
+          "worstAbsMax": 0.6024507881791772
+        }
+      ]
     },
     {
       "id": "rlc-gear5",
@@ -375,11 +505,28 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "error": "Parse error at line 16: Unsupported .options field: 'maxord' .options method=gear maxord=5"
+        "status": "success",
+        "analyses": [
+          "op",
+          "tran"
+        ]
       },
-      "spiceTsVsNgspice": [],
+      "spiceTsVsNgspice": [
+        {
+          "analysis": "op",
+          "signals": 4,
+          "points": 1,
+          "worstSignal": "i(l1)",
+          "worstAbsMax": 0
+        },
+        {
+          "analysis": "tran",
+          "signals": 4,
+          "points": 586,
+          "worstSignal": "v(2)",
+          "worstAbsMax": 6.8833827526759706e-15
+        }
+      ],
       "ngspiceVsAhkab": [
         {
           "analysis": "op",
@@ -396,7 +543,22 @@
           "worstAbsMax": 0.5405897223248926
         }
       ],
-      "spiceTsVsAhkab": []
+      "spiceTsVsAhkab": [
+        {
+          "analysis": "op",
+          "signals": 4,
+          "points": 1,
+          "worstSignal": "i(l1)",
+          "worstAbsMax": 0
+        },
+        {
+          "analysis": "tran",
+          "signals": 4,
+          "points": 578,
+          "worstSignal": "v(2)",
+          "worstAbsMax": 0.5405897223248922
+        }
+      ]
     },
     {
       "id": "rlc-gear6",
@@ -410,11 +572,28 @@
         ]
       },
       "spiceTs": {
-        "status": "unsupported",
-        "analyses": [],
-        "error": "Parse error at line 16: Unsupported .options field: 'maxord' .options method=gear maxord=6"
+        "status": "success",
+        "analyses": [
+          "op",
+          "tran"
+        ]
       },
-      "spiceTsVsNgspice": [],
+      "spiceTsVsNgspice": [
+        {
+          "analysis": "op",
+          "signals": 4,
+          "points": 1,
+          "worstSignal": "i(l1)",
+          "worstAbsMax": 0
+        },
+        {
+          "analysis": "tran",
+          "signals": 4,
+          "points": 586,
+          "worstSignal": "v(2)",
+          "worstAbsMax": 6.8833827526759706e-15
+        }
+      ],
       "ngspiceVsAhkab": [
         {
           "analysis": "op",
@@ -431,7 +610,22 @@
           "worstAbsMax": 0.5274187673735474
         }
       ],
-      "spiceTsVsAhkab": []
+      "spiceTsVsAhkab": [
+        {
+          "analysis": "op",
+          "signals": 4,
+          "points": 1,
+          "worstSignal": "i(l1)",
+          "worstAbsMax": 0
+        },
+        {
+          "analysis": "tran",
+          "signals": 4,
+          "points": 578,
+          "worstSignal": "v(2)",
+          "worstAbsMax": 0.5274187673735471
+        }
+      ]
     },
     {
       "id": "colpitts-oscillator",
