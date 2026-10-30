@@ -65,7 +65,7 @@ describe('protocol-v1 capability and terminal envelopes', () => {
       'maxSerializedResultBytes', 'maxWallTimeMs',
     ]);
     expect(capabilities.completions).toEqual(['complete', 'failed', 'limited', 'cancelled']);
-    expect(canonicalHash(capabilities)).toBe('ae84ce031d06dfc97fdd637ac0779c986d790a36007b35f42d6837b6017919ac');
+    expect(canonicalHash(capabilities)).toBe('bed54b5b2d1a10ac7b0016828f96a1cbd07a694b90bf49d5e318ac9aaad74c47');
     assertWireSafe(capabilities, true);
   });
 

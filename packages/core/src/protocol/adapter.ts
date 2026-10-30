@@ -192,6 +192,11 @@ export async function simulateProtocolV1(
     const transients = result.steps ? result.steps.map(step => step.transient) : [result.transient];
     for (const [i, completed] of completedAnalyses.entries()) {
       const transient = transients[i];
+      const dcSweep = result.steps ? result.steps[i]?.dcSweep : result.dcSweep;
+      if (completed.type === 'dc' && dcSweep) {
+        const measurements = nativeMeasurements(request, analysisIndex, analysis, dcSweep, guard);
+        if (measurements) completed.measurements = measurements;
+      }
       if (completed.type === 'tran' && transient) {
         const measurements = nativeMeasurements(request, analysisIndex, analysis, transient, guard);
         if (measurements) completed.measurements = measurements;
