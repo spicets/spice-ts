@@ -175,9 +175,11 @@ The usual `spice_measure` selectors also support transient, DC and AC reductions
 
 `runs` is an integer from 1 through 1000; `seed` is an explicit unsigned 32-bit integer.
 Each of 1–128 case-insensitive, unique tolerance targets must be a positive literal
-top-level R/C/L scalar in SPICE text, with no extra card parameters or continuation.
-Numeric engineering suffixes T/G/MEG/K/M/U/N/P/F are supported. Expressions,
-includes, model cards, subcircuit-local targets and JSON inputs are not supported.
+top-level R/C/L scalar in SPICE text or native spice-ts JSON. Text cards cannot have
+extra parameters or continuations; native components must have a numeric `resistance`,
+`capacitance`, or `inductance` matching their type. SPICE numeric engineering suffixes
+T/G/MEG/K/M/U/N/P/F are supported. Expressions, includes, model cards,
+subcircuit-local targets and circuit-json inputs are not supported.
 Each draw starts from the original nominal value, independently per target and run,
 in caller-supplied target order. Inputs are not mutated.
 
