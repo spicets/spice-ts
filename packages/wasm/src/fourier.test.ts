@@ -9,11 +9,35 @@ const fixtures = [
   { name: 'two tone', circuit: 'V1 in 0 SIN(0 1 1k 0 0 30)\nV2 out in SIN(0 0.2 2k 0 0 60)\nR1 out 0 1k', outputs: 'v(out) v(in) v(out,in)' },
 ];
 // Inherited source-transient bounds: 1e-9 V and 1e-12 A per sampled point.
-// For signals >=0.01, 1e-4 degrees and percentage points conservatively cover
+// For signals >=0.01 V or 10 uA, 1e-4 degrees and percentage points cover
 // amplification of these waveform errors by phase/THD normalization.
 const phaseAndThdBound = 1e-4;
 
 describe('WASM Fourier', () => {
+  it.each(['option', 'opt'])('accepts temperature-dependent models with .%s', async option => {
+    const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      const input = request(`V1 in 0 SIN(0 1 1k)\nR1 in out 1k\nD1 out 0 dm\n.model dm D(IS=1e-14 EG=1.11)\n.${option} TEMP=75\n.tran 10u 3m\n.four 1k v(out)`);
+      const result = await engine.simulate(input, { requestId: 'temperature-alias' });
+      expect(result.ok, JSON.stringify(result)).toBe(true);
+      if (result.ok) expect((result.data.analyses[0] as TransientResultV1).fourier).toHaveLength(1);
+    } finally { await engine.close(); }
+  });
+
+  it.each([
+    '.options nfreqs=1000 fourgridsize=2000\n.four 1k v(out)',
+    '.options nfreqs=1000000 fourgridsize=1000000\n.four 1k v(out)',
+    '.options nfreqs=1 fourgridsize=1000000\n.four 1k v(out)',
+    '.options nfreqs=1000000 fourgridsize=1\n.four 1k v(out)',
+    '.options nfreqs=600 fourgridsize=1000\n.four 1k v(out) v(out)',
+    '.options nfreqs=600 fourgridsize=1000\n.four 1k v(out)\n.four 1k v(out)',
+  ])('rejects excessive aggregate Fourier work: %s', async fourier => {
+    const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      const result = await engine.simulate(request(`V1 out 0 SIN(0 1 1k)\nR1 out 0 1k\n.tran 10u 3m\n${fourier}`), { requestId: 'fourier-limit' });
+      expect(result).toMatchObject({ ok: false, error: { code: 'RESOURCE_LIMIT', details: { limit: 'maxFourierWork' } } });
+    } finally { await engine.close(); }
+  });
   it.each(fixtures)('returns core-shaped tables for $name on the numeric backend', async ({ name, circuit, outputs }) => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
@@ -39,7 +63,7 @@ describe('WASM Fourier', () => {
           const delta = Math.abs(row.magnitude! - expected.magnitude!);
           maxMagnitude = Math.max(maxMagnitude, delta);
           expect(delta).toBeLessThanOrEqual(/^i\s*\(/i.test(table.vector) ? 1e-12 : 1e-9);
-          if (expected.magnitude !== null && Math.abs(expected.magnitude) >= 0.01) {
+          if (expected.magnitude !== null && Math.abs(expected.magnitude) >= (/^i\s*\(/i.test(table.vector) ? 1e-5 : 0.01)) {
             const phase = Math.abs(row.phase! - expected.phase!);
             maxPhase = Math.max(maxPhase, phase);
             expect(phase).toBeLessThanOrEqual(phaseAndThdBound);

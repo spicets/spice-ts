@@ -113,4 +113,4 @@ export {
 } from './parser/control/errors.js';
 
 /** @internal Shared frontend postprocessing for numeric backends. */
-export { evaluateFourierCards } from './parser/dot-four.js';
+export { evaluateFourierCards, fourierWork } from './parser/dot-four.js';

@@ -1,4 +1,4 @@
-import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { CCCS, CCVS, createTransientSim, fourierWork, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
 import { addFourier } from './fourier.js';
 import type {
   JsonObject,
@@ -720,6 +720,9 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     if (error instanceof NumericBackendError) throw error;
     throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
   }
+  const maxFourierWork = 1_000_000;
+  const requestedFourierWork = fourierWork(circuit);
+  if (requestedFourierWork > maxFourierWork) throw resourceLimit('maxFourierWork', maxFourierWork, requestedFourierWork);
   for (const device of compiled.devices) {
     const waveform = (device as unknown as Partial<SweepableSource>).waveform;
     // Validate core-resolved numbers so suffix/exponent overflow is rejected too.
@@ -835,7 +838,7 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
   if (stack.length !== 1) throw numericError('INVALID_CIRCUIT', 'Unclosed .subckt definition', 'validation');
   for (const indices of scopes) {
     const scopeCards = indices.map(index => cards[index]!);
-    validateCards(scopeCards, analysis, cards.some(card => /^\.(?:temp|options)\b/i.test(card)));
+    validateCards(scopeCards, analysis, cards.some(card => /^\.(?:temp|options|option|opt)\b/i.test(card)));
     const scoped = normalizeAndValidateCurrentControlledSources(scopeCards);
     indices.forEach((index, offset) => { normalized[index] = scoped[offset]!; });
   }

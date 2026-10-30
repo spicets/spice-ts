@@ -45,6 +45,15 @@ export function addFourierCard(circuit: Circuit, text: string, line: number): vo
   } catch (error) { warn(error instanceof Error ? error.message : String(error)); }
 }
 
+/** Describe parsed Fourier work without evaluating or allocating any grids. */
+export function fourierWork(circuit: Circuit): number {
+  const config = registry.get(circuit);
+  if (!config) return 0;
+  const vectors = config.cards.reduce((sum, card) => sum + card.outputs.length, 0);
+  // The extra row and column also bound grid and harmonic allocations.
+  return Math.min(Number.MAX_SAFE_INTEGER, vectors * (config.nfreqs + 1) * (config.fourgridsize + 1));
+}
+
 /** Stepped runs bypass frontend Fourier evaluation; never silently discard cards. */
 export function warnSteppedFourierCards(circuit: Circuit, warnings: SimulationWarning[]): void {
   for (const card of registry.get(circuit)?.cards ?? []) {
