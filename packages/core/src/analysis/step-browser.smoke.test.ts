@@ -80,7 +80,10 @@ async function pageDebuggerUrl(
             .then(response => response.json() as Promise<Array<{ type: string; webSocketDebuggerUrl: string }>>)
             .then(targets => { pageUrl ??= targets.find(target => target.type === 'page')?.webSocketDebuggerUrl; })
             .catch(error => { lastError = error; })
-            .finally(() => { pending.delete(probe); });
+            .finally(() => {
+              pending.delete(probe);
+              if (pending.size === 0) nextProbe = performance.now() + 50;
+            });
           pending.add(probe);
           nextProbe = performance.now() + 1_500;
         } catch (error) {
@@ -88,8 +91,6 @@ async function pageDebuggerUrl(
         }
       }
       await Promise.race([...pending, delay(Math.max(0, Math.min(50, deadline - performance.now())))]);
-      // A completed empty response can be retried immediately.
-      if (pending.size === 0) nextProbe = 0;
     }
     throw new Error(`Chrome DevTools endpoint did not become ready within ${timeoutMs}ms: ${String(lastError)}\n${stderr}`);
   } finally {
@@ -232,6 +233,30 @@ describe('production browser step worker', () => {
       await writeFile(join(profileDirectory, 'DevToolsActivePort'), `${address.port}\n`);
       await expect(pageDebuggerUrl(profileDirectory, child, 2_500)).resolves.toBe('ws://example.test/page');
       expect(requests).toBeGreaterThan(1);
+    } finally {
+      await terminateProcess(child);
+      server.closeAllConnections();
+      await new Promise<void>(resolveClose => server.close(() => resolveClose()));
+    }
+  });
+
+  it('rate-limits retries when DevTools repeatedly returns no page', async () => {
+    const profileDirectory = await mkdtemp(join(tmpdir(), 'spice-ts-empty-browser-'));
+    temporaryDirectories.push(profileDirectory);
+    let requests = 0;
+    const server = createServer((_request, response) => {
+      requests++;
+      response.end('[]');
+    });
+    await new Promise<void>(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
+    const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('No test server address');
+      await writeFile(join(profileDirectory, 'DevToolsActivePort'), `${address.port}\n`);
+      await expect(pageDebuggerUrl(profileDirectory, child, 250)).rejects.toThrow('did not become ready');
+      expect(requests).toBeGreaterThan(1);
+      expect(requests).toBeLessThanOrEqual(6);
     } finally {
       await terminateProcess(child);
       server.closeAllConnections();
