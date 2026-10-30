@@ -35,7 +35,8 @@ export async function runOptimize(
   if (!Array.isArray(args.parameters) || args.parameters.length < 1 || args.parameters.length > 3) invalid('Expected 1 through 3 parameters');
   for (const p of args.parameters) {
     if (!record(p) || Object.keys(p).some(key => !['name', 'kind', 'min', 'max'].includes(key))
-      || typeof p.name !== 'string' || !/^[A-Za-z_]\w*$/.test(p.name)
+      || typeof p.name !== 'string'
+      || !(p.kind === 'component' ? /^[A-Za-z_][\w.:-]*$/ : /^[A-Za-z_]\w*$/).test(p.name)
       || (p.kind !== undefined && p.kind !== 'param' && p.kind !== 'component')
       || !finite(p.min) || !finite(p.max) || p.min >= p.max || !Number.isFinite(p.max - p.min)
       || (p.kind === 'component' && p.min <= 0)) invalid('Invalid optimize parameter');

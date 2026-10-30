@@ -15,6 +15,16 @@ const args = { parameters: [{ kind: 'component', name: 'R2', min: 1000, max: 900
 type Result = { bestParams: Record<string, number>; achievedValue: number; evaluations: number; history: { params: Record<string, number>; value: number; error: number }[] };
 
 describe('component optimization', () => {
+  it.each(['R-load', 'R.1', 'R:1'])('optimizes native component named %s', async name => {
+    const request = structuredClone(native);
+    if (request.input.format !== 'spice-ts') throw new Error('Expected native input');
+    request.input.document.circuit.components[2].name = name;
+    const result = await executeTool('spice_optimize', { ...args, request, parameters: [{ ...args.parameters[0], name }] });
+    expect(result.isError, JSON.stringify(result.structuredContent)).not.toBe(true);
+    const optimized = result.structuredContent as unknown as Result;
+    expect(Math.abs(optimized.achievedValue - 7.5)).toBeLessThanOrEqual(0.001);
+    expect(optimized.bestParams[name]).toBeCloseTo(3000, -1);
+  }, 120000);
   it('optimizes the native divider identically to text without mutation', async () => {
     const before = structuredClone(native);
     const a = await executeTool('spice_optimize', { ...args, request: native });
@@ -50,6 +60,9 @@ describe('component optimization', () => {
   it('rejects invalid component targets and bounds before simulation', async () => {
     const bad = [
       [{ kind: 'component', name: 'missing', min: 1, max: 2 }],
+      [{ kind: 'component', name: 'R/1', min: 1, max: 2 }],
+      [{ kind: 'param', name: 'R-load', min: 1, max: 2 }],
+      [{ name: 'R-load', min: 1, max: 2 }],
       [{ kind: 'component', name: 'V1', min: 1, max: 2 }],
       [{ kind: 'component', name: 'R2', min: 0, max: 2 }],
       [{ kind: 'component', name: 'R2', min: 1, max: Infinity }],
