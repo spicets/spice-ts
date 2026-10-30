@@ -95,11 +95,20 @@ describe('WASM Fourier', () => {
     } finally { await engine.close(); }
   });
 
-  it('rejects vector expressions outside the supported probe slice', async () => {
+  it.each(['options', 'option', 'opt'])('evaluates expressions and .%s Fourier options on the numeric backend', async option => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
-      const input = request('V1 out 0 SIN(0 1 1k)\nR1 out 0 1k\n.tran 10u 3m\n.four 1k v(out)*2');
-      expect(await engine.simulate(input, { requestId: 'expression' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'fourier-expression' } } });
+      const input = request(`V1 out 0 SIN(0 1 1k)\nR1 out 0 1k\n.tran 10u 3m\n.${option} nfreqs = 5, fourgridsize = 128\n.four 1k v(out)*2 v(out)\n.fourier 1k v(out)+v(out)`);
+      const actual = await engine.simulate(input, { requestId: 'expression-options' });
+      expect(actual.ok, JSON.stringify(actual)).toBe(true);
+      if (!actual.ok) throw new Error(actual.error.message);
+      expect(actual.metadata.backend).toBe('spice-ts-wasm');
+      const a = actual.data.analyses[0] as TransientResultV1;
+      const b = (await simulateProtocolV1(input)).analyses[0] as TransientResultV1;
+      expect(a.fourier).toEqual(b.fourier);
+      expect(a.fourier).toHaveLength(3);
+      expect(a.fourier![0]).toMatchObject({ vector: 'v(out)*2', gridSize: 128 });
+      expect(a.fourier![0]!.harmonics).toHaveLength(5);
     } finally { await engine.close(); }
   });
 });

@@ -1,5 +1,5 @@
-import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
-import { addFourier, parseFourierCards } from './fourier.js';
+import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { addFourier } from './fourier.js';
 import type {
   JsonObject,
   SimulationRequestV1,
@@ -56,7 +56,7 @@ interface PreparedPassiveAc extends PreparedNumericBase {
 
 interface PreparedPassiveTran extends PreparedNumericBase {
   analysis: 'tran';
-  fourier: ReturnType<typeof parseFourierCards>;
+  fourierCircuit: Circuit;
   hierarchical: boolean;
   transient: Extract<CompiledCircuit['analyses'][number], { type: 'tran' }>;
   normalizedSource: string;
@@ -100,16 +100,16 @@ export async function simulateLinearOpWasmV1(
     })) {
       const result = await simulateAdaptiveTransient(prepared, request, exports, maxPoints);
       const transientResult = result.analyses[0];
-      if (prepared.fourier.length && transientResult?.type === 'tran') {
-        addFourier(transientResult, prepared.fourier);
+      if (transientResult?.type === 'tran') {
+        addFourier(transientResult, prepared.fourierCircuit);
         enforceSerializedResultLimit(result, request);
       }
       return result;
     }
     const result = simulateTransient(prepared, request, exports);
     const transientResult = result.analyses[0];
-    if (prepared.fourier.length && transientResult?.type === 'tran') {
-      addFourier(transientResult, prepared.fourier);
+    if (transientResult?.type === 'tran') {
+      addFourier(transientResult, prepared.fourierCircuit);
       enforceSerializedResultLimit(result, request);
     }
     return result;
@@ -710,10 +710,11 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   if (analysis === 'tran') validateTransientControls(analyses[0]!, request);
   const normalizedCards = validateHierarchyCards(cards, analysis);
   let compiled: CompiledCircuit;
+  let circuit: Circuit;
   try {
     // Core owns expansion, lexical model scope and hierarchical node/branch names.
     // Only compilation is shared: numeric solves continue to use the WASM kernel.
-    const circuit = parseTitleless(normalizedCards.join('\n'));
+    circuit = parseTitleless(normalizedCards.join('\n'));
     compiled = circuit.compile();
   } catch (error) {
     if (error instanceof NumericBackendError) throw error;
@@ -798,7 +799,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
         backend: 'spice-ts-wasm', feature: 'tran-controls',
       });
     }
-    return { analysis, compiled, order, transient: compiledAnalysis, fourier: parseFourierCards(cards), normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
+    return { analysis, compiled, order, transient: compiledAnalysis, fourierCircuit: circuit, normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
   }
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
   const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
@@ -847,10 +848,12 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
   for (const card of cards) {
     if (analysis === 'tran' && /^\.(?:four|fourier)(?:\s|$)/i.test(card)) continue;
-    if (/^\.options\b/i.test(card)) {
-      const options = card.replace(/^\.options\s*/i, '');
+    if (/^\.options\b/i.test(card) || (analysis === 'tran' && /^\.(?:opt|option)\b/i.test(card))) {
+      const options = card.replace(/^\.(?:options|option|opt)\s*/i, '');
       const option = new RegExp(`\\b(?:TEMP|TNOM)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
-      if (!options || options.replace(option, '').trim()) {
+      const fourierOption = /\b(?:nfreqs|fourgridsize)\s*=\s*[^\s,]+(?=\s|,|$)/gi;
+      const remaining = analysis === 'tran' ? options.replace(fourierOption, '').replace(/,/g, ' ') : options;
+      if (!options || remaining.replace(option, '').trim()) {
         unsupported('circuit-temperature', 'Only numeric .options TEMP/TNOM are supported');
       }
       continue;
