@@ -15,7 +15,11 @@ export const measurementListSchema = {
   type: 'array', minItems: 1, maxItems: 128,
   items: {
     type: 'object', required: ['kind', 'analysis'], additionalProperties: false,
-    allOf: [{ if: { properties: { kind: { const: 'delay' } } }, then: { required: ['trigger', 'target'] }, else: { required: ['signal'] } }],
+    allOf: [{
+      if: { properties: { kind: { const: 'delay' } } },
+      then: { required: ['trigger', 'target'], not: { anyOf: ['signal', 'at', 'value', 'edge'].map(key => ({ required: [key] })) } },
+      else: { required: ['signal'], not: { anyOf: ['trigger', 'target'].map(key => ({ required: [key] })) } },
+    }],
     properties: {
       kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256 },
       analysis: { type: 'integer', minimum: 0 },
@@ -108,7 +112,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
           const falling = y[i - 1] > spec.threshold && y[i] <= spec.threshold;
           if (!(spec.edge === 'rising' ? rising : spec.edge === 'falling' ? falling : rising || falling)) continue;
           const time = x[i - 1] + (x[i] - x[i - 1]) * ((spec.threshold - y[i - 1]) / (y[i] - y[i - 1]));
-          if (time <= lo || time > hi) continue;
+          if (time < lo || time > hi) continue;
           if (++count === (spec.occurrence ?? 1)) return { value: time, unit: 's' };
         }
         return error('NO_CROSSING', `No crossing for ${spec.signal} in the selected window`);
