@@ -36,7 +36,8 @@ async function main() {
       sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length, licence: 'MIT', revision: 'project-authored',
       analyses: ['tran'], unmappedAnalyses: [], sameNameAs: [], includeClosure: [] } as unknown as Circuit;
     const ngTimes: number[] = [], tsTimes: number[] = [];
-    let row: (ReturnType<typeof reduceRow> & { normalizedErrors: ReturnType<typeof normalizedSignalErrors>['errors'] }) | undefined;
+    let row: ReturnType<typeof reduceRow> | undefined;
+    let normalizedErrors: ReturnType<typeof normalizedSignalErrors>['errors'] = [];
     for (let attempt = 0; attempt < 3; attempt++) {
       const startNg = performance.now();
       const ng = await runNgspicePacked(bytes, circuit);
@@ -44,15 +45,15 @@ async function main() {
       const startTs = performance.now();
       const ts = await runBoundedSimulatePacked(bytes, { ...circuit, category: 'embedded-sensors', ngspice: { expectedStatus: 'pass' }, spiceTs: { expectedStatus: 'pass' } } as unknown as ClassicCircuit);
       tsTimes.push(performance.now() - startTs);
-      const reduced = reduceRow(circuit, ng, ts);
-      const { errors } = normalizedSignalErrors(reduced.comparisons, pairedReferenceSeries(lazyExecution(ts), lazyExecution(ng.execution)));
-      const current = { ...reduced, normalizedErrors: errors };
+      const current = reduceRow(circuit, ng, ts);
       if (row && (row.outcome !== current.outcome || row.ngspice.status !== current.ngspice.status || row.spiceTs.status !== current.spiceTs.status)) throw new Error(`Inconsistent outcomes across runs: ${id}`);
       row = current;
+      normalizedErrors = ng.status === 'success' && ts.status === 'success'
+        ? normalizedSignalErrors(current.comparisons, pairedReferenceSeries(lazyExecution(ts), lazyExecution(ng.execution))).errors : [];
     }
     if (!row) throw new Error(`No result for ${id}`);
     const median = (samplesMs: number[]) => ({ samplesMs, medianMs: [...samplesMs].sort((a, b) => a - b)[1] });
-    const result = { ...row, runtime: { ngspice: median(ngTimes), spiceTs: median(tsTimes) } };
+    const result = { ...row, normalizedErrors, runtime: { ngspice: median(ngTimes), spiceTs: median(tsTimes) } };
     fixtures.push(result);
     console.log(JSON.stringify({ id, outcome: row.outcome, error: row.worstNormalizedError, ng: row.ngspice.status, ts: row.spiceTs.status }));
   }

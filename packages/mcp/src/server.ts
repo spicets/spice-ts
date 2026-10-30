@@ -361,7 +361,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_corners',
-    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Optional top-level .param overrides and/or temp in Celsius require SPICE text; JSON overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
+    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Top-level .param overrides require SPICE text. Temperature in Celsius supports SPICE text and spice-ts JSON, overriding request temperature for native JSON; circuit-json temperature and JSON parameter overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'corners', 'measurement'],
       properties: { ...requestInputSchema.properties, ...cornersProperties },
@@ -760,7 +760,7 @@ async function executeToolWithStore(
       }
       throwIfCancelled(options.signal);
       const { request } = convertRequest(original);
-      const result = await runCorners(args, request, (request, measurements) => executeToolWithStore(
+      const result = await runCorners(args, request, original.input.format, (request, measurements) => executeToolWithStore(
         'spice_measure', { request, measurements },
         { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
       ), result => {
