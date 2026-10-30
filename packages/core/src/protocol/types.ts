@@ -14,11 +14,14 @@ export type TransientMeasurementV1 =
   | { name: string; kind: 'trig'; trig: MeasurementCrossingV1; targ: MeasurementCrossingV1 }
   | ({ name: string; kind: 'find'; vector: string } & ({ at: number; when?: never } | { when: MeasurementCrossingV1; at?: never }))
   | { name: string; kind: 'avg' | 'min' | 'max' | 'pp' | 'rms' | 'integ'; vector: string; from?: number; to?: number };
+export type AcMeasurementV1 =
+  | { name: string; kind: 'find'; vector: string; at: number }
+  | { name: string; kind: 'avg' | 'min' | 'max' | 'pp' | 'rms' | 'integ'; vector: string; from?: number; to?: number };
 export type DcMeasurementV1 = Exclude<TransientMeasurementV1, { kind: 'trig' }>;
 export type DcMeasurementResultV1 = TransientMeasurementResultV1;
 export type TransientMeasurementResultV1 = { name: string; value: number; unit?: string } | { name: string; diagnostic: { code: 'MEASUREMENT_FAILED'; message: string } };
 export interface TransientAnalysisV1 { type: 'tran'; timestep: number; stopTime: number; startTime?: number; maxTimestep?: number; uic?: true; fourier?: FourierAnalysisV1; measurements?: TransientMeasurementV1[] }
-export interface AcAnalysisV1 { type: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number }
+export interface AcAnalysisV1 { type: 'ac'; variation: 'dec' | 'oct' | 'lin'; points: number; startFreq: number; stopFreq: number; measurements?: AcMeasurementV1[] }
 export type AnalysisV1 = OperatingPointAnalysisV1 | DcAnalysisV1 | TransientAnalysisV1 | AcAnalysisV1;
 export type { PoleZeroAnalysisV1 } from './wire/types.js';
 
@@ -122,6 +125,7 @@ export interface ComplexPolarV1 { magnitude: number; phaseDegrees: number }
 export interface AcResultV1 {
   type: 'ac'; analysisIndex: number; step?: StepCoordinateV1;
   frequencyHz: number[];
+  measurements?: TransientMeasurementResultV1[];
   voltagePhasors: Record<string, ComplexPolarV1[]>;
   currentPhasors: Record<string, ComplexPolarV1[]>;
 }
@@ -133,7 +137,7 @@ export type ProtocolLimitNameV1 = keyof ResourceLimitsV1;
 export interface ProtocolCapabilityAnalysisV1 {
   id: `analysis:${AnalysisV1['type'] | 'tf'}`;
   type: AnalysisV1['type'] | 'tf';
-  features?: ('measurements:tran' | 'measurements:dc')[];
+  features?: ('measurements:tran' | 'measurements:dc' | 'measurements:ac')[];
 }
 export interface ProtocolCapabilityInputV1 {
   id: 'input:spice' | 'input:spice-ts';

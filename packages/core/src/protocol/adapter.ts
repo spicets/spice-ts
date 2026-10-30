@@ -201,6 +201,11 @@ export async function simulateProtocolV1(
         const measurements = nativeMeasurements(request, analysisIndex, analysis, transient, guard);
         if (measurements) completed.measurements = measurements;
       }
+      const ac = result.steps ? result.steps[i]?.ac : result.ac;
+      if (completed.type === 'ac' && ac) {
+        const measurements = nativeMeasurements(request, analysisIndex, analysis, ac, guard);
+        if (measurements) completed.measurements = measurements;
+      }
       execution?.onAnalysisComplete?.(completed);
     }
     guard.checkpoint('serialize:analysis');

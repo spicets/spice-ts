@@ -647,6 +647,78 @@
             "stopFreq": {
               "type": "number",
               "exclusiveMinimum": 0
+            },
+            "measurements": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector",
+                      "at"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$"
+                      },
+                      "at": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "enum": [
+                          "avg",
+                          "min",
+                          "max",
+                          "pp",
+                          "rms",
+                          "integ"
+                        ]
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$"
+                      },
+                      "from": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "to": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              }
             }
           },
           "additionalProperties": false
@@ -1891,6 +1963,61 @@
           "items": {
             "type": "number",
             "minimum": 0
+          }
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "diagnostic"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "diagnostic": {
+                    "type": "object",
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "MEASUREMENT_FAILED"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "voltagePhasors": {
