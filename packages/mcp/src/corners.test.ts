@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
+import { simulateProtocolV1 } from '@spice-ts/core';
+import type { SimulationRequestV1 } from '@spice-ts/core/protocol';
 import { createToolExecutor, DEFAULT_MCP_LIMITS, executeTool, MCP_TOOLS } from './server.js';
 
 const source = '* Original MIT RC corner fixture\n.param rval=1k\nV1 in 0 DC 0 AC 1\nR1 in out {rval}\nC1 out 0 1u\n.ac dec 200 1 100k\n.end';
@@ -34,11 +36,63 @@ const protocolInputs = [
 const dividerArgs = { corners: [{ name: 'nominal' }, { name: 'repeat' }], measurement: { kind: 'max', signal: 'v(out)', analysis: 0 } };
 
 describe('spice_corners protocol-v1', () => {
+  it('runs native temperature corners against direct protocol and text references without mutation', async () => {
+    // A diode makes this divider temperature-dependent. Native R currently ignores TC1.
+    const thermalDocument: import('@spice-ts/core/protocol').SpiceTsCircuitDocumentV1 = { ...document, format: 'spice-ts', schemaVersion: '1.0', models: [{ name: 'DM', type: 'D', params: { IS: 1e-12 } }], circuit: { ...document.circuit, components: [
+      { type: 'V', id: 'V1', name: 'V1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { dc: 1 } },
+      { type: 'R', id: 'R1', name: 'R1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: 'out' }], params: { resistance: 1000 } },
+      { type: 'R', id: 'R2', name: 'R2', ports: [{ name: 'p', net: 'out' }, { name: 'n', net: '0' }], params: { resistance: 3000 } },
+      { type: 'D', id: 'D1', name: 'D1', ports: [{ name: 'anode', net: 'out' }, { name: 'cathode', net: '0' }], params: {}, model: 'DM' },
+    ] }, analyses: [{ type: 'op' }] };
+    const native: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice-ts', document: thermalDocument }, options: { temperature: 60, nominalTemperature: 27, reltol: 1e-8, limits: { maxResultPoints: 100 } } };
+    const temperatures = [0, 27, 100];
+    const args = { request: native, corners: [...temperatures.map(temp => ({ name: String(temp), temp })), { name: 'failed', params: {} }, { name: 'repeat', temp: 27 }, { name: 'inherited' }], measurement: dividerArgs.measurement };
+    const before = JSON.stringify(args);
+    const actual = await executeTool('spice_corners', args);
+    expect(actual.isError, JSON.stringify(actual.structuredContent)).not.toBe(true);
+    const values: number[] = [];
+    for (const temp of temperatures) {
+      const direct = await simulateProtocolV1({ ...native, options: { ...native.options, temperature: temp } });
+      const text = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice', source: `* thermal divider\nV1 in 0 1\nR1 in out 1k\nR2 out 0 3k\nD1 out 0 DM\n.model DM D(IS=1e-12)\n.options TNOM=27 RELTOL=1e-8\n.temp ${temp}\n.op\n.end` } });
+      const a = direct.analyses[0]; const b = text.analyses[0];
+      if (a.type !== 'op' || b.type !== 'op') throw new Error('Expected OP');
+      const value = a.voltagesV.out;
+      expect(Math.abs(value / b.voltagesV.out - 1)).toBeLessThanOrEqual(1e-6);
+      values.push(value);
+    }
+    const data = actual.structuredContent as { corners: { status: string; value: number }[]; summary: { min: { value: number }; max: { value: number }; spread: number } };
+    for (const [i, value] of values.entries()) {
+      expect(data.corners[i].status).toBe('complete');
+      expect(Math.abs(data.corners[i].value / value - 1)).toBeLessThanOrEqual(1e-6);
+    }
+    expect(data.corners[3]).toMatchObject({ status: 'failed', error: { code: 'INVALID_REQUEST' } });
+    expect(data.corners[4]).toMatchObject({ status: 'complete', value: values[1] });
+    const inherited = await simulateProtocolV1(native);
+    const inheritedOp = inherited.analyses[0];
+    if (inheritedOp.type !== 'op') throw new Error('Expected OP');
+    expect(data.corners[5]).toMatchObject({ status: 'complete', value: inheritedOp.voltagesV.out });
+    expect(new Set(values).size).toBe(3);
+    expect(data.summary.min.value).toBe(Math.min(...values));
+    expect(data.summary.max.value).toBe(Math.max(...values));
+    expect(data.summary.spread).toBe(Math.max(...values) - Math.min(...values));
+    expect(JSON.stringify(args)).toBe(before);
+  });
   it('advertises accepted formats and SPICE-only overrides', async () => {
     expect(await executeTool('spice_capabilities', {})).toMatchObject({ structuredContent: {
       inputFormats: ['spice', 'spice-ts', 'circuit-json'], tools: expect.arrayContaining(['spice_corners']),
     } });
-    expect(MCP_TOOLS.find(tool => tool.name === 'spice_corners')!.description).toContain('JSON overrides return per-corner INVALID_REQUEST');
+    expect(MCP_TOOLS.find(tool => tool.name === 'spice_corners')!.description).toContain('circuit-json temperature and JSON parameter overrides');
+  });
+
+  it('preserves native validation, cancellation and resource limits', async () => {
+    const request = { apiVersion: '1', input: protocolInputs[1], options: { limits: { maxResultPoints: 0 } } };
+    const args = { request, measurement: dividerArgs.measurement, corners: [{ name: 'cold', temp: 0 }] };
+    for (const temp of [NaN, Infinity, -273.15, -300, '27']) {
+      expect(await executeTool('spice_corners', { ...args, corners: [{ name: 'bad', temp }] })).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST' } } });
+    }
+    expect(await executeTool('spice_corners', { ...args, corners: Array.from({ length: 65 }, (_, i) => ({ name: String(i), temp: 27 })) })).toMatchObject({ isError: true, structuredContent: { error: { code: 'RESOURCE_LIMIT', details: { limit: 'maxCorners' } } } });
+    expect(await executeTool('spice_corners', args, { signal: AbortSignal.abort() })).toMatchObject({ isError: true, structuredContent: { error: { code: 'CANCELLED' } } });
+    expect(await executeTool('spice_corners', args)).toMatchObject({ structuredContent: { corners: [{ status: 'failed', error: { code: 'RESOURCE_LIMIT' } }], summary: null } });
   });
 
   it.each(protocolInputs)('returns identical divider results for $format without mutation', async input => {
@@ -62,7 +116,7 @@ describe('spice_corners protocol-v1', () => {
     });
     expect(response).toMatchObject({ structuredContent: { corners: [
       { name: 'params', status: 'failed', error: { code: 'INVALID_REQUEST' } },
-      { name: 'temp', status: 'failed', error: { code: 'INVALID_REQUEST' } },
+      input.format === 'spice-ts' ? { name: 'temp', status: 'complete', value: 0.75 } : { name: 'temp', status: 'failed', error: { code: 'INVALID_REQUEST' } },
       { name: 'nominal', status: 'complete', value: 0.75 },
     ] } });
   });
