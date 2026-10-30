@@ -253,7 +253,8 @@ function validateComponentFields(
         const checks: Array<[string, boolean]> = [
           ['frequency', positiveFinite(params.period) && positiveFinite(params.rise) && positiveFinite(params.fall)],
           [peakField, isFiniteNumber(params.v1) && isFiniteNumber(params.v2)
-            && (element[peakField] === 0 || (amplitude !== 0 && (!triangle || params.v1 !== params.v2)))],
+            && (element[peakField] === 0 || (amplitude !== 0 && (!triangle
+              || (params.v2 as number) - (params.v1 as number) === element[peakField])))],
           ...(!triangle ? [['duty_cycle', positiveFinite(params.width)] as [string, boolean]] : []),
           ['phase', isFiniteNumber(params.delay)
             && (((element.phase as number | undefined) ?? 0) === 0 || positiveFinite(params.delay))],

@@ -36,6 +36,12 @@ describe('triangle current sources', () => {
     expect(fromCircuitJSON(exported.value!).value).toEqual(imported.value);
   });
 
+  it('rejects a partially rounded peak-to-peak current at a large offset', () => {
+    const result = fromCircuitJSON(source({ current: 1e16, peak_to_peak_current: 3 }));
+    expect(result.value).toBeUndefined();
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'UNSUPPORTED_PARAMETER', path: '/0/peak_to_peak_current' }));
+  });
+
   it('rejects a nonzero amplitude lost to rounding at a large offset', () => {
     const result = fromCircuitJSON(source({ current: Number.MAX_VALUE, peak_to_peak_current: 4 }));
     expect(result.value).toBeUndefined();
