@@ -52,10 +52,12 @@ describe('sawtooth voltage sources', () => {
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'UNSUPPORTED_PARAMETER', path: `/0/${key}` }));
   });
 
-  it('does not extend sawtooth to current sources', () => {
+  it('diagnoses voltage-only fields on a malformed sawtooth current source', () => {
     const result = fromCircuitJSON(source({ ftype: 'simple_current_source', current: 1, voltage: undefined, peak_to_peak_current: 4, peak_to_peak_voltage: undefined }));
     expect(result.value).toBeUndefined();
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'UNSUPPORTED_ELEMENT' }));
+    for (const field of ['voltage', 'peak_to_peak_voltage']) {
+      expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'UNSUPPORTED_PARAMETER', path: `/0/${field}` }));
+    }
   });
 
   it.each([['rise', 0], ['fall', 0], ['rise', 0.0005], ['fall', 2e-9], ['width', 1e-7], ['dc', 1], ['ac', 1], ['pulses', 2], ['extra', 1]])('diagnoses incompatible export %s in both modes', (key, value) => {
