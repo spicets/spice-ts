@@ -52,6 +52,10 @@ async function pageDebuggerUrl(
   let stderr = '';
   let lastError: unknown = 'No page target returned';
   let spawnError: Error | undefined;
+  let pageUrl: string | undefined;
+  let nextProbe = 0;
+  const pending = new Set<Promise<void>>();
+  const abort = new AbortController();
   const onError = (error: Error) => { spawnError = error; };
   const onStderr = (data: Buffer) => { stderr = (stderr + data.toString()).slice(-4_096); };
   child.on('error', onError);
@@ -62,29 +66,34 @@ async function pageDebuggerUrl(
       if (child.exitCode !== null || child.signalCode !== null) {
         throw new Error(`Chrome exited before DevTools became ready (code ${child.exitCode ?? child.signalCode})\n${stderr}`);
       }
-      try {
-        // Chrome can expose DevTools before (or without) writing the profile
-        // port file. Its stderr announcement is an independent readiness source.
-        const announcement = /DevTools listening on (ws:\/\/[^\s]+)/.exec(stderr)?.[1];
-        const port = announcement
-          ? new URL(announcement).port
-          : (await readFile(join(profileDirectory, 'DevToolsActivePort'), 'utf8')).split('\n')[0];
-        const response = await fetch(`http://127.0.0.1:${port}/json/list`, {
-          // DevTools can listen while Chrome's main thread is still starting.
-          // Aborting and retrying every second can starve every slow response;
-          // allow headers and body the remaining (still bounded) startup budget.
-          signal: AbortSignal.timeout(Math.max(1, Math.ceil(deadline - performance.now()))),
-        });
-        const targets = await response.json() as Array<{ type: string; webSocketDebuggerUrl: string }>;
-        const page = targets.find(target => target.type === 'page');
-        if (page) return page.webSocketDebuggerUrl;
-      } catch (error) {
-        lastError = error;
+      if (pageUrl) return pageUrl;
+      if (performance.now() >= nextProbe) {
+        try {
+          // Chrome may announce the browser socket before writing its port file.
+          const announcement = /DevTools listening on (ws:\/\/[^\s]+)/.exec(stderr)?.[1];
+          const port = announcement
+            ? new URL(announcement).port
+            : (await readFile(join(profileDirectory, 'DevToolsActivePort'), 'utf8')).split('\n')[0];
+          // Hedge a stalled request without cancelling slow responses. All probes
+          // share the overall startup deadline and are cancelled on completion.
+          const probe = fetch(`http://127.0.0.1:${port}/json/list`, { signal: abort.signal })
+            .then(response => response.json() as Promise<Array<{ type: string; webSocketDebuggerUrl: string }>>)
+            .then(targets => { pageUrl ??= targets.find(target => target.type === 'page')?.webSocketDebuggerUrl; })
+            .catch(error => { lastError = error; })
+            .finally(() => { pending.delete(probe); });
+          pending.add(probe);
+          nextProbe = performance.now() + 1_500;
+        } catch (error) {
+          lastError = error;
+        }
       }
-      await delay(Math.max(0, Math.min(50, deadline - performance.now())));
+      await Promise.race([...pending, delay(Math.max(0, Math.min(50, deadline - performance.now())))]);
+      // A completed empty response can be retried immediately.
+      if (pending.size === 0) nextProbe = 0;
     }
     throw new Error(`Chrome DevTools endpoint did not become ready within ${timeoutMs}ms: ${String(lastError)}\n${stderr}`);
   } finally {
+    abort.abort();
     child.off('error', onError);
     child.stderr?.off('data', onStderr);
   }
@@ -206,14 +215,57 @@ describe('production browser step worker', () => {
     }
   });
 
+  it('recovers when an initial DevTools request hangs but a later request responds', async () => {
+    const profileDirectory = await mkdtemp(join(tmpdir(), 'spice-ts-stalled-browser-'));
+    temporaryDirectories.push(profileDirectory);
+    let requests = 0;
+    const server = createServer((_request, response) => {
+      requests++;
+      if (requests === 1) return;
+      response.end(JSON.stringify([{ type: 'page', webSocketDebuggerUrl: 'ws://example.test/page' }]));
+    });
+    await new Promise<void>(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
+    const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('No test server address');
+      await writeFile(join(profileDirectory, 'DevToolsActivePort'), `${address.port}\n`);
+      await expect(pageDebuggerUrl(profileDirectory, child, 2_500)).resolves.toBe('ws://example.test/page');
+      expect(requests).toBeGreaterThan(1);
+    } finally {
+      await terminateProcess(child);
+      server.closeAllConnections();
+      await new Promise<void>(resolveClose => server.close(() => resolveClose()));
+    }
+  });
+
+  it('reports browser exit even while a DevTools response is stalled', async () => {
+    const profileDirectory = await mkdtemp(join(tmpdir(), 'spice-ts-exiting-browser-'));
+    temporaryDirectories.push(profileDirectory);
+    const server = createServer(() => {});
+    await new Promise<void>(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => process.exit(23), 300)'], { stdio: 'ignore' });
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('No test server address');
+      await writeFile(join(profileDirectory, 'DevToolsActivePort'), `${address.port}\n`);
+      await expect(pageDebuggerUrl(profileDirectory, child, 2_500))
+        .rejects.toThrow('Chrome exited before DevTools became ready (code 23)');
+    } finally {
+      await terminateProcess(child);
+      server.closeAllConnections();
+      await new Promise<void>(resolveClose => server.close(() => resolveClose()));
+    }
+  });
+
   it.each(['delayed page', 'slow response', 'hung endpoint'] as const)('handles a %s during startup', async mode => {
     const profileDirectory = await mkdtemp(join(tmpdir(), 'spice-ts-starting-browser-'));
     temporaryDirectories.push(profileDirectory);
     let requests = 0;
     const server = createServer(async (_request, response) => {
       requests++;
-      if (mode === 'hung endpoint') return;
-      if (mode === 'slow response') await delay(1_200);
+      if (mode === 'hung endpoint' || (mode === 'slow response' && requests > 1)) return;
+      if (mode === 'slow response') await delay(1_800);
       response.setHeader('content-type', 'application/json');
       response.end(JSON.stringify(mode === 'delayed page' && requests === 1 ? [] : [
         { type: 'page', webSocketDebuggerUrl: 'ws://example.test/page' },
@@ -228,7 +280,7 @@ describe('production browser step worker', () => {
       const result = pageDebuggerUrl(profileDirectory, child, mode === 'hung endpoint' ? 150 : 2_500);
       if (mode !== 'hung endpoint') {
         await expect(result).resolves.toBe('ws://example.test/page');
-        expect(requests).toBe(mode === 'delayed page' ? 2 : 1);
+        expect(requests).toBeGreaterThanOrEqual(2);
       } else {
         await expect(result).rejects.toThrow('Chrome DevTools endpoint did not become ready within 150ms');
         expect(requests).toBeGreaterThan(0);
