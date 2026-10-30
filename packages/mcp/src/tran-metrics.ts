@@ -10,12 +10,13 @@ export interface TranMetricsArgs {
 export interface TranMetrics {
   initialValue: number; finalValue: number; unit: 'V' | 'A';
   riseTimeS: number | null; fallTimeS: number | null;
+  maxRiseSlewPerS: number; maxFallSlewPerS: number; slewUnit: 'V/s' | 'A/s';
   overshootPercent: number; undershootPercent: number;
   settlingTimeS: number; peakValue: number; peakTimeS: number;
 }
 const codes = ['NOT_TRANSIENT', 'SIGNAL_NOT_FOUND', 'NO_TRANSITION', 'NOT_SETTLED', 'INVALID_DATA'] as const;
 type MetricsError = { error: { code: typeof codes[number]; message: string } };
-const metricNames = ['initialValue', 'finalValue', 'riseTimeS', 'fallTimeS', 'overshootPercent', 'undershootPercent', 'settlingTimeS', 'peakValue', 'peakTimeS'] as const;
+const metricNames = ['initialValue', 'finalValue', 'riseTimeS', 'fallTimeS', 'overshootPercent', 'undershootPercent', 'settlingTimeS', 'peakValue', 'peakTimeS', 'maxRiseSlewPerS', 'maxFallSlewPerS'] as const;
 export const tranMetricsProperties = {
   signal: { type: 'string', minLength: 1, maxLength: 256 },
   analysis: { type: 'integer', minimum: 0 },
@@ -24,10 +25,11 @@ export const tranMetricsProperties = {
 };
 export const tranMetricsOutputSchemas = [
   {
-    type: 'object', required: [...metricNames, 'unit'], additionalProperties: false,
+    type: 'object', required: [...metricNames, 'unit', 'slewUnit'], additionalProperties: false,
     properties: {
       ...Object.fromEntries(metricNames.map(key => [key, { type: key === 'riseTimeS' || key === 'fallTimeS' ? ['number', 'null'] : 'number' }])),
       unit: { enum: ['V', 'A'] },
+      slewUnit: { enum: ['V/s', 'A/s'] },
     },
   },
   {
@@ -91,8 +93,17 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
   const settlingTimeS = lastOutside < 0 ? x[0] : interpolate(lastOutside + 1, z[lastOutside] < 1 ? 1 - band : 1 + band);
   // Require a terminal hold lasting at least 10% of the sampled duration.
   if (settlingTimeS > x[x.length - 1] - (x[x.length - 1] - x[0]) * 0.1) return error('NOT_SETTLED', 'Response did not remain in band for the final 10% of the sampled duration; extend the run or supply a known finalValue');
+  let maxRiseSlewPerS = 0; let maxFallSlewPerS = 0;
+  for (let i = 1; i < x.length; i++) {
+    const dy = y[i] - y[i - 1]; const dt = x[i] - x[i - 1];
+    const slope = dy / dt;
+    if (!Number.isFinite(dy) || !Number.isFinite(dt) || !Number.isFinite(slope)) return error('INVALID_DATA', 'Slew arithmetic is not finite');
+    maxRiseSlewPerS = Math.max(maxRiseSlewPerS, slope);
+    maxFallSlewPerS = Math.min(maxFallSlewPerS, slope);
+  }
   const metrics: TranMetrics = {
     initialValue, finalValue, unit: match![1].toLowerCase() === 'v' ? 'V' : 'A',
+    maxRiseSlewPerS, maxFallSlewPerS, slewUnit: match![1].toLowerCase() === 'v' ? 'V/s' : 'A/s',
     riseTimeS: delta > 0 ? high - low : null, fallTimeS: delta < 0 ? high - low : null,
     overshootPercent: Math.max(0, z[peak] - 1) * 100,
     undershootPercent: Math.max(0, -z[minimum]) * 100,
