@@ -231,7 +231,7 @@ function validateComponentFields(
           `/${index}/${key}`, element,
         ));
       }
-    } else if (element.wave_shape === 'square' || element.wave_shape === 'triangle' || (ftype === 'simple_voltage_source' && element.wave_shape === 'sawtooth')) {
+    } else if (element.wave_shape === 'square' || element.wave_shape === 'triangle' || element.wave_shape === 'sawtooth') {
       const triangle = element.wave_shape === 'triangle';
       const sawtooth = element.wave_shape === 'sawtooth';
       const shape = sawtooth ? 'Sawtooth' : triangle ? 'Triangle' : 'Square';
@@ -378,7 +378,7 @@ export function fromCircuitJSON(circuitJSON: CircuitJson): ConversionResultV1<Ci
     if (element.type === 'source_component') {
       const ftype = typeof element.ftype === 'string' ? element.ftype : '';
       const mapping = COMPONENT_MAPPING[ftype];
-      if (ftype === 'simple_current_source' && element.wave_shape !== 'sinewave' && element.wave_shape !== 'square' && element.wave_shape !== 'triangle' && (
+      if (ftype === 'simple_current_source' && element.wave_shape !== 'sinewave' && element.wave_shape !== 'square' && element.wave_shape !== 'triangle' && element.wave_shape !== 'sawtooth' && (
         !isFiniteNumber(element.current)
         || (element.wave_shape !== undefined && element.wave_shape !== 'dc')
         || Object.keys(element).some(key => !COMPONENT_FIELDS.has(key) && !mapping.fields.includes(key))
@@ -669,7 +669,7 @@ function mapExportComponent(
         const period = params.period as number;
         const triangle = params.width === 0
           && params.rise === period / 2 && params.fall === period / 2;
-        const sawtooth = component.type === 'V' && params.width === 0
+        const sawtooth = params.width === 0
           && params.rise === period - period * 1e-6 && params.fall === period * 1e-6;
         const offset = (params.v1 as number) / 2 + (params.v2 as number) / 2;
         const peakToPeak = (params.v2 as number) - (params.v1 as number);
