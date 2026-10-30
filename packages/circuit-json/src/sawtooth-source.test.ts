@@ -96,7 +96,7 @@ describe('sawtooth voltage sources', () => {
     expect(Math.max(...errors)).toBeLessThanOrEqual(1e-9);
     const currentErrors = Array.from(actual.current('V1'), (value, i) => Math.abs(value - direct.current('V1')[i]));
     expect(Math.max(...currentErrors)).toBeLessThanOrEqual(1e-9);
-    for (const time of [0, 0.00025, 0.00075, 0.001249999, 0.00125, 0.00225]) {
+    for (const time of [0, 0.00025, 0.00075, 0.00225]) {
       const index = Array.from(actual.time).reduce((best, t, i) => Math.abs(t - time) < Math.abs(actual.time[best] - time) ? i : best, 0);
       const t = actual.time[index];
       const cycle = t < p.delay ? -1 : (t - p.delay) % p.period;
@@ -105,6 +105,12 @@ describe('sawtooth voltage sources', () => {
       expect(Math.abs(t - time)).toBeLessThanOrEqual(1e-5);
       expect(actual.voltages.get('in')![index]).toBeCloseTo(expected, 7);
     }
+    const resetStart = actual.time.findIndex(t => Math.abs(t - 0.001249999) < 1e-13);
+    const resetEnd = actual.time.findIndex(t => Math.abs(t - 0.00125) < 1e-13);
+    expect(resetStart).toBeGreaterThanOrEqual(0);
+    expect(resetEnd).toBeGreaterThan(resetStart);
+    expect(actual.voltages.get('in')![resetStart]).toBeCloseTo(p.v2, 7);
+    expect(actual.voltages.get('in')![resetEnd]).toBeCloseTo(p.v1, 7);
     process.stdout.write(`saw amplitude=${amplitude} samples=${errors.length} max voltage error=${Math.max(...errors)} max current error=${Math.max(...currentErrors)}\n`);
   });
 
