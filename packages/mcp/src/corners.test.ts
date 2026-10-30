@@ -3,6 +3,7 @@ import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv
 import { simulateProtocolV1 } from '@spice-ts/core';
 import type { SimulationRequestV1 } from '@spice-ts/core/protocol';
 import { createToolExecutor, DEFAULT_MCP_LIMITS, executeTool, MCP_TOOLS } from './server.js';
+import { runCorners } from './corners.js';
 
 const source = '* Original MIT RC corner fixture\n.param rval=1k\nV1 in 0 DC 0 AC 1\nR1 in out {rval}\nC1 out 0 1u\n.ac dec 200 1 100k\n.end';
 const request = { apiVersion: '1', input: { format: 'spice', source } };
@@ -36,6 +37,33 @@ const protocolInputs = [
 const dividerArgs = { corners: [{ name: 'nominal' }, { name: 'repeat' }], measurement: { kind: 'max', signal: 'v(out)', analysis: 0 } };
 
 describe('spice_corners protocol-v1', () => {
+  it('propagates a deadline reached while applying component overrides', async () => {
+    const overrides = Object.fromEntries(Array.from({ length: 32 }, (_, i) => [`R${i}`, 2000]));
+    const input: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice', source: '* deck\n' + Object.keys(overrides).map(name => `${name} n 0 1k`).join('\n') + '\n.end' } };
+    const deadline = { code: 'RESOURCE_LIMIT', details: { limit: 'maxWallTimeMs' } };
+    let checks = 0;
+    let solved = false;
+    await expect(runCorners({ corners: [{ name: 'large', components: overrides }], measurement }, input, 'spice', async () => {
+      solved = true;
+      return { content: [] };
+    }, () => { if (++checks >= 3) throw deadline; })).rejects.toBe(deadline);
+    expect(solved).toBe(false);
+  });
+  it('observes cancellation during a large set of component overrides before solving', async () => {
+    const count = 2048;
+    const deck = '* many components\n' + Array.from({ length: count }, (_, i) => `R${i} n 0 1k`).join('\n') + '\n.op\n.end';
+    const overrides = Object.fromEntries(Array.from({ length: count }, (_, i) => [`R${i}`, 2000]));
+    const controller = new AbortController();
+    let simulated = false;
+    // Abort on the second event-loop turn, after a batch has been applied.
+    setImmediate(() => setImmediate(() => controller.abort()));
+    const response = await executeTool('spice_corners', {
+      request: { ...request, input: { format: 'spice', source: deck } },
+      corners: [{ name: 'large', components: overrides }], measurement: dividerArgs.measurement,
+    }, { signal: controller.signal, simulate: async () => { simulated = true; return { status: 'complete', analyses: [] }; } });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'CANCELLED' } } });
+    expect(simulated).toBe(false);
+  });
   it('runs native temperature corners against direct protocol and text references without mutation', async () => {
     // A diode makes this divider temperature-dependent. Native R currently ignores TC1.
     const thermalDocument: import('@spice-ts/core/protocol').SpiceTsCircuitDocumentV1 = { ...document, format: 'spice-ts', schemaVersion: '1.0', models: [{ name: 'DM', type: 'D', params: { IS: 1e-12 } }], circuit: { ...document.circuit, components: [

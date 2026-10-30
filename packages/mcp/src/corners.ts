@@ -16,7 +16,7 @@ export const cornersProperties = {
   corners: { type: 'array', minItems: 1, maxItems: MAX_CORNERS, items: {
     type: 'object', required: ['name'], additionalProperties: false, properties: {
       name: { type: 'string', minLength: 1, maxLength: 128 }, params: paramsSchema,
-      components: { type: 'object', description: 'Case-insensitive top-level R/C/L component value overrides. Values must be finite and positive.', additionalProperties: { type: 'number', exclusiveMinimum: 0 } },
+      components: { type: 'object', description: 'Case-insensitive top-level R/C/L component value overrides. Names must match ^[A-Za-z_][\\w.:-]*$; values must be finite and positive. Invalid names fail their corner.', additionalProperties: { type: 'number', exclusiveMinimum: 0 } },
       temp: { type: 'number', exclusiveMinimum: -273.15, description: 'Circuit temperature in degrees Celsius. Overrides SPICE temperature cards or native request options.temperature.' },
     },
   } },
@@ -53,6 +53,7 @@ export async function runCorners(
   for (const corner of args.corners as Corner[]) {
     check(result);
     let entry: CornerResult;
+    let checkingLimits = false;
     try {
       let changed = overrideParameters(request, corner.params);
       if (corner.components !== undefined) {
@@ -64,7 +65,16 @@ export async function runCorners(
           !/^[A-Za-z_][\w.:-]*$/.test(name) || typeof value !== 'number' || !Number.isFinite(value) || value <= 0)) {
           invalid('Invalid or duplicate component override');
         }
-        for (const [name, value] of entries) changed = overrideComponent(changed, name, value as number);
+        for (const [index, [name, value]] of entries.entries()) {
+          if (index % 8 === 0) {
+            // Allow abort timers and other requests to run between bounded batches.
+            await new Promise<void>(resolve => setImmediate(resolve));
+            checkingLimits = true;
+            check(result);
+            checkingLimits = false;
+          }
+          changed = overrideComponent(changed, name, value as number);
+        }
       }
       if (corner.temp !== undefined && originalFormat === 'circuit-json') invalid('Temperature overrides require SPICE text input');
       if (corner.temp !== undefined && changed.input.format === 'spice-ts') {
@@ -82,6 +92,7 @@ export async function runCorners(
       else if (!measured || 'error' in measured) entry = { name: corner.name, status: 'failed', error: measured && 'error' in measured ? measured.error : mapProtocolErrorV1(new Error('Missing measurement result')) };
       else entry = { name: corner.name, status: 'complete', ...measured };
     } catch (error) {
+      if (checkingLimits) throw error;
       entry = { name: corner.name, status: 'failed', error: error instanceof ParameterOverrideError ? error.apiError : mapProtocolErrorV1(error) };
     }
     result.corners.push(entry);
