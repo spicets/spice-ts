@@ -31,7 +31,7 @@ function sourceParams(element: ElementRecord, valueField: 'voltage' | 'current')
   if (element.wave_shape === 'sinewave') {
     return { waveform: 'sin', offset, amplitude, frequency: element.frequency as number, phase: (element.phase as number | undefined) ?? 0 };
   }
-  if (element.wave_shape === 'square' || (valueField === 'voltage' && element.wave_shape === 'triangle')) {
+  if (element.wave_shape === 'square' || element.wave_shape === 'triangle') {
     const period = 1 / (element.frequency as number);
     const triangle = element.wave_shape === 'triangle';
     return {
@@ -230,7 +230,7 @@ function validateComponentFields(
           `/${index}/${key}`, element,
         ));
       }
-    } else if (element.wave_shape === 'square' || (valueField === 'voltage' && element.wave_shape === 'triangle')) {
+    } else if (element.wave_shape === 'square' || element.wave_shape === 'triangle') {
       const triangle = element.wave_shape === 'triangle';
       const diagnosticCount = diagnostics.length;
       for (const key of ['frequency', peakField, 'phase', ...(triangle ? [] : ['duty_cycle'])]) {
@@ -253,7 +253,8 @@ function validateComponentFields(
         const checks: Array<[string, boolean]> = [
           ['frequency', positiveFinite(params.period) && positiveFinite(params.rise) && positiveFinite(params.fall)],
           [peakField, isFiniteNumber(params.v1) && isFiniteNumber(params.v2)
-            && (element[peakField] === 0 || (amplitude !== 0 && (!triangle || params.v1 !== params.v2)))],
+            && (element[peakField] === 0 || (amplitude !== 0 && (!triangle
+              || (params.v2 as number) - (params.v1 as number) === element[peakField])))],
           ...(!triangle ? [['duty_cycle', positiveFinite(params.width)] as [string, boolean]] : []),
           ['phase', isFiniteNumber(params.delay)
             && (((element.phase as number | undefined) ?? 0) === 0 || positiveFinite(params.delay))],
@@ -374,7 +375,7 @@ export function fromCircuitJSON(circuitJSON: CircuitJson): ConversionResultV1<Ci
     if (element.type === 'source_component') {
       const ftype = typeof element.ftype === 'string' ? element.ftype : '';
       const mapping = COMPONENT_MAPPING[ftype];
-      if (ftype === 'simple_current_source' && element.wave_shape !== 'sinewave' && element.wave_shape !== 'square' && (
+      if (ftype === 'simple_current_source' && element.wave_shape !== 'sinewave' && element.wave_shape !== 'square' && element.wave_shape !== 'triangle' && (
         !isFiniteNumber(element.current)
         || (element.wave_shape !== undefined && element.wave_shape !== 'dc')
         || Object.keys(element).some(key => !COMPONENT_FIELDS.has(key) && !mapping.fields.includes(key))
@@ -663,7 +664,7 @@ function mapExportComponent(
         allowedParams = ['waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period'];
         const params = component.params;
         const period = params.period as number;
-        const triangle = valueField === 'voltage' && params.width === 0
+        const triangle = params.width === 0
           && params.rise === period / 2 && params.fall === period / 2;
         const offset = (params.v1 as number) / 2 + (params.v2 as number) / 2;
         const peakToPeak = (params.v2 as number) - (params.v1 as number);
