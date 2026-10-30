@@ -568,9 +568,28 @@ function coreOptions(options?: SimulationOptionsV1): SimulationOptions {
 export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: ProtocolExecutionGuard): Circuit {
   const circuit = new Circuit();
   for (const key of Object.keys(document)) {
-    if (!['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits', 'temperatureSweep', 'globalNodes', 'poleZeroAnalyses', 'noiseAnalyses', 'initialConditions', 'nodesets'].includes(key)) {
+    if (!['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits', 'temperatureSweep', 'componentSweep', 'globalNodes', 'poleZeroAnalyses', 'noiseAnalyses', 'initialConditions', 'nodesets'].includes(key)) {
       invalidNativeField(`/input/document/${jsonPointerSegment(key)}`);
     }
+  }
+  if (document.componentSweep !== undefined) {
+    const sweep = document.componentSweep;
+    const path = '/input/document/componentSweep';
+    if (!sweep || typeof sweep !== 'object' || Array.isArray(sweep)) invalidNativeField(path);
+    for (const key of Object.keys(sweep)) if (!['component', 'values'].includes(key)) invalidNativeField(`${path}/${jsonPointerSegment(key)}`);
+    if (document.temperatureSweep !== undefined) invalidNativeField(path);
+    if (typeof sweep.component !== 'string' || !sweep.component || sweep.component.toUpperCase() === 'TEMP') invalidNativeField(`${path}/component`);
+    const targets = document.circuit.components.filter(component => component.name.toUpperCase() === sweep.component.toUpperCase());
+    if (targets.length !== 1 || !['R', 'C', 'L'].includes(targets[0]!.type.toUpperCase())) invalidNativeField(`${path}/component`);
+    if (!Array.isArray(sweep.values) || sweep.values.length < 1 || sweep.values.length > 16) invalidNativeField(`${path}/values`);
+    for (const [index, value] of sweep.values.entries()) {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) invalidNativeField(`${path}/values/${index}`);
+    }
+    if (document.analyses.length !== 1) invalidNativeField('/input/document/analyses');
+    if (document.analyses[0]?.type !== 'op') invalidNativeField('/input/document/analyses/0/type');
+    if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
+    if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
+    circuit.addStep(targets[0]!.name, { values: sweep.values });
   }
   if (document.temperatureSweep !== undefined) {
     const sweep = document.temperatureSweep;
