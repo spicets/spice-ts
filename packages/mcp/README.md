@@ -307,7 +307,7 @@ The compact JSON input and output obey `maxDocumentBytes` and
 ## Scalar measurements
 
 Call `spice_measure` with `{ request: SimulationRequestV1, measurements: [...] }`.
-Each item has `kind` (`min`, `max`, `avg`, `rms`, `pp`, `at`, `cross`, or `when`),
+Each item has `kind` (`min`, `max`, `avg`, `rms`, `pp`, `at`, `cross`, `when`, or `integ`),
 `signal`, and a zero-based `analysis` index. Signals are case-insensitive `v(node)`
 or `i(branch)`; AC uses magnitude by default and also supports `mag(v(node))`,
 `db(v(node))` and the corresponding current projections. dB is 20 log10 of the
@@ -321,6 +321,10 @@ at or beyond it; an initial point equal to the target alone is not a crossing.
 Interpolation is linear in the published axis and signal, including AC Hz/dB.
 Window boundaries are interpolated. `avg` is axis-weighted; `rms` integrates the
 square of the piecewise-linear signal, not the mean square of unevenly spaced samples.
+For transient analyses only, `integ` returns the signed trapezoidal time integral
+of the stored piecewise-linear samples, clipped at the interpolated window bounds.
+Voltage integrals use `V*s`; current integrals use `A*s` (coulombs). A zero-width
+window returns zero. This is not exact continuous-waveform quadrature.
 Descending DC axes are supported. OP reductions treat the signal as one sample at
 coordinate 0; OP crossings are unavailable. Optional `step` is a nonnegative integer
 matching the zero-based `step.index` metadata in `SimulationResultV1`. Select each
