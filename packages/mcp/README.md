@@ -523,7 +523,11 @@ Example tool arguments:
 
 The response contains `initialValue`, `finalValue`, `unit` (`V` or `A`),
 `riseTimeS`, `fallTimeS`, `overshootPercent`, `undershootPercent`, `settlingTimeS`,
-`peakValue`, and `peakTimeS`. The RC example has about 2.197 ms rise time.
+`peakValue`, `peakTimeS`, `maxRiseSlewPerS`, `maxFallSlewPerS`, and `slewUnit`
+(`V/s` or `A/s`). Slew extrema are the largest positive and smallest negative
+adjacent-sample slopes `(y[i] - y[i-1]) / (time[i] - time[i-1])`, respectively;
+either is zero if no slope has that sign. They describe the sampled trace, not
+the continuous derivative. The RC example has about 2.197 ms rise time.
 Rise/fall times use the first directed 10% and 90% crossings with linear time
 interpolation; the opposite direction's field is `null`. Overshoot is excursion
 beyond the final level and undershoot is excursion behind the initial level,
