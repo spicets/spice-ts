@@ -86,6 +86,7 @@ export async function validateProtocolV1(
   const circuit = await requestCircuit(request, guard);
   guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
   const compiled = circuit.compile(guard);
+  validateOutputSelection(request, compiled);
   enforcePointLimit(circuit.analyses, guard, requestReltol(request, circuit), compiled.steps[0]);
   validateNativeTfOutputs(request, compiled);
   validateNativeFourier(request, compiled);
@@ -104,6 +105,7 @@ export async function validateProtocolV1(
 
 /** Native OP readouts using the shared JSON circuit construction path. */
 export async function operatingPointReportProtocolV1(request: SimulationRequestV1) {
+  if (request.outputs !== undefined) invalidNativeField('/outputs');
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   // Preserve OP report semantics: SPICE analysis/control commands are ignored.
@@ -115,6 +117,7 @@ export async function operatingPointReportProtocolV1(request: SimulationRequestV
 
 /** Bounded native pole-zero result, separate from the v1 result/stream union. */
 export async function simulatePoleZeroProtocolV1(request: SimulationRequestV1) {
+  if (request.outputs !== undefined) invalidNativeField('/outputs');
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
@@ -136,6 +139,7 @@ export async function simulatePoleZeroProtocolV1(request: SimulationRequestV1) {
 
 /** Bounded noise spectrum for scalar consumers, separate from the v1 result/stream union. */
 export async function simulateNoiseProtocolV1(request: SimulationRequestV1) {
+  if (request.outputs !== undefined) invalidNativeField('/outputs');
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
@@ -167,9 +171,17 @@ export async function simulateProtocolV1(
   const guard = protocolGuard(request, execution);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
+  let preflight: CompiledCircuit | undefined;
+  let selection: OutputSelection | undefined;
+  if (request.outputs !== undefined) {
+    guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
+    preflight = circuit.compile(guard);
+    selection = validateOutputSelection(request, preflight);
+  }
   const analyses = circuit.analyses.map(protocolAnalysis);
   guard.maximum('maxAnalyses', analyses.length, 'validation');
-  const preflight = circuit.compile(guard);
+  preflight ??= circuit.compile(guard);
+
   validateNativeTfOutputs(request, preflight);
   validateNativeFourier(request, preflight);
   validateNativeMeasurements(request);
@@ -206,7 +218,7 @@ export async function simulateProtocolV1(
         const measurements = nativeMeasurements(request, analysisIndex, analysis, ac, guard);
         if (measurements) completed.measurements = measurements;
       }
-      execution?.onAnalysisComplete?.(completed);
+      execution?.onAnalysisComplete?.(selection ? selectOutputVectors(completed, selection) : completed);
     }
     guard.checkpoint('serialize:analysis');
     guard.maximum('maxResultPoints', resultPointCount(serialized), 'serialize');
@@ -218,8 +230,37 @@ export async function simulateProtocolV1(
   }
 
   circuit.analyses.splice(0, circuit.analyses.length, ...analyses);
-  const response: SimulationResultV1 = { status: 'complete', analyses: serialized };
+  const response: SimulationResultV1 = { status: 'complete', analyses: selection ? serialized.map(result => selectOutputVectors(result, selection)) : serialized };
   return response;
+}
+
+type OutputSelection = { nodes: Set<string>; branches: Set<string> };
+
+function validateOutputSelection(request: SimulationRequestV1, compiled: CompiledCircuit): OutputSelection | undefined {
+  if (request.outputs === undefined) return undefined;
+  if (!Array.isArray(request.outputs) || request.outputs.length < 1 || request.outputs.length > 64) invalidNativeField('/outputs');
+  if (compiled.poleZeroAnalyses.length || compiled.analyses.some(analysis => !['op', 'dc', 'ac', 'tran'].includes(analysis.type))) invalidNativeField('/outputs');
+  const selection: OutputSelection = { nodes: new Set(), branches: new Set() };
+  for (let index = 0; index < request.outputs.length; index++) {
+    const output = request.outputs[index];
+    const match = typeof output === 'string' && output.length <= 512 && [...output].length <= 256 ? /^([vi])\(([^\s(),]+)\)(?![\s\S])/i.exec(output) : null;
+    if (!match) invalidNativeField(`/outputs/${index}`);
+    const voltage = match[1]!.toLowerCase() === 'v';
+    const names = voltage ? compiled.nodeNames : compiled.branchNames;
+    const name = names.find(candidate => candidate === match[2]) ?? names.find(candidate => candidate.toLowerCase() === match[2]!.toLowerCase());
+    if (name === undefined) invalidNativeField(`/outputs/${index}`);
+    (voltage ? selection.nodes : selection.branches).add(name);
+  }
+  return selection;
+}
+
+function selectOutputVectors(result: AnalysisResultV1, selection: OutputSelection): AnalysisResultV1 {
+  const pick = <T>(record: Record<string, T>, names: Set<string>): Record<string, T> =>
+    Object.fromEntries(Object.entries(record).filter(([name]) => names.has(name)));
+  if (result.type === 'tf') return result;
+  if (result.type === 'ac') return { ...result, voltagePhasors: pick(result.voltagePhasors, selection.nodes), currentPhasors: pick(result.currentPhasors, selection.branches) };
+  if (result.type === 'op') return { ...result, voltagesV: pick(result.voltagesV, selection.nodes), currentsA: pick(result.currentsA, selection.branches) };
+  return { ...result, voltagesV: pick(result.voltagesV, selection.nodes), currentsA: pick(result.currentsA, selection.branches) };
 }
 
 type ProtocolCoreAnalysis = AnalysisCommand | TransferFunctionAnalysis;

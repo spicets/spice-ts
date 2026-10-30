@@ -12,6 +12,24 @@ Result hashes cover only canonical `SimulationResultV1`. Partial hashes cover ca
 
 Committed schemas are in `schemas/`; the exported `protocolSchemasV1` registry contains the same documents. Shared positive and negative conformance fixtures are in `fixtures/`. Structural constraints live in JSON Schema; cross-field rules (case-insensitive uniqueness, sorted record keys, series lengths, stream point ordering/discriminators, and canonical number diagnostics) are checked by `checkConformanceV1`.
 
+## Output selection
+
+An optional top-level `outputs` array selects result vectors, for example
+`"outputs": ["v(out)", "i(V1)"]`. It contains 1–64 strings, each at most
+256 Unicode characters, in the exact `v(node)` or `i(branch)` form without
+whitespace or differential operands. Names resolve against compiled non-ground
+nodes and MNA branches, using an exact spelling first and then case-insensitive
+matching. Missing or malformed names return `INVALID_REQUEST` with an
+`/outputs` or `/outputs/<index>` path. Duplicates are harmless. Result keys
+retain their original spelling and ordering.
+
+Selection is supported only for OP, DC, AC and transient analyses. Axis values,
+step coordinates, units, measurements and Fourier tables are unchanged. Omit
+`outputs` to retain the complete existing response. Selection filters protocol
+serialization after execution, not solver work: the full result is still
+computed and accounted for by result point and serialized-byte limits.
+Specialized noise, pole-zero and operating-point-report entrypoints reject it.
+
 ## Native transient measurements
 
 Native `tran` requests may include up to 100 `measurements`, evaluated independently
