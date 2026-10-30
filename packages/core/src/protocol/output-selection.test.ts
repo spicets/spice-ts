@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { executeProtocolV1, simulateProtocolV1, validateProtocolV1 } from '../index.js';
+import { executeProtocolV1, operatingPointReportProtocolV1, simulateNoiseProtocolV1, simulatePoleZeroProtocolV1, simulateProtocolV1, validateProtocolV1 } from '../index.js';
 import type { AnalysisResultV1, SimulationRequestV1 } from './types.js';
 
 const circuit = 'V1 in 0 DC 2 AC 1\nR1 in out 1k\nR2 out 0 1k\nC1 out 0 1u\n';
@@ -65,6 +65,20 @@ describe('protocol output selection', () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('expected failure');
     expect(result.error).toMatchObject({ code: 'INVALID_REQUEST', details: { path: '/outputs' } });
+  });
+
+  it('rejects selectors for noise instead of ignoring them', async () => {
+    const input = request('.noise v(out) V1 dec 1 10 100', ['v(out)']);
+    const result = await executeProtocolV1(input);
+    expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST', details: { path: '/outputs' } } });
+    await expect(simulateNoiseProtocolV1(input)).rejects.toMatchObject({ apiError: { code: 'INVALID_REQUEST', details: { path: '/outputs' } } });
+  });
+
+  it('rejects selectors in other specialized entrypoints', async () => {
+    const input = request('.op', ['v(out)']);
+    for (const execute of [operatingPointReportProtocolV1, simulatePoleZeroProtocolV1]) {
+      await expect(execute(input)).rejects.toMatchObject({ apiError: { code: 'INVALID_REQUEST', details: { path: '/outputs' } } });
+    }
   });
 
   it('preserves native measurements even when their vector is not selected', async () => {

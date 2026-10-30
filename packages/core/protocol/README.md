@@ -28,6 +28,7 @@ step coordinates, units, measurements and Fourier tables are unchanged. Omit
 `outputs` to retain the complete existing response. Selection filters protocol
 serialization after execution, not solver work: the full result is still
 computed and accounted for by result point and serialized-byte limits.
+Specialized noise, pole-zero and operating-point-report entrypoints reject it.
 
 ## Native transient measurements
 

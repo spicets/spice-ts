@@ -105,6 +105,7 @@ export async function validateProtocolV1(
 
 /** Native OP readouts using the shared JSON circuit construction path. */
 export async function operatingPointReportProtocolV1(request: SimulationRequestV1) {
+  if (request.outputs !== undefined) invalidNativeField('/outputs');
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   // Preserve OP report semantics: SPICE analysis/control commands are ignored.
@@ -116,6 +117,7 @@ export async function operatingPointReportProtocolV1(request: SimulationRequestV
 
 /** Bounded native pole-zero result, separate from the v1 result/stream union. */
 export async function simulatePoleZeroProtocolV1(request: SimulationRequestV1) {
+  if (request.outputs !== undefined) invalidNativeField('/outputs');
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
@@ -137,6 +139,7 @@ export async function simulatePoleZeroProtocolV1(request: SimulationRequestV1) {
 
 /** Bounded noise spectrum for scalar consumers, separate from the v1 result/stream union. */
 export async function simulateNoiseProtocolV1(request: SimulationRequestV1) {
+  if (request.outputs !== undefined) invalidNativeField('/outputs');
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
@@ -168,10 +171,17 @@ export async function simulateProtocolV1(
   const guard = protocolGuard(request, execution);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
+  let preflight: CompiledCircuit | undefined;
+  let selection: OutputSelection | undefined;
+  if (request.outputs !== undefined) {
+    guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
+    preflight = circuit.compile(guard);
+    selection = validateOutputSelection(request, preflight);
+  }
   const analyses = circuit.analyses.map(protocolAnalysis);
   guard.maximum('maxAnalyses', analyses.length, 'validation');
-  const preflight = circuit.compile(guard);
-  const selection = validateOutputSelection(request, preflight);
+  preflight ??= circuit.compile(guard);
+
   validateNativeTfOutputs(request, preflight);
   validateNativeFourier(request, preflight);
   validateNativeMeasurements(request);
