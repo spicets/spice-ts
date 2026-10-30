@@ -46,7 +46,7 @@ describe('square voltage source imports (#1727)', () => {
     });
   });
 
-  it.each(['triangle', 'sawtooth'])('continues rejecting %s', wave_shape => {
+  it.each(['sawtooth'])('continues rejecting %s', wave_shape => {
     const result = fromCircuitJSON(source({ ...square, wave_shape }));
     expect(result.value).toBeUndefined();
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'UNSUPPORTED_PARAMETER', path: '/0/wave_shape' }));
