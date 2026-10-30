@@ -9,6 +9,16 @@ const trace = { status: 'complete' as const, analyses: [{ type: 'tran' as const,
 const delay = { kind: 'delay', analysis: 0, trigger: { signal: 'v(input)', threshold: 1, edge: 'rising', occurrence: 2 }, target: { signal: 'v(output)', threshold: 1, edge: 'rising', occurrence: 2 } };
 
 describe('transient delay measurements', () => {
+  it('counts an initial threshold departure as the first falling crossing', () => {
+    const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1, 2, 3, 4], voltagesV: { a: [1, 0, 2, 0, 0] }, currentsA: {} }] };
+    const fall = { signal: 'v(a)', threshold: 1, edge: 'falling' };
+    const item = { kind: 'delay', analysis: 0, trigger: fall, target: fall };
+    const flat = { ...input, analyses: [{ ...input.analyses[0], timeS: [0, 1, 2], voltagesV: { a: [1, 0, 0] } }] };
+    expect(measureResult(flat, [item]).measurements).toEqual([{ value: 0, unit: 's' }]);
+    expect(measureResult(input, [item, { ...item, target: { ...fall, occurrence: 2 } }]).measurements).toEqual([
+      { value: 0, unit: 's' }, { value: 2.5, unit: 's' },
+    ]);
+  });
   it('includes trigger and target crossings exactly at the lower window boundary', () => {
     const boundary = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1, 2], voltagesV: { a: [0, 2, 2], b: [0, 0, 2] }, currentsA: {} }] };
     const item = { kind: 'delay', analysis: 0, trigger: { signal: 'v(a)', threshold: 1, edge: 'rising' }, target: { signal: 'v(b)', threshold: 1, edge: 'rising' }, from: 0.5, to: 2 };

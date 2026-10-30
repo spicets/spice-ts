@@ -109,7 +109,8 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         let count = 0;
         for (let i = 1; i < x.length; i++) {
           const rising = y[i - 1] < spec.threshold && y[i] >= spec.threshold;
-          const falling = y[i - 1] > spec.threshold && y[i] <= spec.threshold;
+          const falling = (y[i - 1] > spec.threshold && y[i] <= spec.threshold)
+            || (i === 1 && y[i - 1] === spec.threshold && y[i] < spec.threshold);
           if (!(spec.edge === 'rising' ? rising : spec.edge === 'falling' ? falling : rising || falling)) continue;
           const time = x[i - 1] + (x[i] - x[i - 1]) * ((spec.threshold - y[i - 1]) / (y[i] - y[i - 1]));
           if (time < lo || time > hi) continue;
