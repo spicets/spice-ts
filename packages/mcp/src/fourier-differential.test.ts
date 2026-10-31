@@ -100,10 +100,19 @@ describe('spice_fourier differential voltages', () => {
     expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'UNKNOWN_SIGNAL' } } });
   });
 
-  it('reports a zero fundamental for equal real source waveforms with different offsets', async () => {
+  it('uses the measured difference for real sources even when it is near cancellation', async () => {
     const equal = source.replace('SIN(0.5 0.25 1k)', 'SIN(1 1 1k)');
-    const response = await executeTool('spice_fourier', { ...base, request: { apiVersion: '1', input: { format: 'spice', source: equal } } });
-    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_DATA' } } });
+    const equalRequest = { apiVersion: '1' as const, input: { format: 'spice' as const, source: equal } };
+    const result = await simulateProtocolV1(equalRequest);
+    const analysis = result.analyses[0];
+    if (analysis.type !== 'tran') throw new Error('Expected transient');
+    const difference = analysis.voltagesV.a.map((v, i) => v - analysis.voltagesV.b[i]);
+    const oracle = ngspiceFourier('oracle', Float64Array.from(analysis.timeS), Float64Array.from(difference), 1000, 4, 200, 1, 1);
+    const response = await run('v(a,b)', result);
+    expect(response, JSON.stringify(response)).not.toHaveProperty('isError', true);
+    const actual = response.structuredContent as Metrics & { thdPercent: number };
+    expect(actual.harmonics[0].magnitude / oracle.harmonics[1].magnitude).toBeCloseTo(1, 12);
+    expect(actual.thdPercent).toBeCloseTo(oracle.thd, 12);
   });
 
   it('keeps resolved small signals after large startup and at large common mode', async () => {
@@ -117,6 +126,23 @@ describe('spice_fourier differential voltages', () => {
       expect(response, JSON.stringify(response)).not.toHaveProperty('isError', true);
       expect((response.structuredContent as Metrics).harmonics[0].magnitude).toBeGreaterThan(min);
     }
+  });
+
+  it('preserves one-ULP differential and grounded variations', async () => {
+    const time = [0, 0.25, 0.5, 0.75, 1];
+    const a = [1, 1 + Number.EPSILON, 1, 1, 1];
+    const b = time.map(() => 1);
+    const result = trace({ a, b }, time);
+    const oracle = ngspiceFourier('oracle', Float64Array.from(time), Float64Array.from(a.map((v, i) => v - b[i])), 1, 4, 200, 1, 1);
+    const response = await run('v(a,b)', result, { fundamentalHz: 1 });
+    expect(response, JSON.stringify(response)).not.toHaveProperty('isError', true);
+    const actual = response.structuredContent as Metrics & { thdPercent: number };
+    expect(actual.harmonics[0].magnitude / oracle.harmonics[1].magnitude).toBeCloseTo(1, 12);
+    expect(actual.thdPercent).toBeCloseTo(oracle.thd, 12);
+    const grounded = await run('v(a,0)', result, { fundamentalHz: 1 });
+    const single = await run('v(a)', result, { fundamentalHz: 1 });
+    expect(grounded, JSON.stringify(grounded)).not.toHaveProperty('isError', true);
+    expect(grounded.structuredContent).toEqual(single.structuredContent);
   });
 
   it('retains a small but resolvable differential signal', async () => {
