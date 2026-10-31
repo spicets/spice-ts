@@ -4,11 +4,12 @@ const metricNames = ['dcGainDb', 'f3dbHz', 'unityGainHz', 'phaseMarginDeg', 'gai
 type Metric = typeof metricNames[number];
 const reasonCodes = ['NON_FINITE_GAIN', 'NO_HALF_POWER_CROSSING', 'NO_UNITY_GAIN_CROSSING', 'NO_PHASE_CROSSING'] as const;
 type ReasonCode = typeof reasonCodes[number];
-export interface AcMetricsArgs { output: string; input?: string; analysis?: number; groupDelayAtHz?: number }
+export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number }
 export const acMetricsProperties = {
   output: { type: 'string', minLength: 1, maxLength: 256 },
   input: { type: 'string', minLength: 1, maxLength: 256 },
   analysis: { type: 'integer', minimum: 0 },
+  step: { type: 'integer', minimum: 0 },
   groupDelayAtHz: { type: 'number', exclusiveMinimum: 0, description: 'Frequency in Hz for group delay. Sample delays use centered phase differences, or one-sided differences at endpoints; between samples delays are linearly interpolated in Hz. No extrapolation; adjacent phase changes must be below 180 degrees.' },
 };
 export const acMetricsOutputSchema = {
@@ -35,11 +36,12 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
   if (a.groupDelayAtHz !== undefined && (typeof a.groupDelayAtHz !== 'number' || !Number.isFinite(a.groupDelayAtHz) || a.groupDelayAtHz <= 0)) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
   }
-  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'groupDelayAtHz'].includes(key))
+  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz'].includes(key))
     || typeof a.output !== 'string' || !a.output.length || a.output.length > 256
     || (a.input !== undefined && (typeof a.input !== 'string' || !a.input.length || a.input.length > 256))
-    || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))) {
-    invalid('Expected output node, optional input node and nonnegative analysis index');
+    || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
+    || (a.step !== undefined && (!Number.isInteger(a.step) || (a.step as number) < 0))) {
+    invalid('Expected output node, optional input node and nonnegative analysis and step indices');
   }
   return a as unknown as AcMetricsArgs;
 }
@@ -50,8 +52,11 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
   }
   const selected = result.analyses.filter(a => args.analysis === undefined ? a.type === 'ac' : a.analysisIndex === args.analysis);
-  if (selected.length !== 1 || selected[0].type !== 'ac') invalid('Select exactly one AC analysis; stepped analyses must be run separately');
-  const a = selected[0];
+  if (!selected.length || selected.some(a => a.type !== 'ac') || new Set(selected.map(a => a.analysisIndex)).size !== 1) invalid('Select exactly one AC analysis');
+  const traces = args.step === undefined ? selected : selected.filter(a => (a.step?.index ?? 0) === args.step);
+  if (!traces.length) invalid('No AC trace has the requested step index', { reason: 'UNKNOWN_STEP' });
+  if (traces.length !== 1 || traces[0].type !== 'ac') invalid('Select exactly one AC trace; specify a step for stepped analyses');
+  const a = traces[0];
   const node = (name: string) => {
     const key = Object.keys(a.voltagePhasors).find(key => key.toLowerCase() === name.toLowerCase());
     if (key === undefined) invalid('Unknown voltage node', { reason: 'UNKNOWN_NODE', node: name });
