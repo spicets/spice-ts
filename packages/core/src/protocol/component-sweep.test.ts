@@ -40,12 +40,30 @@ describe('native component LIST', () => {
       expect(analysis).toEqual(separate.analyses[0]);
     }
   });
-  it.each([['C', 'capacitance', [1e-6, 2e-6, 1e-6]], ['L', 'inductance', [0.001, 0.002, 0.001]]] as const)('isolates repeated %s transient runs', async (type, parameter, values) => {
+  it.each([['C', 'capacitance', [1e-6, 2e-6, 1e-6]], ['L', 'inductance', [0.1, 0.2, 0.1]]] as const)('isolates repeated %s transient runs', async (type, parameter, values) => {
     const component = { type, id: `${type}1`, name: `${type}1`, ports: [{ name: 'p', net: 'out' }, { name: 'n', net: '0' }], params: { [parameter]: values[0] } };
-    const doc: SpiceTsCircuitDocumentV1 = { ...document, circuit: { ...document.circuit, components: [...document.circuit.components, component] }, analyses: [{ type: 'tran', timestep: 1e-5, stopTime: 0.0003 }], componentSweep: { component: component.name, values: [...values] } };
+    const components = document.circuit.components.map(c => c.name === 'V1' ? { ...c, params: { waveform: 'pulse', v1: 0, v2: 10, delay: 0, rise: 1e-5, fall: 1e-5, width: 0.0003, period: 0.001 } } : c);
+    const doc: SpiceTsCircuitDocumentV1 = { ...document, circuit: { ...document.circuit, components: [...components, component] }, analyses: [{ type: 'tran', timestep: 1e-5, stopTime: 0.0006, ...(type === 'C' ? { uic: true } : {}) }], ...(type === 'C' ? { initialConditions: { out: 1 } } : {}), componentSweep: { component: component.name, values: [...values] } };
     const run = (d: SpiceTsCircuitDocumentV1) => simulateProtocolV1({ apiVersion: '1', input: { format: 'spice-ts', document: d } });
     const stepped = await run(doc);
     expect(stepped.analyses.map(a => a.step)).toEqual(values.map((value, index) => ({ index, parameter: component.name, value })));
+    const [first, second, repeated] = stepped.analyses;
+    if (first?.type !== 'tran' || second?.type !== 'tran' || repeated?.type !== 'tran') throw new Error('expected transients');
+    const firstOut = first.voltagesV.out!;
+    const secondOut = second.voltagesV.out!;
+    // Adaptive runs can use different grids; compare at matching physical times.
+    const differences = first.timeS.flatMap((time, index) => {
+      const upper = second.timeS.findIndex(t => t >= time);
+      if (upper <= 0) return [];
+      const t0 = second.timeS[upper - 1]!;
+      const t1 = second.timeS[upper]!;
+      const interpolated = secondOut[upper - 1]! + (secondOut[upper]! - secondOut[upper - 1]!) * (time - t0) / (t1 - t0);
+      return [Math.abs(firstOut[index]! - interpolated)];
+    });
+    expect(differences.length).toBeGreaterThan(1);
+    expect(Math.max(...differences)).toBeGreaterThan(0.1);
+    expect(repeated.voltagesV).toEqual(first.voltagesV);
+    expect(repeated.currentsA).toEqual(first.currentsA);
     for (const [index, value] of values.entries()) {
       const { componentSweep: _sweep, ...base } = doc;
       const separate = await run({ ...base, circuit: { ...base.circuit, components: base.circuit.components.map(c => c.name === component.name ? { ...c, params: { [parameter]: value } } : c) } });
