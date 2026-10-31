@@ -95,7 +95,8 @@ function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]
     y = positive.map((p, i) => {
       let magnitude = p.magnitude;
       let phase = p.phaseDegrees;
-      if (negative) {
+      // Subtracting zero must retain the positive phasor's phase branch before unwrapping.
+      if (negative && negative[i].magnitude !== 0) {
         const n = negative[i];
         const rad = Math.PI / 180;
         // Reduce whole turns before conversion, retaining small angles near zero.

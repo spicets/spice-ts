@@ -23,6 +23,27 @@ describe('differential voltage measurements', () => {
     expect(measureResult(ramp, invalid).measurements).toMatchObject(invalid.map(() => ({ error: { code: 'UNKNOWN_SIGNAL' } })));
   });
 
+  it.each([false, true])('preserves the positive phase branch when subtracting zero (descending=%s)', descending => {
+    const frequencyHz = descending ? [2, 1] : [1, 2];
+    const phases = descending ? [-170, -180] : [-180, -170];
+    const result = { status: 'complete' as const, analyses: [{ type: 'ac' as const, analysisIndex: 0, frequencyHz, currentPhasors: {}, voltagePhasors: {
+      p: phases.map(phaseDegrees => ({ magnitude: 1, phaseDegrees })),
+      zero: phases.map(() => ({ magnitude: 0, phaseDegrees: 0 })),
+    } }] };
+    for (const signal of ['phase(v(p))', 'phase(v(p,0))', 'phase(v(p,zero))']) {
+      const specs = [
+        { kind: 'at', analysis: 0, signal, at: 1 },
+        { kind: 'at', analysis: 0, signal, at: 2 },
+        { kind: 'avg', analysis: 0, signal },
+        { kind: 'cross', analysis: 0, signal, value: -175 },
+      ];
+      expect(measureResult(result, specs).measurements).toEqual([
+        { value: -180, unit: 'deg' }, { value: -170, unit: 'deg' },
+        { value: -175, unit: 'deg' }, { value: 1.5, unit: 'Hz' },
+      ]);
+    }
+  });
+
   it('subtracts complex AC phasors before projection', () => {
     const p = (magnitude: number, phaseDegrees: number) => ({ magnitude, phaseDegrees });
     const result = { status: 'complete' as const, analyses: [{ type: 'ac' as const, analysisIndex: 0, frequencyHz: [1, 2], currentPhasors: {}, voltagePhasors: { out: [p(1, 0), p(1, 0)], opposite: [p(1, 180), p(1, 180)], same: [p(1, 0), p(1, 0)], quadrature: [p(1, 90), p(1, 90)] } }] };
