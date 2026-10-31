@@ -1,4 +1,5 @@
-import { CCCS, CCVS, createTransientSim, fourierWork, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { addFourierCard, takeFourierOptions, fourierWork } from './fourier-cards.js';
+import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
 import { addFourier } from './fourier.js';
 import type {
   JsonObject,
@@ -719,6 +720,16 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   } catch (error) {
     if (error instanceof NumericBackendError) throw error;
     throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
+  }
+  // Populate the WASM-local Fourier registry independently of core's private registry.
+  if (analysis === 'tran') {
+    for (const [index, card] of normalizedCards.entries()) {
+      if (/^\.(?:four|fourier)(?:\s|$)/i.test(card)) addFourierCard(circuit, card, index + 1);
+      else if (/^\.(?:options|option|opt)\b/i.test(card)) {
+        const options = card.match(/\b(?:nfreqs|fourgridsize)\s*=\s*[^\s,]+/gi) ?? [];
+        takeFourierOptions(circuit, options.map(option => option.replace(/\s/g, '')));
+      }
+    }
   }
   const maxFourierWork = 1_000_000;
   const requestedFourierWork = fourierWork(circuit);

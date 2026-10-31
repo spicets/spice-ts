@@ -1,4 +1,5 @@
-import { evaluateFourierCards, TransientResult, type Circuit, type FourierResult } from '@spice-ts/core';
+import { evaluateFourierCards } from './fourier-cards.js';
+import { TransientResult, type Circuit, type FourierResult } from '@spice-ts/core';
 import type { FourierResultV1, TransientResultV1 } from '@spice-ts/core/protocol';
 
 function serialize(result: FourierResult): FourierResultV1 {

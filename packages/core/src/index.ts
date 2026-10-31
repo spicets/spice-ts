@@ -111,6 +111,3 @@ export { UnsupportedMeasureError } from './measure/errors.js';
 export {
   UnsupportedControlCommandError, ControlScriptError, ControlScriptExitError,
 } from './parser/control/errors.js';
-
-/** @internal Shared frontend postprocessing for numeric backends. */
-export { evaluateFourierCards, fourierWork } from './parser/dot-four.js';
