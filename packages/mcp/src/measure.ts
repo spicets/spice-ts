@@ -208,7 +208,11 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       }
       const i = left;
       if (i === 0 || x[i] === at) return y[i];
-      return y[i - 1] + (y[i] - y[i - 1]) * ((at - x[i - 1]) / (x[i] - x[i - 1]));
+      const fraction = (at - x[i - 1]) / (x[i] - x[i - 1]);
+      const delta = y[i] - y[i - 1];
+      return Number.isFinite(delta)
+        ? y[i - 1] + delta * fraction
+        : y[i - 1] * (1 - fraction) + y[i] * fraction;
     };
     if (m.kind === 'at') return { value: interpolate(m.at!), unit: data.unit };
     if (m.kind === 'cross' || m.kind === 'when') {
@@ -237,8 +241,14 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         const a = samples[i - 1]; const b = samples[i]; const threshold = m.value!;
         const width = points[i] - points[i - 1];
         if (a > threshold && b > threshold) duration += width;
-        else if (a > threshold) duration += width * ((a - threshold) / (a - b));
-        else if (b > threshold) duration += width * ((b - threshold) / (b - a));
+        else if (a > threshold || b > threshold) {
+          const high = Math.max(a, b); const low = Math.min(a, b);
+          const range = high - low;
+          const fraction = Number.isFinite(range)
+            ? (high - threshold) / range
+            : (high / 2 - threshold / 2) / (high / 2 - low / 2);
+          duration += width * fraction;
+        }
       }
       value = Math.min(1, Math.max(0, duration / (hi - lo)));
       unit = '1';

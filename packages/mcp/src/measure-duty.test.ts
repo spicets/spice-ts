@@ -14,6 +14,19 @@ describe('transient duty measurements', () => {
     expect('value' in result[1] && Math.abs(result[1].value - 8 / 9)).toBeLessThan(1e-12);
   });
 
+  it('handles extreme finite samples and clipped windows without overflow', () => {
+    const trace = { ...transient, analyses: [{ ...transient.analyses[0], timeS: [0, 1], voltagesV: { out: [1e308, -1e308] } }] };
+    const specs = [
+      { ...selector, value: 0 },
+      { ...selector, value: 0, from: 0.25, to: 0.75 },
+      { ...selector, value: 5e307 },
+      { ...selector, value: -5e307, from: 0.25, to: 0.75 },
+    ];
+    expect(measureResult(trace, specs).measurements).toEqual([0.5, 0.5, 0.25, 1].map(value => ({ value, unit: '1' })));
+    const rising = { ...trace, analyses: [{ ...trace.analyses[0], voltagesV: { out: [-1e308, 1e308] } }] };
+    expect(measureResult(rising, specs).measurements).toEqual([0.5, 0.5, 0.25, 1].map(value => ({ value, unit: '1' })));
+  });
+
   it('handles flat below, above, equal and symmetric triangle', () => {
     const trace = { ...transient, analyses: [{ ...transient.analyses[0], timeS: [0, 1, 2], voltagesV: { below: [0, 0, 0], above: [2, 2, 2], equal: [1, 1, 1], triangle: [0, 2, 0] } }] };
     const results = measureResult(trace, ['below', 'above', 'equal', 'triangle'].map(signal => ({ ...selector, signal: `v(${signal})` }))).measurements;
