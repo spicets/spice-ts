@@ -1,4 +1,4 @@
-import { addMeasurements, parseWasmMeasurement, type WasmMeasurement } from './measurement.js';
+import { addDcMeasurements, addMeasurements, parseWasmMeasurement, type WasmMeasurement } from './measurement.js';
 import { addFourierCard, takeFourierOptions, fourierWork } from './fourier-cards.js';
 import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
 import { addFourier } from './fourier.js';
@@ -44,6 +44,7 @@ interface SweepableSource {
 
 interface PreparedLinearDc extends PreparedNumericBase {
   analysis: 'dc';
+  measurements: WasmMeasurement[];
   sweep: Extract<CompiledCircuit['analyses'][number], { type: 'dc' }>;
   source: SweepableSource;
   secondarySource?: SweepableSource;
@@ -129,10 +130,12 @@ function applyMeasurements(result: import('@spice-ts/core/protocol').TransientRe
 }
 
 function simulateDc(
-  { compiled, order, sweep, source, secondarySource, innerPointCount, pointCount }: PreparedLinearDc,
+  { compiled, order, sweep, source, secondarySource, innerPointCount, pointCount, measurements }: PreparedLinearDc,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
+  const work = pointCount * measurements.length;
+  if (work > 1_000_000) throw resourceLimit('maxMeasurementWork', 1_000_000, work);
   const values: number[] = [];
   const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
@@ -193,6 +196,8 @@ function simulateDc(
       voltagesV, currentsA,
     }],
   };
+  const dcResult = result.analyses[0];
+  if (dcResult?.type === 'dc') addDcMeasurements(dcResult, measurements, sweep);
   enforceSerializedResultLimit(result, request);
   return result;
 }
@@ -722,15 +727,15 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   const measurements: WasmMeasurement[] = [];
   const simulationCards = cards.filter((card, index) => {
     if (!/^\.(?:meas|measure)\b/i.test(card)) return true;
-    if (analysis !== 'tran') unsupported('measurement', 'Only transient measurements are supported');
-    const parsed = parseWasmMeasurement(card, index + 1);
-    if (!parsed) unsupported('measurement', 'Unsupported transient measurement form');
+    if (analysis !== 'tran' && analysis !== 'dc') unsupported('measurement', 'Only transient and DC measurements are supported');
+    const parsed = parseWasmMeasurement(card, index + 1, analysis);
+    if (!parsed) unsupported('measurement', `Unsupported ${analysis} measurement form`);
     measurements.push(parsed);
     if (measurements.length > 128) throw resourceLimit('maxMeasurements', 128, measurements.length);
     return false;
   });
-  if (measurements.length && (components.some(card => !/^[RCIV]/i.test(card)) || cards.some(card => /^\.(?:subckt|ends)\b/i.test(card)))) {
-    unsupported('measurement', 'Transient measurements support passive R/C/I/V circuits only');
+  if (measurements.length && (components.some(card => !(analysis === 'dc' ? /^[RIV]/i : /^[RCIV]/i).test(card)) || cards.some(card => /^\.(?:subckt|ends)\b/i.test(card)))) {
+    unsupported('measurement', `${analysis === 'dc' ? 'DC' : 'Transient'} measurements support flat ${analysis === 'dc' ? 'R/I/V' : 'R/C/I/V'} circuits only`);
   }
   const normalizedCards = validateHierarchyCards(simulationCards, analysis);
   let compiled: CompiledCircuit;
@@ -793,6 +798,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     if (compiledAnalysis?.type !== 'dc') unsupported('analysis', 'Exactly one .dc analysis is supported');
     const innerPointCount = dcPointCount(compiledAnalysis.start, compiledAnalysis.stop, compiledAnalysis.step);
     const secondary = compiledAnalysis.secondary;
+    if (secondary && measurements.length) unsupported('measurement', 'DC measurements require a single sweep');
     const pointCount = innerPointCount * (secondary ? dcPointCount(secondary.start, secondary.stop, secondary.step) : 1);
     const pointLimit = Math.min(
       NUMERIC_WASM_LIMITS.maxResultPoints,
@@ -820,7 +826,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
       throw numericError('INVALID_CIRCUIT', 'DC sweep sources must be distinct', 'validation', { feature: 'dc-source' });
     }
     return {
-      analysis, compiled, order, sweep: compiledAnalysis, source: resolveSource(compiledAnalysis.source),
+      analysis, compiled, order, measurements, sweep: compiledAnalysis, source: resolveSource(compiledAnalysis.source),
       secondarySource: secondary ? resolveSource(secondary.source) : undefined, innerPointCount, pointCount,
     };
   }

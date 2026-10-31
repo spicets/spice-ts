@@ -1,5 +1,5 @@
-import { evaluateMeasureCards, measureCard, measurePlot, TransientResult, type MeasureCard } from '@spice-ts/core';
-import type { TransientResultV1 } from '@spice-ts/core/protocol';
+import { DCSweepResult, evaluateMeasureCards, measureCard, measurePlot, TransientResult, type MeasureCard } from '@spice-ts/core';
+import type { DcResultV1, TransientResultV1 } from '@spice-ts/core/protocol';
 
 export interface WasmMeasurement {
   card: MeasureCard;
@@ -13,8 +13,10 @@ const head = '^\\.meas(?:ure)?\\s+tran\\s+[a-z_][a-z0-9_]*\\s+';
 const find = new RegExp(`${head}find\\s+${vector}\\s+at\\s*=\\s*(${number})\\s*$`, 'i');
 const aggregate = new RegExp(`${head}(?:avg|min|max|rms)\\s+${vector}\\s+from\\s*=\\s*(${number})\\s+to\\s*=\\s*(${number})\\s*$`, 'i');
 
-export function parseWasmMeasurement(text: string, line: number): WasmMeasurement | undefined {
-  const match = find.exec(text) ?? aggregate.exec(text);
+const dcFind = new RegExp(`^\\.meas(?:ure)?\\s+dc\\s+[a-z_][a-z0-9_]*\\s+find\\s+${vector}\\s+at\\s*=\\s*(${number})\\s*$`, 'i');
+
+export function parseWasmMeasurement(text: string, line: number, analysis: 'tran' | 'dc' = 'tran'): WasmMeasurement | undefined {
+  const match = analysis === 'dc' ? dcFind.exec(text) : find.exec(text) ?? aggregate.exec(text);
   if (!match || match.slice(3).some(value => /e[+-]?\d+(?:meg|mil|[tgkmunpf])$/i.test(value))) return undefined;
   const factors: Record<string, number> = { t: 1e12, g: 1e9, meg: 1e6, k: 1e3, mil: 25.4e-6, m: 1e-3, u: 1e-6, n: 1e-9, p: 1e-12, f: 1e-15 };
   const bounds = match.slice(3).map(value => {
@@ -23,6 +25,18 @@ export function parseWasmMeasurement(text: string, line: number): WasmMeasuremen
   });
   if (bounds.some(value => !Number.isFinite(value)) || (bounds.length === 2 && bounds[0]! >= bounds[1]!)) return undefined;
   return { card: measureCard(text, line, 0), unit: match[1]!.toLowerCase() === 'v' ? 'V' : 'A' };
+}
+
+export function addDcMeasurements(result: DcResultV1, measurements: WasmMeasurement[], sweep: { type: 'dc'; source: string; start: number; stop: number; step: number }): void {
+  if (!measurements.length) return;
+  const arrays = (vectors: Record<string, number[]>) => new Map(Object.entries(vectors).map(([key, values]) => [key, Float64Array.from(values)]));
+  const dcSweep = new DCSweepResult(Float64Array.from(result.axis.values), arrays(result.voltagesV), arrays(result.currentsA));
+  const plot = measurePlot(sweep, { dcSweep, warnings: [] });
+  if (!plot) throw new Error('DC plot unavailable');
+  const values = evaluateMeasureCards(measurements.map(m => m.card), 'dc', plot, new Map());
+  result.measurements = values.map((m, i) => m.status === 'ok' && m.value !== undefined && Number.isFinite(m.value)
+    ? { name: m.name, value: m.value, unit: measurements[i]!.unit }
+    : { name: m.name, diagnostic: { code: 'MEASUREMENT_FAILED', message: m.error ?? 'Measurement failed' } });
 }
 
 export function addMeasurements(result: TransientResultV1, measurements: WasmMeasurement[]): void {
