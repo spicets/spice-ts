@@ -161,6 +161,19 @@ describe('spice_power_metrics', () => {
     });
   });
 
+  it('integrates quadratic power and current squared for a linear ramp', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const report = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: [0, 1],
+      voltagesV: { in: [0, 1] }, currentsA: { V1: [0, 1] },
+    }] }, plan);
+    const metric = report.elements[0];
+    expect(Math.abs(metric.averagePowerW - 1 / 3)).toBeLessThanOrEqual(1e-12);
+    expect(Math.abs(metric.rmsCurrentA - Math.sqrt(1 / 3))).toBeLessThanOrEqual(1e-12);
+    expect(metric).toMatchObject({ peakPowerW: 1, peakTimeS: 1 });
+  });
+
   it('clips nonuniform segments and trapezoidally integrates power and squared current', () => {
     const plan = powerPlan({ netlist: dc, elements: ['V1'], window: [0.5, 2] });
     if ('error' in plan) throw new Error('Expected a plan');
