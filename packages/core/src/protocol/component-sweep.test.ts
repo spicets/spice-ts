@@ -134,7 +134,7 @@ describe('native component LIST', () => {
     }
     for (const [override, path] of [
       [{ analyses: [] }, 'analyses'], [{ analyses: [{ type: 'op' }, { type: 'op' }] }, 'analyses'],
-      [{ analyses: [{ type: 'ac', variation: 'dec', points: 10, startFreq: 1, stopFreq: 10 }] }, 'analyses/0/type'],
+      [{ analyses: [{ type: 'dc', source: 'V1', start: 0, stop: 1, step: 1 }] }, 'analyses/0/type'],
       [{ temperatureSweep: { values: [27] } }, 'componentSweep'], [{ noiseAnalyses: [{}] }, 'noiseAnalyses'],
       [{ poleZeroAnalyses: [{}] }, 'poleZeroAnalyses'],
     ] as [object, string][]) for (const execute of [simulateProtocolV1, validateProtocolV1]) {

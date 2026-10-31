@@ -1552,7 +1552,8 @@
                     "type": {
                       "enum": [
                         "op",
-                        "tran"
+                        "tran",
+                        "ac"
                       ]
                     }
                   },
