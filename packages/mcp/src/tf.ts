@@ -32,9 +32,9 @@ export function tfArgs(args: unknown): TfArgs {
   if (Object.keys(a).some(k => !['netlist', 'output', 'input_source', 'params'].includes(k))
     || typeof a.netlist !== 'string' || !a.netlist.trim()
     || typeof a.output !== 'string'
-    || !/^(?:v\([^\s(),]+\)|i\(v[^\s(),]*\))$/i.test(a.output)
+    || !/^(?:v\([^\s(),]+(?:,[^\s(),]+)?\)|i\(v[^\s(),]*\))$/i.test(a.output)
     || typeof a.input_source !== 'string' || !/^[vi][^\s(),]*$/i.test(a.input_source)) {
-    invalid('Expected netlist, output v(node) or i(vsrc), and independent input_source');
+    invalid('Expected netlist, output v(node), v(node,node) or i(vsrc), and independent input_source');
   }
   return a as unknown as TfArgs;
 }
