@@ -70,12 +70,17 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
       }
       const span = f[i] - f[i - 1];
       // Integrate the two linear-PSD basis functions over the clipped interval.
-      const a = ((f[i] - left) / span + (f[i] - right) / span) / 2;
-      const b = ((left - f[i - 1]) / span + (right - f[i - 1]) / span) / 2;
+      // Take square roots before dividing: the normalized weight itself can
+      // underflow even though its square root and the final RMS are representable.
+      const rootSpan = Math.sqrt(span);
+      const rootWeight = (d1: number, d2: number) =>
+        Math.hypot(Math.sqrt(d1) / rootSpan, Math.sqrt(d2) / rootSpan) / Math.SQRT2;
+      const a = rootWeight(f[i] - left, f[i] - right);
+      const b = rootWeight(left - f[i - 1], right - f[i - 1]);
       const width = Math.sqrt(right - left);
       const contribution = (density: number, weight: number) => width > 1
-        ? (density * Math.sqrt(weight)) * width
-        : (density * width) * Math.sqrt(weight);
+        ? (density * weight) * width
+        : (density * width) * weight;
       rms = Math.hypot(rms, contribution(y[i - 1] * scale, a), contribution(y[i] * scale, b));
     }
     rms /= scale;
