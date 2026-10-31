@@ -36,6 +36,11 @@ describe('spice_fourier differential voltages', () => {
     expect(response, JSON.stringify(response)).not.toHaveProperty('isError', true);
     const actual = response.structuredContent as Metrics;
     compare(actual, { dc: oracle.harmonics[0].magnitude, unit: 'V', harmonics: oracle.harmonics.slice(1) });
+    expect(actual.dc).toBeCloseTo(1.5, 8);
+    expect(actual.harmonics[0].magnitude).toBeCloseTo(0.75, 4);
+    expect(actual.harmonics[0].phase).toBeCloseTo(0, 3);
+    expect(actual.harmonics[1].magnitude).toBeLessThan(1e-5);
+    expect(actual.harmonics[2].magnitude).toBeLessThan(1e-5);
     console.log('oracle/actual DC and fundamental', oracle.harmonics[0].magnitude, actual.dc, oracle.harmonics[1].magnitude, actual.harmonics[0].magnitude);
   });
 
@@ -75,6 +80,19 @@ describe('spice_fourier differential voltages', () => {
     const equal = source.replace('SIN(0.5 0.25 1k)', 'SIN(1 1 1k)');
     const response = await executeTool('spice_fourier', { ...base, request: { apiVersion: '1', input: { format: 'spice', source: equal } } });
     expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_DATA' } } });
+  });
+
+  it('keeps resolved small signals after large startup and at large common mode', async () => {
+    const time = Array.from({ length: 1001 }, (_, i) => i * 0.000005);
+    const cases = [
+      { a: sine(0, 1e-7, time).map((v, i) => i === 0 ? 1e9 : v), b: time.map((_, i) => i === 0 ? 1e9 : 0), min: 9e-8 },
+      { a: sine(1e12, 0.00048828125, time), b: time.map(() => 1e12), min: 0.0004 },
+    ];
+    for (const { a, b, min } of cases) {
+      const response = await run('v(a,b)', trace({ a, b }, time));
+      expect(response, JSON.stringify(response)).not.toHaveProperty('isError', true);
+      expect((response.structuredContent as Metrics).harmonics[0].magnitude).toBeGreaterThan(min);
+    }
   });
 
   it('retains a small but resolvable differential signal', async () => {
