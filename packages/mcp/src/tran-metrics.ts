@@ -69,9 +69,26 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
   const a = traces[0];
   const match = /^([vi])\(([^()]+)\)$/i.exec(args.signal);
   const values = match?.[1].toLowerCase() === 'v' ? a.voltagesV : a.currentsA;
-  const key = match && Object.keys(values).find(key => key.toLowerCase() === match[2].toLowerCase());
-  if (!key) return error('SIGNAL_NOT_FOUND', 'Expected an existing v(node) or i(branch) signal');
-  const x = a.timeS; const y = values[key];
+  const key = match ? Object.keys(values).find(key => key.toLowerCase() === match[2].toLowerCase()) : undefined;
+  const x = a.timeS;
+  let y = key === undefined ? undefined : values[key];
+  if (!y && match?.[1].toLowerCase() === 'v') {
+    const terminals = match[2].split(',').map(name => name.trim());
+    if (terminals.length === 2 && terminals.every(Boolean)) {
+      const resolve = (name: string): number[] | undefined => {
+        if (/^(0|gnd)$/i.test(name)) return x.map(() => 0);
+        const found = Object.keys(a.voltagesV).find(node => node.toLowerCase() === name.toLowerCase());
+        return found === undefined ? undefined : a.voltagesV[found];
+      };
+      const positive = resolve(terminals[0]); const negative = resolve(terminals[1]);
+      if (positive && negative) {
+        if (positive.length !== x.length || negative.length !== x.length
+          || !Array.from(positive).every(Number.isFinite) || !Array.from(negative).every(Number.isFinite)) return error('INVALID_DATA', 'Expected finite aligned samples and strictly increasing times');
+        y = positive.map((value, i) => value - negative[i]);
+      }
+    }
+  }
+  if (!y) return error('SIGNAL_NOT_FOUND', 'Expected an existing v(node) or i(branch) signal');
   if (x.length < 2 || y.length !== x.length || y.some(v => !Number.isFinite(v))
     || x.some((v, i) => !Number.isFinite(v) || (i > 0 && v <= x[i - 1]))) return error('INVALID_DATA', 'Expected finite aligned samples and strictly increasing times');
   const initialValue = args.initialValue ?? y[0]; const finalValue = args.finalValue ?? y[y.length - 1];
