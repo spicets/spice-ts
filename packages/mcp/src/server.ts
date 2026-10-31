@@ -281,7 +281,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_tf',
-    description: 'Run native small-signal .tf for v(node) or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). Optional params overrides require SPICE input. Reject conflicting analyses, steps and control blocks.',
+    description: 'Run native small-signal .tf for v(node), differential v(positive,negative), or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). Optional params overrides require SPICE input. Reject conflicting analyses, steps and control blocks.',
     inputSchema: { ...requestInputSchema, required: ['output', 'input_source'],
       properties: { ...requestInputSchema.properties, ...tfInputSchema.properties },
       oneOf: [{ required: ['netlist'] }, { required: ['request'] }] },

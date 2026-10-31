@@ -169,7 +169,7 @@ describe('spice_tf', () => {
     [{ output: 'v(out)\n.tran 1 2' }, 'INVALID_REQUEST'],
     [{ input_source: 'V1\n.op' }, 'INVALID_REQUEST'],
     [{ output: 'i(R1)' }, 'INVALID_REQUEST'],
-    [{ output: 'v(in,out)' }, 'INVALID_REQUEST'],
+    [{ output: 'v(in,out)' }, 'INVALID_CIRCUIT'],
     [{ surprise: true }, 'INVALID_REQUEST'],
     [{ params: { missing: 1 } }, 'UNKNOWN_PARAMETER'],
     [{ netlist: 'V1 in 0 1\nR1 in 0 1k\nR2 a 0 1\nB1 a 0 I=V(a)^2+1', output: 'v(in)' }, 'CONVERGENCE_FAILED'],
