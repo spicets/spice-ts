@@ -4,9 +4,10 @@ import { paramsSchema } from './params.js';
 
 type ACAnalysis = Extract<AnalysisDirective, { type: 'ac' }>;
 
-export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis }
+export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis; includeAdmittance?: boolean }
 export interface ImpedanceSpectrum { frequencyHz: number[]; positive: { magnitude: number; phaseDegrees: number }[]; negative: { magnitude: number; phaseDegrees: number }[] }
 export const impedanceProperties = {
+  includeAdmittance: { type: 'boolean' },
   port: { type: 'object', additionalProperties: false, required: ['positive', 'negative'], properties: {
     positive: { type: 'string', minLength: 1, maxLength: 256 }, negative: { type: 'string', minLength: 1, maxLength: 256 },
   } },
@@ -21,7 +22,7 @@ export const impedanceOutputSchema = {
     port: impedanceProperties.port,
     points: { type: 'array', minItems: 1, items: { type: 'object', additionalProperties: false,
       required: ['frequencyHz', 'magnitudeOhm', 'phaseDeg', 'resistanceOhm', 'reactanceOhm'], properties: {
-        frequencyHz: number, magnitudeOhm: number, phaseDeg: number, resistanceOhm: number, reactanceOhm: number,
+        frequencyHz: number, magnitudeOhm: number, phaseDeg: number, resistanceOhm: number, reactanceOhm: number, conductanceS: number, susceptanceS: number,
       } } },
     summary: { type: 'object', additionalProperties: false, required: ['min', 'max', 'resonanceHz'], properties: {
       min: extremum, max: extremum, resonanceHz: { type: 'array', items: number },
@@ -41,7 +42,8 @@ export function impedanceInvalid(message: string, reason?: typeof impedanceError
 }
 export function impedanceArgs(raw: unknown): ImpedanceSelectors {
   const a = raw as Record<string, unknown> | null;
-  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params'].includes(k))) impedanceInvalid('Expected request, port and optional sweep/params');
+  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params', 'includeAdmittance'].includes(k))) impedanceInvalid('Expected request, port and optional sweep/params/includeAdmittance');
+  if (a.includeAdmittance !== undefined && typeof a.includeAdmittance !== 'boolean') impedanceInvalid('Expected includeAdmittance to be a boolean');
   const p = a.port as Record<string, unknown> | null;
   if (!p || typeof p !== 'object' || Array.isArray(p) || Object.keys(p).some(k => !['positive', 'negative'].includes(k))
     || ![p.positive, p.negative].every(v => typeof v === 'string' && /^[^\s(),;*$]+$/.test(v) && v.length <= 256)) impedanceInvalid('Expected positive and negative node names');
@@ -57,7 +59,7 @@ export function impedanceArgs(raw: unknown): ImpedanceSelectors {
       || typeof s.stopFreq !== 'number' || !Number.isFinite(s.stopFreq) || s.stopFreq < s.startFreq) impedanceInvalid('Expected a finite positive AC sweep');
     sweep = { type: 'ac', ...s } as ACAnalysis;
   }
-  return { port, sweep };
+  return { port, sweep, includeAdmittance: a.includeAdmittance as boolean | undefined };
 }
 export function impedancePlan(request: SimulationRequestV1, sweep: ACAnalysis): SimulationRequestV1 {
   // Reuse the standard bounded AC point estimator without executing a user deck during preflight.
@@ -73,7 +75,16 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
     const magnitudeOhm = Math.hypot(resistanceOhm, reactanceOhm);
     const phaseDeg = Math.atan2(reactanceOhm, resistanceOhm) / angle;
     if (![frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg].every(Number.isFinite)) impedanceInvalid('Non-finite impedance spectrum');
-    return { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg };
+    const point = { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg };
+    if (!selectors.includeAdmittance) return point;
+    const scale = Math.max(Math.abs(resistanceOhm), Math.abs(reactanceOhm));
+    if (scale === 0) impedanceInvalid('Cannot compute admittance of zero impedance');
+    const re = resistanceOhm / scale; const im = reactanceOhm / scale;
+    const denominator = re * re + im * im;
+    const conductanceS = (re / denominator) / scale;
+    const susceptanceS = (-im / denominator) / scale;
+    if (![conductanceS, susceptanceS].every(Number.isFinite)) impedanceInvalid('Admittance is not representable');
+    return { ...point, conductanceS, susceptanceS };
   });
   let min = points[0]; let max = points[0];
   const resonanceHz: number[] = [];
