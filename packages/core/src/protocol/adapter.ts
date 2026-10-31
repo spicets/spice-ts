@@ -56,7 +56,7 @@ import { accumulatedLinearPointCount, directedLinearPointCount } from '../analys
 import { frequencyPointCount } from '../analysis/frequency-grid.js';
 import { isValidMaxTimestepOption } from '../analysis/max-timestep.js';
 import { nativeFourier, serializeFourier, validateNativeFourier } from './native-four.js';
-import { nativeMeasurements, validateNativeMeasurements } from './native-measure.js';
+import { nativeMeasurements, textMeasurements, validateNativeMeasurements } from './native-measure.js';
 
 const MAX_DETAIL_NAMES = 32;
 const API_ERROR_CODES = new Set<SpiceApiErrorV1['code']>([
@@ -220,11 +220,11 @@ export async function simulateProtocolV1(
         const transient = transients[i];
         const dcSweep = result.steps ? result.steps[i]?.dcSweep : result.dcSweep;
         if (completed.type === 'dc' && dcSweep) {
-          const measurements = nativeMeasurements(request, analysisIndex, analysis, dcSweep, guard);
+          const measurements = request.input.format === 'spice' ? textMeasurements(runCircuit, analysis, result, guard) : nativeMeasurements(request, analysisIndex, analysis, dcSweep, guard);
           if (measurements) completed.measurements = measurements;
         }
         if (completed.type === 'tran' && transient) {
-          const measurements = nativeMeasurements(request, analysisIndex, analysis, transient, guard);
+          const measurements = request.input.format === 'spice' ? textMeasurements(runCircuit, analysis, result, guard) : nativeMeasurements(request, analysisIndex, analysis, transient, guard);
           if (measurements) completed.measurements = measurements;
         }
         const ac = result.steps ? result.steps[i]?.ac : result.ac;

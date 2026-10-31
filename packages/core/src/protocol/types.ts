@@ -117,6 +117,7 @@ export interface DcResultV1 {
   axis: { name: string; unit: 'V' | 'A'; values: number[] };
   /** Point-aligned outer sweep coordinates for nested DC sweeps. */
   secondaryAxis?: { name: string; unit: 'V' | 'A'; values: number[] };
+  /** Native measurements, or SPICE-text FIND AT measurements for single-source DC sweeps. */
   measurements?: DcMeasurementResultV1[];
   voltagesV: Record<string, number[]>; currentsA: Record<string, number[]>;
 }
@@ -124,6 +125,7 @@ export interface TransientResultV1 {
   type: 'tran'; analysisIndex: number; step?: StepCoordinateV1;
   timeS: number[]; voltagesV: Record<string, number[]>; currentsA: Record<string, number[]>;
   fourier?: FourierResultV1[];
+  /** Native measurements, or SPICE-text transient FIND AT measurements. */
   measurements?: TransientMeasurementResultV1[];
 }
 export interface ComplexPolarV1 { magnitude: number; phaseDegrees: number }

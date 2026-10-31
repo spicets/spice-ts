@@ -3,6 +3,9 @@ import type { ACResult, DCSweepResult, TransientResult } from '../results.js';
 import type { AnalysisDirective } from '../types.js';
 import type { SimulationRequestV1, AcMeasurementV1, TransientMeasurementV1, TransientMeasurementResultV1 } from './types.js';
 import { ProtocolExecutionError, type ProtocolExecutionGuard } from './execution-guard.js';
+import { measureCards } from '../measure/registry.js';
+import type { Circuit } from '../circuit.js';
+import type { SimulationResult } from '../results.js';
 
 function invalid(path: string): never {
   throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', phase: 'validation', retryable: false, message: `Invalid native measurement at ${path}`, details: { path } });
@@ -73,6 +76,20 @@ function card(m: TransientMeasurementV1 | AcMeasurementV1, analysis: 'tran' | 'd
   if (m.kind === 'trig') return `${prefix}trig ${clause(m.trig)} targ ${clause(m.targ)}`;
   if (m.kind === 'find') return `${prefix}find ${m.vector} ${'at' in m && m.at !== undefined ? `at=${m.at}` : `when ${clause(m.when!, true)}`}`;
   return `${prefix}${m.kind} ${m.vector}${m.from === undefined ? '' : ` from=${m.from}`}${m.to === undefined ? '' : ` to=${m.to}`}`;
+}
+
+/** Reuse the measurements already evaluated for this particular text analysis. */
+export function textMeasurements(circuit: Circuit, directive: AnalysisDirective, result: SimulationResult, guard: ProtocolExecutionGuard): TransientMeasurementResultV1[] | undefined {
+  if (directive.type !== 'tran' && (directive.type !== 'dc' || directive.secondary)) return undefined;
+  const lines = new Set(measureCards(circuit).filter(card => /^\.meas(?:ure)?\s+\S+\s+\S+\s+find\s+\S+\s+at\s*=/i.test(card.text)).map(card => card.line));
+  const measurements = result.measurements?.filter(m => m.analysis === directive.type && lines.has(m.line));
+  if (!measurements?.length) return undefined;
+  return measurements.map(m => {
+    guard.checkpoint('solve:measurement');
+    return m.status === 'ok' && m.value !== undefined && Number.isFinite(m.value)
+      ? { name: m.name, value: m.value }
+      : { name: m.name, diagnostic: { code: 'MEASUREMENT_FAILED', message: m.error ?? 'Measurement failed' } };
+  });
 }
 
 export function nativeMeasurements(request: SimulationRequestV1, index: number, directive: AnalysisDirective, result: TransientResult | DCSweepResult | ACResult, guard: ProtocolExecutionGuard): TransientMeasurementResultV1[] | undefined {
