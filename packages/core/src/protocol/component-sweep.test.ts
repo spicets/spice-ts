@@ -14,6 +14,45 @@ const document: SpiceTsCircuitDocumentV1 = {
 };
 
 describe('native component LIST', () => {
+  it('runs independent RC transient steps in order', async () => {
+    const values = [1000, 2000, 3000];
+    const doc: SpiceTsCircuitDocumentV1 = {
+      ...document,
+      circuit: { ...document.circuit, components: [...document.circuit.components, { type: 'C', id: 'C1', name: 'C1', ports: [{ name: 'p', net: 'out' }, { name: 'n', net: '0' }], params: { capacitance: 1e-6 } }] },
+      analyses: [{ type: 'tran', timestep: 1e-4, stopTime: 0.003, uic: true }],
+      initialConditions: { out: 1 },
+      componentSweep: { component: 'R1', values },
+    };
+    const ajv = new Ajv2020({ strict: true });
+    for (const name of ['common', 'simulation-request']) ajv.addSchema(JSON.parse(readFileSync(new URL(`../../protocol/schemas/${name}.schema.json`, import.meta.url), 'utf8')));
+    expect(ajv.getSchema('https://spice-ts.dev/schemas/v1/simulation-request.schema.json')!({ apiVersion: '1', input: { format: 'spice-ts', document: doc } })).toBe(true);
+    const run = (d: SpiceTsCircuitDocumentV1) => simulateProtocolV1({ apiVersion: '1', input: { format: 'spice-ts', document: d }, outputs: ['v(out)', 'i(V1)'] });
+    const stepped = await run(doc);
+    const invalidOutput: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice-ts', document: doc }, outputs: ['i(R1)'] };
+    for (const execute of [simulateProtocolV1, validateProtocolV1]) {
+      await expect(execute(invalidOutput).catch(mapProtocolErrorV1)).resolves.toMatchObject({ code: 'INVALID_REQUEST', details: { path: '/outputs/0' } });
+    }
+    expect(stepped.analyses.map(a => a.step)).toEqual(values.map((value, index) => ({ index, parameter: 'R1', value })));
+    for (const [index, value] of values.entries()) {
+      const { componentSweep: _sweep, ...base } = doc;
+      const separate = await run({ ...base, circuit: { ...base.circuit, components: base.circuit.components.map(c => c.name === 'R1' ? { ...c, params: { ...c.params, resistance: value } } : c) } });
+      const { step: _step, ...analysis } = stepped.analyses[index]!;
+      expect(analysis).toEqual(separate.analyses[0]);
+    }
+  });
+  it.each([['C', 'capacitance', [1e-6, 2e-6, 1e-6]], ['L', 'inductance', [0.001, 0.002, 0.001]]] as const)('isolates repeated %s transient runs', async (type, parameter, values) => {
+    const component = { type, id: `${type}1`, name: `${type}1`, ports: [{ name: 'p', net: 'out' }, { name: 'n', net: '0' }], params: { [parameter]: values[0] } };
+    const doc: SpiceTsCircuitDocumentV1 = { ...document, circuit: { ...document.circuit, components: [...document.circuit.components, component] }, analyses: [{ type: 'tran', timestep: 1e-5, stopTime: 0.0003 }], componentSweep: { component: component.name, values: [...values] } };
+    const run = (d: SpiceTsCircuitDocumentV1) => simulateProtocolV1({ apiVersion: '1', input: { format: 'spice-ts', document: d } });
+    const stepped = await run(doc);
+    expect(stepped.analyses.map(a => a.step)).toEqual(values.map((value, index) => ({ index, parameter: component.name, value })));
+    for (const [index, value] of values.entries()) {
+      const { componentSweep: _sweep, ...base } = doc;
+      const separate = await run({ ...base, circuit: { ...base.circuit, components: base.circuit.components.map(c => c.name === component.name ? { ...c, params: { [parameter]: value } } : c) } });
+      const { step: _step, ...actual } = stepped.analyses[index]!;
+      expect(actual).toEqual(separate.analyses[0]);
+    }
+  });
   it('accepts the shipped schema and matches text stepping', async () => {
     const request = { apiVersion: '1', input: { format: 'spice-ts', document } } as SimulationRequestV1;
     const ajv = new Ajv2020({ strict: true });
@@ -77,7 +116,7 @@ describe('native component LIST', () => {
     }
     for (const [override, path] of [
       [{ analyses: [] }, 'analyses'], [{ analyses: [{ type: 'op' }, { type: 'op' }] }, 'analyses'],
-      [{ analyses: [{ type: 'tran', timestep: 1, stopTime: 1 }] }, 'analyses/0/type'],
+      [{ analyses: [{ type: 'ac', variation: 'dec', points: 10, startFreq: 1, stopFreq: 10 }] }, 'analyses/0/type'],
       [{ temperatureSweep: { values: [27] } }, 'componentSweep'], [{ noiseAnalyses: [{}] }, 'noiseAnalyses'],
       [{ poleZeroAnalyses: [{}] }, 'poleZeroAnalyses'],
     ] as [object, string][]) for (const execute of [simulateProtocolV1, validateProtocolV1]) {
@@ -93,6 +132,19 @@ describe('native component LIST', () => {
     for (const values of [[], Array(17).fill(1), [0], [-1], [NaN], [Infinity]]) expect(validate(request({ ...document, componentSweep: { component: 'R1', values } }))).toBe(false);
     expect(validate(request({ ...document, componentSweep: { component: 'R1', values: Array(16).fill(1) } }))).toBe(true);
     for (const override of [{ temperatureSweep: { values: [27] } }, { analyses: [] }, { analyses: [{ type: 'op' }, { type: 'op' }] }, { analyses: [{ type: 'dc' }] }]) expect(validate(request({ ...document, ...override }))).toBe(false);
+  });
+  it('bounds combined transient points and serialized bytes', async () => {
+    const doc: SpiceTsCircuitDocumentV1 = { ...document, circuit: { ...document.circuit, components: [...document.circuit.components, { type: 'C', id: 'C1', name: 'C1', ports: [{ name: 'p', net: 'out' }, { name: 'n', net: '0' }], params: { capacitance: 1e-6 } }] }, analyses: [{ type: 'tran', timestep: 1e-4, stopTime: 0.001 }], componentSweep: { component: 'R1', values: [1000, 1000, 1000] } };
+    const request: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice-ts', document: doc } };
+    const { componentSweep: _sweep, ...single } = doc;
+    const one = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice-ts', document: single } });
+    const a = one.analyses[0]!;
+    if (a.type !== 'tran') throw new Error('expected transient');
+    const pointLimit = a.timeS.length * 2;
+    const byteLimit = new TextEncoder().encode(JSON.stringify(one)).length * 2;
+    for (const [limit, value] of [['maxResultPoints', pointLimit], ['maxSerializedResultBytes', byteLimit]] as const) {
+      await expect(simulateProtocolV1({ ...request, options: { limits: { [limit]: value } } }).catch(mapProtocolErrorV1)).resolves.toMatchObject({ code: 'RESOURCE_LIMIT', details: { limit } });
+    }
   });
   it('respects result limits and leaves unstepped requests unchanged', async () => {
     const request = { apiVersion: '1', input: { format: 'spice-ts', document }, options: { limits: { maxResultPoints: 2 } } } as SimulationRequestV1;

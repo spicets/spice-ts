@@ -86,7 +86,7 @@ export async function validateProtocolV1(
   const circuit = await requestCircuit(request, guard);
   guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
   const compiled = circuit.compile(guard);
-  validateOutputSelection(request, compiled);
+  validateOutputSelection(request, outputSelectionCircuit(request, compiled, guard));
   enforcePointLimit(circuit.analyses, guard, requestReltol(request, circuit), compiled.steps[0]);
   validateNativeTfOutputs(request, compiled);
   validateNativeFourier(request, compiled);
@@ -176,7 +176,7 @@ export async function simulateProtocolV1(
   if (request.outputs !== undefined) {
     guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
     preflight = circuit.compile(guard);
-    selection = validateOutputSelection(request, preflight);
+    selection = validateOutputSelection(request, outputSelectionCircuit(request, preflight, guard));
   }
   const analyses = circuit.analyses.map(protocolAnalysis);
   guard.maximum('maxAnalyses', analyses.length, 'validation');
@@ -193,40 +193,61 @@ export async function simulateProtocolV1(
   for (let analysisIndex = 0; analysisIndex < analyses.length; analysisIndex++) {
     const analysis = analyses[analysisIndex]!;
     circuit.analyses.splice(0, circuit.analyses.length, analysis);
-    const compiled = circuit.compile(guard);
-    const result = await simulate(circuit, options, guard);
-    for (const transient of result.steps ? result.steps.map(step => step.transient) : [result.transient]) {
-      if (transient) transient.fourier = nativeFourier(request, analysisIndex, compiled, transient, guard) ?? transient.fourier;
+    const nativeSweep = request.input.format === 'spice-ts' && analysis.type === 'tran'
+      ? request.input.document.componentSweep : undefined;
+    // A fresh native circuit per transient step avoids continuation and device-state leaks.
+    const runs = nativeSweep ? nativeSweep.values.map((value, index) => ({ value, index })) : [undefined];
+    for (const run of runs) {
+      let runCircuit = circuit;
+      if (run && nativeSweep && request.input.format === 'spice-ts') {
+        const { componentSweep: _sweep, ...document } = request.input.document;
+        const components = document.circuit.components.map(component => {
+          if (component.name.toUpperCase() !== nativeSweep.component.toUpperCase()) return component;
+          const parameter = { R: 'resistance', C: 'capacitance', L: 'inductance' }[component.type.toUpperCase()]!;
+          return { ...component, params: { ...component.params, [parameter]: run.value } };
+        });
+        runCircuit = applyProtocolTemperatures(circuitFromDocument({ ...document, circuit: { ...document.circuit, components } }, guard), request.options);
+      }
+      const compiled = runCircuit.compile(guard);
+      const result = await simulate(runCircuit, options, guard);
+      for (const transient of result.steps ? result.steps.map(step => step.transient) : [result.transient]) {
+        if (transient) transient.fourier = nativeFourier(request, analysisIndex, compiled, transient, guard) ?? transient.fourier;
+      }
+      const completedBefore = serialized.length;
+      if (run && nativeSweep) {
+        const parameter = preflight.steps[0]!.param;
+        serialized.push(serializeOne(result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, runCircuit, { index: run.index, parameter, value: run.value }));
+      } else {
+        appendAnalysisResult(serialized, result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, runCircuit);
+      }
+      const completedAnalyses = serialized.slice(completedBefore);
+      const transients = result.steps ? result.steps.map(step => step.transient) : [result.transient];
+      for (const [i, completed] of completedAnalyses.entries()) {
+        const transient = transients[i];
+        const dcSweep = result.steps ? result.steps[i]?.dcSweep : result.dcSweep;
+        if (completed.type === 'dc' && dcSweep) {
+          const measurements = nativeMeasurements(request, analysisIndex, analysis, dcSweep, guard);
+          if (measurements) completed.measurements = measurements;
+        }
+        if (completed.type === 'tran' && transient) {
+          const measurements = nativeMeasurements(request, analysisIndex, analysis, transient, guard);
+          if (measurements) completed.measurements = measurements;
+        }
+        const ac = result.steps ? result.steps[i]?.ac : result.ac;
+        if (completed.type === 'ac' && ac) {
+          const measurements = nativeMeasurements(request, analysisIndex, analysis, ac, guard);
+          if (measurements) completed.measurements = measurements;
+        }
+        execution?.onAnalysisComplete?.(selection ? selectOutputVectors(completed, selection) : completed);
+      }
+      guard.checkpoint('serialize:analysis');
+      guard.maximum('maxResultPoints', resultPointCount(serialized), 'serialize');
+      guard.maximum(
+        'maxSerializedResultBytes',
+        utf8Bytes(JSON.stringify({ status: 'complete', analyses: serialized } satisfies SimulationResultV1)),
+        'serialize',
+      );
     }
-    const completedBefore = serialized.length;
-    appendAnalysisResult(serialized, result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, circuit);
-    const completedAnalyses = serialized.slice(completedBefore);
-    const transients = result.steps ? result.steps.map(step => step.transient) : [result.transient];
-    for (const [i, completed] of completedAnalyses.entries()) {
-      const transient = transients[i];
-      const dcSweep = result.steps ? result.steps[i]?.dcSweep : result.dcSweep;
-      if (completed.type === 'dc' && dcSweep) {
-        const measurements = nativeMeasurements(request, analysisIndex, analysis, dcSweep, guard);
-        if (measurements) completed.measurements = measurements;
-      }
-      if (completed.type === 'tran' && transient) {
-        const measurements = nativeMeasurements(request, analysisIndex, analysis, transient, guard);
-        if (measurements) completed.measurements = measurements;
-      }
-      const ac = result.steps ? result.steps[i]?.ac : result.ac;
-      if (completed.type === 'ac' && ac) {
-        const measurements = nativeMeasurements(request, analysisIndex, analysis, ac, guard);
-        if (measurements) completed.measurements = measurements;
-      }
-      execution?.onAnalysisComplete?.(selection ? selectOutputVectors(completed, selection) : completed);
-    }
-    guard.checkpoint('serialize:analysis');
-    guard.maximum('maxResultPoints', resultPointCount(serialized), 'serialize');
-    guard.maximum(
-      'maxSerializedResultBytes',
-      utf8Bytes(JSON.stringify({ status: 'complete', analyses: serialized } satisfies SimulationResultV1)),
-      'serialize',
-    );
   }
 
   circuit.analyses.splice(0, circuit.analyses.length, ...analyses);
@@ -235,6 +256,13 @@ export async function simulateProtocolV1(
 }
 
 type OutputSelection = { nodes: Set<string>; branches: Set<string> };
+
+// Stepping may add a synthetic branch; transient runs use independent unstepped circuits.
+function outputSelectionCircuit(request: SimulationRequestV1, compiled: CompiledCircuit, guard: ProtocolExecutionGuard): CompiledCircuit {
+  if (request.outputs === undefined || request.input.format !== 'spice-ts' || !request.input.document.componentSweep || request.input.document.analyses[0]?.type !== 'tran') return compiled;
+  const { componentSweep: _sweep, ...document } = request.input.document;
+  return applyProtocolTemperatures(circuitFromDocument(document, guard), request.options).compile(guard);
+}
 
 function validateOutputSelection(request: SimulationRequestV1, compiled: CompiledCircuit): OutputSelection | undefined {
   if (request.outputs === undefined) return undefined;
@@ -586,7 +614,7 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
       if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) invalidNativeField(`${path}/values/${index}`);
     }
     if (document.analyses.length !== 1) invalidNativeField('/input/document/analyses');
-    if (document.analyses[0]?.type !== 'op') invalidNativeField('/input/document/analyses/0/type');
+    if (!['op', 'tran'].includes(document.analyses[0]?.type ?? '')) invalidNativeField('/input/document/analyses/0/type');
     if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
     if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
     circuit.addStep(targets[0]!.name, { values: sweep.values });
