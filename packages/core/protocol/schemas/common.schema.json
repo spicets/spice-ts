@@ -1550,7 +1550,10 @@
                   "type": "object",
                   "properties": {
                     "type": {
-                      "const": "op"
+                      "enum": [
+                        "op",
+                        "tran"
+                      ]
                     }
                   },
                   "required": [
