@@ -308,9 +308,14 @@ The compact JSON input and output obey `maxDocumentBytes` and
 
 Call `spice_measure` with `{ request: SimulationRequestV1, measurements: [...] }`.
 Each item has `kind` (`min`, `max`, `avg`, `rms`, `pp`, `at`, `cross`, `when`, or `integ`),
-`signal`, and a zero-based `analysis` index. Signals are case-insensitive `v(node)`
-or `i(branch)`; AC uses magnitude by default and also supports `mag(v(node))`,
-`db(v(node))` and the corresponding current projections. dB is 20 log10 of the
+`signal`, and a zero-based `analysis` index. Signals are case-insensitive `v(node)`,
+`v(positive,negative)`, or `i(branch)`. Differential voltage subtracts the negative
+node from the positive node; `0` denotes ground. Missing nodes return `UNKNOWN_SIGNAL`.
+No arbitrary expressions or differential current selectors are supported. AC uses
+magnitude by default and also supports `mag(v(node))`, `db(v(node))`, `phase(v(node))`
+and corresponding differential voltage or current projections. Differential AC
+subtracts complex phasors before projection. Phase is unwrapped in frequency order,
+in degrees, and a zero phasor has undefined phase. dB is 20 log10 of the
 magnitude relative to 1 V or 1 A, not a transfer-function ratio.
 
 Optional `from`/`to` delimit an inclusive axis window. `at` needs an `at` coordinate.
