@@ -75,6 +75,12 @@ describe('differential AC selector contract', () => {
     expect(() => acMetrics(result, { output: 'a', input: 'v(b,b)' })).toThrow(expect.objectContaining({ code: 'INVALID_REQUEST', details: { reason: 'UNDEFINED_TRANSFER' } }));
   });
 
+  it('cancels equivalent phases across the branch cut without erasing nearby differences', () => {
+    const phases = (b: number): SimulationResultV1 => ({ status: 'complete', analyses: [{ type: 'ac', analysisIndex: 0, frequencyHz: [1], currentPhasors: {}, voltagePhasors: { out: [p(1, 0)], a: [p(1, 180)], b: [p(1, b)] } }] });
+    expect(() => acMetrics(phases(-180), { output: 'out', input: 'v(a,b)' })).toThrow(expect.objectContaining({ code: 'INVALID_REQUEST', details: { reason: 'UNDEFINED_TRANSFER' } }));
+    expect(acMetrics(phases(-180 + 2 ** -45), { output: 'out', input: 'v(a,b)' }).dcGainDb).not.toBeNull();
+  });
+
   it('does not suppress representable small differences', () => {
     const tiny: SimulationResultV1 = { status: 'complete', analyses: [{ type: 'ac', analysisIndex: 0, frequencyHz: [1], currentPhasors: {}, voltagePhasors: { a: [p(1, 0)], b: [p(1 - Number.EPSILON, 0)] } }] };
     expect(acMetrics(tiny, { output: 'v(a,b)' }).dcGainDb).toBeCloseTo(20 * Math.log10(Number.EPSILON), 10);

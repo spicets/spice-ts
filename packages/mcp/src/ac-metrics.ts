@@ -75,7 +75,10 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
       if (![p.magnitude, p.phaseDegrees, q.magnitude, q.phaseDegrees].every(Number.isFinite) || p.magnitude < 0 || q.magnitude < 0) {
         invalid('Transfer function contains invalid phasors or a zero input', { reason: 'UNDEFINED_TRANSFER' });
       }
-      const pa = p.phaseDegrees * Math.PI / 180; const qa = q.phaseDegrees * Math.PI / 180;
+      // The two exact endpoints represent the same phasor; use one endpoint
+      // before evaluating sine so that their roundoff cancels exactly.
+      const pa = (p.phaseDegrees === -180 ? 180 : p.phaseDegrees) * Math.PI / 180;
+      const qa = (q.phaseDegrees === -180 ? 180 : q.phaseDegrees) * Math.PI / 180;
       const real = p.magnitude * Math.cos(pa) - q.magnitude * Math.cos(qa);
       const imag = p.magnitude * Math.sin(pa) - q.magnitude * Math.sin(qa);
       return { magnitude: Math.hypot(real, imag), phaseDegrees: Math.atan2(imag, real) * 180 / Math.PI };
