@@ -31,6 +31,36 @@ const document = {
 const jsonRequest = { apiVersion: '1', input: { format: 'spice-ts', document } };
 
 describe('spice_noise_metrics', () => {
+  it('reports input-referred SNR for SPICE text and native JSON', async () => {
+    const selectors = { bandHz: [15, 12345], signalRms: 0.001 };
+    const inputValidator = validator.getValidator(MCP_TOOLS.find(t => t.name === 'spice_noise_metrics')!.inputSchema);
+    let expected: unknown;
+    for (const input of [{ netlist: rc }, { request: jsonRequest }]) {
+      const args = { ...input, ...selectors };
+      expect(inputValidator(args).valid).toBe(true);
+      const response = await executeTool('spice_noise_metrics', args);
+      expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+      expect(validator.getValidator(MCP_TOOLS.find(t => t.name === 'spice_noise_metrics')!.outputSchema!)(response.structuredContent).valid).toBe(true);
+      const m = response.structuredContent as unknown as { integratedInputNoiseRms: number; signalToNoiseRatioDb: number; inputUnit: string };
+      expect(m.inputUnit).toBe('V');
+      expect(m.signalToNoiseRatioDb).toBeCloseTo(20 * Math.log10(selectors.signalRms / m.integratedInputNoiseRms), 10);
+      if (expected) expect(m).toEqual(expected);
+      expected = m;
+    }
+  });
+  it('uses amperes for an input current source', async () => {
+    const netlist = 'I1 0 in AC 1\nR1 in out 1k\nR2 out 0 2k\n.noise V(out) I1 dec 10 1 1e4\n.end';
+    const response = await executeTool('spice_noise_metrics', { netlist, bandHz: [15, 1234], signalRms: 1e-6 });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    const m = response.structuredContent as unknown as { integratedInputNoiseRms: number; signalToNoiseRatioDb: number; inputUnit: string };
+    expect(m.inputUnit).toBe('A');
+    expect(m.signalToNoiseRatioDb).toBeCloseTo(20 * Math.log10(1e-6 / m.integratedInputNoiseRms), 10);
+  });
+  it.each([0, -1, NaN, Infinity, -Infinity, '1', null, undefined])('rejects invalid signalRms %s without coercion', async signalRms => {
+    const response = await executeTool('spice_noise_metrics', { netlist: rc, signalRms });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST' } } });
+    if (signalRms !== undefined) expect(validator.getValidator(MCP_TOOLS.find(t => t.name === 'spice_noise_metrics')!.inputSchema)({ netlist: rc, signalRms }).valid).toBe(false);
+  });
   it('matches every SPICE scalar exactly for native JSON and legacy netlist', async () => {
     const selectors = { bandHz: [10, 100000], spotFrequenciesHz: [10, 1000, 12345] };
     const expected = await run(selectors);
