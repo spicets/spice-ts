@@ -19,6 +19,17 @@ describe('power RMS dynamic range', () => {
     expect(metric.energyJ).toBeCloseTo(Math.sign(current), 12);
   });
 
+  it('retains the maximum finite current across many segments', () => {
+    const plan = powerPlan({ netlist: 'V1 in 0 0\n.tran 1 10', elements: ['V1'] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const times = Array.from({ length: 11 }, (_, i) => i);
+    const report = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: times,
+      voltagesV: { in: times.map(() => 0) }, currentsA: { V1: times.map(() => Number.MAX_VALUE) },
+    }] }, plan);
+    expect(report.elements[0].rmsCurrentA / Number.MAX_VALUE).toBeCloseTo(1, 12);
+  });
+
   it('retains the smallest subnormal current across many segments', () => {
     const plan = powerPlan({ netlist: 'V1 in 0 0\n.tran 1 10', elements: ['V1'] });
     if ('error' in plan) throw new Error('Expected a plan');

@@ -145,7 +145,8 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       if (a < 0 && vertex > 0 && vertex < 1) consider((vl + dv * vertex) * (il + di * vertex), left + duration * vertex);
       consider(vr * ir, right);
     }
-    return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: rmsScale * rmsNormalized, peakPowerW, peakTimeS };
+    // An RMS cannot exceed the largest endpoint magnitude; clamp roundoff in the norm.
+    return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: rmsScale * Math.min(1, rmsNormalized), peakPowerW, peakTimeS };
   });
   const sum = (names: string[]) => elements.filter(e => names.some(n => n.toLowerCase() === e.name.toLowerCase())).reduce((s, e) => s + e.averagePowerW, 0);
   const pin = plan.args.input ? -sum(plan.args.input) : 0;
