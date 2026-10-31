@@ -62,8 +62,39 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     if (key === undefined) invalid('Unknown voltage node', { reason: 'UNKNOWN_NODE', node: name });
     return a.voltagePhasors[key];
   };
-  const out = node(args.output);
-  const input = args.input === undefined ? undefined : node(args.input);
+  const voltage = (selector: string) => {
+    if (!/[(),]/.test(selector)) return node(selector);
+    const match = /^v\(\s*([^\s(),]+)\s*,\s*([^\s(),]+)\s*\)$/i.exec(selector);
+    if (!match || selector.length > 256) invalid('Invalid differential voltage selector', { reason: 'INVALID_SELECTOR' });
+    const operand = (name: string) => name === '0'
+      ? a.frequencyHz.map(() => ({ magnitude: 0, phaseDegrees: 0 })) : node(name);
+    const positive = operand(match[1]); const negative = operand(match[2]);
+    if (positive.length !== a.frequencyHz.length || negative.length !== a.frequencyHz.length) invalid('AC frequencies must be finite, positive and increasing');
+    return positive.map((p, i) => {
+      const q = negative[i];
+      if (![p.magnitude, p.phaseDegrees, q.magnitude, q.phaseDegrees].every(Number.isFinite) || p.magnitude < 0 || q.magnitude < 0) {
+        invalid('Transfer function contains invalid phasors or a zero input', { reason: 'UNDEFINED_TRANSFER' });
+      }
+      // Subtract in p's frame, using the relative angle before converting to
+      // radians. Independent sine evaluations lose tiny phase differences.
+      const principal = (angle: number) => {
+        const r = angle % 360;
+        return r >= 180 ? r - 360 : r < -180 ? r + 360 : r;
+      };
+      const pa = principal(p.phaseDegrees); const qa = principal(q.phaseDegrees);
+      let delta = qa - pa;
+      // Split the wrap at ±180 to retain differences smaller than an ulp of 360.
+      if (delta > 180) delta = (qa - 180) - (pa + 180);
+      else if (delta < -180) delta = (qa + 180) - (pa - 180);
+      const radians = delta * Math.PI / 180;
+      const sineHalf = Math.sin(radians / 2);
+      const real = (p.magnitude - q.magnitude) + q.magnitude * (2 * sineHalf * sineHalf);
+      const imag = -q.magnitude * Math.sin(radians);
+      return { magnitude: Math.hypot(real, imag), phaseDegrees: pa + Math.atan2(imag, real) * 180 / Math.PI };
+    });
+  };
+  const out = voltage(args.output);
+  const input = args.input === undefined ? undefined : voltage(args.input);
   const f = a.frequencyHz;
   if (args.groupDelayAtHz !== undefined && f.length < 2) invalid('Group delay requires at least two frequency samples', { reason: 'INSUFFICIENT_GROUP_DELAY_POINTS' });
   if (!f.length || out.length !== f.length || (input && input.length !== f.length)
