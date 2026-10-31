@@ -313,7 +313,7 @@ The compact JSON input and output obey `maxDocumentBytes` and
 ## Scalar measurements
 
 Call `spice_measure` with `{ request: SimulationRequestV1, measurements: [...] }`.
-Each item has `kind` (`min`, `max`, `avg`, `rms`, `pp`, `at`, `cross`, `when`, or `integ`),
+Each item has `kind` (`min`, `max`, `avg`, `rms`, `pp`, `at`, `cross`, `when`, `integ`, or `duty`),
 `signal`, and a zero-based `analysis` index. Signals are case-insensitive `v(node)`,
 `v(positive,negative)`, or `i(branch)`. Differential voltage subtracts the negative
 node from the positive node; `0` denotes ground. An exact case-insensitive match for
@@ -340,6 +340,12 @@ For transient analyses only, `integ` returns the signed trapezoidal time integra
 of the stored piecewise-linear samples, clipped at the interpolated window bounds.
 Voltage integrals use `V*s`; current integrals use `A*s` (coulombs). A zero-width
 window returns zero. This is not exact continuous-waveform quadrature.
+Transient `duty` requires a finite `value` threshold and returns the fraction of a
+nonzero window for which the signal is strictly above it, with dimensionless unit
+`1`. It integrates time above the threshold over linearly interpolated saved samples,
+including interpolated crossings and window boundaries. It makes no claim about the
+physical continuous-time waveform between saved samples. `at`, `edge`, `occurrence`,
+`trigger`, and `target` are not applicable to `duty`.
 Descending DC axes are supported. OP reductions treat the signal as one sample at
 coordinate 0; OP crossings are unavailable. Optional `step` is a nonnegative integer
 matching the zero-based `step.index` metadata in `SimulationResultV1`. Select each
