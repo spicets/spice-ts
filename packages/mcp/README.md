@@ -128,7 +128,9 @@ Call `spice_dc_metrics` with `{ request: SimulationRequestV1, sweptSource: "Vin"
 The request accepts the same SPICE, spice-ts JSON and circuit-json formats as `spice_simulate`,
 with their existing conversion restrictions. Exactly one DC result must match the source
 (case-insensitive). Split repeated/stepped sweeps into separate requests. Expressions are
-case-insensitive `v(node)` signals. The input voltage must be strictly monotonic; when
+case-insensitive `v(node)` or `v(positive,negative)` signals. An exact literal node name,
+including commas, takes precedence over differential parsing; node `0` is ground in a
+differential expression. The input voltage must be strictly monotonic; when
 omitted, it is the sweep axis, which must be a voltage sweep.
 
 Every numeric metric is `{ value: number | null, unit: string, reason?: string }`.

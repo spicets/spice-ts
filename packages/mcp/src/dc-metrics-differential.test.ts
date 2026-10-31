@@ -38,6 +38,28 @@ describe('differential DC metrics', () => {
     expect(dcMetricsResult(current, { sweptSource: 'Vin', input: 'v(ip,im)', output: 'v(op,om)' }).gainMax.value).toBe(2);
   });
 
+  it.each([false, true])('prefers literal comma-named nodes through the tool (operand collision: %s)', async collision => {
+    const ports = (p: string, n: string) => [{ name: 'p', net: p }, { name: 'n', net: n }];
+    const request = { apiVersion: '1', input: { format: 'spice-ts', document: {
+      format: 'spice-ts', schemaVersion: '1.0', models: [], subcircuits: [],
+      circuit: { nets: ['in', 'N,1', ...(collision ? ['N', '1'] : [])], components: [
+        { type: 'V', id: 'v1', name: 'V1', ports: ports('in', '0'), params: { dc: 0 } },
+        { type: 'R', id: 'r1', name: 'R1', ports: ports('in', 'N,1'), params: { resistance: 1000 } },
+        { type: 'R', id: 'r2', name: 'R2', ports: ports('N,1', '0'), params: { resistance: 1000 } },
+        ...(collision ? [
+          { type: 'V', id: 'v2', name: 'V2', ports: ports('N', '0'), params: { dc: 3 } },
+          { type: 'V', id: 'v3', name: 'V3', ports: ports('1', '0'), params: { dc: 1 } },
+        ] : []),
+      ] }, analyses: [{ type: 'dc', source: 'V1', start: 0, stop: 4, step: 1 }],
+    } } };
+    const output = await executeTool('spice_dc_metrics', { request, sweptSource: 'V1', output: 'v(n,1)' });
+    expect(output.isError, JSON.stringify(output.structuredContent)).not.toBe(true);
+    expect(output.structuredContent).toMatchObject({ gainMax: { value: 0.5 }, voh: { value: 0 }, vol: { value: 2 } });
+    const input = await executeTool('spice_dc_metrics', { request, sweptSource: 'V1', input: 'v(N,1)', output: 'v(in)' });
+    expect(input.isError, JSON.stringify(input.structuredContent)).not.toBe(true);
+    expect(input.structuredContent).toMatchObject({ gainMax: { value: 2 }, vol: { value: 4 } });
+  });
+
   it('runs native JSON through the registered tool with ground and case-insensitive differential inputs', async () => {
     const ports = (p: string, n: string) => [{ name: 'p', net: p }, { name: 'n', net: n }];
     const request = { apiVersion: '1', input: { format: 'spice-ts', document: {

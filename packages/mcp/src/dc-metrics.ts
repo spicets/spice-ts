@@ -55,7 +55,9 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
   const sweep = a.axis.values;
   const voltage = (signal: string): number[] => {
     if (!new RegExp(voltagePattern).test(signal)) invalid('DC transfer expressions must be v(node) or v(positive,negative)');
-    const names = signal.slice(2, -1).split(',').map(name => name.trim().toLowerCase());
+    const literal = signal.slice(2, -1).trim().toLowerCase();
+    const hasLiteral = Object.keys(a.voltagesV).some(key => key.toLowerCase() === literal);
+    const names = hasLiteral ? [literal] : literal.split(',').map(name => name.trim());
     const vector = (name: string): number[] => {
       if (names.length === 2 && name === '0') return sweep.map(() => 0);
       const key = Object.keys(a.voltagesV).find(key => key.toLowerCase() === name);
