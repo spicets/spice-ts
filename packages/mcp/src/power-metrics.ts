@@ -116,7 +116,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     const current = vector(trace.currentsA, probe.branch);
     const vp = vector(trace.voltagesV, probe.positive);
     const vn = vector(trace.voltagesV, probe.negative);
-    let energy = 0; let squareIntegral = 0; let peakPowerW = -Infinity; let peakTimeS = start;
+    let energy = 0; let rmsScale = 0; let rmsNormalized = 0; let peakPowerW = -Infinity; let peakTimeS = start;
     for (let k = 1; k < times.length; k++) {
       const left = Math.max(start, times[k - 1]); const right = Math.min(stop, times[k]);
       if (right <= left) continue;
@@ -127,7 +127,16 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       const dv = vr - vl; const di = ir - il; const duration = right - left;
       const a = dv * di; const b = vl * di + il * dv; const c = vl * il;
       energy += duration * (c + b / 2 + a / 3);
-      squareIntegral += duration * (il * il + il * di + di * di / 3);
+      // Normalize before squaring, and combine segment RMS values without squaring their scale.
+      const scale = Math.max(Math.abs(il), Math.abs(ir));
+      if (scale > 0) {
+        const l = il / scale; const r = ir / scale;
+        const nextScale = Math.max(rmsScale, scale);
+        const segmentRms = Math.sqrt((l * l + l * r + r * r) / 3);
+        const weight = Math.sqrt(duration) / Math.sqrt(stop - start);
+        rmsNormalized = Math.hypot(rmsNormalized * (rmsScale / nextScale), (scale / nextScale) * segmentRms * weight);
+        rmsScale = nextScale;
+      }
       const consider = (power: number, time: number) => {
         if (power > peakPowerW) { peakPowerW = power; peakTimeS = time; }
       };
@@ -136,7 +145,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       if (a < 0 && vertex > 0 && vertex < 1) consider((vl + dv * vertex) * (il + di * vertex), left + duration * vertex);
       consider(vr * ir, right);
     }
-    return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: Math.sqrt(squareIntegral / (stop - start)), peakPowerW, peakTimeS };
+    return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: rmsScale * rmsNormalized, peakPowerW, peakTimeS };
   });
   const sum = (names: string[]) => elements.filter(e => names.some(n => n.toLowerCase() === e.name.toLowerCase())).reduce((s, e) => s + e.averagePowerW, 0);
   const pin = plan.args.input ? -sum(plan.args.input) : 0;
