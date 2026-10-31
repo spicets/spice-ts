@@ -18,10 +18,16 @@ describe('differential DC metrics', () => {
     expect(result).toEqual(before);
   });
 
-  it.each(['v()', 'v(,a)', 'v(a,)', 'v(a,b,c)', 'v(a,,b)', 'v(v(a),b)', 'v( ,b)', 'i(a,b)'])('rejects malformed expression %s consistently with the schema', signal => {
+  it.each(['v()', 'v(v(a),b)', 'i(a,b)'])('rejects malformed expression %s consistently with the schema', signal => {
     expect(new RegExp(dcMetricsProperties.output.pattern).test(signal)).toBe(false);
     expect(() => dcMetricsInput({ sweptSource: 'Vin', output: signal })).toThrow(expect.objectContaining({ code: 'INVALID_REQUEST' }));
     expect(() => dcMetricsInput({ sweptSource: 'Vin', output: 'v(x)', input: signal })).toThrow(expect.objectContaining({ code: 'INVALID_REQUEST' }));
+  });
+
+  it.each(['v(,a)', 'v(a,)', 'v(a,b,c)', 'v(a,,b)', 'v( ,b)'])('rejects unknown malformed expression %s after literal lookup', signal => {
+    expect(new RegExp(dcMetricsProperties.output.pattern).test(signal)).toBe(true);
+    expect(() => dcMetricsResult(result, dcMetricsInput({ sweptSource: 'Vin', output: signal }))).toThrow(expect.objectContaining({ code: 'INVALID_REQUEST' }));
+    expect(() => dcMetricsResult(result, dcMetricsInput({ sweptSource: 'Vin', output: 'v(x)', input: signal }))).toThrow(expect.objectContaining({ code: 'INVALID_REQUEST' }));
   });
 
   it.each(['v(x,missing)', 'v(missing,0)', 'v(0,missing)'])('rejects unknown nodes in %s', output => {
@@ -38,24 +44,24 @@ describe('differential DC metrics', () => {
     expect(dcMetricsResult(current, { sweptSource: 'Vin', input: 'v(ip,im)', output: 'v(op,om)' }).gainMax.value).toBe(2);
   });
 
-  it.each([false, true])('prefers literal comma-named nodes through the tool (operand collision: %s)', async collision => {
+  it.each([['N,1', false], ['N,1', true], ['N,1,2', false], ['N,,1', false]])('prefers literal comma-named node %s through the tool (collision: %s)', async (node, collision) => {
     const ports = (p: string, n: string) => [{ name: 'p', net: p }, { name: 'n', net: n }];
     const request = { apiVersion: '1', input: { format: 'spice-ts', document: {
       format: 'spice-ts', schemaVersion: '1.0', models: [], subcircuits: [],
-      circuit: { nets: ['in', 'N,1', ...(collision ? ['N', '1'] : [])], components: [
+      circuit: { nets: ['in', node, ...(collision ? ['N', '1'] : [])], components: [
         { type: 'V', id: 'v1', name: 'V1', ports: ports('in', '0'), params: { dc: 0 } },
-        { type: 'R', id: 'r1', name: 'R1', ports: ports('in', 'N,1'), params: { resistance: 1000 } },
-        { type: 'R', id: 'r2', name: 'R2', ports: ports('N,1', '0'), params: { resistance: 1000 } },
+        { type: 'R', id: 'r1', name: 'R1', ports: ports('in', node), params: { resistance: 1000 } },
+        { type: 'R', id: 'r2', name: 'R2', ports: ports(node, '0'), params: { resistance: 1000 } },
         ...(collision ? [
           { type: 'V', id: 'v2', name: 'V2', ports: ports('N', '0'), params: { dc: 3 } },
           { type: 'V', id: 'v3', name: 'V3', ports: ports('1', '0'), params: { dc: 1 } },
         ] : []),
       ] }, analyses: [{ type: 'dc', source: 'V1', start: 0, stop: 4, step: 1 }],
     } } };
-    const output = await executeTool('spice_dc_metrics', { request, sweptSource: 'V1', output: 'v(n,1)' });
+    const output = await executeTool('spice_dc_metrics', { request, sweptSource: 'V1', output: `v(${node.toLowerCase()})` });
     expect(output.isError, JSON.stringify(output.structuredContent)).not.toBe(true);
     expect(output.structuredContent).toMatchObject({ gainMax: { value: 0.5 }, voh: { value: 0 }, vol: { value: 2 } });
-    const input = await executeTool('spice_dc_metrics', { request, sweptSource: 'V1', input: 'v(N,1)', output: 'v(in)' });
+    const input = await executeTool('spice_dc_metrics', { request, sweptSource: 'V1', input: `v(${node})`, output: 'v(in)' });
     expect(input.isError, JSON.stringify(input.structuredContent)).not.toBe(true);
     expect(input.structuredContent).toMatchObject({ gainMax: { value: 2 }, vol: { value: 4 } });
   });

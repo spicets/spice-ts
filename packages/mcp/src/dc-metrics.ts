@@ -7,7 +7,8 @@ type DcMetrics = Record<'switchingThreshold' | 'voh' | 'vol' | 'vil' | 'vih' | '
   gainMax: GainMetric; monotonic: boolean;
 };
 
-const voltagePattern = '^[vV]\\(\\s*[^\\s(),](?:[^(),]*[^\\s(),])?\\s*(?:,\\s*[^\\s(),](?:[^(),]*[^\\s(),])?\\s*)?\\)$';
+const voltagePattern = '^[vV]\\([^()]+\\)$';
+const differentialPattern = /^[^\s(),](?:[^(),]*[^\s(),])?\s*,\s*[^\s(),](?:[^(),]*[^\s(),])?$/;
 export const dcMetricsProperties = {
   sweptSource: { type: 'string', minLength: 1, maxLength: 256 },
   output: { type: 'string', minLength: 1, maxLength: 256, pattern: voltagePattern, description: 'Voltage expression v(node) or v(positive,negative).' },
@@ -57,6 +58,7 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     if (!new RegExp(voltagePattern).test(signal)) invalid('DC transfer expressions must be v(node) or v(positive,negative)');
     const literal = signal.slice(2, -1).trim().toLowerCase();
     const hasLiteral = Object.keys(a.voltagesV).some(key => key.toLowerCase() === literal);
+    if (!hasLiteral && literal.includes(',') && !differentialPattern.test(literal)) invalid(`Unknown voltage signal: ${signal}`);
     const names = hasLiteral ? [literal] : literal.split(',').map(name => name.trim());
     const vector = (name: string): number[] => {
       if (names.length === 2 && name === '0') return sweep.map(() => 0);
