@@ -3,6 +3,7 @@ import type { SimulationResultV1 } from '@spice-ts/core/protocol';
 export interface TranMetricsArgs {
   signal: string;
   analysis?: number;
+  step?: number;
   initialValue?: number;
   finalValue?: number;
   settlingBandPercent?: number;
@@ -14,12 +15,13 @@ export interface TranMetrics {
   overshootPercent: number; undershootPercent: number;
   settlingTimeS: number; peakValue: number; peakTimeS: number;
 }
-const codes = ['NOT_TRANSIENT', 'SIGNAL_NOT_FOUND', 'NO_TRANSITION', 'NOT_SETTLED', 'INVALID_DATA'] as const;
+const codes = ['NOT_TRANSIENT', 'UNKNOWN_STEP', 'SIGNAL_NOT_FOUND', 'NO_TRANSITION', 'NOT_SETTLED', 'INVALID_DATA'] as const;
 type MetricsError = { error: { code: typeof codes[number]; message: string } };
 const metricNames = ['initialValue', 'finalValue', 'riseTimeS', 'fallTimeS', 'overshootPercent', 'undershootPercent', 'settlingTimeS', 'peakValue', 'peakTimeS', 'maxRiseSlewPerS', 'maxFallSlewPerS'] as const;
 export const tranMetricsProperties = {
   signal: { type: 'string', minLength: 1, maxLength: 256 },
   analysis: { type: 'integer', minimum: 0 },
+  step: { type: 'integer', minimum: 0 },
   initialValue: { type: 'number' }, finalValue: { type: 'number' },
   settlingBandPercent: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100, default: 2 },
 };
@@ -47,20 +49,24 @@ export function tranMetricsArgs(raw: unknown): TranMetricsArgs {
     || Object.keys(a).some(key => !['request', ...Object.keys(tranMetricsProperties)].includes(key))
     || typeof a.signal !== 'string' || !a.signal.length || a.signal.length > 256
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
+    || (a.step !== undefined && (!Number.isInteger(a.step) || (a.step as number) < 0))
     || ['initialValue', 'finalValue', 'settlingBandPercent'].some(key => a[key] !== undefined && (typeof a[key] !== 'number' || !Number.isFinite(a[key])))
     || (a.settlingBandPercent !== undefined && ((a.settlingBandPercent as number) <= 0 || (a.settlingBandPercent as number) >= 100))) {
-    throw { code: 'INVALID_REQUEST', message: 'Expected signal, optional analysis, finite endpoint values and settlingBandPercent between 0 and 100', phase: 'validation', retryable: false, details: {} };
+    throw { code: 'INVALID_REQUEST', message: 'Expected signal, optional nonnegative integer analysis and step, finite endpoint values and settlingBandPercent between 0 and 100', phase: 'validation', retryable: false, details: {} };
   }
   return a as unknown as TranMetricsArgs;
 }
 
 const error = (code: MetricsError['error']['code'], message: string): MetricsError => ({ error: { code, message } });
 
-/** One step per trace. Endpoint levels default to first/last samples; no extrapolation. */
+/** Endpoint levels default to first/last samples; no extrapolation. */
 export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): TranMetrics | MetricsError {
   const selected = result.analyses.filter(a => args.analysis === undefined ? a.type === 'tran' : a.analysisIndex === args.analysis);
-  if (selected.length !== 1 || selected[0].type !== 'tran') return error('NOT_TRANSIENT', 'Select exactly one transient analysis; run stepped analyses separately');
-  const a = selected[0];
+  if (!selected.length || selected.some(a => a.type !== 'tran') || new Set(selected.map(a => a.analysisIndex)).size !== 1) return error('NOT_TRANSIENT', 'Select exactly one transient analysis');
+  const traces = args.step === undefined ? selected : selected.filter(a => (a.step?.index ?? 0) === args.step);
+  if (!traces.length) return error('UNKNOWN_STEP', 'No transient trace has the requested step index');
+  if (traces.length !== 1 || traces[0].type !== 'tran') return error('NOT_TRANSIENT', 'Select exactly one transient trace');
+  const a = traces[0];
   const match = /^([vi])\(([^()]+)\)$/i.exec(args.signal);
   const values = match?.[1].toLowerCase() === 'v' ? a.voltagesV : a.currentsA;
   const key = match && Object.keys(values).find(key => key.toLowerCase() === match[2].toLowerCase());
