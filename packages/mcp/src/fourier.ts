@@ -104,9 +104,12 @@ export function fourierMetrics(result: SimulationResultV1, args: FourierArgs): F
     const first = x.findIndex(t => t >= start);
     const from = Math.max(0, first - (x[first] > start ? 1 : 0));
     const [positive, negative] = operands;
-    // Use an in-window reference so a large interpolation support sample does
-    // not set the precision threshold for the entire measured waveform.
-    const roundoff = y.every((v, i) => i < from || Math.abs(v - y![first]) <= Number.EPSILON * Math.max(Math.abs(positive[i]), Math.abs(negative[i]), Math.abs(positive[first]), Math.abs(negative[first])));
+    // Compare against the least uncertain sample, so a large common-mode
+    // operand at any one point cannot mask resolved changes at other points.
+    const scale = (i: number) => Math.max(Math.abs(positive[i]), Math.abs(negative[i]));
+    let reference = from;
+    for (let i = from + 1; i < x.length; i++) if (scale(i) < scale(reference)) reference = i;
+    const roundoff = y.every((v, i) => i < from || Math.abs(v - y![reference]) <= Number.EPSILON * Math.max(scale(i), scale(reference)));
     if (roundoff) return error('INVALID_DATA', 'Fourier arithmetic is non-finite, or the fundamental is zero');
   }
   // Retain pre-window samples as interpolation support, just like the core command.

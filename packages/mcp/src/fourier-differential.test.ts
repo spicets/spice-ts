@@ -38,6 +38,18 @@ describe('spice_fourier differential voltages', () => {
     expect(actual.harmonics[0].magnitude / oracle.harmonics[1].magnitude).toBeCloseTo(1, 12);
     expect(actual.thdPercent).toBeCloseTo(oracle.thd, 12);
   });
+  it('preserves a resolved signal after a large first in-window common-mode sample', async () => {
+    const time = [0, 1, 2, 3];
+    const positive = [1000, 1000, 1e-13, -1e-13];
+    const negative = [1000, 1000, 0, 0];
+    const difference = positive.map((v, i) => v - negative[i]);
+    const oracle = ngspiceFourier('oracle', Float64Array.from(time), Float64Array.from(difference), 0.4, 4, 200, 1, 1);
+    const response = await run('v(a,b)', trace({ a: positive, b: negative }, time), { fundamentalHz: 0.4 });
+    expect(response, JSON.stringify(response)).not.toHaveProperty('isError', true);
+    const actual = response.structuredContent as Metrics & { thdPercent: number };
+    expect(actual.harmonics[0].magnitude / oracle.harmonics[1].magnitude).toBeCloseTo(1, 12);
+    expect(actual.thdPercent).toBeCloseTo(oracle.thd, 12);
+  });
   it('matches a pointwise oracle for a real two-source transient', async () => {
     const result = await simulateProtocolV1(request);
     const a = result.analyses[0];
