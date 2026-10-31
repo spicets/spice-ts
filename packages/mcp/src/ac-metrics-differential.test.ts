@@ -78,7 +78,16 @@ describe('differential AC selector contract', () => {
   it('cancels equivalent phases across the branch cut without erasing nearby differences', () => {
     const phases = (b: number): SimulationResultV1 => ({ status: 'complete', analyses: [{ type: 'ac', analysisIndex: 0, frequencyHz: [1], currentPhasors: {}, voltagePhasors: { out: [p(1, 0)], a: [p(1, 180)], b: [p(1, b)] } }] });
     expect(() => acMetrics(phases(-180), { output: 'out', input: 'v(a,b)' })).toThrow(expect.objectContaining({ code: 'INVALID_REQUEST', details: { reason: 'UNDEFINED_TRANSFER' } }));
-    expect(acMetrics(phases(-180 + 2 ** -45), { output: 'out', input: 'v(a,b)' }).dcGainDb).not.toBeNull();
+    const delta = 2 ** -45;
+    const expectedGain = -20 * Math.log10(2 * Math.sin(delta * Math.PI / 360));
+    expect(acMetrics(phases(-180 + delta), { output: 'out', input: 'v(a,b)' }).dcGainDb).toBeCloseTo(expectedGain, 10);
+    const sameSide = phases(-180 + delta);
+    if (sameSide.analyses[0].type !== 'ac') throw new Error('expected AC analysis');
+    sameSide.analyses[0].voltagePhasors.a[0].phaseDegrees = -180;
+    expect(acMetrics(sameSide, { output: 'out', input: 'v(a,b)' }).dcGainDb).toBeCloseTo(expectedGain, 10);
+    sameSide.analyses[0].voltagePhasors.a[0].phaseDegrees = 180 - delta;
+    const acrossGain = -20 * Math.log10(2 * Math.sin(delta * Math.PI / 180));
+    expect(acMetrics(sameSide, { output: 'out', input: 'v(a,b)' }).dcGainDb).toBeCloseTo(acrossGain, 10);
   });
 
   it('does not suppress representable small differences', () => {

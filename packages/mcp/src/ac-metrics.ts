@@ -75,13 +75,22 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
       if (![p.magnitude, p.phaseDegrees, q.magnitude, q.phaseDegrees].every(Number.isFinite) || p.magnitude < 0 || q.magnitude < 0) {
         invalid('Transfer function contains invalid phasors or a zero input', { reason: 'UNDEFINED_TRANSFER' });
       }
-      // The two exact endpoints represent the same phasor; use one endpoint
-      // before evaluating sine so that their roundoff cancels exactly.
-      const pa = (p.phaseDegrees === -180 ? 180 : p.phaseDegrees) * Math.PI / 180;
-      const qa = (q.phaseDegrees === -180 ? 180 : q.phaseDegrees) * Math.PI / 180;
-      const real = p.magnitude * Math.cos(pa) - q.magnitude * Math.cos(qa);
-      const imag = p.magnitude * Math.sin(pa) - q.magnitude * Math.sin(qa);
-      return { magnitude: Math.hypot(real, imag), phaseDegrees: Math.atan2(imag, real) * 180 / Math.PI };
+      // Subtract in p's frame, using the relative angle before converting to
+      // radians. Independent sine evaluations lose tiny phase differences.
+      const principal = (angle: number) => {
+        const r = angle % 360;
+        return r >= 180 ? r - 360 : r < -180 ? r + 360 : r;
+      };
+      const pa = principal(p.phaseDegrees); const qa = principal(q.phaseDegrees);
+      let delta = qa - pa;
+      // Split the wrap at ±180 to retain differences smaller than an ulp of 360.
+      if (delta > 180) delta = (qa - 180) - (pa + 180);
+      else if (delta < -180) delta = (qa + 180) - (pa - 180);
+      const radians = delta * Math.PI / 180;
+      const sineHalf = Math.sin(radians / 2);
+      const real = (p.magnitude - q.magnitude) + q.magnitude * (2 * sineHalf * sineHalf);
+      const imag = -q.magnitude * Math.sin(radians);
+      return { magnitude: Math.hypot(real, imag), phaseDegrees: pa + Math.atan2(imag, real) * 180 / Math.PI };
     });
   };
   const out = voltage(args.output);
