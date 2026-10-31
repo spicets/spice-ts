@@ -1,6 +1,6 @@
 {
   "name": "@spice-ts/ui",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Waveform viewer for spice-ts simulation results",
   "license": "MIT",
   "author": "Mattia Fiumara",

@@ -1,5 +1,73 @@
 # @spice-ts/mcp
 
+## 0.5.0
+
+### Minor Changes
+
+- 541c28c: Expose nominal parameter values in native sensitivity results and add the bounded DC spice_sensitivity MCP tool with signed derivatives, normalised ranking, top limits and explicit units.
+- 97b38ba: Add the bounded spice_fourier MCP tool for transient harmonics, signed DC and THD, reusing the newly exported ngspiceFourier core calculation.
+- 2fd13a3: Add `spice_noise_metrics` for integrated output/input noise and bounded spot-density interpolation from an unstepped SPICE `.noise` sweep. Expose a bounded core noise executor without changing the protocol-v1 simulation result or stream schema. Native JSON noise directives remain unsupported.
+- 7915db5: Add the bounded spice_pz_metrics MCP tool and native pole-zero protocol helper, returning finite roots, conjugate-pair frequency/damping/Q, dominant pole and strict left-half-plane stability with structured errors.
+- d101a67: Add the bounded spice_tran_metrics MCP tool for transient step-response rise/fall time, overshoot/undershoot, settling time and peak metrics with structured failures.
+- ed9e3d1: Support native spice-ts protocol-v1 distortion analyses and independent-source `distortionF1`/`distortionF2` magnitude/phase excitations. Run these JSON requests through `spice_disto_metrics` with structured `INVALID_INPUT` field errors; circuit-json distortion remains unsupported.
+- e28d932: Support protocol circuit temperature and nominal temperature options.
+- 0a9a5ec: Add spice_dc_metrics for bounded DC transfer gain, switching threshold, unity-gain points, noise margins and monotonicity, with explicit reasons for undefined metrics.
+- ae20104: Add spice_impedance for bounded differential port AC impedance sweeps, with source suppression, parameter overrides, sampled extrema, resonance estimates, and structured port validation errors.
+- f9c3e11: Expose documented readonly machine-readable codes on every SpiceError, preserving existing subclass codes, messages and inheritance. MCP errors now retain the thrown core code across worker and in-process execution instead of replacing specific codes with broad protocol categories. The protocol-v1 schema and its error mapping are unchanged.
+
+### Patch Changes
+
+- 729b2b8: Move the standalone protocol package into `@spice-ts/core/protocol`, preserving protocol v1 types, schemas, conformance checks and canonical JSON utilities. JSON documents are available at `@spice-ts/core/protocol/schemas/*` and `@spice-ts/core/protocol/fixtures/*`. MCP now consumes this subpath instead of `@spice-ts/protocol`. The existing npm protocol package remains available and will be deprecated by the owner after release.
+- 9b6307f: Recognize single unstepped JSON distortion requests and return actionable UNSUPPORTED_FEATURE errors naming unavailable DISTOF1/DISTOF2 source fields. Preserve structured errors for unsupported analysis combinations and document the SPICE-text workaround.
+- Updated dependencies [a255bbb]
+- Updated dependencies [fda9ed6]
+- Updated dependencies [e0f45ac]
+- Updated dependencies [c01ece9]
+- Updated dependencies [386bee0]
+- Updated dependencies [0cb1c52]
+- Updated dependencies [b7f1fbe]
+- Updated dependencies [954519c]
+- Updated dependencies [729b2b8]
+- Updated dependencies [d5d9097]
+- Updated dependencies [d8b0f1c]
+- Updated dependencies [515714e]
+- Updated dependencies [541c28c]
+- Updated dependencies [97b38ba]
+- Updated dependencies [2fd13a3]
+- Updated dependencies [7915db5]
+- Updated dependencies [f0d4cac]
+- Updated dependencies [df514a5]
+- Updated dependencies [59165fe]
+- Updated dependencies [ed9e3d1]
+- Updated dependencies [ef4de09]
+- Updated dependencies [e28d932]
+- Updated dependencies [114ab90]
+- Updated dependencies [c85c586]
+- Updated dependencies [3b085d4]
+- Updated dependencies [d1258e5]
+- Updated dependencies [b690771]
+- Updated dependencies [1afb711]
+- Updated dependencies [9b8b4e4]
+- Updated dependencies [5664ee8]
+- Updated dependencies [d4bd0b2]
+- Updated dependencies [f0a876e]
+- Updated dependencies [6104e97]
+- Updated dependencies [3370848]
+- Updated dependencies [f9c3e11]
+- Updated dependencies [a49ecad]
+- Updated dependencies [fadec73]
+- Updated dependencies [02a6d97]
+- Updated dependencies [8396811]
+- Updated dependencies [4cc5d7d]
+- Updated dependencies [30a73c3]
+- Updated dependencies [8e14842]
+- Updated dependencies [223162e]
+- Updated dependencies [7f2255c]
+- Updated dependencies [afefa01]
+- Updated dependencies [931cd22]
+  - @spice-ts/core@0.5.0
+  - @spice-ts/circuit-json@0.3.2
+
 ## 0.4.0
 
 ### Minor Changes
