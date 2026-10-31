@@ -43,6 +43,24 @@ describe('native resistor temperature coefficients', () => {
     else if (!('TC2' in params)) expect(new Set(currents).size).toBe(1);
   });
 
+  it.each(['TC1', 'TC2'])('rejects invalid subcircuit resistor %s with its document path', async field => {
+    for (const value of ['bad', null, NaN, Infinity, -Infinity]) {
+      const doc = document({});
+      const resistor = doc.circuit.components.pop()!;
+      resistor.ports[0]!.net = 'p';
+      resistor.params[field] = value as number;
+      doc.subcircuits = [
+        { name: 'unused', ports: ['p'], components: [] },
+        { name: 'load', ports: ['p'], components: [resistor] },
+      ];
+      doc.circuit.components.push({ type: 'X', id: 'X1', name: 'X1', ports: [{ name: 'p', net: 'in' }], params: {}, subcircuit: 'load' });
+      const original = structuredClone(doc);
+      const request: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice-ts', document: doc }, options: { temperature: 85 } };
+      await expect(simulateProtocolV1(request).catch(mapProtocolErrorV1)).resolves.toMatchObject({ code: 'INVALID_REQUEST', details: { path: `/input/document/subcircuits/1/components/0/params/${field}` } });
+      expect(doc).toEqual(original);
+    }
+  });
+
   it.each(['TC1', 'TC2'])('rejects invalid %s as a structured error', async field => {
     for (const value of ['bad', null, NaN, Infinity, -Infinity]) {
       const doc = document({});

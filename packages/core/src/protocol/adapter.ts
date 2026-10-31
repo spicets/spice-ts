@@ -687,14 +687,14 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
     circuit.addGlobalNodes(document.globalNodes);
   }
   for (const model of document.models) circuit.addModel(coreModel(model));
-  for (const subcircuit of document.subcircuits) circuit.addSubcircuit(coreSubcircuit(subcircuit));
-  for (const [index, component] of document.circuit.components.entries()) {
-    if (component.type.toUpperCase() === 'R') {
-      for (const field of ['TC1', 'TC2']) {
-        const value = component.params[field];
-        if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) invalidNativeField(`/input/document/circuit/components/${index}/params/${field}`);
-      }
+  for (const [index, subcircuit] of document.subcircuits.entries()) {
+    for (const [componentIndex, component] of subcircuit.components.entries()) {
+      validateResistorCoefficients(component, `/input/document/subcircuits/${index}/components/${componentIndex}`);
     }
+    circuit.addSubcircuit(coreSubcircuit(subcircuit));
+  }
+  for (const [index, component] of document.circuit.components.entries()) {
+    validateResistorCoefficients(component, `/input/document/circuit/components/${index}`);
     if (component.type.toUpperCase() === 'V') {
       for (const field of ['portnum', 'z0']) {
         const value = component.params[field];
@@ -879,6 +879,14 @@ function coreSubcircuit(subcircuit: SubcircuitV1): { name: string; ports: string
       ...subcircuit.components.map(componentLine),
     ],
   };
+}
+
+function validateResistorCoefficients(component: CircuitComponentV1, path: string): void {
+  if (component.type.toUpperCase() !== 'R') return;
+  for (const field of ['TC1', 'TC2']) {
+    const value = component.params[field];
+    if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) invalidNativeField(`${path}/params/${field}`);
+  }
 }
 
 function invalidNativeField(path: string): never {
