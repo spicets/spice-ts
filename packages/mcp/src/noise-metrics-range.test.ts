@@ -11,6 +11,23 @@ describe('noise integration numerical range', () => {
       expect(rms).toBeGreaterThan(0);
       expect(Math.abs(rms / density - 1)).toBeLessThan(1e-12);
     }
-    expect(result.signalToNoiseRatioDb).toBeCloseTo(density === 1e200 ? -4000 : 4000, 10);
+    expect(result).toMatchObject({ signalToNoiseRatioDb: expect.closeTo(density === 1e200 ? -4000 : 4000, 10) });
+  });
+  it.each([1, 1e200, 1e-200])('integrates clipped nonconstant linear PSD at scale %s', scale => {
+    // [2,3]: PSD 5..9, area 7. [3,4]: PSD 9..6.5, area 7.75.
+    const spectrum = new NoiseResult([1, 3, 5], 'out', 'V1', [scale, 3 * scale, 2 * scale], [2 * scale, 6 * scale, 4 * scale], undefined, undefined);
+    const result = noiseMetrics(spectrum, { bandHz: [2, 4] });
+    for (const [actual, expected] of [[result.integratedOutputNoiseVrms, Math.sqrt(14.75) * scale], [result.integratedInputNoiseRms, 2 * Math.sqrt(14.75) * scale]]) {
+      expect(Number.isFinite(actual)).toBe(true);
+      expect(actual).toBeGreaterThan(0);
+      expect(Math.abs(actual / expected - 1)).toBeLessThan(1e-12);
+    }
+  });
+  it('reports genuinely unrepresentable overflow and underflow as structured errors', () => {
+    const huge = new NoiseResult([1, 5], 'out', 'V1', [Number.MAX_VALUE, Number.MAX_VALUE], [1, 1], undefined, undefined);
+    const tiny = new NoiseResult([1, 1.25], 'out', 'V1', [Number.MIN_VALUE, Number.MIN_VALUE], [1, 1], undefined, undefined);
+    for (const spectrum of [huge, tiny]) {
+      expect(() => noiseMetrics(spectrum, {})).toThrowError(expect.objectContaining({ code: 'INVALID_REQUEST', phase: 'validation', retryable: false }));
+    }
   });
 });

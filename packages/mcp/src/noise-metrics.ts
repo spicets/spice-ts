@@ -54,15 +54,27 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
   const band = args.bandHz ?? [f[0], f[f.length - 1]];
   if (band[0] < f[0] || band[1] > f[f.length - 1]) invalid('Noise band lies outside the simulated sweep');
   const integrate = (y: number[]) => {
-    let area = 0;
+    let rms = 0; let nonzero = false;
     for (let i = 1; i < f.length; i++) {
       const left = Math.max(band[0], f[i - 1]); const right = Math.min(band[1], f[i]);
       if (right <= left) continue;
-      const p = y[i - 1] ** 2; const q = y[i] ** 2;
-      const at = (hz: number) => p + (q - p) * (hz - f[i - 1]) / (f[i] - f[i - 1]);
-      area += (right - left) * (at(left) + at(right)) / 2;
+      nonzero ||= y[i - 1] !== 0 || y[i] !== 0;
+      if (y[i - 1] === y[i]) {
+        rms = Math.hypot(rms, y[i] * Math.sqrt(right - left));
+        continue;
+      }
+      const span = f[i] - f[i - 1];
+      // Integrate the two linear-PSD basis functions over the clipped interval.
+      const a = ((f[i] - left) / span + (f[i] - right) / span) / 2;
+      const b = ((left - f[i - 1]) / span + (right - f[i - 1]) / span) / 2;
+      const width = Math.sqrt(right - left);
+      const contribution = (density: number, weight: number) => width > 1
+        ? (density * Math.sqrt(weight)) * width
+        : (density * width) * Math.sqrt(weight);
+      rms = Math.hypot(rms, contribution(y[i - 1], a), contribution(y[i], b));
     }
-    return Math.sqrt(area);
+    if (rms === 0 && nonzero) invalid('Noise integration underflow');
+    return rms;
   };
   const spots = (args.spotFrequenciesHz ?? []).map(frequencyHz => {
     const outOfRange = frequencyHz < f[0] || frequencyHz > f[f.length - 1];
