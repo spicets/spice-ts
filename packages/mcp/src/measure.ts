@@ -70,15 +70,16 @@ function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]
   if (!match) return undefined;
   const [, transform, quantity, name] = match;
   const voltage = quantity.toLowerCase() === 'v';
-  const nodes = name.split(',').map(node => node.trim());
-  if (nodes.some(node => !node || /[\s,()]/.test(node)) || nodes.length > (voltage ? 2 : 1)) return undefined;
+  const nodes = voltage ? name.split(',').map(node => node.trim()) : [name];
+  if (nodes.some(node => !node.trim()) || (voltage && nodes.length > 2)) return undefined;
   // Projections are available only for AC phasors.
   if (transform && (a.type !== 'ac' || !signal.endsWith('))'))) return undefined;
   if (!transform && signal.endsWith('))')) return undefined;
   const values = a.type === 'ac'
     ? (voltage ? a.voltagePhasors : a.currentPhasors)
     : (voltage ? a.voltagesV : a.currentsA);
-  const keys = nodes.map(node => voltage && node === '0' ? '0' : Object.keys(values).find(key => key.toLowerCase() === node.toLowerCase()));
+  const keys = nodes.map((node, i) => voltage && node === '0' ? '0' : Object.keys(values).find(key => key.toLowerCase() === (nodes.length === 1 && i === 0 ? name : node).toLowerCase())
+    ?? Object.keys(values).find(key => key.toLowerCase() === node.toLowerCase()));
   if (keys.some(key => key === undefined)) return undefined;
   const projection = transform?.toLowerCase();
   const length = a.type === 'ac' ? a.frequencyHz.length : a.type === 'tran' ? a.timeS.length : a.type === 'dc' ? a.axis.values.length : 1;
@@ -95,8 +96,13 @@ function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]
       if (negative) {
         const n = negative[i];
         const rad = Math.PI / 180;
-        const real = p.magnitude * Math.cos(p.phaseDegrees * rad) - n.magnitude * Math.cos(n.phaseDegrees * rad);
-        const imag = p.magnitude * Math.sin(p.phaseDegrees * rad) - n.magnitude * Math.sin(n.phaseDegrees * rad);
+        // Reduce whole turns before conversion, retaining small angles near zero.
+        const normalize = (degrees: number): number => {
+          const angle = degrees % 360;
+          return angle > 180 ? angle - 360 : angle <= -180 ? angle + 360 : angle;
+        };
+        const real = p.magnitude * Math.cos(normalize(p.phaseDegrees) * rad) - n.magnitude * Math.cos(normalize(n.phaseDegrees) * rad);
+        const imag = p.magnitude * Math.sin(normalize(p.phaseDegrees) * rad) - n.magnitude * Math.sin(normalize(n.phaseDegrees) * rad);
         magnitude = Math.hypot(real, imag);
         phase = Math.atan2(imag, real) / rad;
       }
