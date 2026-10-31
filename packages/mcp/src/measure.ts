@@ -11,7 +11,7 @@ type Measurement = {
 type MeasurementErrorCode = 'INVALID_MEASUREMENT' | 'UNKNOWN_SIGNAL' | 'UNKNOWN_ANALYSIS' | 'AMBIGUOUS_ANALYSIS' | 'UNKNOWN_STEP' | 'OUT_OF_RANGE' | 'NO_CROSSING' | 'NON_FINITE_RESULT';
 type MeasurementResult = { value: number; unit: string } | { error: { code: MeasurementErrorCode; message: string } };
 
-const signalDescription = 'Case-insensitive v(node), v(positive,negative), or i(branch); AC also accepts mag(...), db(...), and phase(...) around one such selector. Node 0 is ground. No arbitrary expressions.';
+const signalDescription = 'Case-insensitive v(node), v(positive,negative), or i(branch); AC also accepts mag(...), db(...), and phase(...) around one such selector. An exact literal voltage name takes precedence over differential parsing. Node 0 is ground. No arbitrary expressions.';
 
 export const measurementListSchema = {
   type: 'array', minItems: 1, maxItems: 128,
@@ -70,14 +70,16 @@ function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]
   if (!match) return undefined;
   const [, transform, quantity, name] = match;
   const voltage = quantity.toLowerCase() === 'v';
-  const nodes = voltage ? name.split(',').map(node => node.trim()) : [name];
-  if (nodes.some(node => !node.trim()) || (voltage && nodes.length > 2)) return undefined;
   // Projections are available only for AC phasors.
   if (transform && (a.type !== 'ac' || !signal.endsWith('))'))) return undefined;
   if (!transform && signal.endsWith('))')) return undefined;
   const values = a.type === 'ac'
     ? (voltage ? a.voltagePhasors : a.currentPhasors)
     : (voltage ? a.voltagesV : a.currentsA);
+  // An exact literal voltage name wins over interpreting its commas as separators.
+  const literal = voltage && Object.keys(values).some(key => key.toLowerCase() === name.toLowerCase());
+  const nodes = voltage && !literal ? name.split(',').map(node => node.trim()) : [name];
+  if (nodes.some(node => !node.trim()) || (voltage && nodes.length > 2)) return undefined;
   const keys = nodes.map((node, i) => voltage && node === '0' ? '0' : Object.keys(values).find(key => key.toLowerCase() === (nodes.length === 1 && i === 0 ? name : node).toLowerCase())
     ?? Object.keys(values).find(key => key.toLowerCase() === node.toLowerCase()));
   if (keys.some(key => key === undefined)) return undefined;

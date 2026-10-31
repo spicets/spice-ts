@@ -10,6 +10,15 @@ describe('measurement selector review regressions', () => {
   it('preserves spaces inside voltage node names', () => {
     expect(measureResult(op, ['v(N 1)', 'v(N 1, ref)'].map(signal => ({ kind: 'avg', analysis: 0, signal }))).measurements).toEqual([{ value: 2, unit: 'V' }, { value: 1.5, unit: 'V' }]);
   });
+  it('resolves literal comma-containing voltage names even without operand nodes', () => {
+    const result: SimulationResultV1 = { status: 'complete', analyses: [{ type: 'op', analysisIndex: 0, voltagesV: { 'N,1': 2 }, currentsA: {} }] };
+    expect(measureResult(result, [{ kind: 'avg', analysis: 0, signal: 'v(n,1)' }]).measurements).toEqual([{ value: 2, unit: 'V' }]);
+  });
+  it('prefers a literal comma-containing name over differential operands', () => {
+    const result: SimulationResultV1 = { status: 'complete', analyses: [{ type: 'op', analysisIndex: 0, voltagesV: { 'N,1': 2, N: 5, '1': 1, ref: 3 }, currentsA: {} }] };
+    const specs = ['v(N,1)', 'v(N,ref)'].map(signal => ({ kind: 'avg', analysis: 0, signal }));
+    expect(measureResult(result, specs).measurements).toEqual([{ value: 2, unit: 'V' }, { value: 2, unit: 'V' }]);
+  });
   it('cancels equivalent phasors without masking small differences', () => {
     const ac: SimulationResultV1 = { status: 'complete', analyses: [{ type: 'ac', analysisIndex: 0, frequencyHz: [1, 2], currentPhasors: {}, voltagePhasors: {
       p: [1, 2].map(() => ({ magnitude: 1, phaseDegrees: 0 })),

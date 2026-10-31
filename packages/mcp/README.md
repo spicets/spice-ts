@@ -310,7 +310,11 @@ Call `spice_measure` with `{ request: SimulationRequestV1, measurements: [...] }
 Each item has `kind` (`min`, `max`, `avg`, `rms`, `pp`, `at`, `cross`, `when`, or `integ`),
 `signal`, and a zero-based `analysis` index. Signals are case-insensitive `v(node)`,
 `v(positive,negative)`, or `i(branch)`. Differential voltage subtracts the negative
-node from the positive node; `0` denotes ground. Missing nodes return `UNKNOWN_SIGNAL`.
+node from the positive node; `0` denotes ground. An exact case-insensitive match for
+the entire name inside `v(...)` takes precedence over differential parsing, including
+names containing commas. Thus, if a node named `a,b` exists, `v(a,b)` selects that
+literal node even when `a` and `b` also exist; this spelling cannot select the
+difference in that case. Missing nodes return `UNKNOWN_SIGNAL`.
 No arbitrary expressions or differential current selectors are supported. AC uses
 magnitude by default and also supports `mag(v(node))`, `db(v(node))`, `phase(v(node))`
 and corresponding differential voltage or current projections. Differential AC
