@@ -81,7 +81,7 @@ describe('WASM transient measurements', () => {
 
   it('advertises its bounded transient forms', async () => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
-    try { expect(engine.capabilities.numericWasm?.measurements).toEqual(['tran:find-at', 'tran:avg', 'tran:min', 'tran:max', 'tran:rms']); }
+    try { expect(engine.capabilities.numericWasm?.measurements).toEqual(['tran:find-at', 'tran:avg', 'tran:min', 'tran:max', 'tran:rms', 'dc:find-at']); }
     finally { await engine.close(); }
   });
 

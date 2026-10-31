@@ -99,7 +99,7 @@ export interface SpiceEngineCapabilitiesV1 {
       tran: readonly ['R', 'C', 'L', 'I', 'V', 'J', 'S', 'W'];
       ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S', 'W'];
     };
-    measurements: readonly ['tran:find-at', 'tran:avg', 'tran:min', 'tran:max', 'tran:rms'];
+    measurements: readonly ['tran:find-at', 'tran:avg', 'tran:min', 'tran:max', 'tran:rms', 'dc:find-at'];
     fallback: 'reject';
     limits: typeof NUMERIC_WASM_LIMITS;
   };
@@ -224,7 +224,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
           tran: ['R', 'C', 'L', 'I', 'V', 'J', 'S', 'W'] as const,
           ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S', 'W'] as const,
         },
-        measurements: ['tran:find-at', 'tran:avg', 'tran:min', 'tran:max', 'tran:rms'] as const,
+        measurements: ['tran:find-at', 'tran:avg', 'tran:min', 'tran:max', 'tran:rms', 'dc:find-at'] as const,
         fallback: 'reject' as const,
         limits: NUMERIC_WASM_LIMITS,
       },
