@@ -66,6 +66,28 @@ describe('differential DC metrics', () => {
     expect(input.structuredContent).toMatchObject({ gainMax: { value: 2 }, vol: { value: 4 } });
   });
 
+  it.each([false, true])('preserves whitespace-bearing literal nodes through the tool (collision: %s)', async collision => {
+    const ports = (p: string, n: string) => [{ name: 'p', net: p }, { name: 'n', net: n }];
+    const request = { apiVersion: '1', input: { format: 'spice-ts', document: {
+      format: 'spice-ts', schemaVersion: '1.0', models: [], subcircuits: [],
+      circuit: { nets: ['in', ' Out ', ...(collision ? ['out'] : [])], components: [
+        { type: 'V', id: 'v1', name: 'V1', ports: ports('in', '0'), params: { dc: 0 } },
+        { type: 'R', id: 'r1', name: 'R1', ports: ports('in', ' Out '), params: { resistance: 1000 } },
+        { type: 'R', id: 'r2', name: 'R2', ports: ports(' Out ', '0'), params: { resistance: 1000 } },
+        ...(collision ? [
+          { type: 'R', id: 'r3', name: 'R3', ports: ports('in', 'out'), params: { resistance: 1000 } },
+          { type: 'R', id: 'r4', name: 'R4', ports: ports('out', '0'), params: { resistance: 3000 } },
+        ] : []),
+      ] }, analyses: [{ type: 'dc', source: 'V1', start: 0, stop: 4, step: 1 }],
+    } } };
+    const output = await executeTool('spice_dc_metrics', { request, sweptSource: 'V1', output: 'v( out )' });
+    expect(output.isError, JSON.stringify(output.structuredContent)).not.toBe(true);
+    expect(output.structuredContent).toMatchObject({ gainMax: { value: 0.5 }, voh: { value: 0 }, vol: { value: 2 } });
+    const input = await executeTool('spice_dc_metrics', { request, sweptSource: 'V1', input: 'v( out )', output: 'v(in)' });
+    expect(input.isError, JSON.stringify(input.structuredContent)).not.toBe(true);
+    expect(input.structuredContent).toMatchObject({ gainMax: { value: 2 }, vol: { value: 4 } });
+  });
+
   it('runs native JSON through the registered tool with ground and case-insensitive differential inputs', async () => {
     const ports = (p: string, n: string) => [{ name: 'p', net: p }, { name: 'n', net: n }];
     const request = { apiVersion: '1', input: { format: 'spice-ts', document: {
