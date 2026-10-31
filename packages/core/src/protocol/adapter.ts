@@ -195,7 +195,7 @@ export async function simulateProtocolV1(
   for (let analysisIndex = 0; analysisIndex < analyses.length; analysisIndex++) {
     const analysis = analyses[analysisIndex]!;
     circuit.analyses.splice(0, circuit.analyses.length, analysis);
-    const nativeSweep = request.input.format === 'spice-ts' && (analysis.type === 'tran' || analysis.type === 'ac')
+    const nativeSweep = request.input.format === 'spice-ts' && (analysis.type === 'tran' || analysis.type === 'ac' || analysis.type === 'dc')
       ? request.input.document.componentSweep : undefined;
     // A fresh native circuit per step avoids continuation and device-state leaks.
     const sourceSweep = request.input.format === 'spice-ts' ? request.input.document.sourceSweep : undefined;
@@ -277,7 +277,7 @@ function steppedComponentDocument(document: SpiceTsCircuitDocumentV1, value: num
 
 // Positive sweep values have the same branch topology as the executed circuits.
 function outputSelectionCircuit(request: SimulationRequestV1, compiled: CompiledCircuit, guard: ProtocolExecutionGuard): CompiledCircuit {
-  if (request.outputs === undefined || request.input.format !== 'spice-ts' || !request.input.document.componentSweep || !['tran', 'ac'].includes(request.input.document.analyses[0]?.type ?? '')) return compiled;
+  if (request.outputs === undefined || request.input.format !== 'spice-ts' || !request.input.document.componentSweep || !['tran', 'ac', 'dc'].includes(request.input.document.analyses[0]?.type ?? '')) return compiled;
   const document = steppedComponentDocument(request.input.document, request.input.document.componentSweep.values[0]!);
   return applyProtocolTemperatures(circuitFromDocument(document, guard), request.options).compile(guard);
 }
@@ -657,7 +657,7 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
       if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) invalidNativeField(`${path}/values/${index}`);
     }
     if (document.analyses.length !== 1) invalidNativeField('/input/document/analyses');
-    if (!['op', 'tran', 'ac'].includes(document.analyses[0]?.type ?? '')) invalidNativeField('/input/document/analyses/0/type');
+    if (!['op', 'tran', 'ac', 'dc'].includes(document.analyses[0]?.type ?? '')) invalidNativeField('/input/document/analyses/0/type');
     if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
     if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
     circuit.addStep(targets[0]!.name, { values: sweep.values });

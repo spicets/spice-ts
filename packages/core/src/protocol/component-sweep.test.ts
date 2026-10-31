@@ -14,6 +14,18 @@ const document: SpiceTsCircuitDocumentV1 = {
 };
 
 describe('native component LIST', () => {
+  it('validates and executes native DC component steps like text steps', async () => {
+    const doc: SpiceTsCircuitDocumentV1 = { ...document, analyses: [{ type: 'dc', source: 'V1', start: 0, stop: 4, step: 1 }], componentSweep: { component: 'R2', values: [1000, 3000] } };
+    const nativeRequest: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice-ts', document: doc }, outputs: ['v(out)'] };
+    const ajv = new Ajv2020({ strict: true });
+    for (const name of ['common', 'simulation-request']) ajv.addSchema(JSON.parse(readFileSync(new URL(`../../protocol/schemas/${name}.schema.json`, import.meta.url), 'utf8')));
+    expect(ajv.getSchema('https://spice-ts.dev/schemas/v1/simulation-request.schema.json')!(nativeRequest)).toBe(true);
+    await expect(validateProtocolV1(nativeRequest)).resolves.toBeDefined();
+    const native = await simulateProtocolV1(nativeRequest);
+    const text = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice', source: 'V1 in 0 10\nR1 in out 1k\nR2 out 0 1k\n.dc V1 0 4 1\n.step R2 list 1k 3k\n.end' }, outputs: ['v(out)'] });
+    expect(native.analyses).toEqual(text.analyses);
+    expect(native.analyses.map(a => a.step)).toEqual([{ index: 0, parameter: 'R2', value: 1000 }, { index: 1, parameter: 'R2', value: 3000 }]);
+  });
   it('runs independent RC transient steps in order', async () => {
     const values = [1000, 2000, 3000];
     const doc: SpiceTsCircuitDocumentV1 = {
@@ -134,7 +146,6 @@ describe('native component LIST', () => {
     }
     for (const [override, path] of [
       [{ analyses: [] }, 'analyses'], [{ analyses: [{ type: 'op' }, { type: 'op' }] }, 'analyses'],
-      [{ analyses: [{ type: 'dc', source: 'V1', start: 0, stop: 1, step: 1 }] }, 'analyses/0/type'],
       [{ temperatureSweep: { values: [27] } }, 'componentSweep'], [{ noiseAnalyses: [{}] }, 'noiseAnalyses'],
       [{ poleZeroAnalyses: [{}] }, 'poleZeroAnalyses'],
     ] as [object, string][]) for (const execute of [simulateProtocolV1, validateProtocolV1]) {

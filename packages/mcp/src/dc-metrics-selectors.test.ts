@@ -80,20 +80,17 @@ describe('DC metric selectors', () => {
         { type: 'V', id: 'Vin', name: 'Vin', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: '0' }], params: { dc: 0 } },
         { type: 'R', id: 'R1', name: 'R1', ports: [{ name: 'p', net: 'in' }, { name: 'n', net: 'out' }], params: { resistance: 1000 } },
         { type: 'R', id: 'R2', name: 'R2', ports: [{ name: 'p', net: 'out' }, { name: 'n', net: '0' }], params: { resistance: 1000 } },
-      ] }, analyses: [{ type: 'dc', source: 'Vin', start: 0, stop: 5, step: 0.5 }],
+      ] }, analyses: [{ type: 'dc', source: 'Vin', start: 0, stop: 5, step: 0.5 }], componentSweep: { component: 'R2', values: [1000, 3000] },
     };
     const native = { apiVersion: '1' as const, input: { format: 'spice-ts' as const, document } };
     const before = structuredClone(native);
-    // Native componentSweep rejects DC. Inject genuine stepped protocol vectors.
-    const raw = await simulateProtocolV1(request);
+    const raw = await simulateProtocolV1(native);
     expect(raw.analyses.map(a => a.step?.index)).toEqual([0, 1]);
     for (const [step, gain] of [[0, 0.5], [1, 0.75]] as const) {
-      const response = await executeTool('spice_dc_metrics', { request: native, sweptSource: 'Vin', output: 'v(out)', analysis: 0, step }, { simulate: async () => raw });
+      const response = await executeTool('spice_dc_metrics', { request: native, sweptSource: 'Vin', output: 'v(out)', analysis: 0, step });
       expect(response.isError).not.toBe(true);
       expect(response.structuredContent).toMatchObject({ gainMax: { value: expect.closeTo(gain, 9) }, vol: { value: expect.closeTo(5 * gain, 9) } });
     }
-    const unstepped = await executeTool('spice_dc_metrics', { request: native, sweptSource: 'Vin', output: 'v(out)', analysis: 0, step: 0 });
-    expect(unstepped.structuredContent).toMatchObject({ gainMax: { value: expect.closeTo(0.5, 9) }, vol: { value: expect.closeTo(2.5, 9) } });
     expect(native).toEqual(before);
   });
 });
