@@ -689,6 +689,12 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
   for (const model of document.models) circuit.addModel(coreModel(model));
   for (const subcircuit of document.subcircuits) circuit.addSubcircuit(coreSubcircuit(subcircuit));
   for (const [index, component] of document.circuit.components.entries()) {
+    if (component.type.toUpperCase() === 'R') {
+      for (const field of ['TC1', 'TC2']) {
+        const value = component.params[field];
+        if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) invalidNativeField(`/input/document/circuit/components/${index}/params/${field}`);
+      }
+    }
     if (component.type.toUpperCase() === 'V') {
       for (const field of ['portnum', 'z0']) {
         const value = component.params[field];
@@ -909,7 +915,7 @@ function addComponent(circuit: Circuit, component: CircuitComponentV1): void {
   const named = (name: string, fallback: number): string => component.ports.find(port => port.name === name)?.net ?? nodes[fallback]!;
   const model = component.model ?? stringParam(p, 'modelName');
   switch (component.type.toUpperCase()) {
-    case 'R': circuit.addResistor(component.name, named('p', 0), named('n', 1), numberParam(p, 'resistance')); break;
+    case 'R': circuit.addResistor(component.name, named('p', 0), named('n', 1), numberParam(p, 'resistance'), numberParams({ TC1: p.TC1, TC2: p.TC2 })); break;
     case 'C': circuit.addCapacitor(component.name, named('p', 0), named('n', 1), optionalNumber(p, 'capacitance'), model, numberParamsExcept(p, ['capacitance', 'modelName'])); break;
     case 'L': circuit.addInductor(component.name, named('p', 0), named('n', 1), optionalNumber(p, 'inductance'), model, numberParamsExcept(p, ['inductance', 'modelName'])); break;
     case 'V':
