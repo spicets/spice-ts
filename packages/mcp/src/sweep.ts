@@ -4,13 +4,14 @@ import { overrideParameters } from './params.js';
 import { measurementListSchema } from './measure.js';
 
 export const MAX_SWEEP_POINTS = 100;
-type SweepParameter = { kind: 'param' | 'component' | 'source'; name: string };
+type SweepParameter = { kind: 'param' | 'component' | 'source' | 'temperature'; name: string };
 type SweepPoint = { value: number; status: 'complete'; measurements?: unknown } | { value: number; status: 'failed'; error: unknown };
 
 export const sweepProperties = {
   parameter: { type: 'object', required: ['kind', 'name'], additionalProperties: false, properties: {
-    kind: { enum: ['param', 'component', 'source'] }, name: { type: 'string', minLength: 1 },
-  } },
+    kind: { enum: ['param', 'component', 'source', 'temperature'] }, name: { type: 'string', minLength: 1 },
+  }, allOf: [{ if: { properties: { kind: { const: 'temperature' } }, required: ['kind'] },
+    then: { properties: { name: { const: 'temp' } } } }] },
   values: { type: 'array', minItems: 1, maxItems: MAX_SWEEP_POINTS, items: { type: 'number' } },
   range: { type: 'object', required: ['scale', 'start', 'stop', 'points'], additionalProperties: false, properties: {
     scale: { enum: ['lin', 'dec'] }, start: { type: 'number' }, stop: { type: 'number' }, points: { type: 'integer', minimum: 1 },
@@ -112,15 +113,18 @@ export async function runSweep(
 ): Promise<{ parameter: SweepParameter; points: SweepPoint[] }> {
   if (!record(args) || Object.keys(args).some(k => !['request', 'parameter', 'values', 'range', 'measurements'].includes(k))) invalid('Invalid sweep fields');
   const p = args.parameter;
-  if (!record(p) || !['param', 'component', 'source'].includes(p.kind as string) || typeof p.name !== 'string'
+  if (!record(p) || !['param', 'component', 'source', 'temperature'].includes(p.kind as string) || typeof p.name !== 'string'
     || !/^[A-Za-z_][\w.:-]*$/.test(p.name) || Object.keys(p).some(k => !['kind', 'name'].includes(k))) invalid('Invalid sweep parameter');
   const parameter = p as SweepParameter;
   const values = sweepValues(args);
+  if (parameter.kind === 'temperature' && (parameter.name !== 'temp' || request.input.format !== 'spice-ts'
+    || values.some(value => !finite(value) || value <= -273.15))) invalid('Temperature sweeps require native spice-ts input, name temp and values above absolute zero');
   if (args.measurements !== undefined && (!Array.isArray(args.measurements) || args.measurements.length < 1 || args.measurements.length > 128)) invalid('Expected 1 through 128 measurements');
   const points: SweepPoint[] = [];
   for (const value of values) {
     check(points);
-    const changed = parameter.kind === 'param' ? overrideParameters(request, { [parameter.name]: value })
+    const changed = parameter.kind === 'temperature' ? { ...request, options: { ...request.options, temperature: value } }
+      : parameter.kind === 'param' ? overrideParameters(request, { [parameter.name]: value })
       : parameter.kind === 'source' ? overrideSource(request, parameter.name, value) : overrideComponent(request, parameter.name, value);
     const response = await execute(changed, args.measurements);
     const content = response.structuredContent!;
