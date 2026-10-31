@@ -247,7 +247,11 @@ Call `spice_sweep` with `{ request: SimulationRequestV1, parameter, values, meas
 `parameter` is `{ kind: 'param', name: 'rval' }` for declared top-level SPICE
 `.param` overrides, or `{ kind: 'component', name: 'R1' }` for a top-level R/C/L
 scalar value. Component targets support SPICE text and native `spice-ts` JSON IR;
-Circuit JSON and other component types are not sweep targets in this version.
+`{ kind: 'source', name: 'V1' }` targets an independent DC voltage or current
+source in native `spice-ts` JSON only. The target must have a finite `dc` value,
+no non-DC waveform or distortion, and exactly one case-insensitive name match.
+SPICE text and Circuit JSON are not supported for source sweeps. Circuit JSON
+and other component types are not component sweep targets in this version.
 Names are case-insensitive. Includes and subcircuit-local targets are not supported.
 The original request is not mutated, and each point starts from that original.
 
