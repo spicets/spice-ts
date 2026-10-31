@@ -687,8 +687,14 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
     circuit.addGlobalNodes(document.globalNodes);
   }
   for (const model of document.models) circuit.addModel(coreModel(model));
-  for (const subcircuit of document.subcircuits) circuit.addSubcircuit(coreSubcircuit(subcircuit));
+  for (const [index, subcircuit] of document.subcircuits.entries()) {
+    for (const [componentIndex, component] of subcircuit.components.entries()) {
+      validateResistorCoefficients(component, `/input/document/subcircuits/${index}/components/${componentIndex}`);
+    }
+    circuit.addSubcircuit(coreSubcircuit(subcircuit));
+  }
   for (const [index, component] of document.circuit.components.entries()) {
+    validateResistorCoefficients(component, `/input/document/circuit/components/${index}`);
     if (component.type.toUpperCase() === 'V') {
       for (const field of ['portnum', 'z0']) {
         const value = component.params[field];
@@ -875,6 +881,14 @@ function coreSubcircuit(subcircuit: SubcircuitV1): { name: string; ports: string
   };
 }
 
+function validateResistorCoefficients(component: CircuitComponentV1, path: string): void {
+  if (component.type.toUpperCase() !== 'R') return;
+  for (const field of ['TC1', 'TC2']) {
+    const value = component.params[field];
+    if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) invalidNativeField(`${path}/params/${field}`);
+  }
+}
+
 function invalidNativeField(path: string): never {
   throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', message: `Invalid native field at ${path}`, phase: 'validation', retryable: false, details: { path } });
 }
@@ -909,7 +923,7 @@ function addComponent(circuit: Circuit, component: CircuitComponentV1): void {
   const named = (name: string, fallback: number): string => component.ports.find(port => port.name === name)?.net ?? nodes[fallback]!;
   const model = component.model ?? stringParam(p, 'modelName');
   switch (component.type.toUpperCase()) {
-    case 'R': circuit.addResistor(component.name, named('p', 0), named('n', 1), numberParam(p, 'resistance')); break;
+    case 'R': circuit.addResistor(component.name, named('p', 0), named('n', 1), numberParam(p, 'resistance'), numberParams({ TC1: p.TC1, TC2: p.TC2 })); break;
     case 'C': circuit.addCapacitor(component.name, named('p', 0), named('n', 1), optionalNumber(p, 'capacitance'), model, numberParamsExcept(p, ['capacitance', 'modelName'])); break;
     case 'L': circuit.addInductor(component.name, named('p', 0), named('n', 1), optionalNumber(p, 'inductance'), model, numberParamsExcept(p, ['inductance', 'modelName'])); break;
     case 'V':
