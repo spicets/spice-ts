@@ -28,7 +28,7 @@ function overrideSource(request: SimulationRequestV1, name: string, value: numbe
   const input = request.input;
   if (input.format !== 'spice-ts') invalid('Source optimization requires native spice-ts JSON input');
   const components = input.document?.circuit?.components;
-  if (!Array.isArray(components)) invalid('Expected native circuit components');
+  if (!Array.isArray(components) || components.some(c => !record(c))) invalid('Expected native circuit components');
   const matches = components.filter(c => typeof c.name === 'string' && c.name.toLowerCase() === name.toLowerCase());
   const target = matches[0];
   if (matches.length !== 1 || typeof target.type !== 'string' || !['V', 'I'].includes(target.type.toUpperCase()) ||

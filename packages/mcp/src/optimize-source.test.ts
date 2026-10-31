@@ -13,6 +13,15 @@ const args = { parameters: [{ kind: 'source', name: 'v1', min: 0, max: 10 }], ob
 type Result = { bestParams: Record<string, number>; achievedValue: number; evaluations: number; history: { value: number }[] };
 
 describe('source optimization', () => {
+  it('rejects malformed native components before simulation through the public tool', async () => {
+    const request = structuredClone(native);
+    if (request.input.format !== 'spice-ts') throw new Error('Expected native input');
+    request.input.document.circuit.components.unshift(null as unknown as typeof request.input.document.circuit.components[number]);
+    expect(await executeTool('spice_optimize', { ...args, request })).toMatchObject({
+      isError: true, structuredContent: { error: { code: 'INVALID_REQUEST', phase: 'validation', retryable: false } },
+    });
+  });
+
   it('accepts source in the schema and optimizes a real native divider without mutation', async () => {
     expect(optimizeProperties.parameters.items.properties.kind.enum).toContain('source');
     const request = structuredClone(native);
