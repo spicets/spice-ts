@@ -5,7 +5,7 @@ import { powerMetrics, powerPlan } from './power-metrics.js';
 
 const dc = 'V1 in 0 10\nR1 in 0 1k\n.tran 0.00001 0.001\n.end';
 interface Report {
-  elements: { name: string; averagePowerW: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number }[];
+  elements: { name: string; averagePowerW: number; energyJ: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number }[];
   efficiency: number | null;
   window: [number, number];
 }
@@ -48,6 +48,20 @@ describe('spice_power_metrics', () => {
     const response = await executeTool('spice_power_metrics', { request: request(input), ...selectors });
     expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
     expect(response.structuredContent).toEqual(expected);
+    const report = response.structuredContent as unknown as Report;
+    const source = report.elements.find(element => element.name === 'V1')!;
+    const load = report.elements.find(element => element.name === 'R1')!;
+    expect(load.energyJ).toBeCloseTo(0.1 * (0.000789 - 0.000123), 12);
+    expect(source.energyJ).toBeCloseTo(-load.energyJ, 12);
+    for (const element of report.elements) {
+      expect(Number.isFinite(element.energyJ)).toBe(true);
+      expect(element.energyJ).toBeCloseTo(element.averagePowerW * (report.window[1] - report.window[0]), 12);
+    }
+    const schema = MCP_TOOLS.find(t => t.name === 'spice_power_metrics')!.outputSchema!;
+    const validate = new AjvJsonSchemaValidator().getValidator(schema);
+    expect(validate(report).valid).toBe(true);
+    const { energyJ: _energyJ, ...withoutEnergy } = load;
+    expect(validate({ ...report, elements: [withoutEnergy] }).valid).toBe(false);
   });
 
   it('advertises exactly one legacy or protocol input in the tool listing', () => {
@@ -115,6 +129,7 @@ describe('spice_power_metrics', () => {
   it('reports 0.1 W absorption and negative source delivery from a DC transient', async () => {
     const result = await run(dc);
     const load = result.elements.find(e => e.name === 'R1')!;
+    expect(load).toMatchObject({ energyJ: expect.closeTo(0.0001, 12) });
     expect(Math.abs(load.averagePowerW / 0.1 - 1)).toBeLessThan(1e-9);
     expect(load.rmsCurrentA).toBeCloseTo(0.01, 12);
     expect(load.peakPowerW).toBeCloseTo(0.1, 12);

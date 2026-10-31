@@ -12,7 +12,7 @@ interface ElementProbe { name: string; positive: string; negative: string; branc
 export interface PowerPlan { netlist: string; probes: ElementProbe[]; args: PowerMetricsArgs }
 export interface PowerReport {
   window: [number, number];
-  elements: { name: string; averagePowerW: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number }[];
+  elements: { name: string; averagePowerW: number; energyJ: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number }[];
   efficiency: number | null;
 }
 export const powerMetricsProperties = {
@@ -28,8 +28,8 @@ export const powerMetricsOutputSchema = {
     window: powerMetricsProperties.window,
     efficiency: { type: ['number', 'null'] },
     elements: { type: 'array', items: {
-      type: 'object', required: ['name', 'averagePowerW', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'], additionalProperties: false,
-      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'].map(k => [k, { type: 'number' }])) },
+      type: 'object', required: ['name', 'averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'], additionalProperties: false,
+      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'].map(k => [k, { type: 'number' }])) },
     } },
   },
 };
@@ -136,7 +136,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       if (a < 0 && vertex > 0 && vertex < 1) consider((vl + dv * vertex) * (il + di * vertex), left + duration * vertex);
       consider(vr * ir, right);
     }
-    return { name: probe.name, averagePowerW: energy / (stop - start), rmsCurrentA: Math.sqrt(squareIntegral / (stop - start)), peakPowerW, peakTimeS };
+    return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: Math.sqrt(squareIntegral / (stop - start)), peakPowerW, peakTimeS };
   });
   const sum = (names: string[]) => elements.filter(e => names.some(n => n.toLowerCase() === e.name.toLowerCase())).reduce((s, e) => s + e.averagePowerW, 0);
   const pin = plan.args.input ? -sum(plan.args.input) : 0;
