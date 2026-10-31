@@ -11,6 +11,8 @@ type Measurement = {
 type MeasurementErrorCode = 'INVALID_MEASUREMENT' | 'UNKNOWN_SIGNAL' | 'UNKNOWN_ANALYSIS' | 'AMBIGUOUS_ANALYSIS' | 'UNKNOWN_STEP' | 'OUT_OF_RANGE' | 'NO_CROSSING' | 'NON_FINITE_RESULT';
 type MeasurementResult = { value: number; unit: string } | { error: { code: MeasurementErrorCode; message: string } };
 
+const signalDescription = 'Case-insensitive v(node), v(positive,negative), or i(branch); AC also accepts mag(...), db(...), and phase(...) around one such selector. An exact literal voltage name takes precedence over differential parsing. Node 0 is ground. No arbitrary expressions.';
+
 export const measurementListSchema = {
   type: 'array', minItems: 1, maxItems: 128,
   items: {
@@ -24,7 +26,7 @@ export const measurementListSchema = {
       else: { not: { required: ['occurrence'] } },
     }],
     properties: {
-      kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256 },
+      kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
       analysis: { type: 'integer', minimum: 0 },
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
@@ -32,7 +34,7 @@ export const measurementListSchema = {
       occurrence: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER, description: 'One-based crossing within from/to; defaults to 1.' },
       ...Object.fromEntries(['trigger', 'target'].map(key => [key, {
         type: 'object', description: 'Transient crossing; counted independently within from/to. Delay is target time minus trigger time, in seconds.', required: ['signal', 'threshold'], additionalProperties: false,
-        properties: { signal: { type: 'string', minLength: 1, maxLength: 256 }, threshold: { type: 'number' }, edge: { enum: ['rising', 'falling', 'either'], description: 'Defaults to either.' }, occurrence: { type: 'integer', minimum: 1, description: 'One-based crossing number; defaults to 1.' } },
+        properties: { signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription }, threshold: { type: 'number' }, edge: { enum: ['rising', 'falling', 'either'], description: 'Defaults to either.' }, occurrence: { type: 'integer', minimum: 1, description: 'One-based crossing number; defaults to 1.' } },
       }])),
     },
   },
@@ -72,21 +74,60 @@ function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]
   const match = /^(?:(db|mag|phase)\()?([vi])\(([^()]+)\)\)?$/i.exec(signal);
   if (!match) return undefined;
   const [, transform, quantity, name] = match;
+  const voltage = quantity.toLowerCase() === 'v';
   // Projections are available only for AC phasors.
   if (transform && (a.type !== 'ac' || !signal.endsWith('))'))) return undefined;
   if (!transform && signal.endsWith('))')) return undefined;
-  const voltage = quantity.toLowerCase() === 'v';
   const values = a.type === 'ac'
     ? (voltage ? a.voltagePhasors : a.currentPhasors)
     : (voltage ? a.voltagesV : a.currentsA);
-  const key = Object.keys(values).find(key => key.toLowerCase() === name.toLowerCase());
-  if (key === undefined) return undefined;
+  // An exact literal voltage name wins over interpreting its commas as separators.
+  const literal = voltage && Object.keys(values).some(key => key.toLowerCase() === name.toLowerCase());
+  const nodes = voltage && !literal ? name.split(',').map(node => node.trim()) : [name];
+  if (nodes.some(node => !node.trim()) || (voltage && nodes.length > 2)) return undefined;
+  const keys = nodes.map((node, i) => voltage && node === '0' ? '0' : Object.keys(values).find(key => key.toLowerCase() === (nodes.length === 1 && i === 0 ? name : node).toLowerCase())
+    ?? Object.keys(values).find(key => key.toLowerCase() === node.toLowerCase()));
+  if (keys.some(key => key === undefined)) return undefined;
   const projection = transform?.toLowerCase();
-  const y = a.type === 'ac'
-    ? (voltage ? a.voltagePhasors : a.currentPhasors)[key].map(p => projection === 'phase'
-      ? (p.magnitude > 0 && Number.isFinite(p.magnitude) && Number.isFinite(p.phaseDegrees) ? p.phaseDegrees : NaN)
-      : projection === 'db' ? 20 * Math.log10(p.magnitude) : p.magnitude)
-    : a.type === 'op' ? [(voltage ? a.voltagesV : a.currentsA)[key]] : (voltage ? a.voltagesV : a.currentsA)[key];
+  const length = a.type === 'ac' ? a.frequencyHz.length : a.type === 'tran' ? a.timeS.length : a.type === 'dc' ? a.axis.values.length : 1;
+  let y: number[];
+  if (a.type === 'ac') {
+    const phasors = voltage ? a.voltagePhasors : a.currentPhasors;
+    const get = (key: string) => voltage && key === '0' ? Array.from({ length }, () => ({ magnitude: 0, phaseDegrees: 0 })) : phasors[key];
+    const positive = get(keys[0]!);
+    const negative = keys.length === 2 ? get(keys[1]!) : undefined;
+    if (negative && negative.length !== positive.length) return undefined;
+    y = positive.map((p, i) => {
+      let magnitude = p.magnitude;
+      let phase = p.phaseDegrees;
+      // Subtracting zero must retain the positive phasor's phase branch before unwrapping.
+      if (negative && negative[i].magnitude !== 0) {
+        const n = negative[i];
+        const rad = Math.PI / 180;
+        // Reduce whole turns before conversion, retaining small angles near zero.
+        const normalize = (degrees: number): number => {
+          const angle = degrees % 360;
+          return angle > 180 ? angle - 360 : angle <= -180 ? angle + 360 : angle;
+        };
+        const real = p.magnitude * Math.cos(normalize(p.phaseDegrees) * rad) - n.magnitude * Math.cos(normalize(n.phaseDegrees) * rad);
+        const imag = p.magnitude * Math.sin(normalize(p.phaseDegrees) * rad) - n.magnitude * Math.sin(normalize(n.phaseDegrees) * rad);
+        magnitude = Math.hypot(real, imag);
+        phase = Math.atan2(imag, real) / rad;
+      }
+      return projection === 'phase' ? (magnitude > 0 && Number.isFinite(magnitude) && Number.isFinite(phase) ? phase : NaN)
+        : projection === 'db' ? 20 * Math.log10(magnitude) : magnitude;
+    });
+  } else {
+    const get = (key: string): number[] => {
+      if (voltage && key === '0') return Array(length).fill(0);
+      const value = (voltage ? a.voltagesV : a.currentsA)[key];
+      return typeof value === 'number' ? [value] : value;
+    };
+    const positive = get(keys[0]!);
+    const negative = keys.length === 2 ? get(keys[1]!) : undefined;
+    if (negative && negative.length !== positive.length) return undefined;
+    y = negative ? positive.map((value, i) => value - negative[i]) : positive;
+  }
   if (a.type === 'ac' && projection === 'phase') {
     const descending = a.frequencyHz.length > 1 && a.frequencyHz[0] > a.frequencyHz[a.frequencyHz.length - 1];
     if (descending) y.reverse();
@@ -146,7 +187,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     }
     if (m.kind === 'integ' && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', 'Integral requires a transient analysis');
     const data = series(analysis, m.signal);
-    if (!data) return error('UNKNOWN_SIGNAL', 'Signal or projection is unavailable');
+    if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
     if (!x.length || x.length !== y.length || ![...x, ...y].every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal has empty or non-finite data');
     if (x.length > 1 && x[0] > x[x.length - 1]) { x = [...x].reverse(); y = [...y].reverse(); }
