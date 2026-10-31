@@ -19,6 +19,26 @@ const forms = [
 const close = (actual: number, expected: number) => expect(Math.abs(actual - expected)).toBeLessThanOrEqual(Math.max(1e-12, Math.abs(expected) * 1e-9));
 
 describe('differential spice_tf', () => {
+  it.each(['v({0},a)', 'v(a,{0})'])('rejects expressions in either terminal for all request forms: %s', async output => {
+    const numericDeck = deck.replaceAll(' b ', ' 0.000000000000000e+0 ');
+    const numericDocument = JSON.parse(JSON.stringify(document).replaceAll('"b"', '"0.000000000000000e+0"'));
+    const inputs = [
+      { netlist: numericDeck },
+      { request: { apiVersion: '1', input: { format: 'spice', source: numericDeck } } },
+      { request: { apiVersion: '1', input: { format: 'spice-ts', document: numericDocument } } },
+    ];
+    for (const form of inputs) {
+      const response = await executeTool('spice_tf', { ...form, output, input_source: 'V1' });
+      expect(response.structuredContent, JSON.stringify(response)).toMatchObject({ error: { code: 'INVALID_REQUEST', phase: 'validation' } });
+    }
+  });
+  it('preserves numeric and punctuation-containing literal node names', async () => {
+    const netlist = deck.replaceAll(' b ', ' 0.000000000000000e+0 ').replaceAll(' a ', ' node+1 ');
+    const response = await executeTool('spice_tf', { netlist, output: 'v(node+1,0.000000000000000e+0)', input_source: 'V1' });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    close(response.structuredContent!.transfer_function as number, 0.25);
+  });
+
   it.each(forms)('matches core and analytic bridge for %j', async form => {
     const args = { ...form, output: 'v(a,b)', input_source: 'V1' };
     const tool = MCP_TOOLS.find(t => t.name === 'spice_tf')!;
