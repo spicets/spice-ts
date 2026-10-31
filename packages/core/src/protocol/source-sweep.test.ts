@@ -16,8 +16,24 @@ const base: SpiceTsCircuitDocumentV1 = {
 const request = (document: SpiceTsCircuitDocumentV1): SimulationRequestV1 => ({ apiVersion: '1', input: { format: 'spice-ts', document } });
 
 describe('native source LIST', () => {
+  it('sweeps voltage and current sources with distortion-only zero DC defaults', async () => {
+    for (const type of ['V', 'I']) for (const field of ['distortionF1', 'distortionF2']) {
+      const doc: SpiceTsCircuitDocumentV1 = {
+        ...base,
+        circuit: { ...base.circuit, components: base.circuit.components.map((c, index) => index === 0 ? { ...c, type, params: { [field]: { magnitude: 1 } } } : c) },
+      };
+      const unstepped = await simulateProtocolV1(request(doc));
+      if (unstepped.analyses[0]?.type !== 'op') throw new Error('expected OP');
+      expect(unstepped.analyses[0].voltagesV.in).toBeCloseTo(0, 9);
+      const swept = { ...doc, sourceSweep: { source: 'V1', values: [1] } };
+      await expect(validateProtocolV1(request(swept))).resolves.toBeDefined();
+      const result = await simulateProtocolV1(request(swept));
+      if (result.analyses[0]?.type !== 'op') throw new Error('expected OP');
+      expect(result.analyses[0].voltagesV.in).toBeCloseTo(type === 'V' ? 1 : -2000, 6);
+    }
+  });
   it('reports the original target DC parameter path during validation and simulation', async () => {
-    for (const type of ['V', 'I']) for (const params of [{}, { dc: 'bad' }, { dc: Infinity }] as Array<Record<string, string | number>>) {
+    for (const type of ['V', 'I']) for (const params of [{}, { dc: 'bad' }, { dc: Infinity }, { dc: 'bad', distortionF1: { magnitude: 1 } }, { dc: Infinity, distortionF2: { magnitude: 1 } }] as Array<SpiceTsCircuitDocumentV1['circuit']['components'][number]['params']>) {
       const doc: SpiceTsCircuitDocumentV1 = {
         ...base,
         circuit: { ...base.circuit, components: base.circuit.components.map((c, index) => index === 0 ? { ...c, type, params } : c) },

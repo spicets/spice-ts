@@ -628,8 +628,9 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
     const targets = document.circuit.components.filter(component => component.name.toUpperCase() === sweep.source.toUpperCase());
     if (targets.length !== 1 || !['V', 'I'].includes(targets[0]!.type.toUpperCase())) invalidNativeField(`${path}/source`);
     if (targets[0]!.params.waveform !== undefined && targets[0]!.params.waveform !== 'dc') invalidNativeField(`${path}/source`);
-    const dc = targets[0]!.params.dc;
-    if (typeof dc !== 'number' || !Number.isFinite(dc)) {
+    const params = targets[0]!.params;
+    const dc = params.dc;
+    if (!hasDistortionDefaultDc(params) && (typeof dc !== 'number' || !Number.isFinite(dc))) {
       const index = document.circuit.components.indexOf(targets[0]!);
       invalidNativeField(`/input/document/circuit/components/${index}/params/dc`);
     }
@@ -1183,10 +1184,14 @@ function invalidDistoField(path: string): never {
   throw new ProtocolExecutionError({ code: 'INVALID_INPUT', message: `Invalid native distortion field at ${path}`, phase: 'validation', retryable: false, details: { path } });
 }
 
+function hasDistortionDefaultDc(params: JsonObject): boolean {
+  return params.dc === undefined && (params.distortionF1 !== undefined || params.distortionF2 !== undefined);
+}
+
 function sourceWaveform(params: JsonObject): Partial<SourceWaveform> & { dc?: number } {
   const kind = stringParam(params, 'waveform') ?? 'dc';
   switch (kind) {
-    case 'dc': return { dc: params.dc === undefined && (params.distortionF1 !== undefined || params.distortionF2 !== undefined) ? 0 : numberParam(params, 'dc') };
+    case 'dc': return { dc: hasDistortionDefaultDc(params) ? 0 : numberParam(params, 'dc') };
     case 'ac': return { type: 'ac', dc: optionalNumber(params, 'dc'), magnitude: optionalNumber(params, 'magnitude') ?? 1, phase: optionalNumber(params, 'phase') ?? 0 };
     case 'sin': return { type: 'sin', offset: numberParam(params, 'offset'), amplitude: numberParam(params, 'amplitude'), frequency: numberParam(params, 'frequency'), delay: optionalNumber(params, 'delay'), damping: optionalNumber(params, 'damping'), phase: optionalNumber(params, 'phase') };
     case 'pulse': return { type: 'pulse', v1: numberParam(params, 'v1'), v2: numberParam(params, 'v2'), delay: numberParam(params, 'delay'), rise: numberParam(params, 'rise'), fall: numberParam(params, 'fall'), width: numberParam(params, 'width'), period: numberParam(params, 'period') };
