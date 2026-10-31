@@ -628,6 +628,11 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
     const targets = document.circuit.components.filter(component => component.name.toUpperCase() === sweep.source.toUpperCase());
     if (targets.length !== 1 || !['V', 'I'].includes(targets[0]!.type.toUpperCase())) invalidNativeField(`${path}/source`);
     if (targets[0]!.params.waveform !== undefined && targets[0]!.params.waveform !== 'dc') invalidNativeField(`${path}/source`);
+    const dc = targets[0]!.params.dc;
+    if (typeof dc !== 'number' || !Number.isFinite(dc)) {
+      const index = document.circuit.components.indexOf(targets[0]!);
+      invalidNativeField(`/input/document/circuit/components/${index}/params/dc`);
+    }
     if (!Array.isArray(sweep.values) || sweep.values.length < 1 || sweep.values.length > 16) invalidNativeField(`${path}/values`);
     for (const [index, value] of sweep.values.entries()) {
       if (typeof value !== 'number' || !Number.isFinite(value)) invalidNativeField(`${path}/values/${index}`);

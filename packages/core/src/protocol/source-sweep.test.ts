@@ -16,6 +16,20 @@ const base: SpiceTsCircuitDocumentV1 = {
 const request = (document: SpiceTsCircuitDocumentV1): SimulationRequestV1 => ({ apiVersion: '1', input: { format: 'spice-ts', document } });
 
 describe('native source LIST', () => {
+  it('reports the original target DC parameter path during validation and simulation', async () => {
+    for (const type of ['V', 'I']) for (const params of [{}, { dc: 'bad' }, { dc: Infinity }] as Array<Record<string, string | number>>) {
+      const doc: SpiceTsCircuitDocumentV1 = {
+        ...base,
+        circuit: { ...base.circuit, components: base.circuit.components.map((c, index) => index === 0 ? { ...c, type, params } : c) },
+        sourceSweep: { source: 'V1', values: [1] },
+      };
+      for (const execute of [validateProtocolV1, simulateProtocolV1]) {
+        await expect(execute(request(doc)).catch(mapProtocolErrorV1)).resolves.toMatchObject({
+          code: 'INVALID_REQUEST', phase: 'validation', details: { path: '/input/document/circuit/components/0/params/dc' },
+        });
+      }
+    }
+  });
   it('accepts a source sweep in the shipped schema', () => {
     const ajv = new Ajv2020({ strict: true });
     for (const name of ['common', 'simulation-request']) ajv.addSchema(JSON.parse(readFileSync(new URL(`../../protocol/schemas/${name}.schema.json`, import.meta.url), 'utf8')));
