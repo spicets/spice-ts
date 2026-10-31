@@ -55,12 +55,17 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
   if (band[0] < f[0] || band[1] > f[f.length - 1]) invalid('Noise band lies outside the simulated sweep');
   const integrate = (y: number[]) => {
     let rms = 0; let nonzero = false;
+    // Keep subnormal interval contributions on a common scale until after summation.
+    // At this threshold even the widest finite interval cannot overflow the scaled RMS.
+    const scale = y.every((density, i) => density <= 2 ** -512 ||
+      !((i > 0 && f[i - 1] < band[1] && f[i] > band[0]) ||
+        (i + 1 < f.length && f[i] < band[1] && f[i + 1] > band[0]))) ? 2 ** 512 : 1;
     for (let i = 1; i < f.length; i++) {
       const left = Math.max(band[0], f[i - 1]); const right = Math.min(band[1], f[i]);
       if (right <= left) continue;
       nonzero ||= y[i - 1] !== 0 || y[i] !== 0;
       if (y[i - 1] === y[i]) {
-        rms = Math.hypot(rms, y[i] * Math.sqrt(right - left));
+        rms = Math.hypot(rms, (y[i] * scale) * Math.sqrt(right - left));
         continue;
       }
       const span = f[i] - f[i - 1];
@@ -71,8 +76,9 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
       const contribution = (density: number, weight: number) => width > 1
         ? (density * Math.sqrt(weight)) * width
         : (density * width) * Math.sqrt(weight);
-      rms = Math.hypot(rms, contribution(y[i - 1], a), contribution(y[i], b));
+      rms = Math.hypot(rms, contribution(y[i - 1] * scale, a), contribution(y[i] * scale, b));
     }
+    rms /= scale;
     if (rms === 0 && nonzero) invalid('Noise integration underflow');
     return rms;
   };

@@ -23,6 +23,16 @@ describe('noise integration numerical range', () => {
       expect(Math.abs(actual / expected - 1)).toBeLessThan(1e-12);
     }
   });
+  it('accumulates representable subnormal noise across multiple intervals', () => {
+    const y = Array(5).fill(Number.MIN_VALUE);
+    const spectrum = new NoiseResult([1, 1.25, 1.5, 1.75, 2], 'out', 'V1', y, y, undefined, undefined);
+    expect(noiseMetrics(spectrum, {})).toMatchObject({ integratedOutputNoiseVrms: Number.MIN_VALUE, integratedInputNoiseRms: Number.MIN_VALUE });
+  });
+  it('does not let density outside a clipped band disable subnormal accumulation', () => {
+    const y = [1, ...Array(5).fill(Number.MIN_VALUE)];
+    const spectrum = new NoiseResult([0.5, 1, 1.25, 1.5, 1.75, 2], 'out', 'V1', y, y, undefined, undefined);
+    expect(noiseMetrics(spectrum, { bandHz: [1, 2] }).integratedOutputNoiseVrms).toBe(Number.MIN_VALUE);
+  });
   it('reports genuinely unrepresentable overflow and underflow as structured errors', () => {
     const huge = new NoiseResult([1, 5], 'out', 'V1', [Number.MAX_VALUE, Number.MAX_VALUE], [1, 1], undefined, undefined);
     const tiny = new NoiseResult([1, 1.25], 'out', 'V1', [Number.MIN_VALUE, Number.MIN_VALUE], [1, 1], undefined, undefined);
