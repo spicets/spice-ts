@@ -25,6 +25,15 @@ describe('native component LIST', () => {
     const text = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice', source: 'V1 in 0 10\nR1 in out 1k\nR2 out 0 1k\n.dc V1 0 4 1\n.step R2 list 1k 3k\n.end' }, outputs: ['v(out)'] });
     expect(native.analyses).toEqual(text.analyses);
     expect(native.analyses.map(a => a.step)).toEqual([{ index: 0, parameter: 'R2', value: 1000 }, { index: 1, parameter: 'R2', value: 3000 }]);
+    for (const [index, gain] of [[0, 0.5], [1, 0.75]] as const) {
+      const trace = native.analyses[index];
+      if (!trace || trace.type !== 'dc') throw new Error('missing native DC trace');
+      expect(trace.axis.values).toEqual([0, 1, 2, 3, 4]);
+      expect(trace.voltagesV.out).toHaveLength(5);
+      for (const [point, input] of trace.axis.values.entries()) {
+        expect(trace.voltagesV.out[point]).toBeCloseTo(gain * input, 9);
+      }
+    }
   });
   it('runs independent RC transient steps in order', async () => {
     const values = [1000, 2000, 3000];
