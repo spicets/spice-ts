@@ -83,7 +83,9 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
     const denominator = re * re + im * im;
     const conductanceS = (re / denominator) / scale;
     const susceptanceS = (-im / denominator) / scale;
-    if (![conductanceS, susceptanceS].every(Number.isFinite)) impedanceInvalid('Admittance is not representable');
+    if (![conductanceS, susceptanceS].every(Number.isFinite)
+      || (resistanceOhm !== 0 && conductanceS === 0)
+      || (reactanceOhm !== 0 && susceptanceS === 0)) impedanceInvalid('Admittance is not representable');
     return { ...point, conductanceS, susceptanceS };
   });
   let min = points[0]; let max = points[0];

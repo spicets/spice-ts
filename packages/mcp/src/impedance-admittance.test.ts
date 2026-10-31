@@ -57,6 +57,11 @@ describe('opt-in impedance admittance', () => {
       expect(impedanceReport(spectrum, { port }).points[0]).not.toHaveProperty('conductanceS');
     }
   });
+  it('rejects a nonzero impedance component whose reciprocal underflows', () => {
+    const spectrum: ImpedanceSpectrum = { frequencyHz: [1], positive: [{ magnitude: 1e300, phaseDegrees: 1e-310 }], negative: [{ magnitude: 0, phaseDegrees: 0 }] };
+    expect(impedanceReport(spectrum, { port }).points[0].reactanceOhm).not.toBe(0);
+    try { impedanceReport(spectrum, { port, includeAdmittance: true }); expect.fail('expected INVALID_REQUEST'); } catch (error) { expect(error).toMatchObject({ code: 'INVALID_REQUEST', phase: 'validation', retryable: false }); }
+  });
   it('returns a structured public error for zero impedance', async () => {
     const args = { request: request('V1 in 0 0'), port };
     expect((await executeTool('spice_impedance', args)).isError).not.toBe(true);
