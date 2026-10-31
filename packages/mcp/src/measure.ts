@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'delay'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'delay', 'duty'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
@@ -24,6 +24,9 @@ export const measurementListSchema = {
     }, {
       if: { properties: { kind: { enum: ['cross', 'when'] } } },
       else: { not: { required: ['occurrence'] } },
+    }, {
+      if: { properties: { kind: { const: 'duty' } } },
+      then: { required: ['value'], not: { anyOf: ['at', 'edge', 'occurrence', 'trigger', 'target'].map(key => ({ required: [key] })) } },
     }],
     properties: {
       kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
@@ -62,6 +65,7 @@ function valid(value: unknown): value is Measurement {
     })
     && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'occurrence', 'trigger', 'target'].includes(key))
     && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
+    && (m.kind !== 'duty' || (m.value !== undefined && m.at === undefined && m.edge === undefined))
     && (m.occurrence === undefined || (['cross', 'when'].includes(m.kind) && Number.isSafeInteger(m.occurrence) && m.occurrence > 0))
     && (m.edge === undefined || ['rising', 'falling', 'either'].includes(m.edge))
     && (m.from === undefined || m.to === undefined || m.from <= m.to)
@@ -185,7 +189,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (m.kind === 'integ' && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', 'Integral requires a transient analysis');
+    if ((m.kind === 'integ' || m.kind === 'duty') && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
@@ -204,7 +208,11 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       }
       const i = left;
       if (i === 0 || x[i] === at) return y[i];
-      return y[i - 1] + (y[i] - y[i - 1]) * ((at - x[i - 1]) / (x[i] - x[i - 1]));
+      const fraction = (at - x[i - 1]) / (x[i] - x[i - 1]);
+      const delta = y[i] - y[i - 1];
+      return Number.isFinite(delta)
+        ? y[i - 1] + delta * fraction
+        : y[i - 1] * (1 - fraction) + y[i] * fraction;
     };
     if (m.kind === 'at') return { value: interpolate(m.at!), unit: data.unit };
     if (m.kind === 'cross' || m.kind === 'when') {
@@ -226,7 +234,25 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     const samples = points.map(interpolate);
     let value: number;
     let unit = data.unit;
-    if (m.kind === 'min' || m.kind === 'max' || m.kind === 'pp') {
+    if (m.kind === 'duty') {
+      if (hi === lo) return error('OUT_OF_RANGE', 'Duty requires a nonzero window');
+      let duration = 0;
+      for (let i = 1; i < points.length; i++) {
+        const a = samples[i - 1]; const b = samples[i]; const threshold = m.value!;
+        const width = points[i] - points[i - 1];
+        if (a > threshold && b > threshold) duration += width;
+        else if (a > threshold || b > threshold) {
+          const high = Math.max(a, b); const low = Math.min(a, b);
+          const range = high - low;
+          const fraction = Number.isFinite(range)
+            ? (high - threshold) / range
+            : (high / 2 - threshold / 2) / (high / 2 - low / 2);
+          duration += width * fraction;
+        }
+      }
+      value = Math.min(1, Math.max(0, duration / (hi - lo)));
+      unit = '1';
+    } else if (m.kind === 'min' || m.kind === 'max' || m.kind === 'pp') {
       const min = samples.reduce((a, b) => Math.min(a, b));
       const max = samples.reduce((a, b) => Math.max(a, b));
       value = m.kind === 'min' ? min : m.kind === 'max' ? max : max - min;
