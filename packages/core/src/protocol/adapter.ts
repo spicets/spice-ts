@@ -200,13 +200,7 @@ export async function simulateProtocolV1(
     for (const run of runs) {
       let runCircuit = circuit;
       if (run && nativeSweep && request.input.format === 'spice-ts') {
-        const { componentSweep: _sweep, ...document } = request.input.document;
-        const components = document.circuit.components.map(component => {
-          if (component.name.toUpperCase() !== nativeSweep.component.toUpperCase()) return component;
-          const parameter = { R: 'resistance', C: 'capacitance', L: 'inductance' }[component.type.toUpperCase()]!;
-          return { ...component, params: { ...component.params, [parameter]: run.value } };
-        });
-        runCircuit = applyProtocolTemperatures(circuitFromDocument({ ...document, circuit: { ...document.circuit, components } }, guard), request.options);
+        runCircuit = applyProtocolTemperatures(circuitFromDocument(steppedComponentDocument(request.input.document, run.value), guard), request.options);
       }
       const compiled = runCircuit.compile(guard);
       const result = await simulate(runCircuit, options, guard);
@@ -257,10 +251,20 @@ export async function simulateProtocolV1(
 
 type OutputSelection = { nodes: Set<string>; branches: Set<string> };
 
-// Stepping may add a synthetic branch; AC and transient runs use independent circuits.
+function steppedComponentDocument(document: SpiceTsCircuitDocumentV1, value: number): SpiceTsCircuitDocumentV1 {
+  const { componentSweep, ...base } = document;
+  const components = base.circuit.components.map(component => {
+    if (component.name.toUpperCase() !== componentSweep!.component.toUpperCase()) return component;
+    const parameter = { R: 'resistance', C: 'capacitance', L: 'inductance' }[component.type.toUpperCase()]!;
+    return { ...component, params: { ...component.params, [parameter]: value } };
+  });
+  return { ...base, circuit: { ...base.circuit, components } };
+}
+
+// Positive sweep values have the same branch topology as the executed circuits.
 function outputSelectionCircuit(request: SimulationRequestV1, compiled: CompiledCircuit, guard: ProtocolExecutionGuard): CompiledCircuit {
   if (request.outputs === undefined || request.input.format !== 'spice-ts' || !request.input.document.componentSweep || !['tran', 'ac'].includes(request.input.document.analyses[0]?.type ?? '')) return compiled;
-  const { componentSweep: _sweep, ...document } = request.input.document;
+  const document = steppedComponentDocument(request.input.document, request.input.document.componentSweep.values[0]!);
   return applyProtocolTemperatures(circuitFromDocument(document, guard), request.options).compile(guard);
 }
 

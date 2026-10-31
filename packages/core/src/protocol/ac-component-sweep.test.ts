@@ -50,6 +50,11 @@ describe('native AC component LIST', () => {
     for (const a of result.analyses) { if (a.type !== 'ac') throw new Error('expected AC'); expect(Object.keys(a.voltagePhasors)).toEqual(['out']); expect(Object.keys(a.currentPhasors)).toEqual(['V1']); }
     for (const execute of [simulateProtocolV1, validateProtocolV1]) await expect(execute({ ...input, outputs: ['i(R1)'] }).catch(mapProtocolErrorV1)).resolves.toMatchObject({ code: 'INVALID_REQUEST', details: { path: '/outputs/0' } });
   });
+  it('rejects currents unavailable after stepping an originally zero-ohm resistor', async () => {
+    const doc = { ...document, circuit: { ...document.circuit, components: document.circuit.components.map(c => c.name === 'R1' ? { ...c, params: { ...c.params, resistance: 0 } } : c) }, componentSweep: { component: 'R1', values: [1000, 2000] } };
+    const input = { ...request(doc), outputs: ['i(R1)'] };
+    for (const execute of [simulateProtocolV1, validateProtocolV1]) await expect(execute(input).catch(mapProtocolErrorV1)).resolves.toMatchObject({ code: 'INVALID_REQUEST', details: { path: '/outputs/0' } });
+  });
   it('rejects invalid AC sweep requests in simulate and validate', async () => {
     const sweep = { component: 'R1', values: [1000] };
     const cases: [object, string][] = [
