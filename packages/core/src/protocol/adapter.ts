@@ -88,6 +88,7 @@ export async function validateProtocolV1(
   const compiled = circuit.compile(guard);
   validateOutputSelection(request, outputSelectionCircuit(request, compiled, guard));
   enforcePointLimit(circuit.analyses, guard, requestReltol(request, circuit), compiled.steps[0]);
+  if (request.input.format === 'spice-ts' && request.input.document.sourceSweep) guard.maximum('maxResultPoints', request.input.document.sourceSweep.values.length, 'validation');
   validateNativeTfOutputs(request, compiled);
   validateNativeFourier(request, compiled);
   validateNativeMeasurements(request);
@@ -186,6 +187,7 @@ export async function simulateProtocolV1(
   validateNativeFourier(request, preflight);
   validateNativeMeasurements(request);
   enforcePointLimit(analyses, guard, requestReltol(request, circuit), preflight.steps[0]);
+  if (request.input.format === 'spice-ts' && request.input.document.sourceSweep) guard.maximum('maxResultPoints', request.input.document.sourceSweep.values.length, 'validation');
   preflightTopology(preflight, protocolSourcePath(request));
   const options = coreOptions(request.options);
   const serialized: AnalysisResultV1[] = [];
@@ -196,11 +198,16 @@ export async function simulateProtocolV1(
     const nativeSweep = request.input.format === 'spice-ts' && (analysis.type === 'tran' || analysis.type === 'ac')
       ? request.input.document.componentSweep : undefined;
     // A fresh native circuit per step avoids continuation and device-state leaks.
-    const runs = nativeSweep ? nativeSweep.values.map((value, index) => ({ value, index })) : [undefined];
+    const sourceSweep = request.input.format === 'spice-ts' ? request.input.document.sourceSweep : undefined;
+    const sweep = nativeSweep ?? sourceSweep;
+    const runs = sweep ? sweep.values.map((value, index) => ({ value, index })) : [undefined];
     for (const run of runs) {
       let runCircuit = circuit;
       if (run && nativeSweep && request.input.format === 'spice-ts') {
         runCircuit = applyProtocolTemperatures(circuitFromDocument(steppedComponentDocument(request.input.document, run.value), guard), request.options);
+      }
+      if (run && sourceSweep && request.input.format === 'spice-ts') {
+        runCircuit = applyProtocolTemperatures(circuitFromDocument(steppedSourceDocument(request.input.document, run.value), guard), request.options);
       }
       const compiled = runCircuit.compile(guard);
       const result = await simulate(runCircuit, options, guard);
@@ -208,8 +215,8 @@ export async function simulateProtocolV1(
         if (transient) transient.fourier = nativeFourier(request, analysisIndex, compiled, transient, guard) ?? transient.fourier;
       }
       const completedBefore = serialized.length;
-      if (run && nativeSweep) {
-        const parameter = preflight.steps[0]!.param;
+      if (run && sweep) {
+        const parameter = sourceSweep && request.input.format === 'spice-ts' ? request.input.document.circuit.components.find(c => c.name.toUpperCase() === sourceSweep.source.toUpperCase())!.name : preflight.steps[0]!.param;
         serialized.push(serializeOne(result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, runCircuit, { index: run.index, parameter, value: run.value }));
       } else {
         appendAnalysisResult(serialized, result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, runCircuit);
@@ -250,6 +257,13 @@ export async function simulateProtocolV1(
 }
 
 type OutputSelection = { nodes: Set<string>; branches: Set<string> };
+
+function steppedSourceDocument(document: SpiceTsCircuitDocumentV1, value: number): SpiceTsCircuitDocumentV1 {
+  const { sourceSweep, ...base } = document;
+  const components = base.circuit.components.map(component => component.name.toUpperCase() === sourceSweep!.source.toUpperCase()
+    ? { ...component, params: { ...component.params, dc: value } } : component);
+  return { ...base, circuit: { ...base.circuit, components } };
+}
 
 function steppedComponentDocument(document: SpiceTsCircuitDocumentV1, value: number): SpiceTsCircuitDocumentV1 {
   const { componentSweep, ...base } = document;
@@ -600,9 +614,34 @@ function coreOptions(options?: SimulationOptionsV1): SimulationOptions {
 export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: ProtocolExecutionGuard): Circuit {
   const circuit = new Circuit();
   for (const key of Object.keys(document)) {
-    if (!['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits', 'temperatureSweep', 'componentSweep', 'globalNodes', 'poleZeroAnalyses', 'noiseAnalyses', 'initialConditions', 'nodesets'].includes(key)) {
+    if (!['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits', 'temperatureSweep', 'componentSweep', 'sourceSweep', 'globalNodes', 'poleZeroAnalyses', 'noiseAnalyses', 'initialConditions', 'nodesets'].includes(key)) {
       invalidNativeField(`/input/document/${jsonPointerSegment(key)}`);
     }
+  }
+  if (document.sourceSweep !== undefined) {
+    const sweep = document.sourceSweep;
+    const path = '/input/document/sourceSweep';
+    if (!sweep || typeof sweep !== 'object' || Array.isArray(sweep)) invalidNativeField(path);
+    for (const key of Object.keys(sweep)) if (!['source', 'values'].includes(key)) invalidNativeField(`${path}/${jsonPointerSegment(key)}`);
+    if (document.componentSweep !== undefined || document.temperatureSweep !== undefined) invalidNativeField(path);
+    if (typeof sweep.source !== 'string' || !sweep.source) invalidNativeField(`${path}/source`);
+    const targets = document.circuit.components.filter(component => component.name.toUpperCase() === sweep.source.toUpperCase());
+    if (targets.length !== 1 || !['V', 'I'].includes(targets[0]!.type.toUpperCase())) invalidNativeField(`${path}/source`);
+    if (targets[0]!.params.waveform !== undefined && targets[0]!.params.waveform !== 'dc') invalidNativeField(`${path}/source`);
+    const params = targets[0]!.params;
+    const dc = params.dc;
+    if (!hasDistortionDefaultDc(params) && (typeof dc !== 'number' || !Number.isFinite(dc))) {
+      const index = document.circuit.components.indexOf(targets[0]!);
+      invalidNativeField(`/input/document/circuit/components/${index}/params/dc`);
+    }
+    if (!Array.isArray(sweep.values) || sweep.values.length < 1 || sweep.values.length > 16) invalidNativeField(`${path}/values`);
+    for (const [index, value] of sweep.values.entries()) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) invalidNativeField(`${path}/values/${index}`);
+    }
+    if (document.analyses.length !== 1) invalidNativeField('/input/document/analyses');
+    if (document.analyses[0]?.type !== 'op') invalidNativeField('/input/document/analyses/0/type');
+    if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
+    if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
   }
   if (document.componentSweep !== undefined) {
     const sweep = document.componentSweep;
@@ -1145,10 +1184,14 @@ function invalidDistoField(path: string): never {
   throw new ProtocolExecutionError({ code: 'INVALID_INPUT', message: `Invalid native distortion field at ${path}`, phase: 'validation', retryable: false, details: { path } });
 }
 
+function hasDistortionDefaultDc(params: JsonObject): boolean {
+  return params.dc === undefined && (params.distortionF1 !== undefined || params.distortionF2 !== undefined);
+}
+
 function sourceWaveform(params: JsonObject): Partial<SourceWaveform> & { dc?: number } {
   const kind = stringParam(params, 'waveform') ?? 'dc';
   switch (kind) {
-    case 'dc': return { dc: params.dc === undefined && (params.distortionF1 !== undefined || params.distortionF2 !== undefined) ? 0 : numberParam(params, 'dc') };
+    case 'dc': return { dc: hasDistortionDefaultDc(params) ? 0 : numberParam(params, 'dc') };
     case 'ac': return { type: 'ac', dc: optionalNumber(params, 'dc'), magnitude: optionalNumber(params, 'magnitude') ?? 1, phase: optionalNumber(params, 'phase') ?? 0 };
     case 'sin': return { type: 'sin', offset: numberParam(params, 'offset'), amplitude: numberParam(params, 'amplitude'), frequency: numberParam(params, 'frequency'), delay: optionalNumber(params, 'delay'), damping: optionalNumber(params, 'damping'), phase: optionalNumber(params, 'phase') };
     case 'pulse': return { type: 'pulse', v1: numberParam(params, 'v1'), v2: numberParam(params, 'v2'), delay: numberParam(params, 'delay'), rise: numberParam(params, 'rise'), fall: numberParam(params, 'fall'), width: numberParam(params, 'width'), period: numberParam(params, 'period') };

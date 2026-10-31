@@ -88,6 +88,7 @@ export interface SpiceTsCircuitDocumentV1 {
   temperatureSweep?: { values: number[] };
   /** One OP-only component value list. */
   componentSweep?: { component: string; values: number[] };
+  sourceSweep?: { source: string; values: number[] };
   initialConditions?: Record<string, number>;
   nodesets?: Record<string, number>;
   circuit: { components: CircuitComponentV1[]; nets: string[] };
