@@ -73,13 +73,40 @@ export function fourierMetrics(result: SimulationResultV1, args: FourierArgs): F
   const a = traces[0];
   const match = /^([vi])\(([^()]+)\)$/i.exec(args.signal);
   const values = match?.[1].toLowerCase() === 'v' ? a.voltagesV : a.currentsA;
-  const key = match && Object.keys(values).find(key => key.toLowerCase() === match[2].toLowerCase());
-  if (key === undefined || key === null) return error('UNKNOWN_SIGNAL', 'Expected an existing v(node) or i(branch) signal');
-  const x = a.timeS; const y = values[key];
+  const lookup = (name: string) => Object.keys(values).find(key => key.toLowerCase() === name.toLowerCase());
+  const key = match && lookup(match[2]);
+  const x = a.timeS;
+  let y: number[] | undefined = key == null ? undefined : values[key];
+  let operands: [number[], number[]] | undefined;
+  if (!y && match?.[1].toLowerCase() === 'v') {
+    const terminals = match[2].split(',').map(name => name.trim());
+    if (terminals.length === 2 && terminals.every(Boolean)) {
+      const resolve = (name: string) => {
+        if (/^(0|gnd)$/i.test(name)) return x.map(() => 0);
+        const found = lookup(name);
+        return found === undefined ? undefined : values[found];
+      };
+      const positive = resolve(terminals[0]); const negative = resolve(terminals[1]);
+      if (positive && negative) {
+        if (positive.length !== x.length || negative.length !== x.length) return error('INVALID_DATA', 'Expected at least two finite aligned samples and strictly increasing times');
+        y = positive.map((v, i) => v - negative[i]);
+        operands = [positive, negative];
+      }
+    }
+  }
+  if (!y) return error('UNKNOWN_SIGNAL', 'Expected an existing v(node) or i(branch) signal');
   if (x.length < 2 || x.length !== y.length || y.some(v => !Number.isFinite(v))
     || x.some((v, i) => !Number.isFinite(v) || (i > 0 && v <= x[i - 1]))) return error('INVALID_DATA', 'Expected at least two finite aligned samples and strictly increasing times');
   const start = x[x.length - 1] - 1 / args.fundamentalHz;
   if (!Number.isFinite(start) || start < Math.max(x[0], args.windowStartS ?? x[0])) return error('INSUFFICIENT_PERIOD', 'The requested window must contain the full last period');
+  if (operands) {
+    // Check only the measured period and the sample needed to interpolate its start.
+    const first = x.findIndex(t => t >= start);
+    const from = Math.max(0, first - (x[first] > start ? 1 : 0));
+    const [positive, negative] = operands;
+    const roundoff = y.every((v, i) => i < from || Math.abs(v - y![from]) <= Number.EPSILON * Math.max(Math.abs(positive[i]), Math.abs(negative[i]), Math.abs(positive[from]), Math.abs(negative[from])));
+    if (roundoff) return error('INVALID_DATA', 'Fourier arithmetic is non-finite, or the fundamental is zero');
+  }
   // Retain pre-window samples as interpolation support, just like the core command.
   try {
     const table = ngspiceFourier(args.signal, Float64Array.from(x), Float64Array.from(y), args.fundamentalHz, (args.harmonicCount ?? 9) + 1, 200, 1, 1);
