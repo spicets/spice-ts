@@ -161,16 +161,77 @@ describe('spice_power_metrics', () => {
     });
   });
 
-  it('clips nonuniform segments and trapezoidally integrates power and squared current', () => {
+  it('integrates quadratic power and current squared for a linear ramp', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const report = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: [0, 1],
+      voltagesV: { in: [0, 1] }, currentsA: { V1: [0, 1] },
+    }] }, plan);
+    const metric = report.elements[0];
+    expect(Math.abs(metric.averagePowerW - 1 / 3)).toBeLessThanOrEqual(1e-12);
+    expect(Math.abs(metric.rmsCurrentA - Math.sqrt(1 / 3))).toBeLessThanOrEqual(1e-12);
+    expect(metric).toMatchObject({ peakPowerW: 1, peakTimeS: 1 });
+  });
+
+  it('finds the interior peak of opposing linear ramps', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const report = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: [0, 1],
+      voltagesV: { in: [0, 1] }, currentsA: { V1: [1, 0] },
+    }] }, plan);
+    const metric = report.elements[0];
+    expect(Math.abs(metric.averagePowerW - 1 / 6)).toBeLessThanOrEqual(1e-12);
+    expect(metric).toMatchObject({ peakPowerW: 0.25, peakTimeS: 0.5 });
+  });
+
+  it('finds the interior peak after clipping opposing ramps', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'], window: [0.25, 0.75] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const times = [0, 0.125, 0.625, 1];
+    const metric = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: times,
+      voltagesV: { in: times }, currentsA: { V1: times.map(t => 1 - t) },
+    }] }, plan).elements[0];
+    expect(Math.abs(metric.averagePowerW - 11 / 48)).toBeLessThanOrEqual(1e-12);
+    expect(Math.abs(metric.peakPowerW - 0.25)).toBeLessThanOrEqual(1e-12);
+    expect(Math.abs(metric.peakTimeS - 0.5)).toBeLessThanOrEqual(1e-12);
+  });
+
+  it('clips nonuniform signed ramp waveforms before forming products', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'], window: [0.25, 0.75] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const times = [0, 0.125, 0.625, 1];
+    const metric = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: times,
+      voltagesV: { in: times }, currentsA: { V1: times.map(t => -t) },
+    }] }, plan).elements[0];
+    expect(Math.abs(metric.averagePowerW + 13 / 48)).toBeLessThanOrEqual(1e-12);
+    expect(Math.abs(metric.rmsCurrentA - Math.sqrt(13 / 48))).toBeLessThanOrEqual(1e-12);
+    expect(metric).toMatchObject({ peakPowerW: -1 / 16, peakTimeS: 0.25 });
+  });
+
+  it('retains the earliest peak when multiple segments tie', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const metric = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: [0, 1, 2, 3, 4],
+      voltagesV: { in: [0, 1, 0, 1, 0] }, currentsA: { V1: [1, 1, 1, 1, 1] },
+    }] }, plan).elements[0];
+    expect(metric).toMatchObject({ peakPowerW: 1, peakTimeS: 1 });
+  });
+
+  it('clips nonuniform segments and integrates the original waveforms', () => {
     const plan = powerPlan({ netlist: dc, elements: ['V1'], window: [0.5, 2] });
     if ('error' in plan) throw new Error('Expected a plan');
     const report = powerMetrics({ status: 'complete', analyses: [{
       type: 'tran', analysisIndex: 0, timeS: [0, 1, 3],
       voltagesV: { in: [2, 2, 2] }, currentsA: { V1: [0, 1, 3] },
     }] }, plan);
-    // p(t)=2t; i^2 is interpolated between accepted samples, not re-squared at clipped edges.
+    // p(t)=2t and i(t)^2=t^2 on the clipped interval.
     expect(report.elements[0].averagePowerW).toBeCloseTo(2.5, 12);
-    expect(report.elements[0].rmsCurrentA).toBeCloseTo(Math.sqrt(2.25), 12);
+    expect(report.elements[0].rmsCurrentA).toBeCloseTo(Math.sqrt(1.75), 12);
     expect(report.elements[0]).toMatchObject({ peakPowerW: 4, peakTimeS: 2 });
   });
 

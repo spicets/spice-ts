@@ -116,19 +116,25 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     const current = vector(trace.currentsA, probe.branch);
     const vp = vector(trace.voltagesV, probe.positive);
     const vn = vector(trace.voltagesV, probe.negative);
-    const power = current.map((i, k) => (vp[k] - vn[k]) * i);
-    const square = current.map(i => i * i);
     let energy = 0; let squareIntegral = 0; let peakPowerW = -Infinity; let peakTimeS = start;
     for (let k = 1; k < times.length; k++) {
       const left = Math.max(start, times[k - 1]); const right = Math.min(stop, times[k]);
       if (right <= left) continue;
-      // Integrate piecewise-linear power and i^2, clipping segments at window edges.
+      // Clip the linear input waveforms before integrating their quadratic products.
       const at = (values: number[], t: number) => values[k - 1] + (values[k] - values[k - 1]) * ((t - times[k - 1]) / (times[k] - times[k - 1]));
-      const pl = at(power, left); const pr = at(power, right);
-      energy += (pl + pr) * (right - left) / 2;
-      squareIntegral += (at(square, left) + at(square, right)) * (right - left) / 2;
-      if (pl > peakPowerW) { peakPowerW = pl; peakTimeS = left; }
-      if (pr > peakPowerW) { peakPowerW = pr; peakTimeS = right; }
+      const vl = at(vp, left) - at(vn, left); const vr = at(vp, right) - at(vn, right);
+      const il = at(current, left); const ir = at(current, right);
+      const dv = vr - vl; const di = ir - il; const duration = right - left;
+      const a = dv * di; const b = vl * di + il * dv; const c = vl * il;
+      energy += duration * (c + b / 2 + a / 3);
+      squareIntegral += duration * (il * il + il * di + di * di / 3);
+      const consider = (power: number, time: number) => {
+        if (power > peakPowerW) { peakPowerW = power; peakTimeS = time; }
+      };
+      consider(c, left);
+      const vertex = -b / (2 * a);
+      if (a < 0 && vertex > 0 && vertex < 1) consider((vl + dv * vertex) * (il + di * vertex), left + duration * vertex);
+      consider(vr * ir, right);
     }
     return { name: probe.name, averagePowerW: energy / (stop - start), rmsCurrentA: Math.sqrt(squareIntegral / (stop - start)), peakPowerW, peakTimeS };
   });
