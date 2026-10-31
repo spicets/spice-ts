@@ -54,15 +54,38 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
   const band = args.bandHz ?? [f[0], f[f.length - 1]];
   if (band[0] < f[0] || band[1] > f[f.length - 1]) invalid('Noise band lies outside the simulated sweep');
   const integrate = (y: number[]) => {
-    let area = 0;
+    let rms = 0; let nonzero = false;
+    // Keep subnormal interval contributions on a common scale until after summation.
+    // At this threshold even the widest finite interval cannot overflow the scaled RMS.
+    const scale = y.every((density, i) => density <= 2 ** -512 ||
+      !((i > 0 && f[i - 1] < band[1] && f[i] > band[0]) ||
+        (i + 1 < f.length && f[i] < band[1] && f[i + 1] > band[0]))) ? 2 ** 512 : 1;
     for (let i = 1; i < f.length; i++) {
       const left = Math.max(band[0], f[i - 1]); const right = Math.min(band[1], f[i]);
       if (right <= left) continue;
-      const p = y[i - 1] ** 2; const q = y[i] ** 2;
-      const at = (hz: number) => p + (q - p) * (hz - f[i - 1]) / (f[i] - f[i - 1]);
-      area += (right - left) * (at(left) + at(right)) / 2;
+      nonzero ||= y[i - 1] !== 0 || y[i] !== 0;
+      if (y[i - 1] === y[i]) {
+        rms = Math.hypot(rms, (y[i] * scale) * Math.sqrt(right - left));
+        continue;
+      }
+      const span = f[i] - f[i - 1];
+      // Integrate the two linear-PSD basis functions over the clipped interval.
+      // Take square roots before dividing: the normalized weight itself can
+      // underflow even though its square root and the final RMS are representable.
+      const rootSpan = Math.sqrt(span);
+      const rootWeight = (d1: number, d2: number) =>
+        Math.hypot(Math.sqrt(d1) / rootSpan, Math.sqrt(d2) / rootSpan) / Math.SQRT2;
+      const a = rootWeight(f[i] - left, f[i] - right);
+      const b = rootWeight(left - f[i - 1], right - f[i - 1]);
+      const width = Math.sqrt(right - left);
+      const contribution = (density: number, weight: number) => width > 1
+        ? (density * weight) * width
+        : (density * width) * weight;
+      rms = Math.hypot(rms, contribution(y[i - 1] * scale, a), contribution(y[i] * scale, b));
     }
-    return Math.sqrt(area);
+    rms /= scale;
+    if (rms === 0 && nonzero) invalid('Noise integration underflow');
+    return rms;
   };
   const spots = (args.spotFrequenciesHz ?? []).map(frequencyHz => {
     const outOfRange = frequencyHz < f[0] || frequencyHz > f[f.length - 1];
