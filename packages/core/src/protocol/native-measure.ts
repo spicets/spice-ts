@@ -1,4 +1,4 @@
-import { evaluateMeasureCards, measureCard, measurePlot } from '../measure/dot-measure.js';
+import { evaluateMeasureCards, gettokWords, measureCard, measurePlot } from '../measure/dot-measure.js';
 import type { ACResult, DCSweepResult, TransientResult } from '../results.js';
 import type { AnalysisDirective } from '../types.js';
 import type { SimulationRequestV1, AcMeasurementV1, TransientMeasurementV1, TransientMeasurementResultV1 } from './types.js';
@@ -81,7 +81,10 @@ function card(m: TransientMeasurementV1 | AcMeasurementV1, analysis: 'tran' | 'd
 /** Reuse the measurements already evaluated for this particular text analysis. */
 export function textMeasurements(circuit: Circuit, directive: AnalysisDirective, result: SimulationResult, guard: ProtocolExecutionGuard): TransientMeasurementResultV1[] | undefined {
   if (directive.type !== 'tran' && (directive.type !== 'dc' || directive.secondary)) return undefined;
-  const lines = new Set(measureCards(circuit).filter(card => /^\.meas(?:ure)?\s+\S+\s+\S+\s+find\s+\S+\s+at\s*=/i.test(card.text)).map(card => card.line));
+  const lines = new Set(measureCards(circuit).filter(card => {
+    const words = gettokWords(card.text);
+    return words[3] === 'find' && /^at\s*=/.test(words.slice(5).join(' '));
+  }).map(card => card.line));
   const measurements = result.measurements?.filter(m => m.analysis === directive.type && lines.has(m.line));
   if (!measurements?.length) return undefined;
   return measurements.map(m => {

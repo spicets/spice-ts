@@ -29,6 +29,13 @@ describe('SPICE text measurements in the protocol', () => {
     expect(result.analyses[0]).toHaveProperty('measurements', expected);
   });
 
+  it('accepts the evaluator’s comma-separated card tokens', async () => {
+    const deck = `${rc}\n.tran 0.1u 3u\n.meas tran sample,find v(out) at=1.234u`;
+    const { direct, result, expected } = await compare(deck);
+    expect(direct.measurements?.[0]?.status).toBe('ok');
+    expect(result.analyses[0]).toHaveProperty('measurements', expected);
+  });
+
   it('exposes DC FIND AT values and individual failures in deck order, including duplicate names', async () => {
     const deck = `${riv}\n.dc V1 0 4 1\n.measure dc same find v(out) at=1.5\n.measure dc same find i(v1) at=2.5\n.measure dc missing find v(absent) at=1.5\n.measure dc outside find v(out) at=9`;
     const { direct, result, expected } = await compare(deck);
