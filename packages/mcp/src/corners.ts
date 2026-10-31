@@ -6,7 +6,7 @@ import { overrideParameters, ParameterOverrideError, paramsSchema } from './para
 import { overrideComponent } from './sweep.js';
 
 export const MAX_CORNERS = 64;
-type Corner = { name: string; params?: Record<string, number>; temp?: number; components?: Record<string, number> };
+type Corner = { name: string; params?: Record<string, number>; temp?: number; components?: Record<string, number>; sources?: Record<string, number> };
 type CornerResult = { name: string; status: 'complete'; value: number; unit: string }
   | { name: string; status: 'failed'; error: unknown };
 type CornerSummary = { min: { name: string; value: number }; max: { name: string; value: number }; spread: number; unit: string };
@@ -17,6 +17,7 @@ export const cornersProperties = {
     type: 'object', required: ['name'], additionalProperties: false, properties: {
       name: { type: 'string', minLength: 1, maxLength: 128 }, params: paramsSchema,
       components: { type: 'object', description: 'Case-insensitive top-level R/C/L component value overrides. Names must match ^[A-Za-z_][\\w.:-]*$; values must be finite and positive. Invalid names fail their corner.', additionalProperties: { type: 'number', exclusiveMinimum: 0 } },
+      sources: { type: 'object', description: 'Case-insensitive top-level native spice-ts DC voltage or current source overrides. Values must be finite; invalid targets fail their corner.', additionalProperties: { type: 'number' } },
       temp: { type: 'number', exclusiveMinimum: -273.15, description: 'Circuit temperature in degrees Celsius. Overrides SPICE temperature cards or native request options.temperature.' },
     },
   } },
@@ -44,7 +45,7 @@ export async function runCorners(
   const names = new Set<string>();
   for (const c of args.corners) {
     if (!record(c) || typeof c.name !== 'string' || !c.name.trim() || c.name.length > 128 || names.has(c.name)
-      || Object.keys(c).some(k => !['name', 'params', 'temp', 'components'].includes(k))
+      || Object.keys(c).some(k => !['name', 'params', 'temp', 'components', 'sources'].includes(k))
       || (c.temp !== undefined && (typeof c.temp !== 'number' || !Number.isFinite(c.temp) || c.temp <= -273.15))) invalid('Invalid or duplicate corner name or temperature');
     names.add(c.name);
   }
@@ -56,6 +57,35 @@ export async function runCorners(
     let checkingLimits = false;
     try {
       let changed = overrideParameters(request, corner.params);
+      if (corner.sources !== undefined) {
+        if (originalFormat !== 'spice-ts' || changed.input.format !== 'spice-ts') invalid('Source overrides require native spice-ts JSON input');
+        if (!record(corner.sources)) invalid('sources must be a record of finite numbers');
+        const entries = Object.entries(corner.sources);
+        const keys = entries.map(([name]) => name.toLowerCase());
+        if (new Set(keys).size !== keys.length || entries.some(([name, value]) =>
+          !/^[A-Za-z_][\w.:-]*$/.test(name) || typeof value !== 'number' || !Number.isFinite(value))) invalid('Invalid or duplicate source override');
+        for (const [index, [name, value]] of entries.entries()) {
+          if (index % 8 === 0) {
+            await new Promise<void>(resolve => setImmediate(resolve));
+            checkingLimits = true;
+            check(result);
+            checkingLimits = false;
+          }
+          const input = changed.input;
+          if (input.format !== 'spice-ts') invalid('Source overrides require native spice-ts JSON input');
+          const components = input.document?.circuit?.components;
+          if (!Array.isArray(components)) invalid('Expected native circuit components');
+          const matches = components.filter(c => typeof c.name === 'string' && c.name.toLowerCase() === name.toLowerCase());
+          const target = matches[0];
+          if (matches.length !== 1 || typeof target.type !== 'string' || !['V', 'I'].includes(target.type.toUpperCase()) ||
+            !record(target.params) || typeof target.params.dc !== 'number' || !Number.isFinite(target.params.dc) ||
+            (target.params.waveform !== undefined && target.params.waveform !== 'dc') ||
+            target.params.distortionF1 !== undefined || target.params.distortionF2 !== undefined) invalid('Expected exactly one top-level DC voltage or current source');
+          changed = { ...changed, input: { ...input, document: { ...input.document, circuit: { ...input.document.circuit,
+            components: components.map(c => c === target ? { ...c, params: { ...c.params, dc: value as number } } : c),
+          } } } };
+        }
+      }
       if (corner.components !== undefined) {
         if (originalFormat === 'circuit-json') invalid('Component overrides require SPICE text or native spice-ts JSON input');
         if (!record(corner.components)) invalid('components must be a record of positive finite numbers');
