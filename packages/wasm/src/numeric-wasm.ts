@@ -1,4 +1,6 @@
-import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { addFourierCard, takeFourierOptions, fourierWork } from './fourier-cards.js';
+import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { addFourier } from './fourier.js';
 import type {
   JsonObject,
   SimulationRequestV1,
@@ -55,6 +57,7 @@ interface PreparedPassiveAc extends PreparedNumericBase {
 
 interface PreparedPassiveTran extends PreparedNumericBase {
   analysis: 'tran';
+  fourierCircuit: Circuit;
   hierarchical: boolean;
   transient: Extract<CompiledCircuit['analyses'][number], { type: 'tran' }>;
   normalizedSource: string;
@@ -96,9 +99,21 @@ export async function simulateLinearOpWasmV1(
         || waveform?.type === 'sin' || waveform?.type === 'pwl'
         || waveform?.type === 'exp' || waveform?.type === 'sffm' || waveform?.type === 'am';
     })) {
-      return simulateAdaptiveTransient(prepared, request, exports, maxPoints);
+      const result = await simulateAdaptiveTransient(prepared, request, exports, maxPoints);
+      const transientResult = result.analyses[0];
+      if (transientResult?.type === 'tran') {
+        addFourier(transientResult, prepared.fourierCircuit);
+        enforceSerializedResultLimit(result, request);
+      }
+      return result;
     }
-    return simulateTransient(prepared, request, exports);
+    const result = simulateTransient(prepared, request, exports);
+    const transientResult = result.analyses[0];
+    if (transientResult?.type === 'tran') {
+      addFourier(transientResult, prepared.fourierCircuit);
+      enforceSerializedResultLimit(result, request);
+    }
+    return result;
   }
   return simulateAc(prepared, request, exports);
 }
@@ -696,15 +711,29 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   if (analysis === 'tran') validateTransientControls(analyses[0]!, request);
   const normalizedCards = validateHierarchyCards(cards, analysis);
   let compiled: CompiledCircuit;
+  let circuit: Circuit;
   try {
     // Core owns expansion, lexical model scope and hierarchical node/branch names.
     // Only compilation is shared: numeric solves continue to use the WASM kernel.
-    const circuit = parseTitleless(normalizedCards.join('\n'));
+    circuit = parseTitleless(normalizedCards.join('\n'));
     compiled = circuit.compile();
   } catch (error) {
     if (error instanceof NumericBackendError) throw error;
     throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
   }
+  // Populate the WASM-local Fourier registry independently of core's private registry.
+  if (analysis === 'tran') {
+    for (const [index, card] of normalizedCards.entries()) {
+      if (/^\.(?:four|fourier)(?:\s|$)/i.test(card)) addFourierCard(circuit, card, index + 1);
+      else if (/^\.(?:options|option|opt)\b/i.test(card)) {
+        const options = card.match(/\b(?:nfreqs|fourgridsize)\s*=\s*[^\s,]+/gi) ?? [];
+        takeFourierOptions(circuit, options.map(option => option.replace(/\s/g, '')));
+      }
+    }
+  }
+  const maxFourierWork = 1_000_000;
+  const requestedFourierWork = fourierWork(circuit);
+  if (requestedFourierWork > maxFourierWork) throw resourceLimit('maxFourierWork', maxFourierWork, requestedFourierWork);
   for (const device of compiled.devices) {
     const waveform = (device as unknown as Partial<SweepableSource>).waveform;
     // Validate core-resolved numbers so suffix/exponent overflow is rejected too.
@@ -784,7 +813,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
         backend: 'spice-ts-wasm', feature: 'tran-controls',
       });
     }
-    return { analysis, compiled, order, transient: compiledAnalysis, normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
+    return { analysis, compiled, order, transient: compiledAnalysis, fourierCircuit: circuit, normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
   }
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
   const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
@@ -820,7 +849,7 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
   if (stack.length !== 1) throw numericError('INVALID_CIRCUIT', 'Unclosed .subckt definition', 'validation');
   for (const indices of scopes) {
     const scopeCards = indices.map(index => cards[index]!);
-    validateCards(scopeCards, analysis, cards.some(card => /^\.(?:temp|options)\b/i.test(card)));
+    validateCards(scopeCards, analysis, cards.some(card => /^\.(?:temp|options|option|opt)\b/i.test(card)));
     const scoped = normalizeAndValidateCurrentControlledSources(scopeCards);
     indices.forEach((index, offset) => { normalized[index] = scoped[offset]!; });
   }
@@ -832,10 +861,13 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
     ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
   for (const card of cards) {
-    if (/^\.options\b/i.test(card)) {
-      const options = card.replace(/^\.options\s*/i, '');
+    if (analysis === 'tran' && /^\.(?:four|fourier)(?:\s|$)/i.test(card)) continue;
+    if (/^\.options\b/i.test(card) || (analysis === 'tran' && /^\.(?:opt|option)\b/i.test(card))) {
+      const options = card.replace(/^\.(?:options|option|opt)\s*/i, '');
       const option = new RegExp(`\\b(?:TEMP|TNOM)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
-      if (!options || options.replace(option, '').trim()) {
+      const fourierOption = /\b(?:nfreqs|fourgridsize)\s*=\s*[^\s,]+(?=\s|,|$)/gi;
+      const remaining = analysis === 'tran' ? options.replace(fourierOption, '').replace(/,/g, ' ') : options;
+      if (!options || remaining.replace(option, '').trim()) {
         unsupported('circuit-temperature', 'Only numeric .options TEMP/TNOM are supported');
       }
       continue;
