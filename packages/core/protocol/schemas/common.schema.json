@@ -1390,6 +1390,28 @@
           },
           "additionalProperties": false
         },
+        "sourceSweep": {
+          "type": "object",
+          "required": [
+            "source",
+            "values"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "temperatureSweep": {
           "type": "object",
           "required": [
@@ -1555,6 +1577,58 @@
                         "tran",
                         "ac"
                       ]
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                }
+              },
+              "poleZeroAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "noiseAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "sourceSweep": {}
+            },
+            "required": [
+              "sourceSweep"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "temperatureSweep"
+                  ]
+                },
+                {
+                  "required": [
+                    "componentSweep"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "analyses": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "op"
                     }
                   },
                   "required": [

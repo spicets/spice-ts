@@ -123,6 +123,7 @@ const model = object(['name', 'type', 'params'], {
 const nativeDocument: Schema = { ...object(['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'], {
   format: { const: 'spice-ts' }, schemaVersion: { const: '1.0' },
   componentSweep: object(['component', 'values'], { component: { type: 'string', minLength: 1 }, values: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'number', exclusiveMinimum: 0 } } }),
+  sourceSweep: object(['source', 'values'], { source: { type: 'string', minLength: 1 }, values: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'number' } } }),
   temperatureSweep: object(['values'], { values: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'number', exclusiveMinimum: -273.15 } } }),
   globalNodes: { type: 'array', items: { type: 'string', pattern: '^[A-Za-z0-9_.:+-]+(?![\\s\\S])' } },
   circuit: object(['components', 'nets'], { components: array(ref('component')), nets: { type: 'array', items: { type: 'string', not: { const: '0' } }, uniqueItems: true } }),
@@ -133,7 +134,7 @@ const nativeDocument: Schema = { ...object(['format', 'schemaVersion', 'circuit'
 }), allOf: [{ if: { properties: { temperatureSweep: {} }, required: ['temperatureSweep'] }, then: { properties: {
   analyses: { type: 'array', minItems: 1, items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } },
   poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 },
-} } }, { if: { properties: { componentSweep: {} }, required: ['componentSweep'] }, then: { not: { properties: { temperatureSweep: {} }, required: ['temperatureSweep'] }, properties: { analyses: { type: 'array', minItems: 1, maxItems: 1, items: { type: 'object', properties: { type: { enum: ['op', 'tran', 'ac'] } }, required: ['type'] } }, poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 } } } }] };
+} } }, { if: { properties: { componentSweep: {} }, required: ['componentSweep'] }, then: { not: { properties: { temperatureSweep: {} }, required: ['temperatureSweep'] }, properties: { analyses: { type: 'array', minItems: 1, maxItems: 1, items: { type: 'object', properties: { type: { enum: ['op', 'tran', 'ac'] } }, required: ['type'] } }, poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 } } } }, { if: { properties: { sourceSweep: {} }, required: ['sourceSweep'] }, then: { not: { anyOf: [{ required: ['temperatureSweep'] }, { required: ['componentSweep'] }] }, properties: { analyses: { type: 'array', minItems: 1, maxItems: 1, items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } }, poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 } } } }] };
 const simulationInput: Schema = { oneOf: [
   object(['format', 'source'], { format: { const: 'spice' }, source: string, virtualFiles: { type: 'object', propertyNames: { type: 'string', pattern: '^(?!(?:.*//)|/)(?:(?!\\.{1,2}(?:/|$))[^/\\\\]+)(?:/(?!\\.{1,2}(?:/|$))[^/\\\\]+)*$' }, additionalProperties: string } }),
   object(['format', 'document'], { format: { const: 'spice-ts' }, document: ref('nativeDocument') }),
