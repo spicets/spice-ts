@@ -1,3 +1,4 @@
+import { addMeasurements, parseWasmMeasurement, type WasmMeasurement } from './measurement.js';
 import { addFourierCard, takeFourierOptions, fourierWork } from './fourier-cards.js';
 import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
 import { addFourier } from './fourier.js';
@@ -58,6 +59,7 @@ interface PreparedPassiveAc extends PreparedNumericBase {
 interface PreparedPassiveTran extends PreparedNumericBase {
   analysis: 'tran';
   fourierCircuit: Circuit;
+  measurements: WasmMeasurement[];
   hierarchical: boolean;
   transient: Extract<CompiledCircuit['analyses'][number], { type: 'tran' }>;
   normalizedSource: string;
@@ -103,6 +105,7 @@ export async function simulateLinearOpWasmV1(
       const transientResult = result.analyses[0];
       if (transientResult?.type === 'tran') {
         addFourier(transientResult, prepared.fourierCircuit);
+        applyMeasurements(transientResult, prepared.measurements);
         enforceSerializedResultLimit(result, request);
       }
       return result;
@@ -111,11 +114,18 @@ export async function simulateLinearOpWasmV1(
     const transientResult = result.analyses[0];
     if (transientResult?.type === 'tran') {
       addFourier(transientResult, prepared.fourierCircuit);
+      applyMeasurements(transientResult, prepared.measurements);
       enforceSerializedResultLimit(result, request);
     }
     return result;
   }
   return simulateAc(prepared, request, exports);
+}
+
+function applyMeasurements(result: import('@spice-ts/core/protocol').TransientResultV1, measurements: WasmMeasurement[]): void {
+  const work = result.timeS.length * measurements.length;
+  if (work > 1_000_000) throw resourceLimit('maxMeasurementWork', 1_000_000, work);
+  addMeasurements(result, measurements);
 }
 
 function simulateDc(
@@ -709,7 +719,20 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 
   if (analysis === 'dc') validateDcControls(analyses[0]!);
   if (analysis === 'tran') validateTransientControls(analyses[0]!, request);
-  const normalizedCards = validateHierarchyCards(cards, analysis);
+  const measurements: WasmMeasurement[] = [];
+  const simulationCards = cards.filter((card, index) => {
+    if (!/^\.(?:meas|measure)\b/i.test(card)) return true;
+    if (analysis !== 'tran') unsupported('measurement', 'Only transient measurements are supported');
+    const parsed = parseWasmMeasurement(card, index + 1);
+    if (!parsed) unsupported('measurement', 'Unsupported transient measurement form');
+    measurements.push(parsed);
+    if (measurements.length > 128) throw resourceLimit('maxMeasurements', 128, measurements.length);
+    return false;
+  });
+  if (measurements.length && (components.some(card => !/^[RCIV]/i.test(card)) || cards.some(card => /^\.(?:subckt|ends)\b/i.test(card)))) {
+    unsupported('measurement', 'Transient measurements support passive R/C/I/V circuits only');
+  }
+  const normalizedCards = validateHierarchyCards(simulationCards, analysis);
   let compiled: CompiledCircuit;
   let circuit: Circuit;
   try {
@@ -813,7 +836,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
         backend: 'spice-ts-wasm', feature: 'tran-controls',
       });
     }
-    return { analysis, compiled, order, transient: compiledAnalysis, fourierCircuit: circuit, normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
+    return { analysis, compiled, order, transient: compiledAnalysis, fourierCircuit: circuit, measurements, normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
   }
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
   const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
