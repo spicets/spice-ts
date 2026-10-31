@@ -8,14 +8,14 @@ export interface WasmMeasurement {
 
 // Deliberately exclude expressions, crossing selectors, parameters and non-numeric bounds.
 const number = '[+-]?(?:\\d+\\.?\\d*|\\.\\d+)(?:e[+-]?\\d+)?(?:meg|mil|[tgkmunpf])?';
-const vector = '(v|i)\\s*\\(\\s*([a-z0-9_.$:#-]+)\\s*\\)';
+const vector = '(v|i)\\(([a-z0-9_.$:#-]+)\\)';
 const head = '^\\.meas(?:ure)?\\s+tran\\s+[a-z_][a-z0-9_]*\\s+';
 const find = new RegExp(`${head}find\\s+${vector}\\s+at\\s*=\\s*(${number})\\s*$`, 'i');
 const aggregate = new RegExp(`${head}(?:avg|min|max|rms)\\s+${vector}\\s+from\\s*=\\s*(${number})\\s+to\\s*=\\s*(${number})\\s*$`, 'i');
 
 export function parseWasmMeasurement(text: string, line: number): WasmMeasurement | undefined {
   const match = find.exec(text) ?? aggregate.exec(text);
-  if (!match) return undefined;
+  if (!match || match.slice(3).some(value => /e[+-]?\d+(?:meg|mil|[tgkmunpf])$/i.test(value))) return undefined;
   const factors: Record<string, number> = { t: 1e12, g: 1e9, meg: 1e6, k: 1e3, mil: 25.4e-6, m: 1e-3, u: 1e-6, n: 1e-9, p: 1e-12, f: 1e-15 };
   const bounds = match.slice(3).map(value => {
     const suffix = /(?:meg|mil|[tgkmunpf])$/i.exec(value)?.[0].toLowerCase();

@@ -27,6 +27,10 @@ describe('WASM transient measurements', () => {
       if (tran?.type !== 'tran') throw new Error('expected transient');
       expect(tran.measurements).toHaveLength(5);
       expect(tran.measurements?.map(m => m.name)).toEqual(['sample', 'mean', 'low', 'high', 'rmsval']);
+      // A 1 V/ms ramp into a 1 ms RC has v(1 ms) = exp(-1) V.
+      const sample = tran.measurements![0]!;
+      if (!('value' in sample)) throw new Error('sample failed');
+      expect(Math.abs(sample.value - Math.exp(-1))).toBeLessThan(1e-5);
       const core = await simulate(parseTitleless(deck));
       expect(core.measurements).toHaveLength(5);
       const differences: number[] = [];
@@ -85,6 +89,8 @@ describe('WASM transient measurements', () => {
     '.meas tran x when v(out)=1', '.meas tran x integ v(out) from=0 to=1m',
     '.meas ac x avg v(out) from=0 to=1m', '.meas tran x avg v(out) from=2m to=1m',
     '.meas tran x max v(out) from=1m to=1m', '.meas tran x find v(out) at=1e999',
+    '.meas tran x avg v( out ) from=0 to=1m', '.meas tran x find v (out) at=0.5m',
+    '.meas tran x avg v(out) from=1e-3k to=2',
   ])('rejects unsupported or invalid card %s', async card => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
