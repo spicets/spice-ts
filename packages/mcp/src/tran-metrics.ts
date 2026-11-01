@@ -7,6 +7,7 @@ export interface TranMetricsArgs {
   initialValue?: number;
   finalValue?: number;
   settlingBandPercent?: number;
+  riseTimePercent?: [number, number];
 }
 export interface TranMetrics {
   initialValue: number; finalValue: number; unit: 'V' | 'A';
@@ -24,6 +25,7 @@ export const tranMetricsProperties = {
   step: { type: 'integer', minimum: 0 },
   initialValue: { type: 'number' }, finalValue: { type: 'number' },
   settlingBandPercent: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100, default: 2 },
+  riseTimePercent: { type: 'array', items: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100 }, minItems: 2, maxItems: 2, default: [10, 90], description: 'Low and high transition-normalized percentages, in increasing order, for rise/fall time.' },
 };
 export const tranMetricsOutputSchemas = [
   {
@@ -51,8 +53,11 @@ export function tranMetricsArgs(raw: unknown): TranMetricsArgs {
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
     || (a.step !== undefined && (!Number.isInteger(a.step) || (a.step as number) < 0))
     || ['initialValue', 'finalValue', 'settlingBandPercent'].some(key => a[key] !== undefined && (typeof a[key] !== 'number' || !Number.isFinite(a[key])))
+    || (a.riseTimePercent !== undefined && (!Array.isArray(a.riseTimePercent) || a.riseTimePercent.length !== 2
+      || Array.from(a.riseTimePercent).some(value => typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value >= 100)
+      || a.riseTimePercent[0] >= a.riseTimePercent[1]))
     || (a.settlingBandPercent !== undefined && ((a.settlingBandPercent as number) <= 0 || (a.settlingBandPercent as number) >= 100))) {
-    throw { code: 'INVALID_REQUEST', message: 'Expected signal, optional nonnegative integer analysis and step, finite endpoint values and settlingBandPercent between 0 and 100', phase: 'validation', retryable: false, details: {} };
+    throw { code: 'INVALID_REQUEST', message: 'Expected signal, optional nonnegative integer analysis and step, finite endpoint values, settlingBandPercent between 0 and 100, and increasing riseTimePercent endpoints between 0 and 100', phase: 'validation', retryable: false, details: {} };
   }
   return a as unknown as TranMetricsArgs;
 }
@@ -103,8 +108,9 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
     }
     return undefined;
   };
-  const low = crossing(0.1); const high = crossing(0.9);
-  if (low === undefined || high === undefined || high < low) return error('NO_TRANSITION', 'No ordered 10% and 90% crossings in the sampled interval');
+  const [lowPercent, highPercent] = args.riseTimePercent ?? [10, 90];
+  const low = crossing(lowPercent / 100); const high = crossing(highPercent / 100);
+  if (low === undefined || high === undefined || high < low) return error('NO_TRANSITION', `No ordered ${lowPercent}% and ${highPercent}% crossings in the sampled interval`);
   const band = (args.settlingBandPercent ?? 2) / 100;
   let lastOutside = -1; let peak = 0; let minimum = 0;
   for (let i = 0; i < z.length; i++) {
