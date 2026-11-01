@@ -107,8 +107,8 @@ export const sparamsOutputSchema = {
       properties: {
         frequencyHz: { type: 'number' },
         parameters: { type: 'object', additionalProperties: {
-          type: 'object', additionalProperties: false, required: ['magnitude', 'magnitudeDb', 'phaseDeg'],
-          properties: { magnitude: { type: 'number' }, magnitudeDb: nullable, phaseDeg: nullable,
+          type: 'object', additionalProperties: false, required: ['real', 'imaginary', 'magnitude', 'magnitudeDb', 'phaseDeg'],
+          properties: { real: { type: 'number' }, imaginary: { type: 'number' }, magnitude: { type: 'number' }, magnitudeDb: nullable, phaseDeg: nullable,
             returnLossDb: nullable, insertionLossDb: nullable, vswr: nullable },
         } },
       },
@@ -140,13 +140,18 @@ export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
     points: results.flatMap(result => result.frequencies.map((frequencyHz, index) => ({
       frequencyHz,
       parameters: Object.fromEntries(pairs.map(([i, j]) => {
-        const { real, imaginary } = result.vectors.get(`S_${i}_${j}`)![index];
+        const vector = result.vectors.get(`S_${i}_${j}`)?.[index];
+        if (!vector || !Number.isFinite(vector.real) || !Number.isFinite(vector.imaginary)) {
+          throw new Error('Invalid S-parameter vector');
+        }
+        const { real, imaginary } = vector;
         const magnitude = Math.hypot(real, imaginary);
+        if (!Number.isFinite(magnitude)) throw new Error('Invalid S-parameter magnitude');
         const magnitudeDb = magnitude === 0 ? null : 20 * Math.log10(magnitude);
         // Keep conventional two-digit names, but delimit multi-digit indices to avoid collisions.
         const key = i >= 10 || j >= 10 ? `S_${i}_${j}` : `S${i}${j}`;
         return [key, {
-          magnitude, magnitudeDb, phaseDeg: magnitude === 0 ? null : Math.atan2(imaginary, real) * 180 / Math.PI,
+          real, imaginary, magnitude, magnitudeDb, phaseDeg: magnitude === 0 ? null : Math.atan2(imaginary, real) * 180 / Math.PI,
           ...(i === j ? { returnLossDb: magnitudeDb === null ? null : -magnitudeDb,
             vswr: magnitude < 1 ? (1 + magnitude) / (1 - magnitude) : null }
             : { insertionLossDb: magnitudeDb === null ? null : -magnitudeDb }),
