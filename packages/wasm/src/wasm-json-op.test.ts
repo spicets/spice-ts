@@ -17,6 +17,35 @@ const document: SpiceTsCircuitDocumentV1 = {
 const request: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice-ts', document } };
 
 describe('numeric WASM JSON operating point', () => {
+  it('explicitly rejects native output selections instead of ignoring them', async () => {
+    const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      for (const outputs of [['V(out)'], ['V(nope)']]) {
+        const selected = { ...request, outputs };
+        for (const execute of [wasm.validate.bind(wasm), wasm.simulate.bind(wasm)]) {
+          expect(await execute(selected, { requestId: 'selection' })).toMatchObject({
+            ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'output-selection' } },
+          });
+        }
+      }
+    } finally { await wasm.close(); }
+  });
+
+  it('counts the complete native input wrapper against maxSourceBytes', async () => {
+    const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      const documentBytes = new TextEncoder().encode(JSON.stringify(document)).byteLength;
+      const inputBytes = new TextEncoder().encode(JSON.stringify(request.input)).byteLength;
+      expect(inputBytes).toBeGreaterThan(documentBytes);
+      const limited = { ...request, options: { limits: { maxSourceBytes: documentBytes } } };
+      for (const execute of [wasm.validate.bind(wasm), wasm.simulate.bind(wasm)]) {
+        expect(await execute(limited, { requestId: 'size' })).toMatchObject({
+          ok: false, error: { code: 'RESOURCE_LIMIT', details: { limit: 'maxSourceBytes', configured: documentBytes, observed: inputBytes } },
+        });
+        expect(await execute({ ...limited, options: { limits: { maxSourceBytes: inputBytes } } }, { requestId: 'boundary' })).toMatchObject({ ok: true });
+      }
+    } finally { await wasm.close(); }
+  });
   it('runs a native voltage divider with core and SPICE-text parity', async () => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {

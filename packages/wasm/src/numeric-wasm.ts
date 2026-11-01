@@ -696,9 +696,10 @@ function polar(real: number, imaginary: number): { magnitude: number; phaseDegre
 
 function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> }): PreparedLinearOp {
   const document = request.input.document;
-  const sourceBytes = new TextEncoder().encode(JSON.stringify(document)).byteLength;
+  const sourceBytes = new TextEncoder().encode(JSON.stringify(request.input)).byteLength;
   const sourceLimit = Math.min(NUMERIC_WASM_LIMITS.maxSourceBytes, request.options?.limits?.maxSourceBytes ?? Infinity);
   if (sourceBytes > sourceLimit) throw resourceLimit('maxSourceBytes', sourceLimit, sourceBytes);
+  if (request.outputs !== undefined) unsupported('output-selection', 'Native output selection is not supported by the WebAssembly backend');
   const components = document.circuit.components;
   const componentLimit = Math.min(NUMERIC_WASM_LIMITS.maxComponents, request.options?.limits?.maxComponents ?? Infinity);
   if (components.length > componentLimit) throw resourceLimit('maxComponents', componentLimit, components.length);
