@@ -446,7 +446,7 @@ export const MCP_TOOLS = Object.freeze([
       ...requestInputSchema,
       required: [],
       oneOf: [{ required: ['netlist'], not: { required: ['request'] } }, { required: ['request'], not: { required: ['netlist'] } }],
-      properties: { ...requestInputSchema.properties, netlist: { type: 'string' }, ...noiseMetricsProperties },
+      properties: { ...requestInputSchema.properties, netlist: { type: 'string' }, params: paramsSchema, ...noiseMetricsProperties },
     },
     outputSchema: {
       type: 'object', oneOf: [noiseMetricsOutputSchema, toolFailureOutputSchema],
@@ -850,7 +850,7 @@ async function executeToolWithStore(
     if (name === 'spice_pz_metrics' && original.input.format !== 'spice' && !validatePoleZeroInput(original.input).valid) {
       throw apiError('INVALID_REQUEST', 'Invalid pole-zero JSON input', 'validation', {});
     }
-    if ((name === 'spice_simulate' || name === 'spice_simulation_start') && isRecord(args) && args.params !== undefined) {
+    if ((name === 'spice_simulate' || name === 'spice_simulation_start' || name === 'spice_noise_metrics') && isRecord(args) && args.params !== undefined) {
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
       original = overrideParameters(original, args.params);
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
