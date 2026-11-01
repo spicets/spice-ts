@@ -8,12 +8,13 @@ export interface PowerMetricsArgs {
   input?: string[];
   output?: string[];
   includeCurrentCrestFactor?: boolean;
+  includePowerFactor?: boolean;
 }
 interface ElementProbe { name: string; positive: string; negative: string; branch: string }
 export interface PowerPlan { netlist: string; probes: ElementProbe[]; args: PowerMetricsArgs }
 export interface PowerReport {
   window: [number, number];
-  elements: { name: string; averagePowerW: number; energyJ: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number; peakAbsCurrentA?: number; currentCrestFactor?: number | null }[];
+  elements: { name: string; averagePowerW: number; energyJ: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number; peakAbsCurrentA?: number; currentCrestFactor?: number | null; rmsVoltageV?: number; apparentPowerVA?: number; powerFactor?: number | null; powerFactorReason?: 'zero_apparent_power' }[];
   efficiency: number | null;
 }
 export const powerMetricsProperties = {
@@ -23,6 +24,7 @@ export const powerMetricsProperties = {
   output: { type: 'array', minItems: 1, maxItems: 128, uniqueItems: true, items: { type: 'string', minLength: 1 } },
   window: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: 0 } },
   includeCurrentCrestFactor: { type: 'boolean' },
+  includePowerFactor: { type: 'boolean' },
 };
 export const powerMetricsOutputSchema = {
   type: 'object', required: ['window', 'elements', 'efficiency'], additionalProperties: false,
@@ -31,7 +33,7 @@ export const powerMetricsOutputSchema = {
     efficiency: { type: ['number', 'null'] },
     elements: { type: 'array', items: {
       type: 'object', required: ['name', 'averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'], additionalProperties: false,
-      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS', 'peakAbsCurrentA'].map(k => [k, { type: 'number' }])), currentCrestFactor: { type: ['number', 'null'] } },
+      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS', 'peakAbsCurrentA', 'rmsVoltageV', 'apparentPowerVA'].map(k => [k, { type: 'number' }])), currentCrestFactor: { type: ['number', 'null'] }, powerFactor: { type: ['number', 'null'] }, powerFactorReason: { enum: ['zero_apparent_power'] } },
     } },
   },
 };
@@ -58,6 +60,7 @@ export function powerMetricsArgs(raw: unknown): PowerMetricsArgs {
   }
   if ((a.input === undefined) !== (a.output === undefined)) invalid('Provide both input and output designations');
   if (a.includeCurrentCrestFactor !== undefined && typeof a.includeCurrentCrestFactor !== 'boolean') invalid('Expected includeCurrentCrestFactor to be a boolean');
+  if (a.includePowerFactor !== undefined && typeof a.includePowerFactor !== 'boolean') invalid('Expected includePowerFactor to be a boolean');
   if (a.window !== undefined && (!Array.isArray(a.window) || a.window.length !== 2
     || a.window.some(t => typeof t !== 'number' || !Number.isFinite(t) || t < 0)
     || a.window[0] >= a.window[1])) invalid('Expected window [tStart,tStop] with 0 <= tStart < tStop');
@@ -119,7 +122,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     const current = vector(trace.currentsA, probe.branch);
     const vp = vector(trace.voltagesV, probe.positive);
     const vn = vector(trace.voltagesV, probe.negative);
-    let energy = 0; let rmsScale = 0; let rmsNormalized = 0; let peakPowerW = -Infinity; let peakTimeS = start;
+    let energy = 0; let rmsScale = 0; let rmsNormalized = 0; let voltageScale = 0; let voltageNormalized = 0; let peakPowerW = -Infinity; let peakTimeS = start;
     for (let k = 1; k < times.length; k++) {
       const left = Math.max(start, times[k - 1]); const right = Math.min(stop, times[k]);
       if (right <= left) continue;
@@ -140,6 +143,17 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
         rmsNormalized = Math.hypot(rmsNormalized * (rmsScale / nextScale), (scale / nextScale) * segmentRms * weight);
         rmsScale = nextScale;
       }
+      if (plan.args.includePowerFactor) {
+        const scaleV = Math.max(Math.abs(vl), Math.abs(vr));
+        if (scaleV > 0) {
+          const l = vl / scaleV; const r = vr / scaleV;
+          const nextScale = Math.max(voltageScale, scaleV);
+          const segmentRms = Math.sqrt((l * l + l * r + r * r) / 3);
+          const weight = Math.sqrt(duration) / Math.sqrt(stop - start);
+          voltageNormalized = Math.hypot(voltageNormalized * (voltageScale / nextScale), (scaleV / nextScale) * segmentRms * weight);
+          voltageScale = nextScale;
+        }
+      }
       const consider = (power: number, time: number) => {
         if (power > peakPowerW) { peakPowerW = power; peakTimeS = time; }
       };
@@ -150,8 +164,12 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     }
     // An RMS cannot exceed the largest endpoint magnitude; clamp roundoff in the norm.
     const normalized = Math.min(1, rmsNormalized);
+    const rmsVoltageV = voltageScale * Math.min(1, voltageNormalized);
+    const apparentPowerVA = rmsVoltageV * (rmsScale * normalized);
     return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: rmsScale * normalized, peakPowerW, peakTimeS,
-      ...(plan.args.includeCurrentCrestFactor ? { peakAbsCurrentA: rmsScale, currentCrestFactor: rmsScale === 0 ? null : 1 / normalized } : {}) };
+      ...(plan.args.includeCurrentCrestFactor ? { peakAbsCurrentA: rmsScale, currentCrestFactor: rmsScale === 0 ? null : 1 / normalized } : {}),
+      ...(plan.args.includePowerFactor ? { rmsVoltageV, apparentPowerVA, powerFactor: apparentPowerVA === 0 ? null : (energy / (stop - start)) / apparentPowerVA,
+        ...(apparentPowerVA === 0 ? { powerFactorReason: 'zero_apparent_power' as const } : {}) } : {}) };
   });
   const sum = (names: string[]) => elements.filter(e => names.some(n => n.toLowerCase() === e.name.toLowerCase())).reduce((s, e) => s + e.averagePowerW, 0);
   const pin = plan.args.input ? -sum(plan.args.input) : 0;
