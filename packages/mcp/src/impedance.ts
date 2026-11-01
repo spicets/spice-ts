@@ -4,7 +4,7 @@ import { paramsSchema } from './params.js';
 
 type ACAnalysis = Extract<AnalysisDirective, { type: 'ac' }>;
 
-export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis; includeAdmittance?: boolean }
+export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis; includeAdmittance?: boolean; spotFrequenciesHz?: number[] }
 export interface ImpedanceSpectrum { frequencyHz: number[]; positive: { magnitude: number; phaseDegrees: number }[]; negative: { magnitude: number; phaseDegrees: number }[] }
 export const impedanceProperties = {
   includeAdmittance: { type: 'boolean' },
@@ -14,12 +14,17 @@ export const impedanceProperties = {
   sweep: { type: 'object', additionalProperties: false, required: ['variation', 'points', 'startFreq', 'stopFreq'], properties: {
     variation: { enum: ['dec', 'oct', 'lin'] }, points: { type: 'integer', minimum: 1 }, startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 },
   } }, params: paramsSchema,
+  spotFrequenciesHz: { type: 'array', maxItems: 128, items: { type: 'number', exclusiveMinimum: 0 }, description: 'Optional positive finite frequencies. Real and imaginary impedance are interpolated linearly in log frequency (linear frequency for lin sweeps); no extrapolation.' },
 };
 const number = { type: 'number' };
 const extremum = { type: 'object', additionalProperties: false, required: ['magnitudeOhm', 'frequencyHz'], properties: { magnitudeOhm: number, frequencyHz: number } };
 export const impedanceOutputSchema = {
   type: 'object', additionalProperties: false, required: ['port', 'points', 'summary'], properties: {
     port: impedanceProperties.port,
+    spots: { type: 'array', maxItems: 128, description: 'Requested frequencies in input order. Complex impedance is interpolated in log frequency, or linear frequency for lin sweeps; out-of-range values are null.', items: { type: 'object', additionalProperties: false,
+      required: ['frequencyHz', 'resistanceOhm', 'reactanceOhm', 'magnitudeOhm', 'phaseDeg', 'outOfRange'], properties: {
+        frequencyHz: number, resistanceOhm: { type: ['number', 'null'] }, reactanceOhm: { type: ['number', 'null'] }, magnitudeOhm: { type: ['number', 'null'] }, phaseDeg: { type: ['number', 'null'] }, outOfRange: { type: 'boolean' },
+      } } },
     points: { type: 'array', minItems: 1, items: { type: 'object', additionalProperties: false,
       required: ['frequencyHz', 'magnitudeOhm', 'phaseDeg', 'resistanceOhm', 'reactanceOhm'], properties: {
         frequencyHz: number, magnitudeOhm: number, phaseDeg: number, resistanceOhm: number, reactanceOhm: number, conductanceS: number, susceptanceS: number,
@@ -42,7 +47,7 @@ export function impedanceInvalid(message: string, reason?: typeof impedanceError
 }
 export function impedanceArgs(raw: unknown): ImpedanceSelectors {
   const a = raw as Record<string, unknown> | null;
-  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params', 'includeAdmittance'].includes(k))) impedanceInvalid('Expected request, port and optional sweep/params/includeAdmittance');
+  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params', 'includeAdmittance', 'spotFrequenciesHz'].includes(k))) impedanceInvalid('Expected request, port and optional sweep/params/includeAdmittance/spotFrequenciesHz');
   if (a.includeAdmittance !== undefined && typeof a.includeAdmittance !== 'boolean') impedanceInvalid('Expected includeAdmittance to be a boolean');
   const p = a.port as Record<string, unknown> | null;
   if (!p || typeof p !== 'object' || Array.isArray(p) || Object.keys(p).some(k => !['positive', 'negative'].includes(k))
@@ -59,7 +64,8 @@ export function impedanceArgs(raw: unknown): ImpedanceSelectors {
       || typeof s.stopFreq !== 'number' || !Number.isFinite(s.stopFreq) || s.stopFreq < s.startFreq) impedanceInvalid('Expected a finite positive AC sweep');
     sweep = { type: 'ac', ...s } as ACAnalysis;
   }
-  return { port, sweep, includeAdmittance: a.includeAdmittance as boolean | undefined };
+  if (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length > 128 || !a.spotFrequenciesHz.every(v => typeof v === 'number' && Number.isFinite(v) && v > 0))) impedanceInvalid('Expected at most 128 positive finite spot frequencies');
+  return { port, sweep, includeAdmittance: a.includeAdmittance as boolean | undefined, spotFrequenciesHz: a.spotFrequenciesHz as number[] | undefined };
 }
 export function impedancePlan(request: SimulationRequestV1, sweep: ACAnalysis): SimulationRequestV1 {
   // Reuse the standard bounded AC point estimator without executing a user deck during preflight.
@@ -104,5 +110,23 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
     }
   }
   const extreme = (p: typeof min) => ({ magnitudeOhm: p.magnitudeOhm, frequencyHz: p.frequencyHz });
-  return { port: selectors.port, points, summary: { min: extreme(min), max: extreme(max), resonanceHz } };
+  const spots = selectors.spotFrequenciesHz?.map(frequencyHz => {
+    const index = points.findIndex(p => p.frequencyHz >= frequencyHz);
+    if (index < 0 || frequencyHz < points[0].frequencyHz) return { frequencyHz, resistanceOhm: null, reactanceOhm: null, magnitudeOhm: null, phaseDeg: null, outOfRange: true };
+    const upper = points[index];
+    if (upper.frequencyHz === frequencyHz) return { frequencyHz, resistanceOhm: upper.resistanceOhm, reactanceOhm: upper.reactanceOhm, magnitudeOhm: upper.magnitudeOhm, phaseDeg: upper.phaseDeg, outOfRange: false };
+    const lower = points[index - 1];
+    // log1p preserves nearby frequency differences; log subtraction avoids overflow for wide spans.
+    const logRatio = (value: number) => {
+      const relative = (value - lower.frequencyHz) / lower.frequencyHz;
+      return Number.isFinite(relative) ? Math.log1p(relative) : Math.log(value) - Math.log(lower.frequencyHz);
+    };
+    const fraction = selectors.sweep?.variation === 'lin'
+      ? (frequencyHz - lower.frequencyHz) / (upper.frequencyHz - lower.frequencyHz)
+      : logRatio(frequencyHz) / logRatio(upper.frequencyHz);
+    const resistanceOhm = lower.resistanceOhm + fraction * (upper.resistanceOhm - lower.resistanceOhm);
+    const reactanceOhm = lower.reactanceOhm + fraction * (upper.reactanceOhm - lower.reactanceOhm);
+    return { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm: Math.hypot(resistanceOhm, reactanceOhm), phaseDeg: Math.atan2(reactanceOhm, resistanceOhm) * 180 / Math.PI, outOfRange: false };
+  });
+  return { port: selectors.port, points, summary: { min: extreme(min), max: extreme(max), resonanceHz }, ...(spots === undefined ? {} : { spots }) };
 }
