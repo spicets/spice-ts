@@ -45,7 +45,7 @@ describe('controlled-source power metrics', () => {
   it.each(['E', 'G'])('rejects unsupported %s POLY cards with a structured error', async type => {
     const netlist = `Vcontrol ctl 0 1\n${type}1 out 0 poly(1) ctl 0 0 1\nRload out 0 1k\n.tran 10u 1m`;
     const response = await executeTool('spice_power_metrics', { netlist, elements: [`${type}1`] });
-    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: expect.any(String) } } });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST', phase: 'validation', retryable: false, message: expect.stringContaining('Unknown element') } } });
   });
 
   it.each([['E', '2', 0.004], ['G', '0.001', 0.001]])('handles parenthesized %s terminal pairs', async (type, gain, watts) => {
@@ -55,6 +55,15 @@ describe('controlled-source power metrics', () => {
     const [source, load] = (response.structuredContent as unknown as Report).elements;
     expect(source.averagePowerW).toBeCloseTo(-watts, 10);
     expect(load.averagePowerW).toBeCloseTo(watts, 10);
+  });
+
+  it.each(['( out 0 )', '(out,0)'])('measures a source with output terminals %s', async terminals => {
+    const netlist = `Vcontrol ctl 0 1\nE1 ${terminals} (ctl 0) 2\nRload out 0 1k\n.tran 10u 1m`;
+    const response = await executeTool('spice_power_metrics', { netlist, elements: ['E1', 'Rload'] });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    const [source, load] = (response.structuredContent as unknown as Report).elements;
+    expect(source.averagePowerW).toBeCloseTo(-0.004, 10);
+    expect(load.averagePowerW).toBeCloseTo(0.004, 10);
   });
 
   it('leaves a control terminal shared with the output node untouched', async () => {
@@ -78,6 +87,6 @@ describe('controlled-source power metrics', () => {
     const netlist = 'Vcontrol ctl 0 1\nE1 out 0 ctl 0 2\nRload out 0 1k\n.tran 10u 1m';
     const response = await executeTool('spice_power_metrics', { netlist, elements: ['E1'] },
       { limits: { ...DEFAULT_MCP_LIMITS, maxDocumentBytes: 10 } });
-    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: expect.any(String) } } });
+    expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'RESOURCE_LIMIT', details: { limit: 'maxDocumentBytes' } } } });
   });
 });

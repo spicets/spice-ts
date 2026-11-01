@@ -99,7 +99,7 @@ export function powerPlan(args: PowerMetricsArgs): PowerPlan | { error: { code: 
       const node = `__power_${suffix}`;
       branch = `V__power_${suffix}`;
       const escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const line = new RegExp(`^(\\s*${escaped}\\s+)\\S+`, 'im');
+      const line = new RegExp(`^([ \\t]*${escaped}[ \\t(,]+)[^\\s(),]+`, 'im');
       if (!line.test(netlist)) invalid(`Cannot probe element: ${name}`);
       netlist = `${branch} ${positive} ${node} 0\n${netlist.replace(line, `$1${node}`)}`;
     }
