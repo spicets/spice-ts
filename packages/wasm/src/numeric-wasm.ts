@@ -1,6 +1,6 @@
 import { addDcMeasurements, addMeasurements, parseWasmMeasurement, type WasmMeasurement } from './measurement.js';
 import { addFourierCard, takeFourierOptions, fourierWork } from './fourier-cards.js';
-import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { CCCS, CCVS, circuitFromDocument, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
 import { addFourier } from './fourier.js';
 import type {
   JsonObject,
@@ -694,7 +694,44 @@ function polar(real: number, imaginary: number): { magnitude: number; phaseDegre
   };
 }
 
+function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> }): PreparedLinearOp {
+  const document = request.input.document;
+  const sourceBytes = new TextEncoder().encode(JSON.stringify(request.input)).byteLength;
+  const sourceLimit = Math.min(NUMERIC_WASM_LIMITS.maxSourceBytes, request.options?.limits?.maxSourceBytes ?? Infinity);
+  if (sourceBytes > sourceLimit) throw resourceLimit('maxSourceBytes', sourceLimit, sourceBytes);
+  if (request.outputs !== undefined) unsupported('output-selection', 'Native output selection is not supported by the WebAssembly backend');
+  const components = document.circuit.components;
+  const componentLimit = Math.min(NUMERIC_WASM_LIMITS.maxComponents, request.options?.limits?.maxComponents ?? Infinity);
+  if (components.length > componentLimit) throw resourceLimit('maxComponents', componentLimit, components.length);
+  const analysisLimit = Math.min(1, request.options?.limits?.maxAnalyses ?? Infinity);
+  if (document.analyses.length > analysisLimit) throw resourceLimit('maxAnalyses', analysisLimit, document.analyses.length);
+  if (document.analyses.length !== 1 || document.analyses[0]?.type !== 'op') unsupported('analysis', 'Exactly one .op analysis is supported');
+  if (document.models.length || document.subcircuits.length || Object.keys(document).some(key =>
+    !['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'].includes(key))) {
+    unsupported('native-document', 'Only flat native circuits without additional directives are supported');
+  }
+  for (const component of components) {
+    const type = component.type.toUpperCase();
+    if (!['R', 'I', 'V'].includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
+      unsupported('device', 'Only independent R, I and V devices are supported');
+    }
+    const allowed = type === 'R' ? ['resistance'] : ['dc', 'waveform'];
+    if (Object.keys(component.params).some(key => !allowed.includes(key)) ||
+      (component.params.waveform !== undefined && component.params.waveform !== 'dc')) {
+      unsupported('device-parameters', 'Only numeric resistances and DC sources are supported');
+    }
+  }
+  // Reuse core's native schema/compiler semantics, but perform the solve in WASM.
+  const compiled = circuitFromDocument(document).compile();
+  if (compiled.devices.length > componentLimit) throw resourceLimit('maxComponents', componentLimit, compiled.devices.length);
+  const order = compiled.nodeCount + compiled.branchCount;
+  if (order < 1) throw numericError('INVALID_CIRCUIT', 'The circuit has no numeric unknowns', 'compile');
+  if (order > NUMERIC_WASM_LIMITS.maxSystemOrder) throw resourceLimit('maxSystemOrder', NUMERIC_WASM_LIMITS.maxSystemOrder, order);
+  return { analysis: 'op', compiled, order };
+}
+
 function prepare(request: SimulationRequestV1): PreparedNumeric {
+  if (request.input.format === 'spice-ts') return prepareNativeOp(request as SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> });
   if (request.input.format !== 'spice') unsupported('input-format', 'Only SPICE text input is supported');
   if (request.input.virtualFiles && Object.keys(request.input.virtualFiles).length > 0) {
     unsupported('virtual-files', 'Virtual files are not supported');
