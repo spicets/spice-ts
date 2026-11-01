@@ -7,12 +7,13 @@ export interface PowerMetricsArgs {
   window?: [number, number];
   input?: string[];
   output?: string[];
+  includeCurrentCrestFactor?: boolean;
 }
 interface ElementProbe { name: string; positive: string; negative: string; branch: string }
 export interface PowerPlan { netlist: string; probes: ElementProbe[]; args: PowerMetricsArgs }
 export interface PowerReport {
   window: [number, number];
-  elements: { name: string; averagePowerW: number; energyJ: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number }[];
+  elements: { name: string; averagePowerW: number; energyJ: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number; peakAbsCurrentA?: number; currentCrestFactor?: number | null }[];
   efficiency: number | null;
 }
 export const powerMetricsProperties = {
@@ -21,6 +22,7 @@ export const powerMetricsProperties = {
   input: { type: 'array', minItems: 1, maxItems: 128, uniqueItems: true, items: { type: 'string', minLength: 1 } },
   output: { type: 'array', minItems: 1, maxItems: 128, uniqueItems: true, items: { type: 'string', minLength: 1 } },
   window: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: 0 } },
+  includeCurrentCrestFactor: { type: 'boolean' },
 };
 export const powerMetricsOutputSchema = {
   type: 'object', required: ['window', 'elements', 'efficiency'], additionalProperties: false,
@@ -29,7 +31,7 @@ export const powerMetricsOutputSchema = {
     efficiency: { type: ['number', 'null'] },
     elements: { type: 'array', items: {
       type: 'object', required: ['name', 'averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'], additionalProperties: false,
-      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'].map(k => [k, { type: 'number' }])) },
+      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS', 'peakAbsCurrentA'].map(k => [k, { type: 'number' }])), currentCrestFactor: { type: ['number', 'null'] } },
     } },
   },
 };
@@ -55,6 +57,7 @@ export function powerMetricsArgs(raw: unknown): PowerMetricsArgs {
       || new Set(list.map(v => v.toLowerCase())).size !== list.length)) invalid(`Invalid ${key} list`);
   }
   if ((a.input === undefined) !== (a.output === undefined)) invalid('Provide both input and output designations');
+  if (a.includeCurrentCrestFactor !== undefined && typeof a.includeCurrentCrestFactor !== 'boolean') invalid('Expected includeCurrentCrestFactor to be a boolean');
   if (a.window !== undefined && (!Array.isArray(a.window) || a.window.length !== 2
     || a.window.some(t => typeof t !== 'number' || !Number.isFinite(t) || t < 0)
     || a.window[0] >= a.window[1])) invalid('Expected window [tStart,tStop] with 0 <= tStart < tStop');
@@ -146,7 +149,9 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       consider(vr * ir, right);
     }
     // An RMS cannot exceed the largest endpoint magnitude; clamp roundoff in the norm.
-    return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: rmsScale * Math.min(1, rmsNormalized), peakPowerW, peakTimeS };
+    const normalized = Math.min(1, rmsNormalized);
+    return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: rmsScale * normalized, peakPowerW, peakTimeS,
+      ...(plan.args.includeCurrentCrestFactor ? { peakAbsCurrentA: rmsScale, currentCrestFactor: rmsScale === 0 ? null : 1 / normalized } : {}) };
   });
   const sum = (names: string[]) => elements.filter(e => names.some(n => n.toLowerCase() === e.name.toLowerCase())).reduce((s, e) => s + e.averagePowerW, 0);
   const pin = plan.args.input ? -sum(plan.args.input) : 0;
