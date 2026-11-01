@@ -116,9 +116,14 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
     const upper = points[index];
     if (upper.frequencyHz === frequencyHz) return { frequencyHz, resistanceOhm: upper.resistanceOhm, reactanceOhm: upper.reactanceOhm, magnitudeOhm: upper.magnitudeOhm, phaseDeg: upper.phaseDeg, outOfRange: false };
     const lower = points[index - 1];
+    // log1p preserves nearby frequency differences; log subtraction avoids overflow for wide spans.
+    const logRatio = (value: number) => {
+      const relative = (value - lower.frequencyHz) / lower.frequencyHz;
+      return Number.isFinite(relative) ? Math.log1p(relative) : Math.log(value) - Math.log(lower.frequencyHz);
+    };
     const fraction = selectors.sweep?.variation === 'lin'
       ? (frequencyHz - lower.frequencyHz) / (upper.frequencyHz - lower.frequencyHz)
-      : (Math.log(frequencyHz) - Math.log(lower.frequencyHz)) / (Math.log(upper.frequencyHz) - Math.log(lower.frequencyHz));
+      : logRatio(frequencyHz) / logRatio(upper.frequencyHz);
     const resistanceOhm = lower.resistanceOhm + fraction * (upper.resistanceOhm - lower.resistanceOhm);
     const reactanceOhm = lower.reactanceOhm + fraction * (upper.reactanceOhm - lower.reactanceOhm);
     return { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm: Math.hypot(resistanceOhm, reactanceOhm), phaseDeg: Math.atan2(reactanceOhm, resistanceOhm) * 180 / Math.PI, outOfRange: false };

@@ -10,6 +10,17 @@ type Report = { points: Point[]; spots: (Point & { outOfRange: boolean })[] };
 const close = (actual: number, expected: number) => expect(Math.abs(actual - expected)).toBeLessThan(1e-10);
 
 describe('impedance spot frequencies', () => {
+  it('returns finite resistor impedance between closely spaced high-frequency logarithmic knots', async () => {
+    const frequencyHz = 1.000000000000001e100;
+    const response = await executeTool('spice_impedance', {
+      request: { ...request('R1 in 0 1k'), options: { reltol: 0 } }, port,
+      sweep: { variation: 'dec', points: 1300000000000000, startFreq: 1e100, stopFreq: 1.0000000000000018e100 },
+      spotFrequenciesHz: [frequencyHz],
+    });
+    expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
+    expect(response.structuredContent).toMatchObject({ spots: [{ frequencyHz, resistanceOhm: 1000, reactanceOhm: 0, magnitudeOhm: 1000, phaseDeg: 0, outOfRange: false }] });
+  });
+
   it('returns exact resistor sweep knots as spots without changing default output', async () => {
     const args = { request: request('R1 in 0 1k\n.ac lin 3 10 100'), port };
     const baseline = await executeTool('spice_impedance', args);
