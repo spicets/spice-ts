@@ -4,12 +4,20 @@ const rootSchema = {
   type: 'object', additionalProperties: false, required: ['re', 'im', 'frequencyHz'],
   properties: { re: { type: 'number' }, im: { type: 'number' }, frequencyHz: { type: 'number', minimum: 0 } },
 };
+const poleSchema = {
+  ...rootSchema,
+  properties: {
+    ...rootSchema.properties,
+    decayTimeConstantS: { type: ['number', 'null'], exclusiveMinimum: 0 },
+    decayTimeConstantReason: { enum: ['non-decaying', 'unrepresentable'] },
+  },
+};
 export const pzMetricsOutputSchema = {
   anyOf: [{
   type: 'object', additionalProperties: false,
   required: ['poles', 'zeros', 'conjugatePairs', 'dominantPole', 'rightHalfPlaneCount', 'stable'],
   properties: {
-    poles: { type: 'array', items: rootSchema }, zeros: { type: 'array', items: rootSchema },
+    poles: { type: 'array', items: poleSchema }, zeros: { type: 'array', items: rootSchema },
     dominantPole: { anyOf: [rootSchema, { type: 'null' }] },
     rightHalfPlaneCount: { type: 'integer', minimum: 0 }, stable: { type: 'boolean' },
     conjugatePairs: {
@@ -40,7 +48,7 @@ export const pzMetricsOutputSchema = {
   }],
 };
 
-export function pzMetrics(result: PoleZeroResult) {
+export function pzMetrics(result: PoleZeroResult, includeTimeConstants = false) {
   const invalid = (kind: 'pole' | 'zero', index: number, metric: string): never => {
     throw { code: 'INVALID_DATA', message: `Non-finite or unrepresentable ${kind} ${metric}`, phase: 'analysis', retryable: false, details: { kind, index, metric } };
   };
@@ -73,7 +81,12 @@ export function pzMetrics(result: PoleZeroResult) {
     });
   };
   return {
-    poles, zeros, conjugatePairs: [...pairs(result.poles, 'pole'), ...pairs(result.zeros, 'zero')],
+    poles: includeTimeConstants ? poles.map(p => {
+      const time = -1 / p.re;
+      if (p.re >= 0) return { ...p, decayTimeConstantS: null, decayTimeConstantReason: 'non-decaying' };
+      if (!Number.isFinite(time) || time <= 0) return { ...p, decayTimeConstantS: null, decayTimeConstantReason: 'unrepresentable' };
+      return { ...p, decayTimeConstantS: time };
+    }) : poles, zeros, conjugatePairs: [...pairs(result.poles, 'pole'), ...pairs(result.zeros, 'zero')],
     dominantPole: poles.reduce<(typeof poles)[number] | null>((dominant, p) => dominant === null || p.re > dominant.re ? p : dominant, null),
     rightHalfPlaneCount: poles.filter(p => p.re > 0).length,
     stable: poles.every(p => p.re < 0),

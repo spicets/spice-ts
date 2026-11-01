@@ -432,8 +432,8 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_pz_metrics',
-    description: 'Run exactly one unstepped pole-zero analysis (mode pol or pz) from SPICE text, spice-ts JSON or circuit-json. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Other analyses are not executed.',
-    inputSchema: requestInputSchema,
+    description: 'Run exactly one unstepped pole-zero analysis (mode pol or pz) from SPICE text, spice-ts JSON or circuit-json. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Optionally include pole decay time constants (-1/Re) in seconds; null values include a reason. Other analyses are not executed.',
+    inputSchema: { ...requestInputSchema, properties: { ...requestInputSchema.properties, includeTimeConstants: { type: 'boolean', description: 'Include pole exponential-envelope decay time constants in seconds.' } } },
     outputSchema: {
       type: 'object', oneOf: [pzMetricsOutputSchema, toolFailureOutputSchema],
       $defs: commonSchemaV1.$defs,
@@ -837,6 +837,9 @@ async function executeToolWithStore(
     const noiseSelectors = name === 'spice_noise_metrics' ? noiseMetricsArgs(args) : undefined;
     const distoSelector = name === 'spice_disto_metrics' ? distoOutput(args) : undefined;
     const measurements = name === 'spice_measure' && isRecord(args) ? args.measurements : undefined;
+    if (name === 'spice_pz_metrics' && isRecord(args) && args.includeTimeConstants !== undefined && typeof args.includeTimeConstants !== 'boolean') {
+      throw apiError('INVALID_REQUEST', 'includeTimeConstants must be a boolean', 'validation', {});
+    }
     if (name === 'spice_measure' && (!Array.isArray(measurements) || measurements.length < 1 || measurements.length > 128)) {
       throw apiError('INVALID_REQUEST', 'Expected 1 through 128 measurements', 'validation', {});
     }
@@ -893,7 +896,7 @@ async function executeToolWithStore(
       }
       if (name === 'spice_pz_metrics') {
         const result = await runInWorker<PoleZeroResult>('pz', bounded, effective.maxWallTimeMs, options);
-        const metrics = pzMetrics(result);
+        const metrics = pzMetrics(result, isRecord(args) && args.includeTimeConstants === true);
         enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(metrics)), 'transport');
         return success(metrics, diagnostics);
       }
