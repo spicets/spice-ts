@@ -86,8 +86,12 @@ export function powerPlan(args: PowerMetricsArgs): PowerPlan | { error: { code: 
   for (const name of names) {
     const c = components.find(c => c.name.toLowerCase() === name.toLowerCase());
     if (!c) invalid(`Unknown element: ${name}`);
-    if (c.ports.length !== 2 || !['R', 'C', 'L', 'V', 'I', 'D', 'H', 'F'].includes(c.type)) invalid(`Element ${name} is not a supported two-terminal device`);
-    const [positive, negative] = c.ports.map(p => p.net);
+    const controlled = c.type === 'E' || c.type === 'G';
+    if (controlled ? c.ports.length !== 4 : c.ports.length !== 2 || !['R', 'C', 'L', 'V', 'I', 'D', 'H', 'F'].includes(c.type)) invalid(`Element ${name} is not a supported two-terminal device`);
+    // E/G IR ports are control-first, unlike the output-first SPICE card.
+    const positive = controlled ? c.ports.find(p => p.name === 'outP')?.net : c.ports[0].net;
+    const negative = controlled ? c.ports.find(p => p.name === 'outN')?.net : c.ports[1].net;
+    if (positive === undefined || negative === undefined) invalid(`Missing output terminals: ${name}`);
     let branch = c.name;
     if (c.type !== 'V' && c.type !== 'L') {
       let suffix = probes.length;
@@ -95,7 +99,7 @@ export function powerPlan(args: PowerMetricsArgs): PowerPlan | { error: { code: 
       const node = `__power_${suffix}`;
       branch = `V__power_${suffix}`;
       const escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const line = new RegExp(`^(\\s*${escaped}\\s+)\\S+`, 'im');
+      const line = new RegExp(`^([ \\t]*${escaped}[ \\t(,]+)[^\\s(),]+`, 'im');
       if (!line.test(netlist)) invalid(`Cannot probe element: ${name}`);
       netlist = `${branch} ${positive} ${node} 0\n${netlist.replace(line, `$1${node}`)}`;
     }
