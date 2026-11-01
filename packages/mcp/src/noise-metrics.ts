@@ -1,11 +1,12 @@
 import type { NoiseResult } from '@spice-ts/core';
 
-export interface NoiseMetricsArgs { bandHz?: [number, number]; spotFrequenciesHz?: number[]; signalRms?: number }
+export interface NoiseMetricsArgs { bandHz?: [number, number]; spotFrequenciesHz?: number[]; signalRms?: number; outputSignalRms?: number }
 const positive = { type: 'number', exclusiveMinimum: 0 };
 export const noiseMetricsProperties = {
   bandHz: { type: 'array', items: positive, minItems: 2, maxItems: 2 },
   spotFrequenciesHz: { type: 'array', items: positive, maxItems: 128 },
   signalRms: { ...positive, maximum: Number.MAX_VALUE, description: 'Input-referred RMS signal in inputUnit (V or A).' },
+  outputSignalRms: { ...positive, maximum: Number.MAX_VALUE, description: 'Output-referred RMS signal in volts.' },
 };
 const method = 'trapezoidal PSD integration in linear frequency; linear PSD at clipped band edges; density linear in log-frequency for spots; no extrapolation';
 export const noiseMetricsOutputSchema = {
@@ -17,6 +18,8 @@ export const noiseMetricsOutputSchema = {
     integratedInputNoiseRms: { type: 'number', minimum: 0 },
     signalToNoiseRatioDb: { type: ['number', 'null'] },
     signalToNoiseRatioReason: { const: 'zero integrated input noise' },
+    outputSignalToNoiseRatioDb: { type: ['number', 'null'], description: 'Output SNR in dB, or null when integrated output noise is zero.' },
+    outputSignalToNoiseRatioReason: { const: 'zero integrated output noise' },
     inputUnit: { enum: ['V', 'A'] }, method: { const: method },
     spots: {
       type: 'array', maxItems: 128, items: {
@@ -38,10 +41,11 @@ export function noiseMetricsArgs(raw: unknown): NoiseMetricsArgs {
   const a = raw as Record<string, unknown>;
   const hz = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
   if (('request' in a) === ('netlist' in a) || ('netlist' in a && typeof a.netlist !== 'string')) invalid('Expected exactly one netlist or protocol-v1 request');
-  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'spotFrequenciesHz', 'signalRms'].includes(k))
+  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'spotFrequenciesHz', 'signalRms', 'outputSignalRms'].includes(k))
     || ('signalRms' in a && !hz(a.signalRms))
+    || ('outputSignalRms' in a && !hz(a.outputSignalRms))
     || (a.bandHz !== undefined && (!Array.isArray(a.bandHz) || a.bandHz.length !== 2 || !a.bandHz.every(hz) || a.bandHz[0] >= a.bandHz[1]))
-    || (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length > 128 || !a.spotFrequenciesHz.every(hz)))) invalid('Expected positive finite signalRms, an increasing positive bandHz pair and up to 128 positive spotFrequenciesHz');
+    || (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length > 128 || !a.spotFrequenciesHz.every(hz)))) invalid('Expected positive finite signalRms and outputSignalRms, an increasing positive bandHz pair and up to 128 positive spotFrequenciesHz');
   return a as NoiseMetricsArgs;
 }
 
@@ -104,5 +108,8 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
     ...(args.signalRms === undefined ? {} : integratedInputNoiseRms === 0
       ? { signalToNoiseRatioDb: null, signalToNoiseRatioReason: 'zero integrated input noise' }
       : { signalToNoiseRatioDb: 20 * (Math.log10(args.signalRms) - Math.log10(integratedInputNoiseRms)) }),
+    ...(args.outputSignalRms === undefined ? {} : integratedOutputNoiseVrms === 0
+      ? { outputSignalToNoiseRatioDb: null, outputSignalToNoiseRatioReason: 'zero integrated output noise' }
+      : { outputSignalToNoiseRatioDb: 20 * (Math.log10(args.outputSignalRms) - Math.log10(integratedOutputNoiseVrms)) }),
   };
 }
