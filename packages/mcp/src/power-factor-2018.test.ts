@@ -22,9 +22,9 @@ describe('opt-in sampled power factor', () => {
     const metric = waveform(times.map(t => 10 * Math.sin(2 * Math.PI * t)), times.map(t => 2 * Math.sin(2 * Math.PI * t - phi)), times);
     expect(Math.abs(metric.powerFactor! - Math.cos(phi))).toBeLessThan(0.002);
   });
-  it('integrates clipped irregular piecewise-linear voltage exactly', () => {
-    const metric = waveform([10, 0, 2, 20], [1, 1, 1, 1], [0, 1, 2, 3], [1.25, 1.75]);
-    expect(metric.rmsVoltageV).toBeCloseTo(Math.sqrt(13 / 12), 12);
+  it('integrates clipped irregular piecewise-linear voltage across unequal segments', () => {
+    const metric = waveform([10, 0, 2, 20], [1, 1, 1, 1], [0, 1, 3, 4], [1.5, 3.5]);
+    expect(metric.rmsVoltageV).toBeCloseTo(Math.sqrt(217) / 4, 12);
   });
   it('reports a reason when apparent power is zero', () => {
     expect(waveform([0, 0], [0, 0], [0, 1])).toMatchObject({ rmsVoltageV: 0, apparentPowerVA: 0, powerFactor: null, powerFactorReason: 'zero_apparent_power' });
