@@ -4,10 +4,11 @@ import { paramsSchema } from './params.js';
 
 type ACAnalysis = Extract<AnalysisDirective, { type: 'ac' }>;
 
-export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis; includeAdmittance?: boolean; spotFrequenciesHz?: number[] }
+export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis; includeAdmittance?: boolean; includeSeriesEquivalent?: boolean; spotFrequenciesHz?: number[] }
 export interface ImpedanceSpectrum { frequencyHz: number[]; positive: { magnitude: number; phaseDegrees: number }[]; negative: { magnitude: number; phaseDegrees: number }[] }
 export const impedanceProperties = {
   includeAdmittance: { type: 'boolean' },
+  includeSeriesEquivalent: { type: 'boolean', description: 'Add local frequency-specific series C/L equivalents to sampled points, not physical topology or spot queries.' },
   port: { type: 'object', additionalProperties: false, required: ['positive', 'negative'], properties: {
     positive: { type: 'string', minLength: 1, maxLength: 256 }, negative: { type: 'string', minLength: 1, maxLength: 256 },
   } },
@@ -28,6 +29,8 @@ export const impedanceOutputSchema = {
     points: { type: 'array', minItems: 1, items: { type: 'object', additionalProperties: false,
       required: ['frequencyHz', 'magnitudeOhm', 'phaseDeg', 'resistanceOhm', 'reactanceOhm'], properties: {
         frequencyHz: number, magnitudeOhm: number, phaseDeg: number, resistanceOhm: number, reactanceOhm: number, conductanceS: number, susceptanceS: number,
+        seriesCapacitanceF: { type: ['number', 'null'] }, seriesInductanceH: { type: ['number', 'null'] },
+        seriesEquivalentReason: { const: 'unrepresentable', description: 'The nonzero equivalent is outside the representable finite positive number range.' },
       } } },
     summary: { type: 'object', additionalProperties: false, required: ['min', 'max', 'resonanceHz'], properties: {
       min: extremum, max: extremum, resonanceHz: { type: 'array', items: number },
@@ -47,8 +50,9 @@ export function impedanceInvalid(message: string, reason?: typeof impedanceError
 }
 export function impedanceArgs(raw: unknown): ImpedanceSelectors {
   const a = raw as Record<string, unknown> | null;
-  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params', 'includeAdmittance', 'spotFrequenciesHz'].includes(k))) impedanceInvalid('Expected request, port and optional sweep/params/includeAdmittance/spotFrequenciesHz');
+  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params', 'includeAdmittance', 'includeSeriesEquivalent', 'spotFrequenciesHz'].includes(k))) impedanceInvalid('Expected request, port and optional sweep/params/includeAdmittance/includeSeriesEquivalent/spotFrequenciesHz');
   if (a.includeAdmittance !== undefined && typeof a.includeAdmittance !== 'boolean') impedanceInvalid('Expected includeAdmittance to be a boolean');
+  if (a.includeSeriesEquivalent !== undefined && typeof a.includeSeriesEquivalent !== 'boolean') impedanceInvalid('Expected includeSeriesEquivalent to be a boolean');
   const p = a.port as Record<string, unknown> | null;
   if (!p || typeof p !== 'object' || Array.isArray(p) || Object.keys(p).some(k => !['positive', 'negative'].includes(k))
     || ![p.positive, p.negative].every(v => typeof v === 'string' && /^[^\s(),;*$]+$/.test(v) && v.length <= 256)) impedanceInvalid('Expected positive and negative node names');
@@ -65,7 +69,7 @@ export function impedanceArgs(raw: unknown): ImpedanceSelectors {
     sweep = { type: 'ac', ...s } as ACAnalysis;
   }
   if (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length > 128 || !a.spotFrequenciesHz.every(v => typeof v === 'number' && Number.isFinite(v) && v > 0))) impedanceInvalid('Expected at most 128 positive finite spot frequencies');
-  return { port, sweep, includeAdmittance: a.includeAdmittance as boolean | undefined, spotFrequenciesHz: a.spotFrequenciesHz as number[] | undefined };
+  return { port, sweep, includeAdmittance: a.includeAdmittance as boolean | undefined, includeSeriesEquivalent: a.includeSeriesEquivalent as boolean | undefined, spotFrequenciesHz: a.spotFrequenciesHz as number[] | undefined };
 }
 export function impedancePlan(request: SimulationRequestV1, sweep: ACAnalysis): SimulationRequestV1 {
   // Reuse the standard bounded AC point estimator without executing a user deck during preflight.
@@ -81,7 +85,27 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
     const magnitudeOhm = Math.hypot(resistanceOhm, reactanceOhm);
     const phaseDeg = Math.atan2(reactanceOhm, resistanceOhm) / angle;
     if (![frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg].every(Number.isFinite)) impedanceInvalid('Non-finite impedance spectrum');
-    const point = { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg };
+    const equivalent = () => {
+      if (!selectors.includeSeriesEquivalent) return {};
+      if (reactanceOhm === 0) return { seriesCapacitanceF: null, seriesInductanceH: null };
+      if (frequencyHz <= 0) impedanceInvalid('Expected a positive frequency for series equivalent');
+      const x = Math.abs(reactanceOhm);
+      let value = reactanceOhm < 0 ? (1 / x) / frequencyHz / (2 * Math.PI) : (x / frequencyHz) / (2 * Math.PI);
+      // Recover finite results when intermediate division overflowed or underflowed.
+      if (!Number.isFinite(value) || value === 0) {
+        const logValue = reactanceOhm < 0
+          ? -Math.log(x) - Math.log(frequencyHz) - Math.log(2 * Math.PI)
+          : Math.log(x) - Math.log(frequencyHz) - Math.log(2 * Math.PI);
+        value = Math.exp(logValue);
+      }
+      const representable = Number.isFinite(value) && value > 0;
+      return {
+        seriesCapacitanceF: reactanceOhm < 0 && representable ? value : null,
+        seriesInductanceH: reactanceOhm > 0 && representable ? value : null,
+        ...(representable ? {} : { seriesEquivalentReason: 'unrepresentable' }),
+      };
+    };
+    const point = { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg, ...equivalent() };
     if (!selectors.includeAdmittance) return point;
     const scale = Math.max(Math.abs(resistanceOhm), Math.abs(reactanceOhm));
     if (scale === 0) impedanceInvalid('Cannot compute admittance of zero impedance');
