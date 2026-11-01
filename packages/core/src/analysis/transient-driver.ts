@@ -18,6 +18,8 @@ import {
 } from '../convergence-telemetry.js';
 import type { ProtocolExecutionGuard } from '../protocol/execution-guard.js';
 import { Inductor } from '../devices/inductor.js';
+import { VoltageSource } from '../devices/voltage-source.js';
+import { CurrentSource } from '../devices/current-source.js';
 import { MOS2 } from '../devices/mos2.js';
 import { maxTimestepOption, runnableTransient, transientStepCap } from './max-timestep.js';
 import { chargeTruncatedNodes } from './transient-node-truncation.js';
@@ -134,9 +136,15 @@ export interface TransientSim {
   peekInitialStep(): TransientStep;
   /** Advance one converged timestep. Throws {@link ConvergenceError} on failure. */
   advance(): TransientStep;
+  /** Advance one accepted timestep. Alias for advance(). */
+  step(): TransientStep;
+  /** Advance to an exact accepted time, returning newly accepted samples. */
+  advanceTo(targetTime: number): TransientStep[];
   /** Convenience: loop {@link advance} until `simTime >= targetTime`. */
   advanceUntil(targetTime: number): TransientStep[];
-  /** Re-run DC operating point, clear history, reset simTime to 0. */
+  /** Change an independent DC source at the current accepted time. */
+  setSourceValue(name: string, value: number): void;
+  /** Clear history and reset time to 0. Re-solve DC using current sources, or restore the original initial-condition seed without a DC solve for UIC. Source updates remain in effect. */
   reset(): void;
   /** Release solver memory. Subsequent calls throw. */
   dispose(): void;
@@ -258,6 +266,7 @@ class TransientSimImpl implements TransientSim {
   private readonly reactiveTruncation: LinearReactiveTruncation;
 
   private time = 0;
+  private advanceTarget: number | undefined;
   private dt: number;
   private prevB: Float64Array | undefined;
   private historyWorkspace: Float64Array | undefined;
@@ -325,7 +334,9 @@ class TransientSimImpl implements TransientSim {
     this.compiled = compiled;
     this.options = options;
     this.config = config;
-    this.useGear3 = options.maxOrder === 3 || config.experimentalGearOrder === 3;
+    // ngspice-47 dctran.c:822-831 only trials order 1 -> 2 even for MAXORD > 3.
+    this.useGear3 = options.maxOrder === 3 || (options.integrationMethod === 'gear2' && options.maxOrder > 3)
+      || config.experimentalGearOrder === 3;
     this.convergenceTelemetry = config.convergence ?? createConvergenceTelemetry();
     for (const device of compiled.devices) {
       device.setTransientTimestep?.(config.timestep, config.stopTime);
@@ -392,6 +403,10 @@ class TransientSimImpl implements TransientSim {
     return this.buildStep(this.advanceSolution());
   }
 
+  step(): TransientStep {
+    return this.advance();
+  }
+
   /**
    * Advance one accepted timepoint and return its solution vector without
    * building the name-keyed {@link TransientStep} Maps. Internal fast path for
@@ -403,6 +418,9 @@ class TransientSimImpl implements TransientSim {
     const prevSol = new Float64Array(this.assembler.solution);
     let discontinuityRecoveryAttempted = false;
     this.selectStep();
+    if (this.advanceTarget !== undefined) {
+      this.dt = Math.min(this.dt, this.advanceTarget - this.time);
+    }
     this.processEvents();
 
     while (true) {
@@ -414,15 +432,21 @@ class TransientSimImpl implements TransientSim {
       }
 
       let nextTime = this.time + this.dt;
+      if (nextTime <= this.time) throw new TimestepTooSmallError(this.time, this.dt);
       if (this.config.stopTime !== undefined && this.time < this.config.stopTime) {
         nextTime = Math.min(nextTime, this.config.stopTime);
       }
       const nextBreak = this.breakpoints.peek();
-      if (nextBreak !== undefined && nextTime >= nextBreak - MIN_BREAK) {
+      if (nextBreak !== undefined && nextTime >= nextBreak - MIN_BREAK
+        && (this.advanceTarget === undefined || nextBreak <= this.advanceTarget)) {
         // Snap to the breakpoint — either we'd cross it, or we're within
         // tolerance and would leave a microscopic leftover step on the
         // other side.
         nextTime = nextBreak;
+      }
+      if (this.advanceTarget !== undefined && nextTime === this.time + this.dt
+        && this.dt >= this.advanceTarget - this.time) {
+        nextTime = this.advanceTarget;
       }
       // ngspice dctran.c integrates with CKTdelta and advances CKTtime by it.
       // `(time + dt) - time` is not always `dt` in floating point; using the
@@ -583,7 +607,8 @@ class TransientSimImpl implements TransientSim {
         ? actualDt
         : Math.min(minimum, actualDt);
 
-      if (this.breakpoints.isNear(this.time)) {
+      if (this.breakpoints.isNear(this.time)
+        && (this.advanceTarget === undefined || this.breakpoints.peek()! <= this.time)) {
         this.breakpoints.pop();
         this.justCrossedBreakpoint = true;
       }
@@ -703,6 +728,37 @@ class TransientSimImpl implements TransientSim {
       if (this.isDone) break;
     }
     return steps;
+  }
+
+  advanceTo(targetTime: number): TransientStep[] {
+    if (this.disposed) throw new InvalidCircuitError('TransientSim has been disposed');
+    if (!Number.isFinite(targetTime) || targetTime < this.time
+      || (this.config.stopTime !== undefined && targetTime > this.config.stopTime)) {
+      throw new InvalidCircuitError('Target time must be finite and between the current time and stop time');
+    }
+    const steps: TransientStep[] = [];
+    this.advanceTarget = targetTime;
+    try {
+      while (this.time < targetTime) steps.push(this.advance());
+      return steps;
+    } finally {
+      this.advanceTarget = undefined;
+    }
+  }
+
+  setSourceValue(name: string, value: number): void {
+    if (this.disposed) throw new InvalidCircuitError('TransientSim has been disposed');
+    if (!Number.isFinite(value)) throw new InvalidCircuitError('Source value must be finite');
+    const source = this.compiled.devices.find(device => device.name.toLowerCase() === name.toLowerCase());
+    if (!(source instanceof VoltageSource || source instanceof CurrentSource)
+      || source.waveform.type !== 'dc' || (source instanceof VoltageSource && source.port)) {
+      throw new InvalidCircuitError(`Expected an independent DC source: ${name}`);
+    }
+    if (source.waveform.value === value) return;
+    source.waveform = { ...source.waveform, value };
+    // Restart the integration order at the accepted point, just as at a
+    // waveform breakpoint, without discarding device or matrix state.
+    this.justCrossedBreakpoint = true;
   }
 
   reset(): void {
@@ -977,7 +1033,7 @@ class TransientSimImpl implements TransientSim {
     dt: number, integration: ChargeIntegration, chargeBound: number,
   ): { bound: number; orderOne: boolean } {
     const variableOrder = this.integrationMethod === 'trapezoidal'
-      || (this.integrationMethod === 'gear2' && this.options.maxOrder === 3);
+      || (this.integrationMethod === 'gear2' && this.options.maxOrder >= 3);
     if (this.firstStepPending) {
       this.firstStepPending = false;
       return { bound: dt, orderOne: variableOrder };

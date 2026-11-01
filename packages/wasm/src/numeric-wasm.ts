@@ -1,4 +1,7 @@
-import { CCCS, CCVS, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { addDcMeasurements, addMeasurements, parseWasmMeasurement, type WasmMeasurement } from './measurement.js';
+import { addFourierCard, takeFourierOptions, fourierWork } from './fourier-cards.js';
+import { CCCS, CCVS, circuitFromDocument, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { addFourier } from './fourier.js';
 import type {
   JsonObject,
   SimulationRequestV1,
@@ -41,6 +44,7 @@ interface SweepableSource {
 
 interface PreparedLinearDc extends PreparedNumericBase {
   analysis: 'dc';
+  measurements: WasmMeasurement[];
   sweep: Extract<CompiledCircuit['analyses'][number], { type: 'dc' }>;
   source: SweepableSource;
   secondarySource?: SweepableSource;
@@ -55,6 +59,8 @@ interface PreparedPassiveAc extends PreparedNumericBase {
 
 interface PreparedPassiveTran extends PreparedNumericBase {
   analysis: 'tran';
+  fourierCircuit: Circuit;
+  measurements: WasmMeasurement[];
   hierarchical: boolean;
   transient: Extract<CompiledCircuit['analyses'][number], { type: 'tran' }>;
   normalizedSource: string;
@@ -94,20 +100,42 @@ export async function simulateLinearOpWasmV1(
         || (['C', 'L'].includes(deviceType(device.name) ?? '')
           && (device as { ic?: number }).ic !== undefined)
         || waveform?.type === 'sin' || waveform?.type === 'pwl'
-        || waveform?.type === 'exp' || waveform?.type === 'sffm';
+        || waveform?.type === 'exp' || waveform?.type === 'sffm' || waveform?.type === 'am';
     })) {
-      return simulateAdaptiveTransient(prepared, request, exports, maxPoints);
+      const result = await simulateAdaptiveTransient(prepared, request, exports, maxPoints);
+      const transientResult = result.analyses[0];
+      if (transientResult?.type === 'tran') {
+        addFourier(transientResult, prepared.fourierCircuit);
+        applyMeasurements(transientResult, prepared.measurements);
+        enforceSerializedResultLimit(result, request);
+      }
+      return result;
     }
-    return simulateTransient(prepared, request, exports);
+    const result = simulateTransient(prepared, request, exports);
+    const transientResult = result.analyses[0];
+    if (transientResult?.type === 'tran') {
+      addFourier(transientResult, prepared.fourierCircuit);
+      applyMeasurements(transientResult, prepared.measurements);
+      enforceSerializedResultLimit(result, request);
+    }
+    return result;
   }
   return simulateAc(prepared, request, exports);
 }
 
+function applyMeasurements(result: import('@spice-ts/core/protocol').TransientResultV1, measurements: WasmMeasurement[]): void {
+  const work = result.timeS.length * measurements.length;
+  if (work > 1_000_000) throw resourceLimit('maxMeasurementWork', 1_000_000, work);
+  addMeasurements(result, measurements);
+}
+
 function simulateDc(
-  { compiled, order, sweep, source, secondarySource, innerPointCount, pointCount }: PreparedLinearDc,
+  { compiled, order, sweep, source, secondarySource, innerPointCount, pointCount, measurements }: PreparedLinearDc,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
+  const work = pointCount * measurements.length;
+  if (work > 1_000_000) throw resourceLimit('maxMeasurementWork', 1_000_000, work);
   const values: number[] = [];
   const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
   const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
@@ -168,6 +196,8 @@ function simulateDc(
       voltagesV, currentsA,
     }],
   };
+  const dcResult = result.analyses[0];
+  if (dcResult?.type === 'dc') addDcMeasurements(dcResult, measurements, sweep);
   enforceSerializedResultLimit(result, request);
   return result;
 }
@@ -664,7 +694,44 @@ function polar(real: number, imaginary: number): { magnitude: number; phaseDegre
   };
 }
 
+function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> }): PreparedLinearOp {
+  const document = request.input.document;
+  const sourceBytes = new TextEncoder().encode(JSON.stringify(request.input)).byteLength;
+  const sourceLimit = Math.min(NUMERIC_WASM_LIMITS.maxSourceBytes, request.options?.limits?.maxSourceBytes ?? Infinity);
+  if (sourceBytes > sourceLimit) throw resourceLimit('maxSourceBytes', sourceLimit, sourceBytes);
+  if (request.outputs !== undefined) unsupported('output-selection', 'Native output selection is not supported by the WebAssembly backend');
+  const components = document.circuit.components;
+  const componentLimit = Math.min(NUMERIC_WASM_LIMITS.maxComponents, request.options?.limits?.maxComponents ?? Infinity);
+  if (components.length > componentLimit) throw resourceLimit('maxComponents', componentLimit, components.length);
+  const analysisLimit = Math.min(1, request.options?.limits?.maxAnalyses ?? Infinity);
+  if (document.analyses.length > analysisLimit) throw resourceLimit('maxAnalyses', analysisLimit, document.analyses.length);
+  if (document.analyses.length !== 1 || document.analyses[0]?.type !== 'op') unsupported('analysis', 'Exactly one .op analysis is supported');
+  if (document.models.length || document.subcircuits.length || Object.keys(document).some(key =>
+    !['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'].includes(key))) {
+    unsupported('native-document', 'Only flat native circuits without additional directives are supported');
+  }
+  for (const component of components) {
+    const type = component.type.toUpperCase();
+    if (!['R', 'I', 'V'].includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
+      unsupported('device', 'Only independent R, I and V devices are supported');
+    }
+    const allowed = type === 'R' ? ['resistance'] : ['dc', 'waveform'];
+    if (Object.keys(component.params).some(key => !allowed.includes(key)) ||
+      (component.params.waveform !== undefined && component.params.waveform !== 'dc')) {
+      unsupported('device-parameters', 'Only numeric resistances and DC sources are supported');
+    }
+  }
+  // Reuse core's native schema/compiler semantics, but perform the solve in WASM.
+  const compiled = circuitFromDocument(document).compile();
+  if (compiled.devices.length > componentLimit) throw resourceLimit('maxComponents', componentLimit, compiled.devices.length);
+  const order = compiled.nodeCount + compiled.branchCount;
+  if (order < 1) throw numericError('INVALID_CIRCUIT', 'The circuit has no numeric unknowns', 'compile');
+  if (order > NUMERIC_WASM_LIMITS.maxSystemOrder) throw resourceLimit('maxSystemOrder', NUMERIC_WASM_LIMITS.maxSystemOrder, order);
+  return { analysis: 'op', compiled, order };
+}
+
 function prepare(request: SimulationRequestV1): PreparedNumeric {
+  if (request.input.format === 'spice-ts') return prepareNativeOp(request as SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> });
   if (request.input.format !== 'spice') unsupported('input-format', 'Only SPICE text input is supported');
   if (request.input.virtualFiles && Object.keys(request.input.virtualFiles).length > 0) {
     unsupported('virtual-files', 'Virtual files are not supported');
@@ -694,16 +761,51 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
 
   if (analysis === 'dc') validateDcControls(analyses[0]!);
   if (analysis === 'tran') validateTransientControls(analyses[0]!, request);
-  const normalizedCards = validateHierarchyCards(cards, analysis);
+  const measurements: WasmMeasurement[] = [];
+  const simulationCards = cards.filter((card, index) => {
+    if (!/^\.(?:meas|measure)\b/i.test(card)) return true;
+    if (analysis !== 'tran' && analysis !== 'dc') unsupported('measurement', 'Only transient and DC measurements are supported');
+    const parsed = parseWasmMeasurement(card, index + 1, analysis);
+    if (!parsed) unsupported('measurement', `Unsupported ${analysis} measurement form`);
+    measurements.push(parsed);
+    if (measurements.length > 128) throw resourceLimit('maxMeasurements', 128, measurements.length);
+    return false;
+  });
+  if (measurements.length && (components.some(card => !(analysis === 'dc' ? /^[RIV]/i : /^[RCIV]/i).test(card)) || cards.some(card => /^\.(?:subckt|ends)\b/i.test(card)))) {
+    unsupported('measurement', `${analysis === 'dc' ? 'DC' : 'Transient'} measurements support flat ${analysis === 'dc' ? 'R/I/V' : 'R/C/I/V'} circuits only`);
+  }
+  const normalizedCards = validateHierarchyCards(simulationCards, analysis);
   let compiled: CompiledCircuit;
+  let circuit: Circuit;
   try {
     // Core owns expansion, lexical model scope and hierarchical node/branch names.
     // Only compilation is shared: numeric solves continue to use the WASM kernel.
-    const circuit = parseTitleless(normalizedCards.join('\n'));
+    circuit = parseTitleless(normalizedCards.join('\n'));
     compiled = circuit.compile();
   } catch (error) {
     if (error instanceof NumericBackendError) throw error;
     throw numericError('INVALID_CIRCUIT', error instanceof Error ? error.message : String(error), 'compile');
+  }
+  // Populate the WASM-local Fourier registry independently of core's private registry.
+  if (analysis === 'tran') {
+    for (const [index, card] of normalizedCards.entries()) {
+      if (/^\.(?:four|fourier)(?:\s|$)/i.test(card)) addFourierCard(circuit, card, index + 1);
+      else if (/^\.(?:options|option|opt)\b/i.test(card)) {
+        const options = card.match(/\b(?:nfreqs|fourgridsize)\s*=\s*[^\s,]+/gi) ?? [];
+        takeFourierOptions(circuit, options.map(option => option.replace(/\s/g, '')));
+      }
+    }
+  }
+  const maxFourierWork = 1_000_000;
+  const requestedFourierWork = fourierWork(circuit);
+  if (requestedFourierWork > maxFourierWork) throw resourceLimit('maxFourierWork', maxFourierWork, requestedFourierWork);
+  for (const device of compiled.devices) {
+    const waveform = (device as unknown as Partial<SweepableSource>).waveform;
+    // Validate core-resolved numbers so suffix/exponent overflow is rejected too.
+    if (waveform?.type === 'am' && Object.values(waveform).some(value =>
+      typeof value === 'number' && !Number.isFinite(value))) {
+      unsupported('source-waveform', 'AM coefficients must resolve to finite numbers');
+    }
   }
   if (compiled.devices.length > componentLimit) {
     throw resourceLimit('maxComponents', componentLimit, compiled.devices.length);
@@ -733,6 +835,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
     if (compiledAnalysis?.type !== 'dc') unsupported('analysis', 'Exactly one .dc analysis is supported');
     const innerPointCount = dcPointCount(compiledAnalysis.start, compiledAnalysis.stop, compiledAnalysis.step);
     const secondary = compiledAnalysis.secondary;
+    if (secondary && measurements.length) unsupported('measurement', 'DC measurements require a single sweep');
     const pointCount = innerPointCount * (secondary ? dcPointCount(secondary.start, secondary.stop, secondary.step) : 1);
     const pointLimit = Math.min(
       NUMERIC_WASM_LIMITS.maxResultPoints,
@@ -760,7 +863,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
       throw numericError('INVALID_CIRCUIT', 'DC sweep sources must be distinct', 'validation', { feature: 'dc-source' });
     }
     return {
-      analysis, compiled, order, sweep: compiledAnalysis, source: resolveSource(compiledAnalysis.source),
+      analysis, compiled, order, measurements, sweep: compiledAnalysis, source: resolveSource(compiledAnalysis.source),
       secondarySource: secondary ? resolveSource(secondary.source) : undefined, innerPointCount, pointCount,
     };
   }
@@ -776,7 +879,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
         backend: 'spice-ts-wasm', feature: 'tran-controls',
       });
     }
-    return { analysis, compiled, order, transient: compiledAnalysis, normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
+    return { analysis, compiled, order, transient: compiledAnalysis, fourierCircuit: circuit, measurements, normalizedSource: normalizedCards.join('\n'), hierarchical: cards.some(card => /^X/i.test(card)) };
   }
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
   const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
@@ -812,7 +915,7 @@ function validateHierarchyCards(cards: string[], analysis: 'op' | 'dc' | 'tran' 
   if (stack.length !== 1) throw numericError('INVALID_CIRCUIT', 'Unclosed .subckt definition', 'validation');
   for (const indices of scopes) {
     const scopeCards = indices.map(index => cards[index]!);
-    validateCards(scopeCards, analysis, cards.some(card => /^\.(?:temp|options)\b/i.test(card)));
+    validateCards(scopeCards, analysis, cards.some(card => /^\.(?:temp|options|option|opt)\b/i.test(card)));
     const scoped = normalizeAndValidateCurrentControlledSources(scopeCards);
     indices.forEach((index, offset) => { normalized[index] = scoped[offset]!; });
   }
@@ -824,10 +927,13 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
     ? ['R', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W']
     : ['R', 'C', 'L', 'K', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
   for (const card of cards) {
-    if (/^\.options\b/i.test(card)) {
-      const options = card.replace(/^\.options\s*/i, '');
+    if (analysis === 'tran' && /^\.(?:four|fourier)(?:\s|$)/i.test(card)) continue;
+    if (/^\.options\b/i.test(card) || (analysis === 'tran' && /^\.(?:opt|option)\b/i.test(card))) {
+      const options = card.replace(/^\.(?:options|option|opt)\s*/i, '');
       const option = new RegExp(`\\b(?:TEMP|TNOM)\\s*=\\s*${SPICE_NUMBER.source.slice(1, -1)}(?:\\s+|$)`, 'gi');
-      if (!options || options.replace(option, '').trim()) {
+      const fourierOption = /\b(?:nfreqs|fourgridsize)\s*=\s*[^\s,]+(?=\s|,|$)/gi;
+      const remaining = analysis === 'tran' ? options.replace(fourierOption, '').replace(/,/g, ' ') : options;
+      if (!options || remaining.replace(option, '').trim()) {
         unsupported('circuit-temperature', 'Only numeric .options TEMP/TNOM are supported');
       }
       continue;
@@ -999,8 +1105,15 @@ function validateCards(cards: string[], analysis: 'op' | 'dc' | 'tran' | 'ac', t
       const pwl = /^\S+\s+\S+\s+\S+\s+PWL\s*\([^)]*\)\s*$/i.test(card);
       const exp = /^\S+\s+\S+\s+\S+\s+EXP\s*\([^)]*\)\s*$/i.test(card);
       const sffm = /^\S+\s+\S+\s+\S+\s+SFFM\s*\([^)]*\)\s*$/i.test(card);
-      if (tokens.length !== 4 && !dc && !pulse && !sin && !pwl && !exp && !sffm) {
-        unsupported('source-waveform', 'Transient sources must use a constant, DC, PULSE, SIN, PWL, EXP, or SFFM value');
+      const am = /^\S+\s+\S+\s+\S+\s+AM\s*\(([^)]*)\)\s*$/i.exec(card);
+      if (/^AM\b/i.test(tokens[3] ?? '')) {
+        const args = am?.[1]?.trim().split(/[\s,]+/) ?? [];
+        if (!am || args.length < 2 || args.length > 8 || args.some(value => !SPICE_NUMBER.test(value))) {
+          unsupported('source-waveform', 'AM sources require 2 to 8 numeric coefficients in parentheses');
+        }
+      }
+      if (tokens.length !== 4 && !dc && !pulse && !sin && !pwl && !exp && !sffm && !am) {
+        unsupported('source-waveform', 'Transient sources must use a constant, DC, PULSE, SIN, PWL, EXP, SFFM, or AM value');
       }
     } else if (!validAcSourceTokens(tokens)) {
       unsupported('source-waveform', 'AC sources must use constant, DC, AC, or DC plus AC values');

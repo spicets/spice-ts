@@ -94,6 +94,9 @@ describe('BJT Q-card parser', () => {
     [['Q1', 'c', 'b', 'e', 'QMOD', '3'], { params: { AREA: 3 } }],
     [['Q1', 'c', 'b', 'e', 'QMOD', '3', 'm=2', 'OFF'], { params: { AREA: 3, M: 2 } }],
     [['Q1', 'c', 'b', 'e', 'QMOD', 'OFF=1'], {}],
+    [['Q1', 'c', 'b', 'e', 'QMOD', 'TEMP=50'], { params: { TEMP: 50 } }],
+    [['Q1', 'c', 'b', 'e', 'QMOD', 'DTEMP=2'], { params: { DTEMP: 2 } }],
+    [['Q1', 'c', 'b', 'e', 'QMOD', 'TEMP=-40', 'DTEMP=-500'], { params: { TEMP: -40, DTEMP: -500 } }],
     [['Q1', 'c', 'b', 'e', 'substrate', 'QMOD', 'M=2'], { substrate: 'substrate', params: { M: 2 } }],
     [['Q1', 'c', 'b', 'e', 's', 't', 'QMOD', 'area=1', 'm=1'],
       { substrate: 's', thermal: 't', params: { AREA: 1, M: 1 } }],
@@ -111,11 +114,15 @@ describe('BJT Q-card parser', () => {
   });
 
   it.each([
-    ['Q1 c b e QMOD DTEMP=2', "Unsupported BJT instance parameter: 'DTEMP=2'"],
+    ['Q1 c b e QMOD DTEMP=1e999', 'BJT DTEMP must be finite'],
+    ['Q1 c b e QMOD TEMP=1e999', 'BJT TEMP must be finite'],
+    ['Q1 c b e QMOD TEMP=-273.15', 'BJT TEMP must be above absolute zero'],
+    ['Q1 c b e QMOD TEMP=-274', 'BJT TEMP must be above absolute zero'],
     ['Q1 c b e QMOD AREAB=0', 'BJT AREAB must be a finite number greater than zero'],
     ['Q1 c b e QMOD AREAC=1 AREAC=2', "Duplicate BJT instance parameter: 'AREAC'"],
     ['Q1 c b e QMOD IC=0.6,1,2', 'Unsupported BJT instance token after the model'],
-    ['Q1 c b e QMOD TEMP=50', "Unsupported BJT instance parameter: 'TEMP=50'"],
+    ['Q1 c b e QMOD TEMP=NaN', 'Invalid BJT instance parameter value'],
+    ['Q1 c b e QMOD DTEMP=Infinity', 'Invalid BJT instance parameter value'],
     ['Q1 c b e QMOD AREA=0', 'BJT AREA must be a finite number greater than zero'],
     ['Q1 c b e QMOD M=-1', 'BJT M must be a finite number greater than zero'],
     ['Q1 c b e QMOD AREA=2 AREA=3', "Duplicate BJT instance parameter: 'AREA'"],
@@ -132,6 +139,20 @@ describe('BJT Q-card parser', () => {
     }
     expect(error).toBeInstanceOf(ParseError);
     expect((error as Error).message).toContain(message);
+  });
+
+  it.each(['TEMP', 'DTEMP'])('preserves source diagnostics for malformed subcircuit %s', keyword => {
+    const card = `Q1 c b 0 QM ${keyword}=1e3k`;
+    const input = `temperature diagnostics\n.subckt cell c b\n${card}\n.model QM NPN\n.ends cell\nX1 c b cell\n.op\n.end`;
+    let error: unknown;
+    try {
+      parse(input).compile();
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(ParseError);
+    expect(error).toMatchObject({ line: 3, context: card });
+    expect((error as Error).message).toContain(`Invalid BJT instance parameter value: '${keyword}=1e3k'`);
   });
 
   // Instance AREA/M is exactly the model with IS/ISE/IKF scaled and RB/RC/RE

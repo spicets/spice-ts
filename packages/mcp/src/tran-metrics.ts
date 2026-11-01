@@ -3,31 +3,37 @@ import type { SimulationResultV1 } from '@spice-ts/core/protocol';
 export interface TranMetricsArgs {
   signal: string;
   analysis?: number;
+  step?: number;
   initialValue?: number;
   finalValue?: number;
   settlingBandPercent?: number;
+  riseTimePercent?: [number, number];
 }
 export interface TranMetrics {
   initialValue: number; finalValue: number; unit: 'V' | 'A';
   riseTimeS: number | null; fallTimeS: number | null;
+  maxRiseSlewPerS: number; maxFallSlewPerS: number; slewUnit: 'V/s' | 'A/s';
   overshootPercent: number; undershootPercent: number;
   settlingTimeS: number; peakValue: number; peakTimeS: number;
 }
-const codes = ['NOT_TRANSIENT', 'SIGNAL_NOT_FOUND', 'NO_TRANSITION', 'NOT_SETTLED', 'INVALID_DATA'] as const;
+const codes = ['NOT_TRANSIENT', 'UNKNOWN_STEP', 'SIGNAL_NOT_FOUND', 'NO_TRANSITION', 'NOT_SETTLED', 'INVALID_DATA'] as const;
 type MetricsError = { error: { code: typeof codes[number]; message: string } };
-const metricNames = ['initialValue', 'finalValue', 'riseTimeS', 'fallTimeS', 'overshootPercent', 'undershootPercent', 'settlingTimeS', 'peakValue', 'peakTimeS'] as const;
+const metricNames = ['initialValue', 'finalValue', 'riseTimeS', 'fallTimeS', 'overshootPercent', 'undershootPercent', 'settlingTimeS', 'peakValue', 'peakTimeS', 'maxRiseSlewPerS', 'maxFallSlewPerS'] as const;
 export const tranMetricsProperties = {
   signal: { type: 'string', minLength: 1, maxLength: 256 },
   analysis: { type: 'integer', minimum: 0 },
+  step: { type: 'integer', minimum: 0 },
   initialValue: { type: 'number' }, finalValue: { type: 'number' },
   settlingBandPercent: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100, default: 2 },
+  riseTimePercent: { type: 'array', items: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100 }, minItems: 2, maxItems: 2, default: [10, 90], description: 'Low and high transition-normalized percentages, in increasing order, for rise/fall time.' },
 };
 export const tranMetricsOutputSchemas = [
   {
-    type: 'object', required: [...metricNames, 'unit'], additionalProperties: false,
+    type: 'object', required: [...metricNames, 'unit', 'slewUnit'], additionalProperties: false,
     properties: {
       ...Object.fromEntries(metricNames.map(key => [key, { type: key === 'riseTimeS' || key === 'fallTimeS' ? ['number', 'null'] : 'number' }])),
       unit: { enum: ['V', 'A'] },
+      slewUnit: { enum: ['V/s', 'A/s'] },
     },
   },
   {
@@ -45,25 +51,49 @@ export function tranMetricsArgs(raw: unknown): TranMetricsArgs {
     || Object.keys(a).some(key => !['request', ...Object.keys(tranMetricsProperties)].includes(key))
     || typeof a.signal !== 'string' || !a.signal.length || a.signal.length > 256
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
+    || (a.step !== undefined && (!Number.isInteger(a.step) || (a.step as number) < 0))
     || ['initialValue', 'finalValue', 'settlingBandPercent'].some(key => a[key] !== undefined && (typeof a[key] !== 'number' || !Number.isFinite(a[key])))
+    || (a.riseTimePercent !== undefined && (!Array.isArray(a.riseTimePercent) || a.riseTimePercent.length !== 2
+      || Array.from(a.riseTimePercent).some(value => typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value >= 100)
+      || a.riseTimePercent[0] >= a.riseTimePercent[1]))
     || (a.settlingBandPercent !== undefined && ((a.settlingBandPercent as number) <= 0 || (a.settlingBandPercent as number) >= 100))) {
-    throw { code: 'INVALID_REQUEST', message: 'Expected signal, optional analysis, finite endpoint values and settlingBandPercent between 0 and 100', phase: 'validation', retryable: false, details: {} };
+    throw { code: 'INVALID_REQUEST', message: 'Expected signal, optional nonnegative integer analysis and step, finite endpoint values, settlingBandPercent between 0 and 100, and increasing riseTimePercent endpoints between 0 and 100', phase: 'validation', retryable: false, details: {} };
   }
   return a as unknown as TranMetricsArgs;
 }
 
 const error = (code: MetricsError['error']['code'], message: string): MetricsError => ({ error: { code, message } });
 
-/** One step per trace. Endpoint levels default to first/last samples; no extrapolation. */
+/** Endpoint levels default to first/last samples; no extrapolation. */
 export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): TranMetrics | MetricsError {
   const selected = result.analyses.filter(a => args.analysis === undefined ? a.type === 'tran' : a.analysisIndex === args.analysis);
-  if (selected.length !== 1 || selected[0].type !== 'tran') return error('NOT_TRANSIENT', 'Select exactly one transient analysis; run stepped analyses separately');
-  const a = selected[0];
+  if (!selected.length || selected.some(a => a.type !== 'tran') || new Set(selected.map(a => a.analysisIndex)).size !== 1) return error('NOT_TRANSIENT', 'Select exactly one transient analysis');
+  const traces = args.step === undefined ? selected : selected.filter(a => (a.step?.index ?? 0) === args.step);
+  if (!traces.length) return error('UNKNOWN_STEP', 'No transient trace has the requested step index');
+  if (traces.length !== 1 || traces[0].type !== 'tran') return error('NOT_TRANSIENT', 'Select exactly one transient trace');
+  const a = traces[0];
   const match = /^([vi])\(([^()]+)\)$/i.exec(args.signal);
   const values = match?.[1].toLowerCase() === 'v' ? a.voltagesV : a.currentsA;
-  const key = match && Object.keys(values).find(key => key.toLowerCase() === match[2].toLowerCase());
-  if (!key) return error('SIGNAL_NOT_FOUND', 'Expected an existing v(node) or i(branch) signal');
-  const x = a.timeS; const y = values[key];
+  const key = match ? Object.keys(values).find(key => key.toLowerCase() === match[2].toLowerCase()) : undefined;
+  const x = a.timeS;
+  let y = key === undefined ? undefined : values[key];
+  if (!y && match?.[1].toLowerCase() === 'v') {
+    const terminals = match[2].split(',').map(name => name.trim());
+    if (terminals.length === 2 && terminals.every(Boolean)) {
+      const resolve = (name: string): number[] | undefined => {
+        if (/^(0|gnd)$/i.test(name)) return x.map(() => 0);
+        const found = Object.keys(a.voltagesV).find(node => node.toLowerCase() === name.toLowerCase());
+        return found === undefined ? undefined : a.voltagesV[found];
+      };
+      const positive = resolve(terminals[0]); const negative = resolve(terminals[1]);
+      if (positive && negative) {
+        if (positive.length !== x.length || negative.length !== x.length
+          || !Array.from(positive).every(Number.isFinite) || !Array.from(negative).every(Number.isFinite)) return error('INVALID_DATA', 'Expected finite aligned samples and strictly increasing times');
+        y = positive.map((value, i) => value - negative[i]);
+      }
+    }
+  }
+  if (!y) return error('SIGNAL_NOT_FOUND', 'Expected an existing v(node) or i(branch) signal');
   if (x.length < 2 || y.length !== x.length || y.some(v => !Number.isFinite(v))
     || x.some((v, i) => !Number.isFinite(v) || (i > 0 && v <= x[i - 1]))) return error('INVALID_DATA', 'Expected finite aligned samples and strictly increasing times');
   const initialValue = args.initialValue ?? y[0]; const finalValue = args.finalValue ?? y[y.length - 1];
@@ -78,8 +108,9 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
     }
     return undefined;
   };
-  const low = crossing(0.1); const high = crossing(0.9);
-  if (low === undefined || high === undefined || high < low) return error('NO_TRANSITION', 'No ordered 10% and 90% crossings in the sampled interval');
+  const [lowPercent, highPercent] = args.riseTimePercent ?? [10, 90];
+  const low = crossing(lowPercent / 100); const high = crossing(highPercent / 100);
+  if (low === undefined || high === undefined || high < low) return error('NO_TRANSITION', `No ordered ${lowPercent}% and ${highPercent}% crossings in the sampled interval`);
   const band = (args.settlingBandPercent ?? 2) / 100;
   let lastOutside = -1; let peak = 0; let minimum = 0;
   for (let i = 0; i < z.length; i++) {
@@ -91,8 +122,17 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
   const settlingTimeS = lastOutside < 0 ? x[0] : interpolate(lastOutside + 1, z[lastOutside] < 1 ? 1 - band : 1 + band);
   // Require a terminal hold lasting at least 10% of the sampled duration.
   if (settlingTimeS > x[x.length - 1] - (x[x.length - 1] - x[0]) * 0.1) return error('NOT_SETTLED', 'Response did not remain in band for the final 10% of the sampled duration; extend the run or supply a known finalValue');
+  let maxRiseSlewPerS = 0; let maxFallSlewPerS = 0;
+  for (let i = 1; i < x.length; i++) {
+    const dy = y[i] - y[i - 1]; const dt = x[i] - x[i - 1];
+    const slope = dy / dt;
+    if (!Number.isFinite(dy) || !Number.isFinite(dt) || !Number.isFinite(slope)) return error('INVALID_DATA', 'Slew arithmetic is not finite');
+    maxRiseSlewPerS = Math.max(maxRiseSlewPerS, slope);
+    maxFallSlewPerS = Math.min(maxFallSlewPerS, slope);
+  }
   const metrics: TranMetrics = {
     initialValue, finalValue, unit: match![1].toLowerCase() === 'v' ? 'V' : 'A',
+    maxRiseSlewPerS, maxFallSlewPerS, slewUnit: match![1].toLowerCase() === 'v' ? 'V/s' : 'A/s',
     riseTimeS: delta > 0 ? high - low : null, fallTimeS: delta < 0 ? high - low : null,
     overshootPercent: Math.max(0, z[peak] - 1) * 100,
     undershootPercent: Math.max(0, -z[minimum]) * 100,

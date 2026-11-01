@@ -2,14 +2,15 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { SimulationRequestV1, SimulationResultV1, SpiceApiErrorV1 } from '@spice-ts/core/protocol';
 import { measureResult, measurementListSchema } from './measure.js';
 import { overrideParameters } from './params.js';
+import { overrideComponent } from './sweep.js';
 
 export type Evaluation = { params: Record<string, number>; value: number; error: number };
-type Parameter = { name: string; min: number; max: number };
+type Parameter = { name: string; min: number; max: number; kind?: 'param' | 'component' | 'source' };
 
 export const optimizeProperties = {
   parameters: { type: 'array', minItems: 1, maxItems: 3, items: {
     type: 'object', required: ['name', 'min', 'max'], additionalProperties: false,
-    properties: { name: { type: 'string', minLength: 1 }, min: { type: 'number' }, max: { type: 'number' } },
+    properties: { name: { type: 'string', minLength: 1 }, kind: { type: 'string', enum: ['param', 'component', 'source'], default: 'param' }, min: { type: 'number' }, max: { type: 'number' } },
   } },
   objective: measurementListSchema.items,
   target: { type: 'number' },
@@ -23,6 +24,22 @@ function invalid(message: string): never {
   throw { code: 'INVALID_REQUEST', message, phase: 'validation', retryable: false, details: {} } satisfies SpiceApiErrorV1;
 }
 
+function overrideSource(request: SimulationRequestV1, name: string, value: number): SimulationRequestV1 {
+  const input = request.input;
+  if (input.format !== 'spice-ts') invalid('Source optimization requires native spice-ts JSON input');
+  const components = input.document?.circuit?.components;
+  if (!Array.isArray(components) || components.some(c => !record(c))) invalid('Expected native circuit components');
+  const matches = components.filter(c => typeof c.name === 'string' && c.name.toLowerCase() === name.toLowerCase());
+  const target = matches[0];
+  if (matches.length !== 1 || typeof target.type !== 'string' || !['V', 'I'].includes(target.type.toUpperCase()) ||
+    !record(target.params) || !finite(target.params.dc) ||
+    (target.params.waveform !== undefined && target.params.waveform !== 'dc') ||
+    target.params.distortionF1 !== undefined || target.params.distortionF2 !== undefined) invalid('Expected exactly one top-level DC voltage or current source');
+  return { ...request, input: { ...input, document: { ...input.document, circuit: { ...input.document.circuit,
+    components: components.map(c => c === target ? { ...c, params: { ...c.params, dc: value } } : c),
+  } } } };
+}
+
 /** Deterministic, sequential scalar optimization with one shared simulation budget. */
 export async function runOptimize(
   args: unknown,
@@ -33,9 +50,12 @@ export async function runOptimize(
   if (!record(args) || Object.keys(args).some(key => !['request', 'parameters', 'objective', 'target', 'tolerance', 'maxEvaluations'].includes(key))) invalid('Invalid optimize fields');
   if (!Array.isArray(args.parameters) || args.parameters.length < 1 || args.parameters.length > 3) invalid('Expected 1 through 3 parameters');
   for (const p of args.parameters) {
-    if (!record(p) || Object.keys(p).some(key => !['name', 'min', 'max'].includes(key))
-      || typeof p.name !== 'string' || !/^[A-Za-z_]\w*$/.test(p.name)
-      || !finite(p.min) || !finite(p.max) || p.min >= p.max || !Number.isFinite(p.max - p.min)) invalid('Invalid optimize parameter');
+    if (!record(p) || Object.keys(p).some(key => !['name', 'kind', 'min', 'max'].includes(key))
+      || typeof p.name !== 'string'
+      || !(p.kind === 'component' || p.kind === 'source' ? /^[A-Za-z_][\w.:-]*$/ : /^[A-Za-z_]\w*$/).test(p.name)
+      || (p.kind !== undefined && p.kind !== 'param' && p.kind !== 'component' && p.kind !== 'source')
+      || !finite(p.min) || !finite(p.max) || p.min >= p.max || !Number.isFinite(p.max - p.min)
+      || (p.kind === 'component' && p.min <= 0)) invalid('Invalid optimize parameter');
   }
   const parameters = args.parameters as Parameter[];
   if (new Set(parameters.map(p => p.name.toLowerCase())).size !== parameters.length) invalid('Parameter names must be unique (case-insensitive)');
@@ -50,7 +70,14 @@ export async function runOptimize(
 
   const midpoint = Object.fromEntries(parameters.map(p => [p.name, p.min + (p.max - p.min) / 2]));
   // Resolve names and input format before any simulation, including tiny budgets.
-  overrideParameters(request, midpoint);
+  const apply = (values: Record<string, number>): SimulationRequestV1 => {
+    const paramValues = Object.fromEntries(parameters.filter(p => p.kind === undefined || p.kind === 'param').map(p => [p.name, values[p.name]]));
+    let changed = Object.keys(paramValues).length ? overrideParameters(request, paramValues) : request;
+    for (const p of parameters) if (p.kind === 'component') changed = overrideComponent(changed, p.name, values[p.name]);
+    for (const p of parameters) if (p.kind === 'source') changed = overrideSource(changed, p.name, values[p.name]);
+    return changed;
+  };
+  apply(midpoint);
   const history: Evaluation[] = [];
   let best: Evaluation | undefined;
   let evaluations = 0;
@@ -72,7 +99,7 @@ export async function runOptimize(
     if (cached) return cached;
     if (stopped()) return undefined;
     check(history);
-    const changed = overrideParameters(request, params);
+    const changed = apply(params);
     evaluations++;
     const response = await execute(changed, [args.objective]);
     const content = response.structuredContent;

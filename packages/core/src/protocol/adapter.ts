@@ -19,6 +19,8 @@ import type {
 } from './types.js';
 import { Circuit, type CompiledCircuit } from '../circuit.js';
 import { VoltageSource } from '../devices/voltage-source.js';
+import { CurrentSource } from '../devices/current-source.js';
+import { Resistor } from '../devices/resistor.js';
 import { operatingPointReport } from '../op-report.js';
 import {
   ConvergenceError,
@@ -53,6 +55,8 @@ import {
 import { accumulatedLinearPointCount, directedLinearPointCount } from '../analysis/directed-linear-grid.js';
 import { frequencyPointCount } from '../analysis/frequency-grid.js';
 import { isValidMaxTimestepOption } from '../analysis/max-timestep.js';
+import { nativeFourier, serializeFourier, validateNativeFourier } from './native-four.js';
+import { nativeMeasurements, textMeasurements, validateNativeMeasurements } from './native-measure.js';
 
 const MAX_DETAIL_NAMES = 32;
 const API_ERROR_CODES = new Set<SpiceApiErrorV1['code']>([
@@ -82,8 +86,12 @@ export async function validateProtocolV1(
   const circuit = await requestCircuit(request, guard);
   guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
   const compiled = circuit.compile(guard);
+  validateOutputSelection(request, outputSelectionCircuit(request, compiled, guard));
   enforcePointLimit(circuit.analyses, guard, requestReltol(request, circuit), compiled.steps[0]);
+  if (request.input.format === 'spice-ts' && request.input.document.sourceSweep) guard.maximum('maxResultPoints', request.input.document.sourceSweep.values.length, 'validation');
   validateNativeTfOutputs(request, compiled);
+  validateNativeFourier(request, compiled);
+  validateNativeMeasurements(request);
   if (compiled.analyses.length === 0) throw new InvalidCircuitError('No analysis command specified');
   if (!execution?.topologyWarnings) preflightTopology(compiled, protocolSourcePath(request));
   const diagnostics = execution?.topologyWarnings ? topologyWarnings(compiled) : [];
@@ -98,15 +106,19 @@ export async function validateProtocolV1(
 
 /** Native OP readouts using the shared JSON circuit construction path. */
 export async function operatingPointReportProtocolV1(request: SimulationRequestV1) {
+  if (request.outputs !== undefined) invalidNativeField('/outputs');
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   // Preserve OP report semantics: SPICE analysis/control commands are ignored.
-  const input = request.input.format === 'spice' ? request.input.source : await requestCircuit(request, guard);
+  const input = request.input.format === 'spice'
+    ? applyProtocolTemperatures(await parseTitlelessAsync(request.input.source), request.options)
+    : await requestCircuit(request, guard);
   return operatingPointReport(input, coreOptions(request.options));
 }
 
 /** Bounded native pole-zero result, separate from the v1 result/stream union. */
 export async function simulatePoleZeroProtocolV1(request: SimulationRequestV1) {
+  if (request.outputs !== undefined) invalidNativeField('/outputs');
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
@@ -128,6 +140,7 @@ export async function simulatePoleZeroProtocolV1(request: SimulationRequestV1) {
 
 /** Bounded noise spectrum for scalar consumers, separate from the v1 result/stream union. */
 export async function simulateNoiseProtocolV1(request: SimulationRequestV1) {
+  if (request.outputs !== undefined) invalidNativeField('/outputs');
   const guard = protocolGuard(request);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
@@ -159,11 +172,22 @@ export async function simulateProtocolV1(
   const guard = protocolGuard(request, execution);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
+  let preflight: CompiledCircuit | undefined;
+  let selection: OutputSelection | undefined;
+  if (request.outputs !== undefined) {
+    guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
+    preflight = circuit.compile(guard);
+    selection = validateOutputSelection(request, outputSelectionCircuit(request, preflight, guard));
+  }
   const analyses = circuit.analyses.map(protocolAnalysis);
   guard.maximum('maxAnalyses', analyses.length, 'validation');
-  const preflight = circuit.compile(guard);
+  preflight ??= circuit.compile(guard);
+
   validateNativeTfOutputs(request, preflight);
+  validateNativeFourier(request, preflight);
+  validateNativeMeasurements(request);
   enforcePointLimit(analyses, guard, requestReltol(request, circuit), preflight.steps[0]);
+  if (request.input.format === 'spice-ts' && request.input.document.sourceSweep) guard.maximum('maxResultPoints', request.input.document.sourceSweep.values.length, 'validation');
   preflightTopology(preflight, protocolSourcePath(request));
   const options = coreOptions(request.options);
   const serialized: AnalysisResultV1[] = [];
@@ -171,23 +195,118 @@ export async function simulateProtocolV1(
   for (let analysisIndex = 0; analysisIndex < analyses.length; analysisIndex++) {
     const analysis = analyses[analysisIndex]!;
     circuit.analyses.splice(0, circuit.analyses.length, analysis);
-    const compiled = circuit.compile(guard);
-    const result = await simulate(circuit, options, guard);
-    const completedBefore = serialized.length;
-    appendAnalysisResult(serialized, result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, circuit);
-    for (const completed of serialized.slice(completedBefore)) execution?.onAnalysisComplete?.(completed);
-    guard.checkpoint('serialize:analysis');
-    guard.maximum('maxResultPoints', resultPointCount(serialized), 'serialize');
-    guard.maximum(
-      'maxSerializedResultBytes',
-      utf8Bytes(JSON.stringify({ status: 'complete', analyses: serialized } satisfies SimulationResultV1)),
-      'serialize',
-    );
+    const nativeSweep = request.input.format === 'spice-ts' && (analysis.type === 'tran' || analysis.type === 'ac' || analysis.type === 'dc')
+      ? request.input.document.componentSweep : undefined;
+    // A fresh native circuit per step avoids continuation and device-state leaks.
+    const sourceSweep = request.input.format === 'spice-ts' ? request.input.document.sourceSweep : undefined;
+    const sweep = nativeSweep ?? sourceSweep;
+    const runs = sweep ? sweep.values.map((value, index) => ({ value, index })) : [undefined];
+    for (const run of runs) {
+      let runCircuit = circuit;
+      if (run && nativeSweep && request.input.format === 'spice-ts') {
+        runCircuit = applyProtocolTemperatures(circuitFromDocument(steppedComponentDocument(request.input.document, run.value), guard), request.options);
+      }
+      if (run && sourceSweep && request.input.format === 'spice-ts') {
+        runCircuit = applyProtocolTemperatures(circuitFromDocument(steppedSourceDocument(request.input.document, run.value), guard), request.options);
+      }
+      const compiled = runCircuit.compile(guard);
+      const result = await simulate(runCircuit, options, guard);
+      for (const transient of result.steps ? result.steps.map(step => step.transient) : [result.transient]) {
+        if (transient) transient.fourier = nativeFourier(request, analysisIndex, compiled, transient, guard) ?? transient.fourier;
+      }
+      const completedBefore = serialized.length;
+      if (run && sweep) {
+        const parameter = sourceSweep && request.input.format === 'spice-ts' ? request.input.document.circuit.components.find(c => c.name.toUpperCase() === sourceSweep.source.toUpperCase())!.name : preflight.steps[0]!.param;
+        serialized.push(serializeOne(result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, runCircuit, { index: run.index, parameter, value: run.value }));
+      } else {
+        appendAnalysisResult(serialized, result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, runCircuit);
+      }
+      const completedAnalyses = serialized.slice(completedBefore);
+      const transients = result.steps ? result.steps.map(step => step.transient) : [result.transient];
+      for (const [i, completed] of completedAnalyses.entries()) {
+        const transient = transients[i];
+        const dcSweep = result.steps ? result.steps[i]?.dcSweep : result.dcSweep;
+        if (completed.type === 'dc' && dcSweep) {
+          const measurements = request.input.format === 'spice' ? textMeasurements(runCircuit, analysis, result, guard) : nativeMeasurements(request, analysisIndex, analysis, dcSweep, guard);
+          if (measurements) completed.measurements = measurements;
+        }
+        if (completed.type === 'tran' && transient) {
+          const measurements = request.input.format === 'spice' ? textMeasurements(runCircuit, analysis, result, guard) : nativeMeasurements(request, analysisIndex, analysis, transient, guard);
+          if (measurements) completed.measurements = measurements;
+        }
+        const ac = result.steps ? result.steps[i]?.ac : result.ac;
+        if (completed.type === 'ac' && ac) {
+          const measurements = nativeMeasurements(request, analysisIndex, analysis, ac, guard);
+          if (measurements) completed.measurements = measurements;
+        }
+        execution?.onAnalysisComplete?.(selection ? selectOutputVectors(completed, selection) : completed);
+      }
+      guard.checkpoint('serialize:analysis');
+      guard.maximum('maxResultPoints', resultPointCount(serialized), 'serialize');
+      guard.maximum(
+        'maxSerializedResultBytes',
+        utf8Bytes(JSON.stringify({ status: 'complete', analyses: serialized } satisfies SimulationResultV1)),
+        'serialize',
+      );
+    }
   }
 
   circuit.analyses.splice(0, circuit.analyses.length, ...analyses);
-  const response: SimulationResultV1 = { status: 'complete', analyses: serialized };
+  const response: SimulationResultV1 = { status: 'complete', analyses: selection ? serialized.map(result => selectOutputVectors(result, selection)) : serialized };
   return response;
+}
+
+type OutputSelection = { nodes: Set<string>; branches: Set<string> };
+
+function steppedSourceDocument(document: SpiceTsCircuitDocumentV1, value: number): SpiceTsCircuitDocumentV1 {
+  const { sourceSweep, ...base } = document;
+  const components = base.circuit.components.map(component => component.name.toUpperCase() === sourceSweep!.source.toUpperCase()
+    ? { ...component, params: { ...component.params, dc: value } } : component);
+  return { ...base, circuit: { ...base.circuit, components } };
+}
+
+function steppedComponentDocument(document: SpiceTsCircuitDocumentV1, value: number): SpiceTsCircuitDocumentV1 {
+  const { componentSweep, ...base } = document;
+  const components = base.circuit.components.map(component => {
+    if (component.name.toUpperCase() !== componentSweep!.component.toUpperCase()) return component;
+    const parameter = { R: 'resistance', C: 'capacitance', L: 'inductance' }[component.type.toUpperCase()]!;
+    return { ...component, params: { ...component.params, [parameter]: value } };
+  });
+  return { ...base, circuit: { ...base.circuit, components } };
+}
+
+// Positive sweep values have the same branch topology as the executed circuits.
+function outputSelectionCircuit(request: SimulationRequestV1, compiled: CompiledCircuit, guard: ProtocolExecutionGuard): CompiledCircuit {
+  if (request.outputs === undefined || request.input.format !== 'spice-ts' || !request.input.document.componentSweep || !['tran', 'ac', 'dc'].includes(request.input.document.analyses[0]?.type ?? '')) return compiled;
+  const document = steppedComponentDocument(request.input.document, request.input.document.componentSweep.values[0]!);
+  return applyProtocolTemperatures(circuitFromDocument(document, guard), request.options).compile(guard);
+}
+
+function validateOutputSelection(request: SimulationRequestV1, compiled: CompiledCircuit): OutputSelection | undefined {
+  if (request.outputs === undefined) return undefined;
+  if (!Array.isArray(request.outputs) || request.outputs.length < 1 || request.outputs.length > 64) invalidNativeField('/outputs');
+  if (compiled.poleZeroAnalyses.length || compiled.analyses.some(analysis => !['op', 'dc', 'ac', 'tran'].includes(analysis.type))) invalidNativeField('/outputs');
+  const selection: OutputSelection = { nodes: new Set(), branches: new Set() };
+  for (let index = 0; index < request.outputs.length; index++) {
+    const output = request.outputs[index];
+    const match = typeof output === 'string' && output.length <= 512 && [...output].length <= 256 ? /^([vi])\(([^\s(),]+)\)(?![\s\S])/i.exec(output) : null;
+    if (!match) invalidNativeField(`/outputs/${index}`);
+    const voltage = match[1]!.toLowerCase() === 'v';
+    const names = voltage ? compiled.nodeNames : compiled.branchNames;
+    const name = names.find(candidate => candidate === match[2]) ?? names.find(candidate => candidate.toLowerCase() === match[2]!.toLowerCase());
+    if (name === undefined) invalidNativeField(`/outputs/${index}`);
+    (voltage ? selection.nodes : selection.branches).add(name);
+  }
+  return selection;
+}
+
+function selectOutputVectors(result: AnalysisResultV1, selection: OutputSelection): AnalysisResultV1 {
+  const pick = <T>(record: Record<string, T>, names: Set<string>): Record<string, T> =>
+    Object.fromEntries(Object.entries(record).filter(([name]) => names.has(name)));
+  if (result.type === 'tf') return result;
+  if (result.type === 'ac') return { ...result, voltagePhasors: pick(result.voltagePhasors, selection.nodes), currentPhasors: pick(result.currentPhasors, selection.branches) };
+  if (result.type === 'op') return { ...result, voltagesV: pick(result.voltagesV, selection.nodes), currentsA: pick(result.currentsA, selection.branches) };
+  return { ...result, voltagesV: pick(result.voltagesV, selection.nodes), currentsA: pick(result.currentsA, selection.branches) };
 }
 
 type ProtocolCoreAnalysis = AnalysisCommand | TransferFunctionAnalysis;
@@ -309,6 +428,18 @@ function jsonPointerSegment(value: string): string {
   return value.replaceAll('~', '~0').replaceAll('/', '~1');
 }
 
+function applyProtocolTemperatures(circuit: Circuit, options?: SimulationOptionsV1): Circuit {
+  for (const field of ['temperature', 'nominalTemperature'] as const) {
+    const value = options?.[field];
+    if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value <= -273.15)) {
+      throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', message: `${field} must be a finite Celsius value above absolute zero`, phase: 'validation', retryable: false, details: { path: `/options/${field}` } });
+    }
+  }
+  if (options?.temperature !== undefined) circuit.setTemperature(options.temperature);
+  if (options?.nominalTemperature !== undefined) circuit.setNominalTemperature(options.nominalTemperature);
+  return circuit;
+}
+
 async function requestCircuit(
   request: SimulationRequestV1,
   guard: ProtocolExecutionGuard,
@@ -324,10 +455,11 @@ async function requestCircuit(
       // Interpreted ngspice control scripts run an open-ended analysis sequence
       // that the protocol's per-analysis limits and result envelope cannot bound.
       if (circuit.controlScript) throw new UnsupportedProtocolAnalysisError('.control script');
-      return circuit;
+      return applyProtocolTemperatures(circuit, request.options);
     }
     case 'spice-ts':
-      return circuitFromDocument(request.input.document);
+      if (request.input.document.temperatureSweep !== undefined && request.options?.temperature !== undefined) invalidNativeField('/options/temperature');
+      return applyProtocolTemperatures(circuitFromDocument(request.input.document, guard), request.options);
     case 'circuit-json':
       throw new InvalidCircuitError('circuit-json conversion is owned by @spice-ts/circuit-json and is unavailable in core');
   }
@@ -479,11 +611,90 @@ function coreOptions(options?: SimulationOptionsV1): SimulationOptions {
 }
 
 /** Reconstruct a circuit from a validated native protocol document. */
-export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit {
+export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: ProtocolExecutionGuard): Circuit {
   const circuit = new Circuit();
+  for (const key of Object.keys(document)) {
+    if (!['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits', 'temperatureSweep', 'componentSweep', 'sourceSweep', 'globalNodes', 'poleZeroAnalyses', 'noiseAnalyses', 'initialConditions', 'nodesets'].includes(key)) {
+      invalidNativeField(`/input/document/${jsonPointerSegment(key)}`);
+    }
+  }
+  if (document.sourceSweep !== undefined) {
+    const sweep = document.sourceSweep;
+    const path = '/input/document/sourceSweep';
+    if (!sweep || typeof sweep !== 'object' || Array.isArray(sweep)) invalidNativeField(path);
+    for (const key of Object.keys(sweep)) if (!['source', 'values'].includes(key)) invalidNativeField(`${path}/${jsonPointerSegment(key)}`);
+    if (document.componentSweep !== undefined || document.temperatureSweep !== undefined) invalidNativeField(path);
+    if (typeof sweep.source !== 'string' || !sweep.source) invalidNativeField(`${path}/source`);
+    const targets = document.circuit.components.filter(component => component.name.toUpperCase() === sweep.source.toUpperCase());
+    if (targets.length !== 1 || !['V', 'I'].includes(targets[0]!.type.toUpperCase())) invalidNativeField(`${path}/source`);
+    if (targets[0]!.params.waveform !== undefined && targets[0]!.params.waveform !== 'dc') invalidNativeField(`${path}/source`);
+    const params = targets[0]!.params;
+    const dc = params.dc;
+    if (!hasDistortionDefaultDc(params) && (typeof dc !== 'number' || !Number.isFinite(dc))) {
+      const index = document.circuit.components.indexOf(targets[0]!);
+      invalidNativeField(`/input/document/circuit/components/${index}/params/dc`);
+    }
+    if (!Array.isArray(sweep.values) || sweep.values.length < 1 || sweep.values.length > 16) invalidNativeField(`${path}/values`);
+    for (const [index, value] of sweep.values.entries()) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) invalidNativeField(`${path}/values/${index}`);
+    }
+    if (document.analyses.length !== 1) invalidNativeField('/input/document/analyses');
+    if (document.analyses[0]?.type !== 'op') invalidNativeField('/input/document/analyses/0/type');
+    if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
+    if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
+  }
+  if (document.componentSweep !== undefined) {
+    const sweep = document.componentSweep;
+    const path = '/input/document/componentSweep';
+    if (!sweep || typeof sweep !== 'object' || Array.isArray(sweep)) invalidNativeField(path);
+    for (const key of Object.keys(sweep)) if (!['component', 'values'].includes(key)) invalidNativeField(`${path}/${jsonPointerSegment(key)}`);
+    if (document.temperatureSweep !== undefined) invalidNativeField(path);
+    if (typeof sweep.component !== 'string' || !sweep.component || sweep.component.toUpperCase() === 'TEMP') invalidNativeField(`${path}/component`);
+    const targets = document.circuit.components.filter(component => component.name.toUpperCase() === sweep.component.toUpperCase());
+    if (targets.length !== 1 || !['R', 'C', 'L'].includes(targets[0]!.type.toUpperCase())) invalidNativeField(`${path}/component`);
+    if (!Array.isArray(sweep.values) || sweep.values.length < 1 || sweep.values.length > 16) invalidNativeField(`${path}/values`);
+    for (const [index, value] of sweep.values.entries()) {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) invalidNativeField(`${path}/values/${index}`);
+    }
+    if (document.analyses.length !== 1) invalidNativeField('/input/document/analyses');
+    if (!['op', 'tran', 'ac', 'dc'].includes(document.analyses[0]?.type ?? '')) invalidNativeField('/input/document/analyses/0/type');
+    if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
+    if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
+    circuit.addStep(targets[0]!.name, { values: sweep.values });
+  }
+  if (document.temperatureSweep !== undefined) {
+    const sweep = document.temperatureSweep;
+    const path = '/input/document/temperatureSweep';
+    if (!sweep || typeof sweep !== 'object' || Array.isArray(sweep)) invalidNativeField(path);
+    for (const key of Object.keys(sweep)) if (key !== 'values') invalidNativeField(`${path}/${jsonPointerSegment(key)}`);
+    if (!Array.isArray(sweep.values) || sweep.values.length < 1 || sweep.values.length > 16) invalidNativeField(`${path}/values`);
+    for (const [index, value] of sweep.values.entries()) {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= -273.15) invalidNativeField(`${path}/values/${index}`);
+    }
+    if (document.analyses.length === 0) invalidNativeField('/input/document/analyses');
+    for (const [index, analysis] of document.analyses.entries()) {
+      if (analysis?.type !== 'op') invalidNativeField(`/input/document/analyses/${index}/type`);
+    }
+    if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
+    if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
+    circuit.addStep('TEMP', { values: sweep.values });
+  }
+  if (document.globalNodes !== undefined) {
+    if (!Array.isArray(document.globalNodes)) invalidNativeField('/input/document/globalNodes');
+    for (const [index, name] of document.globalNodes.entries()) {
+      if (typeof name !== 'string' || !/^[A-Za-z0-9_.:+-]+(?![\s\S])/.test(name)) invalidNativeField(`/input/document/globalNodes/${index}`);
+    }
+    circuit.addGlobalNodes(document.globalNodes);
+  }
   for (const model of document.models) circuit.addModel(coreModel(model));
-  for (const subcircuit of document.subcircuits) circuit.addSubcircuit(coreSubcircuit(subcircuit));
+  for (const [index, subcircuit] of document.subcircuits.entries()) {
+    for (const [componentIndex, component] of subcircuit.components.entries()) {
+      validateResistorCoefficients(component, `/input/document/subcircuits/${index}/components/${componentIndex}`);
+    }
+    circuit.addSubcircuit(coreSubcircuit(subcircuit));
+  }
   for (const [index, component] of document.circuit.components.entries()) {
+    validateResistorCoefficients(component, `/input/document/circuit/components/${index}`);
     if (component.type.toUpperCase() === 'V') {
       for (const field of ['portnum', 'z0']) {
         const value = component.params[field];
@@ -493,10 +704,58 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
     }
     addComponent(circuit, component);
   }
+  let stateNodes: Set<string> | undefined;
+  for (const field of ['initialConditions', 'nodesets'] as const) {
+    const states = document[field];
+    if (states === undefined) continue;
+    const path = `/input/document/${field}`;
+    if (typeof states !== 'object' || states === null || Array.isArray(states)) invalidNativeField(path);
+    const nodes = stateNodes ??= new Set([...circuit.compile(guard).nodeIndexMap.keys()].map(node => node.toLowerCase()));
+    for (const [node, value] of Object.entries(states)) {
+      const ground = ['0', 'gnd'].includes(node.toLowerCase());
+      if (typeof value !== 'number' || !Number.isFinite(value)
+        || (ground ? value !== 0 : !nodes.has(node.toLowerCase()))) {
+        invalidNativeField(`${path}/${node.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+      }
+      circuit.addInitialState(field === 'initialConditions' ? 'ic' : 'nodeset', {
+        node: ground ? '0' : node, value,
+      });
+    }
+  }
   for (const [index, analysis] of document.analyses.entries()) {
+    if (analysis.type === 'tran' && analysis.uic !== undefined && analysis.uic !== true) {
+      invalidNativeField(`/input/document/analyses/${index}/uic`);
+    }
+    if (analysis.type === 'dc' && analysis.secondary !== undefined) {
+      const path = `/input/document/analyses/${index}/secondary`;
+      const secondary = analysis.secondary;
+      if (typeof secondary !== 'object' || secondary === null || Array.isArray(secondary)) invalidNativeField(path);
+      if (typeof secondary.source !== 'string' || !/^[^\s]+$/.test(secondary.source)) invalidNativeField(`${path}/source`);
+      for (const field of ['start', 'stop', 'step'] as const) {
+        if (typeof secondary[field] !== 'number' || !Number.isFinite(secondary[field])) invalidNativeField(`${path}/${field}`);
+      }
+      if (secondary.step === 0 || (secondary.stop > secondary.start && secondary.step < 0)
+        || (secondary.stop < secondary.start && secondary.step > 0)) invalidNativeField(`${path}/step`);
+      for (const field of Object.keys(secondary)) {
+        if (!['source', 'start', 'stop', 'step'].includes(field)) invalidNativeField(`${path}/${field.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+      }
+      const name = secondary.source.toUpperCase();
+      if (name === analysis.source.toUpperCase()) invalidNativeField(`${path}/source`);
+      const targets = circuit.compile(guard).devices.filter(device => (device instanceof VoltageSource || device instanceof CurrentSource || device instanceof Resistor) && device.name.toUpperCase() === name);
+      if (name !== 'TEMP' && targets.length !== 1) invalidNativeField(`${path}/source`);
+    }
     if (analysis.type === 'sens') {
       const path = `/input/document/analyses/${index}`;
-      if (analysis.mode !== 'dc') invalidNativeField(`${path}/mode`);
+      if (analysis.mode !== 'dc' && analysis.mode !== 'ac') invalidNativeField(`${path}/mode`);
+      if (analysis.mode === 'ac') {
+        if (!['dec', 'oct', 'lin'].includes(analysis.variation)) invalidNativeField(`${path}/variation`);
+        for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
+          const value = analysis[field];
+          if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+            || field === 'points' && !Number.isInteger(value)) invalidNativeField(`${path}/${field}`);
+        }
+        if (analysis.stopFreq < analysis.startFreq) invalidNativeField(`${path}/stopFreq`);
+      }
       for (const field of ['outputNode', 'outputReferenceNode'] as const) {
         if (field === 'outputReferenceNode' && analysis[field] === undefined) continue;
         if (typeof analysis[field] !== 'string' || !analysis[field].trim()) invalidNativeField(`${path}/${field}`);
@@ -504,12 +763,13 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1): Circuit
       if (analysis.outputType !== undefined && !['voltage', 'current'].includes(analysis.outputType)) invalidNativeField(`${path}/outputType`);
       if (analysis.outputType === 'current' && analysis.outputReferenceNode !== undefined) invalidNativeField(`${path}/outputReferenceNode`);
       for (const field of Object.keys(analysis)) {
-        if (!['type', 'mode', 'outputNode', 'outputReferenceNode', 'outputType'].includes(field)) {
+        if (!['type', 'mode', 'outputNode', 'outputReferenceNode', 'outputType',
+          ...(analysis.mode === 'ac' ? ['variation', 'points', 'startFreq', 'stopFreq'] : [])].includes(field)) {
           invalidNativeField(`${path}/${field.replaceAll('~', '~0').replaceAll('/', '~1')}`);
         }
       }
       // Use expanded nodes/devices rather than potentially stale declared net labels.
-      const compiled = circuit.compile();
+      const compiled = circuit.compile(guard);
       if (analysis.outputType === 'current') {
         const source = compiled.devices.find(device => device.name.toLowerCase() === analysis.outputNode.toLowerCase());
         if (!(source instanceof VoltageSource)) invalidNativeField(`${path}/outputNode`);
@@ -621,6 +881,14 @@ function coreSubcircuit(subcircuit: SubcircuitV1): { name: string; ports: string
   };
 }
 
+function validateResistorCoefficients(component: CircuitComponentV1, path: string): void {
+  if (component.type.toUpperCase() !== 'R') return;
+  for (const field of ['TC1', 'TC2']) {
+    const value = component.params[field];
+    if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) invalidNativeField(`${path}/params/${field}`);
+  }
+}
+
 function invalidNativeField(path: string): never {
   throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', message: `Invalid native field at ${path}`, phase: 'validation', retryable: false, details: { path } });
 }
@@ -629,11 +897,14 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
   switch (analysis.type) {
     case 'op': circuit.addAnalysis('op'); break;
     case 'dc': circuit.addAnalysis('dc', analysis); break;
-    case 'tran': circuit.addAnalysis('tran', analysis); break;
+    case 'tran': circuit.addAnalysis('tran', { ...analysis, useInitialConditions: analysis.uic }); break;
     case 'ac': circuit.addAnalysis('ac', analysis); break;
     case 'sp': circuit.addAnalysis('sp', analysis); break;
     case 'disto': circuit.addAnalysis('disto', analysis); break;
-    case 'sens': circuit.addAnalysis('sens', analysis); break;
+    case 'sens':
+      if (analysis.mode === 'dc') circuit.addAnalysis('sens', analysis);
+      else circuit.addAnalysis('sens', analysis);
+      break;
     case 'tf': {
       const voltage = /^v\(\s*([^\s(),]+)\s*(?:,\s*([^\s(),]+)\s*)?\)$/i.exec(analysis.output);
       const current = /^i\(\s*(v[^\s(),]*)\s*\)$/i.exec(analysis.output);
@@ -652,7 +923,7 @@ function addComponent(circuit: Circuit, component: CircuitComponentV1): void {
   const named = (name: string, fallback: number): string => component.ports.find(port => port.name === name)?.net ?? nodes[fallback]!;
   const model = component.model ?? stringParam(p, 'modelName');
   switch (component.type.toUpperCase()) {
-    case 'R': circuit.addResistor(component.name, named('p', 0), named('n', 1), numberParam(p, 'resistance')); break;
+    case 'R': circuit.addResistor(component.name, named('p', 0), named('n', 1), numberParam(p, 'resistance'), numberParams({ TC1: p.TC1, TC2: p.TC2 })); break;
     case 'C': circuit.addCapacitor(component.name, named('p', 0), named('n', 1), optionalNumber(p, 'capacitance'), model, numberParamsExcept(p, ['capacitance', 'modelName'])); break;
     case 'L': circuit.addInductor(component.name, named('p', 0), named('n', 1), optionalNumber(p, 'inductance'), model, numberParamsExcept(p, ['inductance', 'modelName'])); break;
     case 'V':
@@ -722,14 +993,17 @@ function serializeOp(result: DCResult, analysisIndex: number, nodes: string[], b
 }
 
 function serializeDc(result: DCSweepResult, analysis: Extract<AnalysisCommand, { type: 'dc' }>, analysisIndex: number, nodes: string[], branches: string[], circuit: Circuit, step?: StepCoordinateV1): DcResultV1 {
-  const normalizedSourceName = analysis.source.toUpperCase();
-  const source = circuit.toIR().components.find(component =>
-    (component.type === 'V' || component.type === 'I')
-    && component.name.toUpperCase() === normalizedSourceName,
-  );
+  const components = circuit.toIR().components;
+  const axis = (name: string, values: Float64Array): DcResultV1['axis'] => {
+    const source = components.find(component => component.name.toUpperCase() === name.toUpperCase());
+    return { name: source?.name ?? name, unit: source?.type === 'I' ? 'A' : 'V', values: Array.from(values) };
+  };
   return withStep({
     type: 'dc', analysisIndex,
-    axis: { name: source?.name ?? analysis.source, unit: source?.type === 'I' ? 'A' : 'V', values: Array.from(result.sweepValues) },
+    axis: axis(analysis.source, result.sweepValues),
+    ...(analysis.secondary && result.secondarySweepValues ? {
+      secondaryAxis: axis(analysis.secondary.source, result.secondarySweepValues),
+    } : {}),
     voltagesV: sortedRecord(nodes, name => Array.from(result.voltage(name))),
     currentsA: sortedRecord(branches, name => Array.from(result.current(name))),
   }, step);
@@ -740,6 +1014,7 @@ function serializeTransient(result: TransientResult, analysisIndex: number, node
     type: 'tran', analysisIndex, timeS: [...result.time],
     voltagesV: sortedRecord(nodes, name => [...result.voltage(name)]),
     currentsA: sortedRecord(branches, name => [...result.current(name)]),
+    ...(result.fourier ? { fourier: result.fourier.map(serializeFourier) } : {}),
   }, step);
 }
 
@@ -923,10 +1198,14 @@ function invalidDistoField(path: string): never {
   throw new ProtocolExecutionError({ code: 'INVALID_INPUT', message: `Invalid native distortion field at ${path}`, phase: 'validation', retryable: false, details: { path } });
 }
 
+function hasDistortionDefaultDc(params: JsonObject): boolean {
+  return params.dc === undefined && (params.distortionF1 !== undefined || params.distortionF2 !== undefined);
+}
+
 function sourceWaveform(params: JsonObject): Partial<SourceWaveform> & { dc?: number } {
   const kind = stringParam(params, 'waveform') ?? 'dc';
   switch (kind) {
-    case 'dc': return { dc: params.dc === undefined && (params.distortionF1 !== undefined || params.distortionF2 !== undefined) ? 0 : numberParam(params, 'dc') };
+    case 'dc': return { dc: hasDistortionDefaultDc(params) ? 0 : numberParam(params, 'dc') };
     case 'ac': return { type: 'ac', dc: optionalNumber(params, 'dc'), magnitude: optionalNumber(params, 'magnitude') ?? 1, phase: optionalNumber(params, 'phase') ?? 0 };
     case 'sin': return { type: 'sin', offset: numberParam(params, 'offset'), amplitude: numberParam(params, 'amplitude'), frequency: numberParam(params, 'frequency'), delay: optionalNumber(params, 'delay'), damping: optionalNumber(params, 'damping'), phase: optionalNumber(params, 'phase') };
     case 'pulse': return { type: 'pulse', v1: numberParam(params, 'v1'), v2: numberParam(params, 'v2'), delay: numberParam(params, 'delay'), rise: numberParam(params, 'rise'), fall: numberParam(params, 'fall'), width: numberParam(params, 'width'), period: numberParam(params, 'period') };

@@ -111,3 +111,8 @@ export { UnsupportedMeasureError } from './measure/errors.js';
 export {
   UnsupportedControlCommandError, ControlScriptError, ControlScriptExitError,
 } from './parser/control/errors.js';
+
+// Public waveform measurement API for embedders.
+export { evaluateMeasureCards, measureCard, measurePlot } from './measure/dot-measure.js';
+export type { MeasureCard } from './measure/dot-measure.js';
+export type { MeasurePlot } from './measure/measure2.js';

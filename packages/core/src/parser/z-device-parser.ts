@@ -9,10 +9,10 @@ export interface ParsedZInstance {
 
 /**
  * Z-card instance parameters of the supported families: L/W (HFET1, MESA),
- * TS/TD/DTEMP (MESA instance temperatures) and AREA (MES). Each model
+ * TEMP/DTEMP (HFET1), TS/TD/DTEMP (MESA) and AREA (MES). Each model
  * family rejects the ones it does not define when the circuit is compiled.
  */
-const Z_INSTANCE_PARAMETERS = new Set(['L', 'W', 'AREA', 'TS', 'TD', 'DTEMP']);
+const Z_INSTANCE_PARAMETERS = new Set(['L', 'W', 'AREA', 'TS', 'TD', 'TEMP', 'DTEMP']);
 
 /** Parse `Zname drain gate source model [name=value ...]`. */
 export function parseZInstance(

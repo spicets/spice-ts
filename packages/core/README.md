@@ -164,6 +164,42 @@ The resolver is platform-agnostic — use `fetch()` in the browser, `readFile()`
 
 `TransientSim.peekInitialStep(): TransientStep` snapshots the current accepted state without advancing or solving again. Call it before `advance()` (or after `reset()`) to include t=0; after advancing it returns the current point. Each call returns detached voltage/current Maps.
 
+### Interactive transient simulation
+
+`createTransientSim` compiles a parsed circuit once and keeps the solver and device histories
+between calls. `step()` (also available as `advance()`) returns one accepted sample;
+`advanceTo(time)` returns new samples and lands at the exact requested accepted time. The
+finite target must be at or after `simTime` and no later than the configured stop time;
+requesting the current time returns an empty array. `advanceUntil(time)` retains its existing
+behavior: it may overshoot to the next accepted time. Check `isDone` before advancing.
+
+```ts
+import { createTransientSim, parse } from '@spice-ts/core';
+
+const circuit = parse(`GPIO example
+Vgpio in 0 DC 0
+R1 in out 1k
+C1 out 0 1u
+.tran 10u 10m
+.end`);
+const sim = await createTransientSim(circuit);
+const initial = sim.peekInitialStep();
+const before = sim.advanceTo(1e-3);
+sim.setSourceValue('Vgpio', 3.3);
+const after = sim.advanceTo(2e-3);
+sim.dispose();
+```
+
+`setSourceValue(name, value)` changes an independent **DC** voltage or current source at the
+current accepted time. Its new value applies to subsequent steps; the already-returned sample
+does not change. Names are case-insensitive, values must be finite, and time-dependent sources
+and RF ports cannot be replaced. A change restarts integration order at the discontinuity but
+preserves the circuit's physical state. For a normal transient, `reset()` recomputes the DC
+operating point using the latest source values. With UIC, it instead restores the original
+initial-condition seed without a DC solve; the latest source values still apply to subsequent
+steps. Use `advanceTo` before updating a source at a precise time; scheduled source transitions
+are not supported.
+
 ### `SimulationOptions`
 
 | Option | Default | Description |
@@ -200,3 +236,6 @@ Pair with [`@spice-ts/ui`](https://www.npmjs.com/package/@spice-ts/ui) for React
 ## License
 
 MIT · See the [spice-ts monorepo](https://github.com/spicets/spice-ts) for benchmarks, roadmap, and contributing guide.
+## Protocol circuit temperatures
+
+Protocol v1 requests may set `options.temperature` (TEMP) and `options.nominalTemperature` (TNOM) in degrees Celsius. Both must be finite and greater than -273.15; invalid values return `INVALID_REQUEST` with `/options/<field>`. Request values override SPICE text `.temp` and `.options TNOM`; unspecified values retain netlist settings or the 27 °C default. MCP streaming metadata reports explicitly set effective values in `resolvedOptions`; omitted fields use the 27 °C default. These options apply to native `spice-ts`, converted `circuit-json`, and SPICE text requests.

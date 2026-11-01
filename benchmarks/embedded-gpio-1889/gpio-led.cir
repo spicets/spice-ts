@@ -1,0 +1,7 @@
+gpio-led original MIT maker circuit
+Vgpio gpio 0 PULSE(0 3.3 1u 10n 10n 5u 10u)
+Rlim gpio led 330
+Dled led 0 LED
+.model LED D(IS=1e-18 N=2)
+.tran 100n 30u
+.end

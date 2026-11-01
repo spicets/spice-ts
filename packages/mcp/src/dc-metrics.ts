@@ -1,16 +1,20 @@
 import type { SimulationResultV1, SpiceApiErrorV1 } from '@spice-ts/core/protocol';
 
-type DcMetricsInput = { sweptSource: string; output: string; input?: string };
+type DcMetricsInput = { sweptSource: string; output: string; input?: string; analysis?: number; step?: number };
 type Metric = { value: number | null; unit: string; reason?: string };
 type GainMetric = Metric & { input?: number; sweepPoint?: number };
 type DcMetrics = Record<'switchingThreshold' | 'voh' | 'vol' | 'vil' | 'vih' | 'nmL' | 'nmH', Metric> & {
   gainMax: GainMetric; monotonic: boolean;
 };
 
+const voltagePattern = '^[vV]\\([^()]+\\)$';
+const differentialPattern = /^[^\s(),](?:[^(),]*[^\s(),])?\s*,\s*[^\s(),](?:[^(),]*[^\s(),])?$/;
 export const dcMetricsProperties = {
   sweptSource: { type: 'string', minLength: 1, maxLength: 256 },
-  output: { type: 'string', minLength: 1, maxLength: 256 },
-  input: { type: 'string', minLength: 1, maxLength: 256 },
+  analysis: { type: 'integer', minimum: 0 },
+  step: { type: 'integer', minimum: 0 },
+  output: { type: 'string', minLength: 1, maxLength: 256, pattern: voltagePattern, description: 'Voltage expression v(node) or v(positive,negative).' },
+  input: { type: 'string', minLength: 1, maxLength: 256, pattern: voltagePattern, description: 'Voltage expression v(node) or v(positive,negative); defaults to the voltage sweep.' },
 };
 const metricSchema = {
   type: 'object', required: ['value', 'unit'], additionalProperties: false,
@@ -31,14 +35,17 @@ function invalid(message: string): never {
 export function dcMetricsInput(args: unknown): DcMetricsInput {
   if (!args || typeof args !== 'object' || Array.isArray(args)) invalid('Expected DC metric arguments');
   const fields = args as Record<string, unknown>;
-  if (Object.keys(fields).some(key => !['request', 'sweptSource', 'output', 'input'].includes(key))) invalid('Unknown DC metric argument');
+  if (Object.keys(fields).some(key => !['request', ...Object.keys(dcMetricsProperties)].includes(key))) invalid('Unknown DC metric argument');
+  for (const key of ['analysis', 'step']) {
+    if (fields[key] !== undefined && (!Number.isInteger(fields[key]) || (fields[key] as number) < 0)) invalid(`Invalid ${key}`);
+  }
   for (const key of ['sweptSource', 'output', ...(fields.input === undefined ? [] : ['input'])]) {
     if (typeof fields[key] !== 'string' || !fields[key].length || fields[key].length > 256) invalid(`Invalid ${key}`);
   }
   for (const signal of [fields.output, fields.input].filter(v => v !== undefined)) {
-    if (!/^v\([^()]+\)$/i.test(signal as string)) invalid('DC transfer expressions must be v(node)');
+    if (!new RegExp(voltagePattern).test(signal as string)) invalid('DC transfer expressions must be v(node) or v(positive,negative)');
   }
-  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined };
+  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined, analysis: fields.analysis as number | undefined, step: fields.step as number | undefined };
 }
 const metric = (value: number | null, reason?: string, unit = 'V'): Metric => {
   if (value !== null && !Number.isFinite(value)) return { value: null, unit, reason: 'Non-finite metric' };
@@ -47,17 +54,33 @@ const metric = (value: number | null, reason?: string, unit = 'V'): Metric => {
 
 /** Secant gains live at interval midpoints. Crossings interpolate adjacent samples. */
 export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInput): DcMetrics {
-  const matches = result.analyses.filter(a => a.type === 'dc' && a.axis.name.toLowerCase() === input.sweptSource.toLowerCase());
-  if (matches.length !== 1) invalid('Expected exactly one DC sweep for sweptSource; split stepped or repeated analyses into separate requests');
+  const matches = result.analyses.filter(a => a.type === 'dc' && a.axis.name.toLowerCase() === input.sweptSource.toLowerCase()
+    && (input.analysis === undefined || a.analysisIndex === input.analysis)
+    && (input.step === undefined || (a.step?.index ?? 0) === input.step));
+  if (matches.length !== 1) invalid('Expected exactly one DC sweep for sweptSource and selectors');
   const a = matches[0];
   if (a.type !== 'dc') invalid('Missing DC sweep');
-  const voltage = (signal: string): number[] => {
-    const name = signal.slice(2, -1).toLowerCase();
-    const key = Object.keys(a.voltagesV).find(key => key.toLowerCase() === name);
-    if (key === undefined) invalid(`Unknown voltage signal: ${signal}`);
-    return a.voltagesV[key];
-  };
   const sweep = a.axis.values;
+  const voltage = (signal: string): number[] => {
+    if (!new RegExp(voltagePattern).test(signal)) invalid('DC transfer expressions must be v(node) or v(positive,negative)');
+    const literal = signal.slice(2, -1).toLowerCase();
+    const hasLiteral = Object.keys(a.voltagesV).some(key => key.toLowerCase() === literal);
+    const differential = literal.trim();
+    if (!hasLiteral && literal.includes(',') && !differentialPattern.test(differential)) invalid(`Unknown voltage signal: ${signal}`);
+    const names = hasLiteral || !literal.includes(',') ? [literal] : differential.split(',').map(name => name.trim());
+    const vector = (name: string): number[] => {
+      if (names.length === 2 && name === '0') return sweep.map(() => 0);
+      const key = Object.keys(a.voltagesV).find(key => key.toLowerCase() === name);
+      if (key === undefined) invalid(`Unknown voltage signal: ${signal}`);
+      const values = a.voltagesV[key];
+      if (values.length !== sweep.length || !values.every(Number.isFinite)) invalid('DC metrics require at least two finite aligned samples');
+      return values;
+    };
+    const positive = vector(names[0]);
+    if (names.length === 1) return positive;
+    const negative = vector(names[1]);
+    return positive.map((value, i) => value - negative[i]);
+  };
   const x = input.input ? voltage(input.input) : sweep;
   const y = voltage(input.output);
   if (!input.input && a.axis.unit !== 'V') invalid('A current sweep requires an explicit voltage input expression');
