@@ -164,7 +164,7 @@ describe('spice_disto_metrics', () => {
     ['missing analysis', 'R1 out 0 1k', 'v(out)', 'UNSUPPORTED_ANALYSIS'],
     ['wrong analysis', 'R1 out 0 1k\n.op', 'v(out)', 'UNSUPPORTED_ANALYSIS'],
     ['missing node', diode, 'v(missing)', 'INVALID_REQUEST'],
-    ['bad selector', diode, 'v(out,in)', 'INVALID_REQUEST'],
+    ['bad selector', diode, 'v(out,)', 'INVALID_REQUEST'],
     ['invalid F2OVERF1', diode.replace('100k\n', '100k 1\n'), 'v(out)', 'PARSE_ERROR'],
     ['unsupported model', diode.replace('CJO=5p', 'CJO=5p N=2'), 'v(out)', 'INVALID_CIRCUIT'],
     ['multiple analyses', diode.replace('.end', '.op\n.end'), 'v(out)', 'UNSUPPORTED_ANALYSIS'],
