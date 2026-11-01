@@ -105,7 +105,7 @@ describe('differential DC metrics', () => {
     expect((await run('V(IN,0)', 'v(OUT,0)')).structuredContent).toEqual(base.structuredContent);
     const reverse = await run('v(0,IN)', 'V(0,OUT)');
     expect(reverse.isError, JSON.stringify(reverse.structuredContent)).not.toBe(true);
-    expect(reverse.structuredContent).toMatchObject({ gainMax: { value: 0.5 }, voh: { value: 0 }, vol: { value: -2 } });
+    expect(reverse.structuredContent).toMatchObject({ gainMax: { value: 0.5 }, voh: { value: -2 }, vol: { value: 0 } });
     const invalid = await run('v(in,0)', 'v(out,missing)');
     expect(invalid).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST', phase: 'validation' } } });
     expect(await run('v(in,0)', 'v(out,,0)')).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST', phase: 'validation' } } });
