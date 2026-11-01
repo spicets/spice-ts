@@ -39,6 +39,7 @@ it('accepts the protocol-v1 request without mutating it or changing absent param
   const schema = MCP_TOOLS.find(tool => tool.name === 'spice_noise_metrics')!.inputSchema;
   expect(new AjvJsonSchemaValidator().getValidator(schema)(args).valid).toBe(true);
   expect(await metrics(args)).toEqual(await metrics({ netlist: source.replace('R=1k', 'R=4k') }));
+  expect(await metrics({ ...args, signalRms: 1 })).toEqual(await metrics({ netlist: source.replace('R=1k', 'R=4k'), signalRms: 1 }));
   expect(input).toEqual(snapshot);
   expect(await metrics({ request: input })).toEqual(await metrics({ netlist: source }));
   expect(await metrics({ request: input, params: {} })).toEqual(await metrics({ request: input }));

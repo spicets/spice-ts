@@ -83,7 +83,8 @@
               "const": "dc"
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\S+$"
             },
             "start": {
               "type": "number"
@@ -92,10 +93,197 @@
               "type": "number"
             },
             "step": {
-              "type": "number"
+              "type": "number",
+              "not": {
+                "const": 0
+              }
+            },
+            "secondary": {
+              "type": "object",
+              "required": [
+                "source",
+                "start",
+                "stop",
+                "step"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "pattern": "^\\S+$"
+                },
+                "start": {
+                  "type": "number"
+                },
+                "stop": {
+                  "type": "number"
+                },
+                "step": {
+                  "type": "number",
+                  "not": {
+                    "const": 0
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "measurements": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector",
+                      "at"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                      },
+                      "at": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector",
+                      "when"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                      },
+                      "when": {
+                        "type": "object",
+                        "required": [
+                          "vector",
+                          "value"
+                        ],
+                        "properties": {
+                          "vector": {
+                            "type": "string",
+                            "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "rise": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "fall": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "cross": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "td": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "enum": [
+                          "avg",
+                          "min",
+                          "max",
+                          "pp",
+                          "rms",
+                          "integ"
+                        ]
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                      },
+                      "from": {
+                        "type": "number"
+                      },
+                      "to": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              }
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "not": {
+            "type": "object",
+            "properties": {
+              "secondary": {},
+              "measurements": {}
+            },
+            "required": [
+              "secondary",
+              "measurements"
+            ]
+          }
         },
         {
           "type": "object",
@@ -123,6 +311,307 @@
             "maxTimestep": {
               "type": "number",
               "exclusiveMinimum": 0
+            },
+            "uic": {
+              "const": true
+            },
+            "measurements": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "trig",
+                      "targ"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "trig"
+                      },
+                      "trig": {
+                        "type": "object",
+                        "required": [
+                          "vector",
+                          "value"
+                        ],
+                        "properties": {
+                          "vector": {
+                            "type": "string",
+                            "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "rise": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "fall": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "cross": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "td": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "targ": {
+                        "type": "object",
+                        "required": [
+                          "vector",
+                          "value"
+                        ],
+                        "properties": {
+                          "vector": {
+                            "type": "string",
+                            "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "rise": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "fall": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "cross": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "td": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector",
+                      "at"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                      },
+                      "at": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector",
+                      "when"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                      },
+                      "when": {
+                        "type": "object",
+                        "required": [
+                          "vector",
+                          "value"
+                        ],
+                        "properties": {
+                          "vector": {
+                            "type": "string",
+                            "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "rise": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "fall": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "cross": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "td": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "enum": [
+                          "avg",
+                          "min",
+                          "max",
+                          "pp",
+                          "rms",
+                          "integ"
+                        ]
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$"
+                      },
+                      "from": {
+                        "type": "number"
+                      },
+                      "to": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "fourier": {
+              "type": "object",
+              "required": [
+                "fundamentalHz",
+                "outputs"
+              ],
+              "properties": {
+                "fundamentalHz": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "harmonics": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 199
+                },
+                "outputs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 16,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[^\\s(),]+\\s*\\))$"
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -158,6 +647,191 @@
             "stopFreq": {
               "type": "number",
               "exclusiveMinimum": 0
+            },
+            "measurements": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector",
+                      "at"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$"
+                      },
+                      "at": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector",
+                      "when"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "const": "find"
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$"
+                      },
+                      "when": {
+                        "type": "object",
+                        "required": [
+                          "vector",
+                          "value"
+                        ],
+                        "properties": {
+                          "vector": {
+                            "type": "string",
+                            "pattern": "^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "rise": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "fall": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "cross": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              {
+                                "const": "last"
+                              }
+                            ]
+                          },
+                          "td": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "not": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "rise": {},
+                                "fall": {}
+                              },
+                              "required": [
+                                "rise",
+                                "fall"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "rise": {},
+                                "cross": {}
+                              },
+                              "required": [
+                                "rise",
+                                "cross"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "fall": {},
+                                "cross": {}
+                              },
+                              "required": [
+                                "fall",
+                                "cross"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "kind",
+                      "vector"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                      },
+                      "kind": {
+                        "enum": [
+                          "avg",
+                          "min",
+                          "max",
+                          "pp",
+                          "rms",
+                          "integ"
+                        ]
+                      },
+                      "vector": {
+                        "type": "string",
+                        "pattern": "^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$"
+                      },
+                      "from": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "to": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              }
             }
           },
           "additionalProperties": false
@@ -252,52 +926,129 @@
       "additionalProperties": false
     },
     "sensitivityAnalysis": {
-      "type": "object",
-      "required": [
-        "type",
-        "mode",
-        "outputNode"
-      ],
-      "properties": {
-        "type": {
-          "const": "sens"
-        },
-        "mode": {
-          "const": "dc"
-        },
-        "outputNode": {
-          "type": "string",
-          "pattern": "\\S"
-        },
-        "outputReferenceNode": {
-          "type": "string",
-          "pattern": "\\S"
-        },
-        "outputType": {
-          "enum": [
-            "voltage",
-            "current"
-          ]
-        }
-      },
-      "additionalProperties": false,
-      "allOf": [
+      "oneOf": [
         {
-          "if": {
-            "properties": {
-              "outputType": {
-                "const": "current"
-              }
+          "type": "object",
+          "required": [
+            "type",
+            "mode",
+            "outputNode"
+          ],
+          "properties": {
+            "type": {
+              "const": "sens"
             },
-            "required": [
-              "outputType"
-            ]
-          },
-          "then": {
-            "properties": {
-              "outputReferenceNode": false
+            "mode": {
+              "const": "dc"
+            },
+            "outputNode": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "outputReferenceNode": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "outputType": {
+              "enum": [
+                "voltage",
+                "current"
+              ]
             }
-          }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "outputType": {
+                    "const": "current"
+                  }
+                },
+                "required": [
+                  "outputType"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "outputReferenceNode": false
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "mode",
+            "outputNode",
+            "variation",
+            "points",
+            "startFreq",
+            "stopFreq"
+          ],
+          "properties": {
+            "type": {
+              "const": "sens"
+            },
+            "mode": {
+              "const": "ac"
+            },
+            "outputNode": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "outputReferenceNode": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "outputType": {
+              "enum": [
+                "voltage",
+                "current"
+              ]
+            },
+            "variation": {
+              "enum": [
+                "dec",
+                "oct",
+                "lin"
+              ]
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "startFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "stopFreq": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "outputType": {
+                    "const": "current"
+                  }
+                },
+                "required": [
+                  "outputType"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "outputReferenceNode": false
+                }
+              }
+            }
+          ]
         }
       ]
     },
@@ -616,6 +1367,76 @@
         "schemaVersion": {
           "const": "1.0"
         },
+        "componentSweep": {
+          "type": "object",
+          "required": [
+            "component",
+            "values"
+          ],
+          "properties": {
+            "component": {
+              "type": "string",
+              "minLength": 1
+            },
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "sourceSweep": {
+          "type": "object",
+          "required": [
+            "source",
+            "values"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "temperatureSweep": {
+          "type": "object",
+          "required": [
+            "values"
+          ],
+          "properties": {
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "number",
+                "exclusiveMinimum": -273.15
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "globalNodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:+-]+(?![\\s\\S])"
+          }
+        },
         "circuit": {
           "type": "object",
           "required": [
@@ -671,9 +1492,163 @@
           "items": {
             "$ref": "#/$defs/noiseAnalysis"
           }
+        },
+        "initialConditions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "nodesets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "temperatureSweep": {}
+            },
+            "required": [
+              "temperatureSweep"
+            ]
+          },
+          "then": {
+            "properties": {
+              "analyses": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "op"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                }
+              },
+              "poleZeroAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "noiseAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "componentSweep": {}
+            },
+            "required": [
+              "componentSweep"
+            ]
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "temperatureSweep": {}
+              },
+              "required": [
+                "temperatureSweep"
+              ]
+            },
+            "properties": {
+              "analyses": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "enum": [
+                        "op",
+                        "tran",
+                        "ac",
+                        "dc"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                }
+              },
+              "poleZeroAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "noiseAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "sourceSweep": {}
+            },
+            "required": [
+              "sourceSweep"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "temperatureSweep"
+                  ]
+                },
+                {
+                  "required": [
+                    "componentSweep"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "analyses": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "op"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                }
+              },
+              "poleZeroAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "noiseAnalyses": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
     },
     "simulationInput": {
       "oneOf": [
@@ -806,6 +1781,14 @@
       "type": "object",
       "required": [],
       "properties": {
+        "temperature": {
+          "type": "number",
+          "exclusiveMinimum": -273.15
+        },
+        "nominalTemperature": {
+          "type": "number",
+          "exclusiveMinimum": -273.15
+        },
         "backend": {
           "enum": [
             "spice-ts-js",
@@ -879,9 +1862,58 @@
         },
         "options": {
           "$ref": "#/$defs/options"
+        },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 256,
+            "pattern": "^[vViI]\\([^\\s(),]+\\)(?![\\s\\S])"
+          }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "not": {
+        "type": "object",
+        "required": [
+          "input",
+          "options"
+        ],
+        "properties": {
+          "input": {
+            "type": "object",
+            "required": [
+              "format",
+              "document"
+            ],
+            "properties": {
+              "format": {
+                "const": "spice-ts"
+              },
+              "document": {
+                "type": "object",
+                "required": [
+                  "temperatureSweep"
+                ],
+                "properties": {
+                  "temperatureSweep": {}
+                }
+              }
+            }
+          },
+          "options": {
+            "type": "object",
+            "required": [
+              "temperature"
+            ],
+            "properties": {
+              "temperature": {}
+            }
+          }
+        }
+      }
     },
     "complex": {
       "type": "object",
@@ -980,6 +2012,32 @@
           },
           "additionalProperties": false
         },
+        "secondaryAxis": {
+          "type": "object",
+          "required": [
+            "name",
+            "unit",
+            "values"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "unit": {
+              "enum": [
+                "V",
+                "A"
+              ]
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "voltagesV": {
           "type": "object",
           "additionalProperties": {
@@ -996,6 +2054,61 @@
             "items": {
               "type": "number"
             }
+          }
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "diagnostic"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "diagnostic": {
+                    "type": "object",
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "MEASUREMENT_FAILED"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         }
       },
@@ -1044,6 +2157,157 @@
               "type": "number"
             }
           }
+        },
+        "fourier": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "vector",
+              "fundamental",
+              "gridSize",
+              "degree",
+              "periods",
+              "thd",
+              "harmonics"
+            ],
+            "properties": {
+              "vector": {
+                "type": "string"
+              },
+              "fundamental": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "gridSize": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "degree": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "periods": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "thd": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "harmonics": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "harmonic",
+                    "frequency",
+                    "magnitude",
+                    "phase",
+                    "normalizedMagnitude",
+                    "normalizedPhase"
+                  ],
+                  "properties": {
+                    "harmonic": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "frequency": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "magnitude": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "phase": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "normalizedMagnitude": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "normalizedPhase": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "diagnostic"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "diagnostic": {
+                    "type": "object",
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "MEASUREMENT_FAILED"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
         }
       },
       "additionalProperties": false
@@ -1073,6 +2337,61 @@
           "items": {
             "type": "number",
             "minimum": 0
+          }
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "diagnostic"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "diagnostic": {
+                    "type": "object",
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "MEASUREMENT_FAILED"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "voltagePhasors": {
@@ -1343,6 +2662,14 @@
         "determinism"
       ],
       "properties": {
+        "temperature": {
+          "type": "number",
+          "exclusiveMinimum": -273.15
+        },
+        "nominalTemperature": {
+          "type": "number",
+          "exclusiveMinimum": -273.15
+        },
         "backend": {
           "enum": [
             "spice-ts-js",

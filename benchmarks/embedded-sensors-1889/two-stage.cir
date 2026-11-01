@@ -1,0 +1,9 @@
+two-stage original MIT project sensor example
+Vsig in 0 PULSE(0 3.3 1u 20n 20n 20u 40u)
+R1 in mid 1k
+C1 mid 0 4.7n
+R2 mid adc 2.2k
+C2 adc 0 10n
+Rload adc 0 1Meg
+.tran 100n 80u
+.end
