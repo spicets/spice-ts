@@ -4,12 +4,16 @@ const metricNames = ['dcGainDb', 'f3dbHz', 'unityGainHz', 'phaseMarginDeg', 'gai
 type Metric = typeof metricNames[number];
 const reasonCodes = ['NON_FINITE_GAIN', 'NO_HALF_POWER_CROSSING', 'NO_UNITY_GAIN_CROSSING', 'NO_PHASE_CROSSING'] as const;
 type ReasonCode = typeof reasonCodes[number];
-export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number }
+export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number; includeBandpass?: boolean }
+const bandpassNames = ['peakFrequencyHz', 'lowerHalfPowerHz', 'upperHalfPowerHz', 'bandwidthHz', 'qualityFactor'] as const;
+type BandpassMetric = typeof bandpassNames[number];
+type BandpassReason = 'NON_FINITE_GAIN' | 'NO_LOWER_HALF_POWER_CROSSING' | 'NO_UPPER_HALF_POWER_CROSSING' | 'NON_FINITE_BANDPASS';
 export const acMetricsProperties = {
   output: { type: 'string', minLength: 1, maxLength: 256 },
   input: { type: 'string', minLength: 1, maxLength: 256 },
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
+  includeBandpass: { type: 'boolean', description: 'Report sampled global peak and nearest half-power crossings, interpolating gain in dB linearly in log frequency. The first maximum wins ties; crossings are never extrapolated.' },
   groupDelayAtHz: { type: 'number', exclusiveMinimum: 0, description: 'Frequency in Hz for group delay. Sample delays use centered phase differences, or one-sided differences at endpoints; between samples delays are linearly interpolated in Hz. No extrapolation; adjacent phase changes must be below 180 degrees.' },
 };
 export const acMetricsOutputSchema = {
@@ -18,6 +22,13 @@ export const acMetricsOutputSchema = {
   properties: {
     ...Object.fromEntries(metricNames.map(key => [key, { type: ['number', 'null'] }])),
     groupDelaySeconds: { type: 'number' },
+    bandpass: {
+      type: 'object', additionalProperties: false, required: [...bandpassNames, 'reasons'],
+      properties: {
+        ...Object.fromEntries(bandpassNames.map(key => [key, { type: ['number', 'null'] }])),
+        reasons: { type: 'object', additionalProperties: false, properties: Object.fromEntries(bandpassNames.map(key => [key, { type: 'string', enum: ['NON_FINITE_GAIN', 'NO_LOWER_HALF_POWER_CROSSING', 'NO_UPPER_HALF_POWER_CROSSING', 'NON_FINITE_BANDPASS'] }])) },
+      },
+    },
     referenceFrequencyHz: { type: 'number', exclusiveMinimum: 0 },
     reasons: {
       type: 'object', additionalProperties: false,
@@ -36,7 +47,8 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
   if (a.groupDelayAtHz !== undefined && (typeof a.groupDelayAtHz !== 'number' || !Number.isFinite(a.groupDelayAtHz) || a.groupDelayAtHz <= 0)) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
   }
-  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz'].includes(key))
+  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz', 'includeBandpass'].includes(key))
+    || (a.includeBandpass !== undefined && typeof a.includeBandpass !== 'boolean')
     || typeof a.output !== 'string' || !a.output.length || a.output.length > 256
     || (a.input !== undefined && (typeof a.input !== 'string' || !a.input.length || a.input.length > 256))
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
@@ -144,6 +156,39 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   // Sampled maximum only: do not invent an inter-sample resonant peak.
   let peakIndex = 0;
   for (let i = 1; i < db.length; i++) if (db[i] > db[peakIndex]) peakIndex = i;
+  let bandpass: (Record<BandpassMetric, number | null> & { reasons: Partial<Record<BandpassMetric, BandpassReason>> }) | undefined;
+  if (args.includeBandpass) {
+    const why: Partial<Record<BandpassMetric, BandpassReason>> = {};
+    const peak = Number.isFinite(db[peakIndex]) ? f[peakIndex] : null;
+    const target = db[peakIndex] - 10 * Math.log10(2);
+    // Search outwards from the first global maximum. Interpolate dB in log Hz,
+    // matching the existing low-pass crossing convention. Never extrapolate.
+    const find = (direction: -1 | 1): number | null => {
+      for (let i = peakIndex; i + direction >= 0 && i + direction < f.length; i += direction) {
+        const j = i + direction;
+        if (!Number.isFinite(db[i]) || !Number.isFinite(db[j])) return null;
+        if (db[i] >= target && db[j] <= target && db[i] > db[j]) {
+          const fraction = (target - db[i]) / (db[j] - db[i]);
+          const hz = Math.exp(Math.log(f[i]) + fraction * (Math.log(f[j]) - Math.log(f[i])));
+          return Math.min(Math.max(hz, Math.min(f[i], f[j])), Math.max(f[i], f[j]));
+        }
+      }
+      return null;
+    };
+    const lower = peak === null ? null : find(-1);
+    const upper = peak === null ? null : find(1);
+    if (peak === null) why.peakFrequencyHz = 'NON_FINITE_GAIN';
+    if (lower === null) why.lowerHalfPowerHz = peak === null ? 'NON_FINITE_GAIN' : 'NO_LOWER_HALF_POWER_CROSSING';
+    if (upper === null) why.upperHalfPowerHz = peak === null ? 'NON_FINITE_GAIN' : 'NO_UPPER_HALF_POWER_CROSSING';
+    let width = lower === null || upper === null ? null : upper - lower;
+    let q = width === null || peak === null ? null : peak / width;
+    const missing = why.lowerHalfPowerHz ?? why.upperHalfPowerHz;
+    if (width !== null && (!Number.isFinite(width) || width <= 0)) { width = null; q = null; }
+    if (q !== null && !Number.isFinite(q)) q = null;
+    if (width === null) why.bandwidthHz = missing ?? 'NON_FINITE_BANDPASS';
+    if (q === null) why.qualityFactor = missing ?? 'NON_FINITE_BANDPASS';
+    bandpass = { peakFrequencyHz: peak, lowerHalfPowerHz: lower, upperHalfPowerHz: upper, bandwidthHz: width, qualityFactor: q, reasons: why };
+  }
   let groupDelaySeconds: number | undefined;
   if (args.groupDelayAtHz !== undefined) {
     // Differentiate unwrapped transfer phase at samples, then interpolate in linear Hz.
@@ -167,5 +212,6 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     peakFrequencyHz: finite('peakFrequencyHz', Number.isFinite(db[peakIndex]) ? f[peakIndex] : undefined, 'NON_FINITE_GAIN'),
     referenceFrequencyHz: f[0], reasons,
     ...(groupDelaySeconds === undefined ? {} : { groupDelaySeconds }),
+    ...(bandpass === undefined ? {} : { bandpass }),
   };
 }
