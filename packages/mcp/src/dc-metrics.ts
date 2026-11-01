@@ -60,7 +60,7 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
   if (matches.length !== 1) invalid('Expected exactly one DC sweep for sweptSource and selectors');
   const a = matches[0];
   if (a.type !== 'dc') invalid('Missing DC sweep');
-  const sweep = a.axis.values;
+  let sweep = a.axis.values;
   const voltage = (signal: string): number[] => {
     if (!new RegExp(voltagePattern).test(signal)) invalid('DC transfer expressions must be v(node) or v(positive,negative)');
     const literal = signal.slice(2, -1).toLowerCase();
@@ -81,12 +81,17 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     const negative = vector(names[1]);
     return positive.map((value, i) => value - negative[i]);
   };
-  const x = input.input ? voltage(input.input) : sweep;
-  const y = voltage(input.output);
+  let x = input.input ? voltage(input.input) : sweep;
+  let y = voltage(input.output);
   if (!input.input && a.axis.unit !== 'V') invalid('A current sweep requires an explicit voltage input expression');
   if (x.length < 2 || y.length !== x.length || sweep.length !== x.length || ![...x, ...y, ...sweep].every(Number.isFinite)) invalid('DC metrics require at least two finite aligned samples');
   const direction = Math.sign(x[1] - x[0]);
   if (!direction || x.some((v, i) => i > 0 && Math.sign(v - x[i - 1]) !== direction)) invalid('Input voltage must be strictly monotonic');
+  if (direction < 0) {
+    x = [...x].reverse();
+    y = [...y].reverse();
+    sweep = [...sweep].reverse();
+  }
   const gains: number[] = []; const mid: number[] = []; let peak = 0;
   let rising = false; let falling = false;
   for (let i = 1; i < x.length; i++) {
