@@ -281,7 +281,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_tf',
-    description: 'Run native small-signal .tf for v(node) or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). Optional params overrides require SPICE input. Reject conflicting analyses, steps and control blocks.',
+    description: 'Run native small-signal .tf for v(node), differential v(positive,negative), or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). Optional params overrides require SPICE input. Reject conflicting analyses, steps and control blocks.',
     inputSchema: { ...requestInputSchema, required: ['output', 'input_source'],
       properties: { ...requestInputSchema.properties, ...tfInputSchema.properties },
       oneOf: [{ required: ['netlist'] }, { required: ['request'] }] },
@@ -344,7 +344,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_optimize',
-    description: 'Deterministic bounded search over one to three top-level SPICE .param values toward a scalar spice_measure objective. Golden-section search for one parameter, coordinate descent for two or three. Absolute objective tolerance, default 40 and hard maximum 100 evaluations. Returns best parameters, achieved value and ordered history; TARGET_NOT_REACHED means no convergence, not proof of global infeasibility. One shared wall-time budget.',
+    description: 'Deterministic bounded search over one to three top-level SPICE .param or R/C/L component values toward a scalar spice_measure objective. Component targets support SPICE text and native spice-ts JSON. Golden-section search for one parameter, coordinate descent for two or three. Absolute objective tolerance, default 40 and hard maximum 100 evaluations. Returns best parameters, achieved value and ordered history; TARGET_NOT_REACHED means no convergence, not proof of global infeasibility. One shared wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'parameters', 'objective', 'target'],
       properties: { ...requestInputSchema.properties, ...optimizeProperties },
@@ -361,7 +361,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_corners',
-    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Optional top-level .param overrides and/or temp in Celsius require SPICE text; JSON overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
+    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Top-level .param overrides require SPICE text. Temperature in Celsius supports SPICE text and spice-ts JSON, overriding request temperature for native JSON; circuit-json temperature and JSON parameter overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'corners', 'measurement'],
       properties: { ...requestInputSchema.properties, ...cornersProperties },
@@ -455,7 +455,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_measure',
-    description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; optional step selects the zero-based SimulationResultV1 step.index (required for multiple steps). Unstepped analyses accept step 0 only. Signals are v(node), i(branch), mag(v(node)), or db(v(node)). Cross/when return the first matching axis coordinate.',
+    description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; optional step selects the zero-based SimulationResultV1 step.index (required for multiple steps). Unstepped analyses accept step 0 only. Signals are v(node), v(positive,negative), i(branch), or AC projections mag(...), db(...), and phase(...) of either signal. Phase is unwrapped in frequency order and returned in degrees; zero or non-finite phasors fail. Cross/when return the first matching axis coordinate.',
     inputSchema: {
       ...requestInputSchema,
       required: ['request', 'measurements'],
@@ -760,7 +760,7 @@ async function executeToolWithStore(
       }
       throwIfCancelled(options.signal);
       const { request } = convertRequest(original);
-      const result = await runCorners(args, request, (request, measurements) => executeToolWithStore(
+      const result = await runCorners(args, request, original.input.format, (request, measurements) => executeToolWithStore(
         'spice_measure', { request, measurements },
         { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
       ), result => {

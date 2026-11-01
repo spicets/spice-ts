@@ -1,0 +1,50 @@
+name: Performance regression
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  paired-performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify comparator
+        working-directory: candidate
+        run: node --test benchmarks/performance/regression-gate/gate.test.mjs
+      - name: Install and build both pinned revisions
+        run: |
+          for revision in base candidate; do
+            (cd "$revision" && pnpm install --frozen-lockfile && pnpm -C packages/core build)
+          done
+      - name: Run interleaved same-runner comparison
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node candidate/benchmarks/performance/regression-gate/run.mjs "$PWD/base" "$PWD/candidate" "$PWD/perf-results"
+      - name: Upload raw samples, decks and medians
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-regression-${{ github.event.pull_request.head.sha }}
+          path: perf-results/
+          if-no-files-found: warn

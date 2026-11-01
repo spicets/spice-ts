@@ -55,14 +55,16 @@ S-parameter keys use `Sij` when both one-based indices are single digits (for ex
 - `spice_validate`: bounded parse/compile/topology validation without solving.
 - `spice_convert`: convert `{ netlist: string }` to `{ circuitJson, diagnostics, lossy: false }`, or `{ circuitJson: [...] }` to `{ netlist, diagnostics, lossy: false }`.
 - `spice_simulate`: one bounded protocol-v1 simulation.
-- `spice_measure`: run the same simulation request once and return scalar measurements only.
+- `spice_measure`: run the same simulation request once and return scalar measurements only. AC signals accept `phase(v(node))` and `phase(i(source))` in degrees, as well as `mag(...)` and `db(...)`. Phase is unwrapped in increasing frequency order before interpolation and reduction, retaining the first phasor's branch. Zero magnitude or non-finite magnitude or phase returns `NON_FINITE_RESULT` for that measurement; other measurements remain independent.
 - `spice_dc_metrics`: return DC transfer gain, switching threshold, unity-gain points and noise margins without raw vectors.
 - `spice_op_report`: return operating-point node voltages, terminal currents, device powers and top dissipators.
 - `spice_power_metrics`: summarize transient average power, RMS current, peak power/time and optional efficiency without returning vectors. Accepts exactly one of `netlist` (legacy SPICE text) or `request` (a protocol-v1 simulation request with `spice`, `spice-ts`, or `circuit-json` input), plus optional `elements: ["V1", "Rload"]`, `window: [tStart, tStop]`, `input: ["V1"]`, and `output: ["Rload"]`. Native `spice-ts` documents must be objects, not JSON strings. Request solver options and resource limits are preserved; original input bytes remain bounded before conversion. Nonfatal circuit-json conversion diagnostics are returned in `_meta.conversionDiagnostics`, outside the scalar report; fatal conversion errors retain their diagnostics. Times are seconds; names are case-insensitive. Returns `window`, `elements` (`name`, `averagePowerW`, `rmsCurrentA`, `peakPowerW`, `peakTimeS`) and `efficiency` (ratio, not percent). Power is signed absorption: negative source power means delivery. Efficiency is total designated output absorption divided by total designated input delivery, or `null` when undesignated or input delivery is nonpositive. Input/output lists must both be provided, be disjoint, and refer to selected elements. Defaults to all IR elements (at most 128); supports two-terminal R/C/L/V/I/D/H/F elements. Other selected device types return `INVALID_REQUEST`. Requires exactly one transient in a flat, unstepped SPICE deck without includes/subcircuits/control blocks. No transient returns `NOT_TRANSIENT`; unknown elements and invalid windows return `INVALID_REQUEST`. Uses native V/L branch currents and zero-volt series current probes for other devices; averages power and squared current trapezoidally over accepted timepoints. Window boundaries linearly interpolate sampled power and squared current; no extrapolation. Peak is the maximum signed sampled/interpolated power (not maximum absolute power), with the earliest time on ties. Resource/solver errors propagate unchanged. Example: `V1 in 0 10\nRs in out 1k\nRload out 0 3k\n.tran 10u 1m` with input V1/output Rload returns efficiency 0.75.
 - `spice_sensitivity`: DC or complex AC `.sens` derivatives for voltage/differential voltage or independent voltage-source current, ranked by normalised magnitude (per frequency for AC).
 - `spice_tf`: native small-signal gain and input/output resistances. Accepts exactly one of `netlist` (legacy SPICE text) or `request` (a protocol-v1 simulation request with `spice`, `spice-ts`, or `circuit-json` input), plus `output: "v(out)"` or `"i(vsrc)"` and `input_source: "V1"` (an independent voltage/current source). For example: `{ request: { apiVersion: "1", input: { format: "spice", source: "V1 in 0 1\nR1 in out 1k\nR2 out 0 3k" } }, output: "v(out)", input_source: "V1" }`. Native documents must be objects, not JSON strings; circuit-json requires an `analyses` array (use `[]` to let the tool select TF). Returns exact selector names, `transfer_function`, `input_resistance`, `output_resistance`, and `units` (V/V, V/A, A/V or A/A; resistances in ohm). Optional `params: { name: number }` uses case-insensitive top-level SPICE parameter overrides; non-SPICE inputs reject `params`, including `{}`. Request solver options and resource limits are preserved. Nonfatal conversion diagnostics appear in `_meta.conversionDiagnostics`; fatal conversion errors retain `error.details.diagnostics`. A matching `.tf` is allowed; conflicting analyses, steps and control blocks are rejected.
 - `spice_sweep`: sweep one parameter with bounded, ordered per-point statuses and optional scalar measurements.
-- `spice_corners`: run protocol-v1 `spice`, `spice-ts` JSON, or `circuit-json` input across up to 64 uniquely named deterministic corners with `{ request, corners: [{ name, params?, temp? }], measurement }`. Native documents must be objects, not JSON strings; circuit-json requires an explicit `analyses` array. Parameter and temperature overrides require SPICE text; JSON corners with either override return per-corner `INVALID_REQUEST` errors without preventing other corners from running. `params` contains finite numeric top-level `.param` overrides; `temp` is Celsius above absolute zero and overrides earlier temperature cards. Uses one `spice_measure` selector. Returns ordered `{ name, status, value, unit }` or `{ name, status: 'failed', error }` entries and `summary: { min: { name, value }, max: { name, value }, spread, unit }` over successful corners only (null if none succeed, first corner wins ties). Shares the existing worker quota, response cap and one wall-time budget. Unlike a single-parameter sweep or random sampling, corners are explicit heterogeneous cases.
+- `spice_corners`: run protocol-v1 `spice`, `spice-ts` JSON, or `circuit-json` input across up to 64 uniquely named deterministic corners with `{ request, corners: [{ name, params?, temp?, components?, sources? }], measurement }`. Native documents must be objects, not JSON strings; circuit-json requires an explicit `analyses` array. Parameter overrides require SPICE text. Temperature overrides support SPICE text and native `spice-ts` JSON; circuit-json temperature overrides and JSON parameter overrides return per-corner `INVALID_REQUEST` errors without preventing other corners from running. `params` contains finite numeric top-level `.param` overrides; `temp` is Celsius above absolute zero and overrides earlier temperature cards for SPICE text or request-level `options.temperature` for native JSON. Uses one `spice_measure` selector. Returns ordered `{ name, status, value, unit }` or `{ name, status: 'failed', error }` entries and `summary: { min: { name, value }, max: { name, value }, spread, unit }` over successful corners only (null if none succeed, first corner wins ties). Shares the existing worker quota, response cap and one wall-time budget. Unlike a single-parameter sweep or random sampling, corners are explicit heterogeneous cases.
+
+  `sources` maps case-insensitive top-level native `spice-ts` source names to finite DC values, including zero and negative values. Targets must be unique independent V or I components with a finite `params.dc` and an absent or `dc` waveform; AC, transient and distortion sources are not supported. Names follow `^[A-Za-z_][\w.:-]*$`. Invalid, duplicate or missing targets fail only their corner. SPICE text and circuit-json reject `sources` per corner, even when empty. Sources can be combined with native passive and temperature overrides, and each corner starts from the original request.
 - `spice_compare`: compare two waveform sets or completed simulation results without solving again.
 - `spice_ac_metrics`: run an AC sweep and return gain, half-power bandwidth, sampled peaking, and loop stability margins without vectors.
 - `spice_impedance`: measure differential port impedance with `{ request, port: { positive: "in", negative: "0" }, sweep?: { variation: "dec", points: 100, startFreq: 10, stopFreq: 100000 }, params?: { name: number } }`. Accepts the usual SPICE or circuit-json protocol request. Use one existing AC sweep or supply `sweep` to override it. Injects a collision-free 1 A AC current from negative to positive on an isolated copy, zeroes all other independent-source AC magnitudes (including subcircuit sources), and preserves DC bias and dependent sources. Returns `points` with `frequencyHz`, `magnitudeOhm`, `phaseDeg`, `resistanceOhm`, and `reactanceOhm`; `summary.min`/`max` are sampled magnitude extrema with frequencies. `summary.resonanceHz` estimates isolated phase-zero crossings by phase interpolation in log frequency (DEC/OCT) or linear frequency (LIN), never extrapolates, and excludes flat zero-phase regions and phase wraps. Increase sweep density to resolve narrow resonances. Ground aliases `0`/`gnd` and node names are case-insensitive. Stable tool-local errors are `UNKNOWN_NODE`, `SHORTED_PORT` (identical terminals), and `MISSING_AC_SWEEP`; invalid/conflicting analyses, steps, and control blocks are rejected. Parameter overrides apply before elaboration and require SPICE text. All normal document, point, output, concurrency, wall-time and cancellation limits apply.
@@ -126,7 +128,9 @@ Call `spice_dc_metrics` with `{ request: SimulationRequestV1, sweptSource: "Vin"
 The request accepts the same SPICE, spice-ts JSON and circuit-json formats as `spice_simulate`,
 with their existing conversion restrictions. Exactly one DC result must match the source
 (case-insensitive). Split repeated/stepped sweeps into separate requests. Expressions are
-case-insensitive `v(node)` signals. The input voltage must be strictly monotonic; when
+case-insensitive `v(node)` or `v(positive,negative)` signals. An exact literal node name,
+including commas, takes precedence over differential parsing; node `0` is ground in a
+differential expression. The input voltage must be strictly monotonic; when
 omitted, it is the sweep axis, which must be a voltage sweep.
 
 Every numeric metric is `{ value: number | null, unit: string, reason?: string }`.
@@ -175,9 +179,11 @@ The usual `spice_measure` selectors also support transient, DC and AC reductions
 
 `runs` is an integer from 1 through 1000; `seed` is an explicit unsigned 32-bit integer.
 Each of 1–128 case-insensitive, unique tolerance targets must be a positive literal
-top-level R/C/L scalar in SPICE text, with no extra card parameters or continuation.
-Numeric engineering suffixes T/G/MEG/K/M/U/N/P/F are supported. Expressions,
-includes, model cards, subcircuit-local targets and JSON inputs are not supported.
+top-level R/C/L scalar in SPICE text or native spice-ts JSON. Text cards cannot have
+extra parameters or continuations; native components must have a numeric `resistance`,
+`capacitance`, or `inductance` matching their type. SPICE numeric engineering suffixes
+T/G/MEG/K/M/U/N/P/F are supported. Expressions, includes, model cards,
+subcircuit-local targets and circuit-json inputs are not supported.
 Each draw starts from the original nominal value, independently per target and run,
 in caller-supplied target order. Inputs are not mutated.
 
@@ -210,6 +216,15 @@ to tune an RC low-pass cutoff to 1 kHz. The SPICE request must declare the named
 top-level `.param` values; names are case-insensitive and bounds are inclusive.
 `objective` uses the existing `spice_measure` scalar selector contract.
 
+Each parameter may specify `kind: 'component'` to optimize a top-level R, C,
+or L scalar directly, for example `{ kind: 'component', name: 'R2', min: 1000,
+max: 9000 }`. Component bounds must be strictly positive. Both SPICE text and
+native spice-ts JSON requests are supported for component targets. Omitted
+`kind` (or `kind: 'param'`) retains the SPICE `.param` behavior. Targets are
+case-insensitive and must be unique across the search; subcircuit components
+and other device types are not supported. Parameter and component targets can be
+combined in a SPICE request.
+
 One parameter uses golden-section search on absolute target error; two or three
 use two coordinate-descent passes from the bounds' midpoint. Endpoints are sampled
 and repeated parameter tuples are cached. `maxEvaluations` defaults to 40 and has a
@@ -234,7 +249,11 @@ Call `spice_sweep` with `{ request: SimulationRequestV1, parameter, values, meas
 `parameter` is `{ kind: 'param', name: 'rval' }` for declared top-level SPICE
 `.param` overrides, or `{ kind: 'component', name: 'R1' }` for a top-level R/C/L
 scalar value. Component targets support SPICE text and native `spice-ts` JSON IR;
-Circuit JSON and other component types are not sweep targets in this version.
+`{ kind: 'source', name: 'V1' }` targets an independent DC voltage or current
+source in native `spice-ts` JSON only. The target must have a finite `dc` value,
+no non-DC waveform or distortion, and exactly one case-insensitive name match.
+SPICE text and Circuit JSON are not supported for source sweeps. Circuit JSON
+and other component types are not component sweep targets in this version.
 Names are case-insensitive. Includes and subcircuit-local targets are not supported.
 The original request is not mutated, and each point starts from that original.
 
@@ -296,10 +315,19 @@ The compact JSON input and output obey `maxDocumentBytes` and
 ## Scalar measurements
 
 Call `spice_measure` with `{ request: SimulationRequestV1, measurements: [...] }`.
-Each item has `kind` (`min`, `max`, `avg`, `rms`, `pp`, `at`, `cross`, or `when`),
-`signal`, and a zero-based `analysis` index. Signals are case-insensitive `v(node)`
-or `i(branch)`; AC uses magnitude by default and also supports `mag(v(node))`,
-`db(v(node))` and the corresponding current projections. dB is 20 log10 of the
+Each item has `kind` (`min`, `max`, `avg`, `rms`, `pp`, `at`, `cross`, `when`, `integ`, or `duty`),
+`signal`, and a zero-based `analysis` index. Signals are case-insensitive `v(node)`,
+`v(positive,negative)`, or `i(branch)`. Differential voltage subtracts the negative
+node from the positive node; `0` denotes ground. An exact case-insensitive match for
+the entire name inside `v(...)` takes precedence over differential parsing, including
+names containing commas. Thus, if a node named `a,b` exists, `v(a,b)` selects that
+literal node even when `a` and `b` also exist; this spelling cannot select the
+difference in that case. Missing nodes return `UNKNOWN_SIGNAL`.
+No arbitrary expressions or differential current selectors are supported. AC uses
+magnitude by default and also supports `mag(v(node))`, `db(v(node))`, `phase(v(node))`
+and corresponding differential voltage or current projections. Differential AC
+subtracts complex phasors before projection. Phase is unwrapped in frequency order,
+in degrees, and a zero phasor has undefined phase. dB is 20 log10 of the
 magnitude relative to 1 V or 1 A, not a transfer-function ratio.
 
 Optional `from`/`to` delimit an inclusive axis window. `at` needs an `at` coordinate.
@@ -310,6 +338,16 @@ at or beyond it; an initial point equal to the target alone is not a crossing.
 Interpolation is linear in the published axis and signal, including AC Hz/dB.
 Window boundaries are interpolated. `avg` is axis-weighted; `rms` integrates the
 square of the piecewise-linear signal, not the mean square of unevenly spaced samples.
+For transient analyses only, `integ` returns the signed trapezoidal time integral
+of the stored piecewise-linear samples, clipped at the interpolated window bounds.
+Voltage integrals use `V*s`; current integrals use `A*s` (coulombs). A zero-width
+window returns zero. This is not exact continuous-waveform quadrature.
+Transient `duty` requires a finite `value` threshold and returns the fraction of a
+nonzero window for which the signal is strictly above it, with dimensionless unit
+`1`. It integrates time above the threshold over linearly interpolated saved samples,
+including interpolated crossings and window boundaries. It makes no claim about the
+physical continuous-time waveform between saved samples. `at`, `edge`, `occurrence`,
+`trigger`, and `target` are not applicable to `duty`.
 Descending DC axes are supported. OP reductions treat the signal as one sample at
 coordinate 0; OP crossings are unavailable. Optional `step` is a nonnegative integer
 matching the zero-based `step.index` metadata in `SimulationResultV1`. Select each
@@ -508,7 +546,11 @@ Example tool arguments:
 
 The response contains `initialValue`, `finalValue`, `unit` (`V` or `A`),
 `riseTimeS`, `fallTimeS`, `overshootPercent`, `undershootPercent`, `settlingTimeS`,
-`peakValue`, and `peakTimeS`. The RC example has about 2.197 ms rise time.
+`peakValue`, `peakTimeS`, `maxRiseSlewPerS`, `maxFallSlewPerS`, and `slewUnit`
+(`V/s` or `A/s`). Slew extrema are the largest positive and smallest negative
+adjacent-sample slopes `(y[i] - y[i-1]) / (time[i] - time[i-1])`, respectively;
+either is zero if no slope has that sign. They describe the sampled trace, not
+the continuous derivative. The RC example has about 2.197 ms rise time.
 Rise/fall times use the first directed 10% and 90% crossings with linear time
 interpolation; the opposite direction's field is `null`. Overshoot is excursion
 beyond the final level and undershoot is excursion behind the initial level,

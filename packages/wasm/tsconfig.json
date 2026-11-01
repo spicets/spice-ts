@@ -2,7 +2,8 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": ".",
+    "rootDir": "../..",
+    "composite": false,
     "types": ["node", "vitest/globals"],
     "lib": ["ES2022", "DOM", "WebWorker"]
   },

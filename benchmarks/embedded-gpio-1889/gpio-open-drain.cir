@@ -1,0 +1,8 @@
+gpio-open-drain original MIT maker circuit
+Vdd supply 0 3.3
+Vgate gate 0 PULSE(0 3.3 1u 10n 10n 5u 10u)
+Rpull supply out 4.7k
+M1 out gate 0 0 NM
+.model NM NMOS (LEVEL=1 VTO=1 KP=0.01)
+.tran 100n 30u
+.end

@@ -63,6 +63,17 @@ describe('impedance spot frequencies', () => {
     expect(empty.structuredContent).toMatchObject({ spots: [] });
   });
 
+  it('supports spots together with admittance', async () => {
+    const args = { request: request('R1 in 0 1k\n.ac lin 3 10 100'), port, includeAdmittance: true, spotFrequenciesHz: [10, 20] };
+    const response = await executeTool('spice_impedance', args);
+    expect(response.isError).not.toBe(true);
+    const report = response.structuredContent as unknown as Report;
+    expect(report.points[0]).toHaveProperty('conductanceS');
+    expect(report.spots[0]).not.toHaveProperty('conductanceS');
+    const tool = MCP_TOOLS.find(t => t.name === 'spice_impedance')!;
+    expect(new AjvJsonSchemaValidator().getValidator(tool.outputSchema!)(response.structuredContent).valid).toBe(true);
+  });
+
   it.each([null, 1, [0], [-1], [Infinity], [-Infinity], [NaN], ['10'], Array(129).fill(10)])('rejects invalid selector %j with structured error', async spotFrequenciesHz => {
     const response = await executeTool('spice_impedance', { request: request('R1 in 0 1k\n.ac lin 2 10 100'), port, spotFrequenciesHz });
     expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST', phase: 'validation', retryable: false } } });

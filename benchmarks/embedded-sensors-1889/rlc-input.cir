@@ -1,0 +1,8 @@
+rlc-input original MIT project sensor example
+Vsig in 0 PULSE(0 3.3 1u 20n 20n 20u 40u)
+Rseries in mid 100
+Lfilter mid adc 100u
+Cfilter adc 0 10n
+Rload adc 0 100k
+.tran 100n 80u
+.end

@@ -396,9 +396,7 @@ export function resolveOptions(opts?: SimulationOptions, stopTime?: number): Res
   if (opts?.maxOrder !== undefined && (!Number.isInteger(opts.maxOrder) || opts.maxOrder < 1 || opts.maxOrder > 6)) {
     throw new InvalidCircuitError('SimulationOptions.maxOrder must be an integer from 1 to 6');
   }
-  if (opts?.integrationMethod === 'gear2' && (opts.maxOrder ?? 2) > 3) {
-    throw new InvalidCircuitError('spice-ts implements Gear orders 1 through 3 only');
-  }
+
   if (opts?.rampTime !== undefined && (!Number.isFinite(opts.rampTime) || opts.rampTime < 0)) {
     throw new InvalidCircuitError('SimulationOptions.rampTime must be a non-negative finite number');
   }

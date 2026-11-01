@@ -187,6 +187,7 @@ jobs:
           pnpm exec tsx --test \
             benchmarks/fine-reference.test.ts \
             benchmarks/performance/scaling-m2.test.ts \
+            benchmarks/performance/cold-start.test.ts \
             benchmarks/performance/results/issue-907/check.test.mjs \
             benchmarks/corpus-e-audit/audit.test.mjs \
             benchmarks/device-card-audit/audit.test.ts \

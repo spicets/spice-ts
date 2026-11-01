@@ -16,12 +16,40 @@ const analysisIndex = integer();
 const step = ref('step');
 const numberRecord: Schema = { type: 'object', additionalProperties: number };
 const numberSeriesRecord: Schema = { type: 'object', additionalProperties: array(number) };
+const dcSweepProperties = { source: { type: 'string', pattern: '^\\S+$' }, start: number, stop: number, step: { type: 'number', not: { const: 0 } } };
+const dcAxis = object(['name', 'unit', 'values'], { name: string, unit: { enum: ['V', 'A'] }, values: array(number) });
+
+const measurementVector = { type: 'string', pattern: '^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$' };
+const crossing = object(['vector', 'value'], { vector: measurementVector, value: number, rise: { oneOf: [integer(1), { const: 'last' }] }, fall: { oneOf: [integer(1), { const: 'last' }] }, cross: { oneOf: [integer(1), { const: 'last' }] }, td: number });
+const measurementName = { type: 'string', pattern: '^[a-zA-Z][a-zA-Z0-9_]*$' };
+const measurement: Schema = { oneOf: [
+  object(['name', 'kind', 'trig', 'targ'], { name: measurementName, kind: { const: 'trig' }, trig: crossing, targ: crossing }),
+  object(['name', 'kind', 'vector', 'at'], { name: measurementName, kind: { const: 'find' }, vector: measurementVector, at: number }),
+  object(['name', 'kind', 'vector', 'when'], { name: measurementName, kind: { const: 'find' }, vector: measurementVector, when: crossing }),
+  object(['name', 'kind', 'vector'], { name: measurementName, kind: { enum: ['avg', 'min', 'max', 'pp', 'rms', 'integ'] }, vector: measurementVector, from: number, to: number }),
+] };
+const dcMeasurement: Schema = { oneOf: (measurement.oneOf as Schema[]).slice(1) };
+const acVector = { type: 'string', pattern: '^[vV](?:[mM]|[dD][bB]|[pP])\\([^\\s(),]+\\)$' };
+const frequency = { type: 'number', minimum: 0 };
+const acCrossing = { ...object(['vector', 'value'], { vector: acVector, value: number, rise: { oneOf: [integer(1), { const: 'last' }] }, fall: { oneOf: [integer(1), { const: 'last' }] }, cross: { oneOf: [integer(1), { const: 'last' }] }, td: number }), not: { anyOf: [{ type: 'object', properties: { rise: {}, fall: {} }, required: ['rise', 'fall'] }, { type: 'object', properties: { rise: {}, cross: {} }, required: ['rise', 'cross'] }, { type: 'object', properties: { fall: {}, cross: {} }, required: ['fall', 'cross'] }] } };
+const acMeasurement: Schema = { oneOf: [
+  object(['name', 'kind', 'vector', 'at'], { name: measurementName, kind: { const: 'find' }, vector: acVector, at: frequency }),
+  object(['name', 'kind', 'vector', 'when'], { name: measurementName, kind: { const: 'find' }, vector: acVector, when: acCrossing }),
+  object(['name', 'kind', 'vector'], { name: measurementName, kind: { enum: ['avg', 'min', 'max', 'pp', 'rms', 'integ'] }, vector: acVector, from: frequency, to: frequency }),
+] };
+const measurementResult: Schema = { oneOf: [
+  object(['name', 'value'], { name: string, value: number, unit: string }),
+  object(['name', 'diagnostic'], { name: string, diagnostic: object(['code', 'message'], { code: { const: 'MEASUREMENT_FAILED' }, message: string }) }),
+] };
 
 const analysis: Schema = { oneOf: [
   object(['type'], { type: { const: 'op' } }),
-  object(['type', 'source', 'start', 'stop', 'step'], { type: { const: 'dc' }, source: string, start: number, stop: number, step: number }),
-  object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 } }),
-  object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'ac' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
+  { ...object(['type', 'source', 'start', 'stop', 'step'], { type: { const: 'dc' }, ...dcSweepProperties, secondary: object(['source', 'start', 'stop', 'step'], dcSweepProperties), measurements: { type: 'array', maxItems: 100, items: dcMeasurement } }), not: { type: 'object', properties: { secondary: {}, measurements: {} }, required: ['secondary', 'measurements'] } },
+  object(['type', 'timestep', 'stopTime'], { type: { const: 'tran' }, timestep: { type: 'number', exclusiveMinimum: 0 }, stopTime: { type: 'number', minimum: 0 }, startTime: { type: 'number', minimum: 0 }, maxTimestep: { type: 'number', exclusiveMinimum: 0 }, uic: { const: true }, measurements: { type: 'array', maxItems: 100, items: measurement }, fourier: object(['fundamentalHz', 'outputs'], {
+    fundamentalHz: { type: 'number', exclusiveMinimum: 0 }, harmonics: { type: 'integer', minimum: 1, maximum: 199 },
+    outputs: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'string', pattern: '^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[^\\s(),]+\\s*\\))$' } },
+  }) }),
+  object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'ac' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 }, measurements: { type: 'array', maxItems: 100, items: acMeasurement } }),
 ] };
 
 const nativeAnalysis: Schema = { oneOf: [
@@ -32,13 +60,20 @@ const nativeAnalysis: Schema = { oneOf: [
   object(['type', 'variation', 'points', 'startFreq', 'stopFreq'], { type: { const: 'sp' }, variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1), startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 } }),
 ] };
 
-const sensitivityAnalysis = { ...object(['type', 'mode', 'outputNode'], {
-  type: { const: 'sens' }, mode: { const: 'dc' }, outputNode: { type: 'string', pattern: '\\S' },
-  outputReferenceNode: { type: 'string', pattern: '\\S' }, outputType: { enum: ['voltage', 'current'] },
-}), allOf: [{
-  if: { properties: { outputType: { const: 'current' } }, required: ['outputType'] },
-  then: { properties: { outputReferenceNode: false } },
-}] };
+const sensitivityAnalysis = { oneOf: ['dc', 'ac'].map(mode => ({
+  ...object(['type', 'mode', 'outputNode', ...(mode === 'ac' ? ['variation', 'points', 'startFreq', 'stopFreq'] : [])], {
+    type: { const: 'sens' }, mode: { const: mode }, outputNode: { type: 'string', pattern: '\\S' },
+    outputReferenceNode: { type: 'string', pattern: '\\S' }, outputType: { enum: ['voltage', 'current'] },
+    ...(mode === 'ac' ? {
+      variation: { enum: ['dec', 'oct', 'lin'] }, points: integer(1),
+      startFreq: { type: 'number', exclusiveMinimum: 0 }, stopFreq: { type: 'number', exclusiveMinimum: 0 },
+    } : {}),
+  }),
+  allOf: [{
+    if: { properties: { outputType: { const: 'current' } }, required: ['outputType'] },
+    then: { properties: { outputReferenceNode: false } },
+  }],
+})) };
 
 const tfAnalysis = object(['type', 'output', 'source'], {
   type: { const: 'tf' }, output: { type: 'string', pattern: '^(?:[vV]\\(\\s*[^\\s(),]+\\s*(?:,\\s*[^\\s(),]+\\s*)?\\)|[iI]\\(\\s*[vV][^\\s(),]*\\s*\\))$' },
@@ -85,13 +120,21 @@ const component: Schema = { ...object(['type', 'id', 'name', 'ports', 'params'],
 const model = object(['name', 'type', 'params'], {
   name: { type: 'string', minLength: 1 }, type: { type: 'string', minLength: 1 }, params: { type: 'object', additionalProperties: ref('jsonValue') },
 });
-const nativeDocument = object(['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'], {
+const nativeDocument: Schema = { ...object(['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'], {
   format: { const: 'spice-ts' }, schemaVersion: { const: '1.0' },
+  componentSweep: object(['component', 'values'], { component: { type: 'string', minLength: 1 }, values: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'number', exclusiveMinimum: 0 } } }),
+  sourceSweep: object(['source', 'values'], { source: { type: 'string', minLength: 1 }, values: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'number' } } }),
+  temperatureSweep: object(['values'], { values: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'number', exclusiveMinimum: -273.15 } } }),
+  globalNodes: { type: 'array', items: { type: 'string', pattern: '^[A-Za-z0-9_.:+-]+(?![\\s\\S])' } },
   circuit: object(['components', 'nets'], { components: array(ref('component')), nets: { type: 'array', items: { type: 'string', not: { const: '0' } }, uniqueItems: true } }),
   analyses: array(ref('nativeAnalysis')), models: array(ref('model')), subcircuits: array(ref('subcircuit')),
   poleZeroAnalyses: array(ref('poleZeroAnalysis')),
   noiseAnalyses: array(ref('noiseAnalysis')),
-});
+  initialConditions: numberRecord, nodesets: numberRecord,
+}), allOf: [{ if: { properties: { temperatureSweep: {} }, required: ['temperatureSweep'] }, then: { properties: {
+  analyses: { type: 'array', minItems: 1, items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } },
+  poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 },
+} } }, { if: { properties: { componentSweep: {} }, required: ['componentSweep'] }, then: { not: { properties: { temperatureSweep: {} }, required: ['temperatureSweep'] }, properties: { analyses: { type: 'array', minItems: 1, maxItems: 1, items: { type: 'object', properties: { type: { enum: ['op', 'tran', 'ac', 'dc'] } }, required: ['type'] } }, poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 } } } }, { if: { properties: { sourceSweep: {} }, required: ['sourceSweep'] }, then: { not: { anyOf: [{ required: ['temperatureSweep'] }, { required: ['componentSweep'] }] }, properties: { analyses: { type: 'array', minItems: 1, maxItems: 1, items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } }, poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 } } } }] };
 const simulationInput: Schema = { oneOf: [
   object(['format', 'source'], { format: { const: 'spice' }, source: string, virtualFiles: { type: 'object', propertyNames: { type: 'string', pattern: '^(?!(?:.*//)|/)(?:(?!\\.{1,2}(?:/|$))[^/\\\\]+)(?:/(?!\\.{1,2}(?:/|$))[^/\\\\]+)*$' }, additionalProperties: string } }),
   object(['format', 'document'], { format: { const: 'spice-ts' }, document: ref('nativeDocument') }),
@@ -99,6 +142,7 @@ const simulationInput: Schema = { oneOf: [
 ] };
 const limits = object([], Object.fromEntries(['maxSourceBytes', 'maxVirtualFiles', 'maxIncludeDepth', 'maxComponents', 'maxSubcircuitDepth', 'maxAnalyses', 'maxResultPoints', 'maxSerializedResultBytes', 'maxWallTimeMs'].map((key) => [key, integer()])));
 const options = object([], {
+  temperature: { type: 'number', exclusiveMinimum: -273.15 }, nominalTemperature: { type: 'number', exclusiveMinimum: -273.15 },
   backend, determinism, limits: ref('limits'), abstol: { type: 'number', minimum: 0 }, vntol: { type: 'number', minimum: 0 }, reltol: { type: 'number', minimum: 0 },
   maxIterations: integer(1), maxTransientIterations: integer(1), maxTimestep: { type: 'number', exclusiveMinimum: 0 }, integrationMethod: { enum: ['euler', 'trapezoidal', 'gear2'] }, trtol: { type: 'number', exclusiveMinimum: 0 }, gmin: { type: 'number', minimum: 0 },
 });
@@ -107,9 +151,16 @@ const complexRecord: Schema = { type: 'object', additionalProperties: ref('compl
 const complexSeriesRecord: Schema = { type: 'object', additionalProperties: array(ref('complex')) };
 const commonResult = { analysisIndex, step };
 const opResult = object(['type', 'analysisIndex', 'voltagesV', 'currentsA'], { type: { const: 'op' }, ...commonResult, voltagesV: numberRecord, currentsA: numberRecord });
-const dcResult = object(['type', 'analysisIndex', 'axis', 'voltagesV', 'currentsA'], { type: { const: 'dc' }, ...commonResult, axis: object(['name', 'unit', 'values'], { name: string, unit: { enum: ['V', 'A'] }, values: array(number) }), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord });
-const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'currentsA'], { type: { const: 'tran' }, ...commonResult, timeS: array(number), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord });
-const acResult = object(['type', 'analysisIndex', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, ...commonResult, frequencyHz: array({ type: 'number', minimum: 0 }), voltagePhasors: complexSeriesRecord, currentPhasors: complexSeriesRecord });
+const dcResult = object(['type', 'analysisIndex', 'axis', 'voltagesV', 'currentsA'], { type: { const: 'dc' }, ...commonResult, axis: dcAxis, secondaryAxis: dcAxis, voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord, measurements: array(measurementResult) });
+const nullableNumber: Schema = { type: ['number', 'null'] };
+const fourierResult = object(['vector', 'fundamental', 'gridSize', 'degree', 'periods', 'thd', 'harmonics'], {
+  vector: string, fundamental: nullableNumber, gridSize: integer(1), degree: integer(), periods: integer(1), thd: nullableNumber,
+  harmonics: array(object(['harmonic', 'frequency', 'magnitude', 'phase', 'normalizedMagnitude', 'normalizedPhase'], {
+    harmonic: integer(), frequency: nullableNumber, magnitude: nullableNumber, phase: nullableNumber, normalizedMagnitude: nullableNumber, normalizedPhase: nullableNumber,
+  })),
+});
+const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'currentsA'], { type: { const: 'tran' }, ...commonResult, timeS: array(number), voltagesV: numberSeriesRecord, currentsA: numberSeriesRecord, fourier: array(fourierResult), measurements: array(measurementResult) });
+const acResult = object(['type', 'analysisIndex', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, ...commonResult, frequencyHz: array({ type: 'number', minimum: 0 }), measurements: array(measurementResult), voltagePhasors: complexSeriesRecord, currentPhasors: complexSeriesRecord });
 const simulationResult = object(['status', 'analyses'], { status: { const: 'complete' }, analyses: array(ref('analysisResult')) });
 const tfResult = object(['type', 'analysisIndex', 'transferFunction', 'inputResistanceOhm', 'outputResistanceOhm'], { type: { const: 'tf' }, ...commonResult, transferFunction: number, inputResistanceOhm: number, outputResistanceOhm: number });
 const diagnostic = object(['severity', 'code', 'message'], {
@@ -123,6 +174,7 @@ const apiError = object(['code', 'message', 'retryable', 'phase', 'details'], {
   message: string, retryable: { type: 'boolean' }, phase: { enum: ['validation', 'parse', 'compile', 'solve', 'serialize', 'transport'] }, details: { type: 'object', additionalProperties: ref('jsonValue') },
 });
 const resolvedOptionsProperties = {
+  temperature: { type: 'number', exclusiveMinimum: -273.15 }, nominalTemperature: { type: 'number', exclusiveMinimum: -273.15 },
   backend, abstol: number, vntol: number, reltol: number, maxIterations: integer(), maxTransientIterations: integer(), maxTimestep: number,
   integrationMethod: { enum: ['euler', 'trapezoidal', 'gear2'] }, trtol: number, gmin: number, determinism, limits: ref('limits'),
 };
@@ -173,7 +225,10 @@ export const commonSchemaV1 = {
     port: object(['name', 'net'], { name: string, net: string }), component, model,
     subcircuit: object(['name', 'ports', 'components'], { name: { type: 'string', minLength: 1 }, ports: array(string), components: array(ref('component')), models: array(ref('model')) }),
     nativeDocument, simulationInput, limits, options,
-    simulationRequest: object(['apiVersion', 'input'], { apiVersion: { const: '1' }, input: ref('simulationInput'), options: ref('options') }),
+    simulationRequest: { ...object(['apiVersion', 'input'], { apiVersion: { const: '1' }, input: ref('simulationInput'), options: ref('options'), outputs: { type: 'array', minItems: 1, maxItems: 64, items: { type: 'string', maxLength: 256, pattern: '^[vViI]\\([^\\s(),]+\\)(?![\\s\\S])' } } }), not: { type: 'object', required: ['input', 'options'], properties: {
+      input: { type: 'object', required: ['format', 'document'], properties: { format: { const: 'spice-ts' }, document: { type: 'object', required: ['temperatureSweep'], properties: { temperatureSweep: {} } } } },
+      options: { type: 'object', required: ['temperature'], properties: { temperature: {} } },
+    } } },
     complex, opResult, dcResult, tranResult, acResult, tfResult, tfAnalysis,
     analysisResult: { oneOf: [ref('opResult'), ref('dcResult'), ref('tranResult'), ref('acResult'), ref('tfResult')] }, simulationResult,
     diagnostic, apiError, resolvedOptions, runMetadata, partialRunMetadata, successEnvelope, failureEnvelope,
