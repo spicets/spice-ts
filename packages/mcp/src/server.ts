@@ -419,8 +419,8 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_disto_metrics',
-    description: 'Run exactly one unstepped .disto from SPICE text or native spice-ts JSON for output v(node). Native independent sources accept params.distortionF1 and params.distortionF2 objects with magnitude and optional phase in degrees; never infer excitation from AC. circuit-json returns UNSUPPORTED_FEATURE naming missing DISTOF1/DISTOF2 source fields. Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
-    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+\\)$' } },
+    description: 'Run exactly one unstepped .disto from SPICE text or native spice-ts JSON for output v(node) or differential v(node,node). Native independent sources accept params.distortionF1 and params.distortionF2 objects with magnitude and optional phase in degrees; never infer excitation from AC. circuit-json returns UNSUPPORTED_FEATURE naming missing DISTOF1/DISTOF2 source fields. Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
+    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)$' } },
       // circuit-json recognizes .disto only to return its actionable unsupported error.
       $defs: { ...commonSchemaV1.$defs,
         // Keep the native branch disjoint from the circuit-json-only analysis override.

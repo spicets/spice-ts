@@ -88,17 +88,27 @@ export function distoOutput(args: unknown): string {
   const a = args as Record<string, unknown> | null;
   if (!a || typeof a !== 'object' || Array.isArray(a)
     || Object.keys(a).some(k => !['request', 'output'].includes(k))
-    || typeof a.output !== 'string' || !/^v\([^\s(),]+\)$/i.test(a.output)) {
-    throw { code: 'INVALID_REQUEST', message: 'Expected output v(node)', phase: 'validation', retryable: false, details: {} };
+    || typeof a.output !== 'string' || !/^v\([^\s(),]+(?:,[^\s(),]+)?\)$/i.test(a.output)) {
+    throw { code: 'INVALID_REQUEST', message: 'Expected output v(node) or v(node,node)', phase: 'validation', retryable: false, details: {} };
   }
   return a.output;
 }
 export function distoMetrics(spectrum: DistoSpectrum, output: string) {
   const result = new DistortionResult(spectrum.frequencies, spectrum.voltageArrays, spectrum.currentArrays, spectrum.f2OverF1);
   const names = { 2: 'HD2', 3: 'HD3', 'f1+f2': 'SIM2', 'f1-f2': 'DIM2', '2f1-f2': 'DIM3' };
+  const [positive, negative] = output.slice(2, -1).split(',');
   const products = result.products.map(product => {
     let values: ComplexDistortionValue[];
-    try { values = result.voltage(output.slice(2, -1), product); } catch {
+    try {
+      const voltage = (node: string) => node === '0'
+        ? result.frequencies.map(() => ({ real: 0, imaginary: 0 }))
+        : result.voltage(node, product);
+      values = voltage(positive);
+      if (negative !== undefined) {
+        const reference = voltage(negative);
+        values = values.map((value, i) => ({ real: value.real - reference[i].real, imaginary: value.imaginary - reference[i].imaginary }));
+      }
+    } catch {
       throw { code: 'INVALID_REQUEST', message: `Unknown output node: ${output}`, phase: 'validation', retryable: false, details: {} };
     }
     return { product: names[product], points: values.map((value, i) => {
