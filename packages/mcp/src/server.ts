@@ -851,7 +851,7 @@ async function executeToolWithStore(
       throw apiError('INVALID_REQUEST', 'Invalid pole-zero JSON input', 'validation', {});
     }
     if ((name === 'spice_simulate' || name === 'spice_simulation_start' || name === 'spice_noise_metrics') && isRecord(args) && args.params !== undefined) {
-      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
       original = overrideParameters(original, args.params);
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
     }

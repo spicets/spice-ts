@@ -84,10 +84,10 @@ describe.each(['spice_simulate', 'spice_simulation_start'])('%s parameter overri
 });
 
 it('documents the override schema and capability', async () => {
-  for (const name of ['spice_simulate', 'spice_simulation_start']) {
+  for (const name of ['spice_simulate', 'spice_simulation_start', 'spice_noise_metrics']) {
     expect(MCP_TOOLS.find(tool => tool.name === name)?.inputSchema.properties).toHaveProperty('params');
   }
   expect((await executeTool('spice_capabilities', {})).structuredContent).toMatchObject({
-    parameterOverrides: { tools: ['spice_simulate', 'spice_simulation_start'], caseSensitive: false, unknownParameterCode: 'UNKNOWN_PARAMETER' },
+    parameterOverrides: { tools: ['spice_simulate', 'spice_simulation_start', 'spice_noise_metrics'], caseSensitive: false, unknownParameterCode: 'UNKNOWN_PARAMETER' },
   });
 });

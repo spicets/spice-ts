@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
-import { executeTool, MCP_TOOLS } from './server.js';
+import { DEFAULT_MCP_LIMITS, executeTool, MCP_TOOLS } from './server.js';
 import { NoiseResult } from '@spice-ts/core';
 import { noiseMetrics } from './noise-metrics.js';
 
@@ -146,6 +146,22 @@ describe('spice_noise_metrics', () => {
   ])('returns structured errors for missing noise and invalid bands/selectors', async extra => {
     const response = await executeTool('spice_noise_metrics', { request: request(rc), ...extra });
     expect(response).toMatchObject({ isError: true, structuredContent: { error: { code: 'INVALID_REQUEST' } } });
+  });
+
+  it('applies the caller source limit to input rather than the params envelope', async () => {
+    const input = request(rc);
+    const bounded = { ...input, options: { limits: { maxSourceBytes: Buffer.byteLength(JSON.stringify(input.input)) } } };
+    expect((await executeTool('spice_noise_metrics', { request: bounded })).isError).not.toBe(true);
+    expect((await executeTool('spice_noise_metrics', { request: bounded, params: {} })).isError).not.toBe(true);
+  });
+
+  it('enforces the source limit after rewriting and the server limit on the envelope', async () => {
+    const input = request('.param r=1000\n' + rc);
+    const bounded = { ...input, options: { limits: { maxSourceBytes: Buffer.byteLength(JSON.stringify(input.input)) } } };
+    const resourceError = { isError: true, structuredContent: { error: { code: 'RESOURCE_LIMIT' } } };
+    expect(await executeTool('spice_noise_metrics', { request: bounded, params: { r: 2000 } })).toMatchObject(resourceError);
+    const args = { request: input, params: {} };
+    expect(await executeTool('spice_noise_metrics', args, { limits: { ...DEFAULT_MCP_LIMITS, maxDocumentBytes: Buffer.byteLength(JSON.stringify(args)) - 1 } })).toMatchObject(resourceError);
   });
 
   it('preserves point limits and advertises capabilities', async () => {
