@@ -30,6 +30,15 @@ describe('AC transfer spots', () => {
     expect(spots[1]).toMatchObject({ gainDb: -20, phaseDeg: 190 });
     for (const spot of spots.slice(2)) expect(spot).toMatchObject({ gainDb: null, phaseDeg: null, reasons: { gainDb: 'OUT_OF_RANGE', phaseDeg: 'OUT_OF_RANGE' } });
   });
+  it('interpolates distinct adjacent frequencies even when their logarithms round equally', () => {
+    const result = sweep([1, 0.1, 0.01], [0, 20, 40]);
+    const trace = result.analyses[0];
+    if (trace.type !== 'ac') throw new Error('expected AC');
+    trace.frequencyHz = [1e10, 1e10 + 0.000004, 1e10 + 0.000008];
+    const spot = acMetrics(result, { output: 'out', frequenciesHz: [1e10 + 0.000002] }).spots![0];
+    expect(spot.gainDb).toBeCloseTo(-10, 5);
+    expect(spot.phaseDeg).toBeCloseTo(10, 5);
+  });
   it('reports undefined zero-magnitude samples and intervals', () => {
     const spots = acMetrics(sweep([1, 0, 1], [0, 0, 0]), { output: 'out', frequenciesHz: [10, 2] }).spots!;
     for (const spot of spots) expect(spot).toMatchObject({ gainDb: null, phaseDeg: null, reasons: { gainDb: 'UNDEFINED_VALUE', phaseDeg: 'UNDEFINED_VALUE' } });
@@ -43,6 +52,12 @@ describe('AC transfer spots', () => {
     expect(differential.structuredContent).toEqual(direct.structuredContent);
     expect(direct.structuredContent).toHaveProperty('groupDelaySeconds');
     expect(direct.structuredContent).toHaveProperty('bandpass');
+    const spots = (direct.structuredContent as { spots: { frequencyHz: number; gainDb: number; phaseDeg: number }[] }).spots;
+    for (const spot of spots) {
+      const x = 2 * Math.PI * spot.frequencyHz * 0.002;
+      expect(Math.abs(spot.gainDb - 20 * Math.log10(1 / Math.hypot(1, x)))).toBeLessThan(1e-6);
+      expect(Math.abs(spot.phaseDeg + Math.atan(x) * 180 / Math.PI)).toBeLessThan(1e-6);
+    }
   });
   it('validates input and strict output and preserves legacy shape', async () => {
     const input = validator.getValidator(tool.inputSchema);
@@ -57,6 +72,8 @@ describe('AC transfer spots', () => {
     expect(output(zero.structuredContent).valid).toBe(true);
     const content = response.structuredContent as { spots: object[] };
     expect(output({ ...content, spots: [{ ...content.spots[0], extra: true }] }).valid).toBe(false);
+    expect(output({ ...content, spots: [{ frequencyHz: 1, gainDb: null, phaseDeg: null, reasons: {} }] }).valid).toBe(false);
+    expect(output({ ...content, spots: [{ frequencyHz: 1, gainDb: 1, phaseDeg: 2, reasons: { gainDb: 'OUT_OF_RANGE' } }] }).valid).toBe(false);
     for (const frequenciesHz of [[], Array(129).fill(1), [0], ['1'], '1', null]) expect(input({ ...base, frequenciesHz }).valid).toBe(false);
     for (const frequenciesHz of [[], Array(129).fill(1), [0], [-1], [NaN], [Infinity], Array(1), ['1'], '1', null]) {
       const invalid = await executeTool(tool.name, { ...base, frequenciesHz });

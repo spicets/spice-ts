@@ -25,7 +25,13 @@ export const acMetricsOutputSchema = {
     groupDelaySeconds: { type: 'number' },
     spots: {
       type: 'array', minItems: 1, maxItems: 128,
-      items: { type: 'object', additionalProperties: false, required: ['frequencyHz', 'gainDb', 'phaseDeg', 'reasons'], properties: {
+      items: { type: 'object', additionalProperties: false, required: ['frequencyHz', 'gainDb', 'phaseDeg', 'reasons'],
+        allOf: ['gainDb', 'phaseDeg'].map(key => ({
+          if: { properties: { [key]: { type: 'null' } }, required: [key] },
+          then: { properties: { reasons: { required: [key] } } },
+          else: { properties: { reasons: { not: { required: [key] } } } },
+        })),
+        properties: {
         frequencyHz: { type: 'number', exclusiveMinimum: 0 }, gainDb: { type: ['number', 'null'] }, phaseDeg: { type: ['number', 'null'] },
         reasons: { type: 'object', additionalProperties: false, properties: {
           gainDb: { type: 'string', enum: ['OUT_OF_RANGE', 'UNDEFINED_VALUE'] }, phaseDeg: { type: 'string', enum: ['OUT_OF_RANGE', 'UNDEFINED_VALUE'] },
@@ -229,7 +235,11 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     const right = f.findIndex(hz => hz >= frequencyHz);
     const left = f[right] === frequencyHz ? right : right - 1;
     if (!Number.isFinite(db[left]) || !Number.isFinite(db[right])) return undefinedSpot('UNDEFINED_VALUE');
-    const fraction = left === right ? 0 : (Math.log(frequencyHz) - Math.log(f[left])) / (Math.log(f[right]) - Math.log(f[left]));
+    const logRatio = (x: number, base: number) => {
+      const relative = (x - base) / base;
+      return Number.isFinite(relative) ? Math.log1p(relative) : Math.log(x) - Math.log(base);
+    };
+    const fraction = left === right ? 0 : logRatio(frequencyHz, f[left]) / logRatio(f[right], f[left]);
     const gainDb = left === right ? db[left] : db[left] + fraction * (db[right] - db[left]);
     const phaseDeg = left === right ? phase[left] : phase[left] + fraction * (phase[right] - phase[left]);
     if (!Number.isFinite(gainDb) || !Number.isFinite(phaseDeg)) return undefinedSpot('UNDEFINED_VALUE');
