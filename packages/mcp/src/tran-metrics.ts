@@ -8,6 +8,7 @@ export interface TranMetricsArgs {
   finalValue?: number;
   settlingBandPercent?: number;
   riseTimePercent?: [number, number];
+  timeRangeS?: [number, number];
 }
 export interface TranMetrics {
   initialValue: number; finalValue: number; unit: 'V' | 'A';
@@ -23,6 +24,7 @@ export const tranMetricsProperties = {
   signal: { type: 'string', minLength: 1, maxLength: 256 },
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
+  timeRangeS: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2, description: 'Increasing simulation-time bounds in seconds, within the selected trace.' },
   initialValue: { type: 'number' }, finalValue: { type: 'number' },
   settlingBandPercent: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100, default: 2 },
   riseTimePercent: { type: 'array', items: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100 }, minItems: 2, maxItems: 2, default: [10, 90], description: 'Low and high transition-normalized percentages, in increasing order, for rise/fall time.' },
@@ -53,11 +55,14 @@ export function tranMetricsArgs(raw: unknown): TranMetricsArgs {
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
     || (a.step !== undefined && (!Number.isInteger(a.step) || (a.step as number) < 0))
     || ['initialValue', 'finalValue', 'settlingBandPercent'].some(key => a[key] !== undefined && (typeof a[key] !== 'number' || !Number.isFinite(a[key])))
+    || (a.timeRangeS !== undefined && (!Array.isArray(a.timeRangeS) || a.timeRangeS.length !== 2
+      || Array.from(a.timeRangeS).some(value => typeof value !== 'number' || !Number.isFinite(value))
+      || a.timeRangeS[0] >= a.timeRangeS[1]))
     || (a.riseTimePercent !== undefined && (!Array.isArray(a.riseTimePercent) || a.riseTimePercent.length !== 2
       || Array.from(a.riseTimePercent).some(value => typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value >= 100)
       || a.riseTimePercent[0] >= a.riseTimePercent[1]))
     || (a.settlingBandPercent !== undefined && ((a.settlingBandPercent as number) <= 0 || (a.settlingBandPercent as number) >= 100))) {
-    throw { code: 'INVALID_REQUEST', message: 'Expected signal, optional nonnegative integer analysis and step, finite endpoint values, settlingBandPercent between 0 and 100, and increasing riseTimePercent endpoints between 0 and 100', phase: 'validation', retryable: false, details: {} };
+    throw { code: 'INVALID_REQUEST', message: 'Expected signal, optional nonnegative integer analysis and step, finite endpoint values, an increasing finite timeRangeS, settlingBandPercent between 0 and 100, and increasing riseTimePercent endpoints between 0 and 100', phase: 'validation', retryable: false, details: {} };
   }
   return a as unknown as TranMetricsArgs;
 }
@@ -75,7 +80,7 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
   const match = /^([vi])\(([^()]+)\)$/i.exec(args.signal);
   const values = match?.[1].toLowerCase() === 'v' ? a.voltagesV : a.currentsA;
   const key = match ? Object.keys(values).find(key => key.toLowerCase() === match[2].toLowerCase()) : undefined;
-  const x = a.timeS;
+  let x = a.timeS;
   let y = key === undefined ? undefined : values[key];
   if (!y && match?.[1].toLowerCase() === 'v') {
     const terminals = match[2].split(',').map(name => name.trim());
@@ -96,6 +101,24 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
   if (!y) return error('SIGNAL_NOT_FOUND', 'Expected an existing v(node) or i(branch) signal');
   if (x.length < 2 || y.length !== x.length || y.some(v => !Number.isFinite(v))
     || x.some((v, i) => !Number.isFinite(v) || (i > 0 && v <= x[i - 1]))) return error('INVALID_DATA', 'Expected finite aligned samples and strictly increasing times');
+  if (args.timeRangeS) {
+    const [start, end] = args.timeRangeS;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end || start < x[0] || end > x[x.length - 1]) {
+      throw { code: 'INVALID_REQUEST', message: 'timeRangeS must be increasing and within the selected transient trace', phase: 'validation', retryable: false, details: {} };
+    }
+    const sampleAt = (time: number) => {
+      const i = x.findIndex(t => t >= time);
+      if (x[i] === time) return y![i];
+      const fraction = (time - x[i - 1]) / (x[i] - x[i - 1]);
+      return y![i - 1] + fraction * (y![i] - y![i - 1]);
+    };
+    const clippedX = [start]; const clippedY = [sampleAt(start)];
+    for (let i = 0; i < x.length; i++) {
+      if (x[i] > start && x[i] < end) { clippedX.push(x[i]); clippedY.push(y[i]); }
+    }
+    clippedX.push(end); clippedY.push(sampleAt(end));
+    x = clippedX; y = clippedY;
+  }
   const initialValue = args.initialValue ?? y[0]; const finalValue = args.finalValue ?? y[y.length - 1];
   const delta = finalValue - initialValue;
   if (Math.abs(delta) <= Number.EPSILON * 16 * Math.max(Math.abs(initialValue), Math.abs(finalValue))) return error('NO_TRANSITION', 'Initial and final levels do not define a transition');
