@@ -9,6 +9,7 @@ export interface TranMetricsArgs {
   settlingBandPercent?: number;
   riseTimePercent?: [number, number];
   timeRangeS?: [number, number];
+  includeSignalStatistics?: boolean;
 }
 export interface TranMetrics {
   initialValue: number; finalValue: number; unit: 'V' | 'A';
@@ -16,6 +17,7 @@ export interface TranMetrics {
   maxRiseSlewPerS: number; maxFallSlewPerS: number; slewUnit: 'V/s' | 'A/s';
   overshootPercent: number; undershootPercent: number;
   settlingTimeS: number; peakValue: number; peakTimeS: number;
+  signalStatistics?: { mean: number; rms: number; peakToPeak: number; unit: 'V' | 'A' };
 }
 const codes = ['NOT_TRANSIENT', 'UNKNOWN_STEP', 'SIGNAL_NOT_FOUND', 'NO_TRANSITION', 'NOT_SETTLED', 'INVALID_DATA'] as const;
 type MetricsError = { error: { code: typeof codes[number]; message: string } };
@@ -24,6 +26,7 @@ export const tranMetricsProperties = {
   signal: { type: 'string', minLength: 1, maxLength: 256 },
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
+  includeSignalStatistics: { type: 'boolean', default: false },
   timeRangeS: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2, description: 'Increasing simulation-time bounds in seconds, within the selected trace.' },
   initialValue: { type: 'number' }, finalValue: { type: 'number' },
   settlingBandPercent: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100, default: 2 },
@@ -36,6 +39,10 @@ export const tranMetricsOutputSchemas = [
       ...Object.fromEntries(metricNames.map(key => [key, { type: key === 'riseTimeS' || key === 'fallTimeS' ? ['number', 'null'] : 'number' }])),
       unit: { enum: ['V', 'A'] },
       slewUnit: { enum: ['V/s', 'A/s'] },
+      signalStatistics: {
+        type: 'object', required: ['mean', 'rms', 'peakToPeak', 'unit'], additionalProperties: false,
+        properties: { mean: { type: 'number' }, rms: { type: 'number' }, peakToPeak: { type: 'number' }, unit: { enum: ['V', 'A'] } },
+      },
     },
   },
   {
@@ -54,6 +61,7 @@ export function tranMetricsArgs(raw: unknown): TranMetricsArgs {
     || typeof a.signal !== 'string' || !a.signal.length || a.signal.length > 256
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
     || (a.step !== undefined && (!Number.isInteger(a.step) || (a.step as number) < 0))
+    || (a.includeSignalStatistics !== undefined && typeof a.includeSignalStatistics !== 'boolean')
     || ['initialValue', 'finalValue', 'settlingBandPercent'].some(key => a[key] !== undefined && (typeof a[key] !== 'number' || !Number.isFinite(a[key])))
     || (a.timeRangeS !== undefined && (!Array.isArray(a.timeRangeS) || a.timeRangeS.length !== 2
       || Array.from(a.timeRangeS).some(value => typeof value !== 'number' || !Number.isFinite(value))
@@ -162,5 +170,25 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
     settlingTimeS, peakValue: y[peak], peakTimeS: x[peak],
   };
   if (Object.values(metrics).some(v => typeof v === 'number' && !Number.isFinite(v))) return error('INVALID_DATA', 'Metric arithmetic is not finite');
+  if (args.includeSignalStatistics) {
+    const duration = x[x.length - 1] - x[0];
+    let scale = 0; let min = y[0]; let max = y[0];
+    for (const value of y) { scale = Math.max(scale, Math.abs(value)); min = Math.min(min, value); max = Math.max(max, value); }
+    let mean = 0; let rms = 0;
+    if (scale !== 0) {
+      for (let i = 1; i < x.length; i++) {
+        const rootWeight = Math.sqrt(x[i] - x[i - 1]) / Math.sqrt(duration);
+        const left = y[i - 1] / scale; const right = y[i] / scale;
+        const midpoint = y[i - 1] + (y[i] - y[i - 1]) / 2;
+        mean += (midpoint * rootWeight) * rootWeight;
+        // (a² + ab + b²)/3 = ((a+b)/2)² + ((a-b)/sqrt(12))².
+        rms = Math.hypot(rms, rootWeight * ((left + right) / 2), (rootWeight / Math.sqrt(12)) * (left - right));
+      }
+      rms *= scale;
+    }
+    const peakToPeak = max - min;
+    if (![mean, rms, peakToPeak].every(Number.isFinite)) return error('INVALID_DATA', 'Signal statistics arithmetic is not finite');
+    metrics.signalStatistics = { mean, rms, peakToPeak, unit: metrics.unit };
+  }
   return metrics;
 }
