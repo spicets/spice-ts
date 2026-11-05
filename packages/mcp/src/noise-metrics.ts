@@ -151,10 +151,22 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
     }
     const total = powers.reduce((sum, segment) => sum + segment.power, 0);
     if (!(total > 0) || !Number.isFinite(total)) invalid('Noise percentile integration overflow or underflow');
-    let target = total * (percent / 100);
+    // Keep subnormal percentages scaled until the frequency displacement is
+    // computed; percent / 100 and the segment fraction can both underflow.
+    const tiny = percent < 1e-300;
+    const targetScale = tiny ? 2 ** 512 : 1;
+    let target = total * ((percent * targetScale) / 100);
     for (const segment of powers) {
       if (segment.power === 0) continue;
-      if (target > segment.power) { target -= segment.power; continue; }
+      const segmentTarget = segment.power * targetScale;
+      if (target > segmentTarget) { target -= segmentTarget; continue; }
+      if (tiny && target > 0) {
+        const logFraction = Math.log(target) - Math.log(segment.power) - Math.log(targetScale);
+        const root = Math.hypot(Math.sqrt(Math.max(0, 1 - Math.exp(logFraction))) * segment.a, Math.exp(logFraction / 2) * segment.b);
+        const logPosition = logFraction + Math.log(segment.a + segment.b) - Math.log(segment.a + root);
+        const offset = Math.exp(Math.log(segment.right - segment.left) + logPosition);
+        return { percent, frequencyHz: Math.min(segment.right, segment.left + offset) };
+      }
       const fraction = Math.max(0, Math.min(1, target / segment.power));
       const root = Math.hypot(Math.sqrt(1 - fraction) * segment.a, Math.sqrt(fraction) * segment.b);
       const position = fraction === 0 ? 0 : fraction * (segment.a + segment.b) / (segment.a + root);

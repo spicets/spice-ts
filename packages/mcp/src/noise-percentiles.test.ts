@@ -67,6 +67,12 @@ describe('output noise percentiles', () => {
     const frequency = noiseMetrics(s, { outputNoisePercentiles: [50] }).outputNoisePercentileFrequencies![0].frequencyHz!;
     expect(frequency).toBeCloseTo(5 - 2 * Math.SQRT2, 14);
   });
+  it('preserves a subnormal percentile with a representable flat-PSD crossing', () => {
+    const frequency = entries([1e-100, 1e308], [1, 1], [Number.MIN_VALUE])[0].frequencyHz!;
+    expect(frequency / 4.9406564584124655e-18).toBeCloseTo(1, 12);
+    const rising = entries([1e-100, 1e308], [0, 1], [Number.MIN_VALUE])[0].frequencyHz!;
+    expect(rising / (Math.sqrt(Number.MIN_VALUE) * 1e307)).toBeCloseTo(1, 12);
+  });
   it('supports extreme finite percent values without extrapolation', () => {
     const xs = entries([1, 101], [1, 1], [Number.MIN_VALUE, 99.99999999999999]);
     for (const x of xs) expect(x.frequencyHz).toBeGreaterThanOrEqual(1);
