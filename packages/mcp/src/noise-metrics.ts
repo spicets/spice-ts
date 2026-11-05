@@ -1,12 +1,13 @@
 import type { NoiseResult } from '@spice-ts/core';
 
-export interface NoiseMetricsArgs { bandHz?: [number, number]; spotFrequenciesHz?: number[]; signalRms?: number; outputSignalRms?: number }
+export interface NoiseMetricsArgs { bandHz?: [number, number]; spotFrequenciesHz?: number[]; signalRms?: number; outputSignalRms?: number; outputNoisePercentiles?: number[] }
 const positive = { type: 'number', exclusiveMinimum: 0 };
 export const noiseMetricsProperties = {
   bandHz: { type: 'array', items: positive, minItems: 2, maxItems: 2 },
   spotFrequenciesHz: { type: 'array', items: positive, maxItems: 128 },
   signalRms: { ...positive, maximum: Number.MAX_VALUE, description: 'Input-referred RMS signal in inputUnit (V or A).' },
   outputSignalRms: { ...positive, maximum: Number.MAX_VALUE, description: 'Output-referred RMS signal in volts.' },
+  outputNoisePercentiles: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100 } },
 };
 const method = 'trapezoidal PSD integration in linear frequency; linear PSD at clipped band edges; density linear in log-frequency for spots; no extrapolation';
 export const noiseMetricsOutputSchema = {
@@ -20,6 +21,12 @@ export const noiseMetricsOutputSchema = {
     signalToNoiseRatioReason: { const: 'zero integrated input noise' },
     outputSignalToNoiseRatioDb: { type: ['number', 'null'], description: 'Output SNR in dB, or null when integrated output noise is zero.' },
     outputSignalToNoiseRatioReason: { const: 'zero integrated output noise' },
+    outputNoisePercentileFrequencies: {
+      type: 'array', minItems: 1, maxItems: 32, items: {
+        type: 'object', additionalProperties: false, required: ['percent', 'frequencyHz'],
+        properties: { percent: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100 }, frequencyHz: { type: ['number', 'null'], minimum: 0 }, reason: { const: 'zero integrated output noise' } },
+      },
+    },
     inputUnit: { enum: ['V', 'A'] }, method: { const: method },
     spots: {
       type: 'array', maxItems: 128, items: {
@@ -41,9 +48,10 @@ export function noiseMetricsArgs(raw: unknown): NoiseMetricsArgs {
   const a = raw as Record<string, unknown>;
   const hz = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
   if (('request' in a) === ('netlist' in a) || ('netlist' in a && typeof a.netlist !== 'string')) invalid('Expected exactly one netlist or protocol-v1 request');
-  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'spotFrequenciesHz', 'signalRms', 'outputSignalRms'].includes(k))
+  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'spotFrequenciesHz', 'signalRms', 'outputSignalRms', 'outputNoisePercentiles'].includes(k))
     || ('signalRms' in a && !hz(a.signalRms))
     || ('outputSignalRms' in a && !hz(a.outputSignalRms))
+    || ('outputNoisePercentiles' in a && (!Array.isArray(a.outputNoisePercentiles) || a.outputNoisePercentiles.length < 1 || a.outputNoisePercentiles.length > 32 || !a.outputNoisePercentiles.every(v => hz(v) && v < 100)))
     || (a.bandHz !== undefined && (!Array.isArray(a.bandHz) || a.bandHz.length !== 2 || !a.bandHz.every(hz) || a.bandHz[0] >= a.bandHz[1]))
     || (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length > 128 || !a.spotFrequenciesHz.every(hz)))) invalid('Expected positive finite signalRms and outputSignalRms, an increasing positive bandHz pair and up to 128 positive spotFrequenciesHz');
   return a as NoiseMetricsArgs;
@@ -104,7 +112,70 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
   });
   const integratedOutputNoiseVrms = integrate(out); const integratedInputNoiseRms = integrate(input);
   if (![integratedOutputNoiseVrms, integratedInputNoiseRms].every(Number.isFinite)) invalid('Noise integration overflow');
+  const percentileScale = out.every((density, i) => density <= 2 ** -512 ||
+    !((i > 0 && f[i - 1] < band[1] && f[i] > band[0]) ||
+      (i + 1 < f.length && f[i] < band[1] && f[i + 1] > band[0]))) ? 2 ** 512 : 1;
+  const percentiles = args.outputNoisePercentiles?.map(percent => {
+    if (integratedOutputNoiseVrms === 0) return { percent, frequencyHz: null, reason: 'zero integrated output noise' };
+    // Normalize by the integrated RMS. Segment power is evaluated as a ratio,
+    // keeping both very small and very large densities representable.
+    const powers: { left: number; right: number; a: number; b: number; power: number }[] = [];
+    for (let i = 1; i < f.length; i++) {
+      const left = Math.max(band[0], f[i - 1]); const right = Math.min(band[1], f[i]);
+      if (right <= left) continue;
+      const rootSpan = Math.sqrt(f[i] - f[i - 1]);
+      // Square-root the interpolation weights before division, as in integration:
+      // the PSD fraction itself may underflow while its density is representable.
+      // Include the root width before the edge density can underflow. Scale
+      // tiny endpoint densities as in integration to retain subnormal power.
+      const width = Math.sqrt(right - left);
+      // Each edge contributes half its power to the trapezoid. Apply this
+      // factor before a wide interval can overflow an otherwise finite RMS.
+      const contribution = (density: number, weight: number) => width > 1
+        ? ((density * percentileScale) * weight) * (width / Math.SQRT2)
+        : ((density * percentileScale) * width) * weight;
+      const edgeDensity = (hz: number) => {
+        const edge = Math.hypot(
+          contribution(out[i - 1], Math.sqrt(f[i] - hz) / rootSpan),
+          contribution(out[i], Math.sqrt(hz - f[i - 1]) / rootSpan),
+        );
+        return width > 1 ? edge : edge / Math.SQRT2;
+      };
+      const d0 = edgeDensity(left); const d1 = edgeDensity(right);
+      const scale = Math.max(d0, d1);
+      const a = scale === 0 ? 0 : (d0 / scale) ** 2;
+      const b = scale === 0 ? 0 : (d1 / scale) ** 2;
+      const rootPower = (scale / (integratedOutputNoiseVrms * percentileScale)) * Math.sqrt(a + b);
+      const power = rootPower ** 2;
+      powers.push({ left, right, a, b, power });
+    }
+    const total = powers.reduce((sum, segment) => sum + segment.power, 0);
+    if (!(total > 0) || !Number.isFinite(total)) invalid('Noise percentile integration overflow or underflow');
+    // Keep subnormal percentages scaled until the frequency displacement is
+    // computed; percent / 100 and the segment fraction can both underflow.
+    const tiny = percent < 1e-300;
+    const targetScale = tiny ? 2 ** 512 : 1;
+    let target = total * ((percent * targetScale) / 100);
+    for (const segment of powers) {
+      if (segment.power === 0) continue;
+      const segmentTarget = segment.power * targetScale;
+      if (target > segmentTarget) { target -= segmentTarget; continue; }
+      if (tiny && target > 0) {
+        const logFraction = Math.log(target) - Math.log(segment.power) - Math.log(targetScale);
+        const root = Math.hypot(Math.sqrt(Math.max(0, 1 - Math.exp(logFraction))) * segment.a, Math.exp(logFraction / 2) * segment.b);
+        const logPosition = logFraction + Math.log(segment.a + segment.b) - Math.log(segment.a + root);
+        const offset = Math.exp(Math.log(segment.right - segment.left) + logPosition);
+        return { percent, frequencyHz: Math.min(segment.right, segment.left + offset) };
+      }
+      const fraction = Math.max(0, Math.min(1, target / segment.power));
+      const root = Math.hypot(Math.sqrt(1 - fraction) * segment.a, Math.sqrt(fraction) * segment.b);
+      const position = fraction === 0 ? 0 : fraction * (segment.a + segment.b) / (segment.a + root);
+      return { percent, frequencyHz: segment.left + (segment.right - segment.left) * Math.min(1, position) };
+    }
+    return { percent, frequencyHz: powers.filter(segment => segment.power > 0).at(-1)!.right };
+  });
   return { bandHz: band, integratedOutputNoiseVrms, integratedInputNoiseRms, inputUnit: /^i/i.test(spectrum.inputSource) ? 'A' : 'V', spots, method,
+    ...(percentiles === undefined ? {} : { outputNoisePercentileFrequencies: percentiles }),
     ...(args.signalRms === undefined ? {} : integratedInputNoiseRms === 0
       ? { signalToNoiseRatioDb: null, signalToNoiseRatioReason: 'zero integrated input noise' }
       : { signalToNoiseRatioDb: 20 * (Math.log10(args.signalRms) - Math.log10(integratedInputNoiseRms)) }),
