@@ -20,6 +20,19 @@ describe('DC output level crossings', () => {
     }
   });
 
+  it.each([
+    { axis: [0, 1], output: [-1e308, 1e308], expected: 0.5 },
+    { axis: [1, 0], output: [1e308, -1e308], expected: 0.5 },
+    { axis: [-1e308, 1e308], output: [0, 1], expected: 0 },
+    { axis: [1e308, -1e308], output: [1, 0], expected: 0 },
+  ])('interpolates finite extreme endpoints: $axis $output', async ({ axis, output, expected }) => {
+    const result = { status: 'complete' as const, analyses: [{ type: 'dc' as const, analysisIndex: 0, axis: { name: 'V1', unit: 'V' as const, values: axis }, voltagesV: { out: output }, currentsA: {} }] };
+    const level = output[0] === 0 || output[1] === 0 ? 0.5 : 0;
+    const response = await executeTool(tool.name, { ...base, outputLevelsV: [level] }, { simulate: async () => result });
+    expect(response.isError).not.toBe(true);
+    expect((response.structuredContent as { levelCrossings: Crossing[] }).levelCrossings[0].sweepPoint).toBe(expected);
+  });
+
   it('uses traversal order on a nonmonotonic output including initial equality and plateaus', async () => {
     const axis = [0, 1, 2, 3, 4, 5, 6];
     const output = [2, 2, 4, 4, 0, 2, 2];

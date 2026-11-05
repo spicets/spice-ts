@@ -98,7 +98,15 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     for (let i = 1; sweepPoint === null && i < y.length; i++) {
       const prev = y[i - 1]; const next = y[i];
       if ((prev < outputLevelV && next >= outputLevelV) || (prev > outputLevelV && next <= outputLevelV)) {
-        sweepPoint = sweep[i - 1] + (sweep[i] - sweep[i - 1]) * ((outputLevelV - prev) / (next - prev));
+        const delta = next - prev;
+        // Halving before subtraction avoids overflow for opposite-sign extremes.
+        const fraction = Number.isFinite(delta) ? (outputLevelV - prev) / delta
+          : (outputLevelV / 2 - prev / 2) / (next / 2 - prev / 2);
+        const start = sweep[i - 1]; const end = sweep[i];
+        // A weighted sum avoids overflowing the difference between opposite signs.
+        sweepPoint = Math.sign(start) !== Math.sign(end)
+          ? start * (1 - fraction) + end * fraction
+          : start + (end - start) * fraction;
       }
     }
     return { outputLevelV, sweepPoint };
