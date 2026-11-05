@@ -69,11 +69,20 @@ describe('parallel equivalents contracts', () => {
       expect(enabled.spots).toEqual(original.spots);
       enabled.points.forEach((p, i) => {
         const { parallelCapacitanceF, parallelInductanceH, ...other } = p;
-        expect(parallelCapacitanceF).toEqual(expect.any(Number));
+        expect(Math.abs((parallelCapacitanceF as number) / 1e-6 - 1)).toBeLessThan(1e-6);
         expect(parallelInductanceH).toBeNull();
         expect(other).toEqual(original.points[i]);
       });
     }
+  });
+
+  it('computes finite parallel inductance despite conductance underflow', () => {
+    const spectrum: ImpedanceSpectrum = { frequencyHz: [1], positive: [{ magnitude: 1e308, phaseDegrees: 90 }], negative: [{ magnitude: 0, phaseDegrees: 0 }] };
+    const point = impedanceReport(spectrum, { port, includeParallelEquivalent: true }).points[0] as unknown as Point;
+    expect(point.parallelCapacitanceF).toBeNull();
+    expect(Math.abs(point.parallelInductanceH! / (1e308 / (2 * Math.PI)) - 1)).toBeLessThan(1e-12);
+    expect(point).not.toHaveProperty('parallelEquivalentReason');
+    expect(() => impedanceReport(spectrum, { port, includeParallelEquivalent: true, includeAdmittance: true })).toThrowError(expect.objectContaining({ code: 'INVALID_REQUEST', message: 'Admittance is not representable' }));
   });
 
   it('handles zero, representable extremes and unrepresentable reciprocal or equivalent', () => {

@@ -124,7 +124,7 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
     const parallel = () => {
       if (!selectors.includeParallelEquivalent) return {};
       const empty = { parallelCapacitanceF: null, parallelInductanceH: null };
-      if (!representable) return { ...empty, parallelEquivalentReason: scale === 0 ? 'zero_impedance' : 'unrepresentable' };
+      if (scale === 0 || !Number.isFinite(susceptanceS) || (reactanceOhm !== 0 && susceptanceS === 0)) return { ...empty, parallelEquivalentReason: scale === 0 ? 'zero_impedance' : 'unrepresentable' };
       if (susceptanceS === 0) return empty;
       const b = Math.abs(susceptanceS);
       let value = susceptanceS > 0 ? (b / frequencyHz) / (2 * Math.PI) : (1 / b) / frequencyHz / (2 * Math.PI);
