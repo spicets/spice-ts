@@ -120,15 +120,19 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
     for (let i = 1; i < f.length; i++) {
       const left = Math.max(band[0], f[i - 1]); const right = Math.min(band[1], f[i]);
       if (right <= left) continue;
-      const span = f[i] - f[i - 1];
-      const t0 = (left - f[i - 1]) / span; const t1 = (right - f[i - 1]) / span;
-      // Squared normalized densities represent PSD, not amplitude interpolation.
-      const scale = Math.max(out[i - 1], out[i]);
-      const p0 = scale === 0 ? 0 : (out[i - 1] / scale) ** 2;
-      const p1 = scale === 0 ? 0 : (out[i] / scale) ** 2;
-      const a = p0 * ((f[i] - left) / span) + p1 * t0; const b = p0 * ((f[i] - right) / span) + p1 * t1;
-      const rootPower = (scale / integratedOutputNoiseVrms) * Math.sqrt(right - left);
-      const power = (rootPower * Math.sqrt(a / 2 + b / 2)) ** 2;
+      const rootSpan = Math.sqrt(f[i] - f[i - 1]);
+      // Square-root the interpolation weights before division, as in integration:
+      // the PSD fraction itself may underflow while its density is representable.
+      const edgeDensity = (hz: number) => Math.hypot(
+        out[i - 1] * (Math.sqrt(f[i] - hz) / rootSpan),
+        out[i] * (Math.sqrt(hz - f[i - 1]) / rootSpan),
+      );
+      const d0 = edgeDensity(left); const d1 = edgeDensity(right);
+      const scale = Math.max(d0, d1);
+      const a = scale === 0 ? 0 : (d0 / scale) ** 2;
+      const b = scale === 0 ? 0 : (d1 / scale) ** 2;
+      const rootPower = ((scale * Math.sqrt(a / 2 + b / 2)) * Math.sqrt(right - left)) / integratedOutputNoiseVrms;
+      const power = rootPower ** 2;
       powers.push({ left, right, a, b, power });
     }
     const total = powers.reduce((sum, segment) => sum + segment.power, 0);

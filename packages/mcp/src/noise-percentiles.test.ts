@@ -46,6 +46,14 @@ describe('output noise percentiles', () => {
     const x = entries([1, 1e200], [0, 1e100], [50], [1, 2])[0].frequencyHz!;
     expect(x).toBeCloseTo(1 + Math.SQRT1_2, 12);
   });
+  it('finds the median in a tiny clipped band over an extreme span', () => {
+    const s = spectrum([1e-200, 1e300], [0, 1e100]);
+    const bandHz: [number, number] = [1e-200, 2e-200];
+    const baseline = noiseMetrics(s, { bandHz });
+    expect(baseline.integratedOutputNoiseVrms / 7.071067811865475e-251).toBeCloseTo(1, 12);
+    const result = noiseMetrics(s, { bandHz, outputNoisePercentiles: [50] });
+    expect(result.outputNoisePercentileFrequencies![0].frequencyHz! / 1.7071067811865475e-200).toBeCloseTo(1, 12);
+  });
   it('supports extreme finite percent values without extrapolation', () => {
     const xs = entries([1, 101], [1, 1], [Number.MIN_VALUE, 99.99999999999999]);
     for (const x of xs) expect(x.frequencyHz).toBeGreaterThanOrEqual(1);
