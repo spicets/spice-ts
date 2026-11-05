@@ -61,6 +61,12 @@ describe('output noise percentiles', () => {
     const result = noiseMetrics(s, { bandHz, outputNoisePercentiles: [50] });
     expect(result.outputNoisePercentileFrequencies![0].frequencyHz! / (1e150 * Math.SQRT1_2)).toBeCloseTo(1, 12);
   });
+  it('finds the median when an unnormalized edge would overflow', () => {
+    const s = spectrum([1, 5], [1e308, 0]);
+    expect(noiseMetrics(s, {}).integratedOutputNoiseVrms / 1e308).toBeCloseTo(Math.SQRT2, 14);
+    const frequency = noiseMetrics(s, { outputNoisePercentiles: [50] }).outputNoisePercentileFrequencies![0].frequencyHz!;
+    expect(frequency).toBeCloseTo(5 - 2 * Math.SQRT2, 14);
+  });
   it('supports extreme finite percent values without extrapolation', () => {
     const xs = entries([1, 101], [1, 1], [Number.MIN_VALUE, 99.99999999999999]);
     for (const x of xs) expect(x.frequencyHz).toBeGreaterThanOrEqual(1);
