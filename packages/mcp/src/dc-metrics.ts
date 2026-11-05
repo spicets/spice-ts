@@ -1,11 +1,12 @@
 import type { SimulationResultV1, SpiceApiErrorV1 } from '@spice-ts/core/protocol';
 
-type DcMetricsInput = { sweptSource: string; output: string; input?: string; analysis?: number; step?: number; sweepPoints?: number[] };
+type DcMetricsInput = { sweptSource: string; output: string; input?: string; analysis?: number; step?: number; sweepPoints?: number[]; outputLevelsV?: number[] };
 type DcSpot = { sweepPoint: number; inputValue: number | null; outputValue: number | null; outOfRange: boolean };
+type LevelCrossing = { outputLevelV: number; sweepPoint: number | null };
 type Metric = { value: number | null; unit: string; reason?: string };
 type GainMetric = Metric & { input?: number; sweepPoint?: number };
 type DcMetrics = Record<'switchingThreshold' | 'voh' | 'vol' | 'vil' | 'vih' | 'nmL' | 'nmH', Metric> & {
-  gainMax: GainMetric; monotonic: boolean; spots?: DcSpot[];
+  gainMax: GainMetric; monotonic: boolean; spots?: DcSpot[]; levelCrossings?: LevelCrossing[];
 };
 
 const voltagePattern = '^[vV]\\([^()]+\\)$';
@@ -15,6 +16,7 @@ export const dcMetricsProperties = {
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
   sweepPoints: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Swept-source coordinates in request order; linearly interpolated without extrapolation.' },
+  outputLevelsV: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Output voltage levels in request order; first crossing in sweep traversal, without extrapolation.' },
   output: { type: 'string', minLength: 1, maxLength: 256, pattern: voltagePattern, description: 'Voltage expression v(node) or v(positive,negative).' },
   input: { type: 'string', minLength: 1, maxLength: 256, pattern: voltagePattern, description: 'Voltage expression v(node) or v(positive,negative); defaults to the voltage sweep.' },
 };
@@ -30,6 +32,7 @@ export const dcMetricsOutputSchema = {
     gainMax: { ...metricSchema, properties: { ...metricSchema.properties, input: { type: 'number' }, sweepPoint: { type: 'number' } } },
     monotonic: { type: 'boolean' },
     spots: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['sweepPoint', 'inputValue', 'outputValue', 'outOfRange'], properties: { sweepPoint: { type: 'number' }, inputValue: { type: ['number', 'null'] }, outputValue: { type: ['number', 'null'] }, outOfRange: { type: 'boolean' } } } },
+    levelCrossings: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['outputLevelV', 'sweepPoint'], properties: { outputLevelV: { type: 'number' }, sweepPoint: { type: ['number', 'null'] } } } },
   },
 };
 function invalid(message: string): never {
@@ -40,6 +43,7 @@ export function dcMetricsInput(args: unknown): DcMetricsInput {
   const fields = args as Record<string, unknown>;
   if (Object.keys(fields).some(key => !['request', ...Object.keys(dcMetricsProperties)].includes(key))) invalid('Unknown DC metric argument');
   if (fields.sweepPoints !== undefined && (!Array.isArray(fields.sweepPoints) || fields.sweepPoints.length < 1 || fields.sweepPoints.length > 128 || Array.from(fields.sweepPoints).some(v => typeof v !== 'number' || !Number.isFinite(v)))) invalid('Invalid sweepPoints');
+  if (fields.outputLevelsV !== undefined && (!Array.isArray(fields.outputLevelsV) || fields.outputLevelsV.length < 1 || fields.outputLevelsV.length > 128 || Array.from(fields.outputLevelsV).some(v => typeof v !== 'number' || !Number.isFinite(v)))) invalid('Invalid outputLevelsV');
   for (const key of ['analysis', 'step']) {
     if (fields[key] !== undefined && (!Number.isInteger(fields[key]) || (fields[key] as number) < 0)) invalid(`Invalid ${key}`);
   }
@@ -49,7 +53,7 @@ export function dcMetricsInput(args: unknown): DcMetricsInput {
   for (const signal of [fields.output, fields.input].filter(v => v !== undefined)) {
     if (!new RegExp(voltagePattern).test(signal as string)) invalid('DC transfer expressions must be v(node) or v(positive,negative)');
   }
-  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined, analysis: fields.analysis as number | undefined, step: fields.step as number | undefined, sweepPoints: fields.sweepPoints as number[] | undefined };
+  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined, analysis: fields.analysis as number | undefined, step: fields.step as number | undefined, sweepPoints: fields.sweepPoints as number[] | undefined, outputLevelsV: fields.outputLevelsV as number[] | undefined };
 }
 const metric = (value: number | null, reason?: string, unit = 'V'): Metric => {
   if (value !== null && !Number.isFinite(value)) return { value: null, unit, reason: 'Non-finite metric' };
@@ -89,6 +93,24 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
   let y = voltage(input.output);
   if (!input.input && a.axis.unit !== 'V') invalid('A current sweep requires an explicit voltage input expression');
   if (x.length < 2 || y.length !== x.length || sweep.length !== x.length || ![...x, ...y, ...sweep].every(Number.isFinite)) invalid('DC metrics require at least two finite aligned samples');
+  const levelCrossings = input.outputLevelsV?.map(outputLevelV => {
+    let sweepPoint: number | null = y[0] === outputLevelV ? sweep[0] : null;
+    for (let i = 1; sweepPoint === null && i < y.length; i++) {
+      const prev = y[i - 1]; const next = y[i];
+      if ((prev < outputLevelV && next >= outputLevelV) || (prev > outputLevelV && next <= outputLevelV)) {
+        const delta = next - prev;
+        // Halving before subtraction avoids overflow for opposite-sign extremes.
+        const fraction = Number.isFinite(delta) ? (outputLevelV - prev) / delta
+          : (outputLevelV / 2 - prev / 2) / (next / 2 - prev / 2);
+        const start = sweep[i - 1]; const end = sweep[i];
+        // A weighted sum avoids overflowing the difference between opposite signs.
+        sweepPoint = Math.sign(start) !== Math.sign(end)
+          ? start * (1 - fraction) + end * fraction
+          : start + (end - start) * fraction;
+      }
+    }
+    return { outputLevelV, sweepPoint };
+  });
   const direction = Math.sign(x[1] - x[0]);
   if (!direction || x.some((v, i) => i > 0 && Math.sign(v - x[i - 1]) !== direction)) invalid('Input voltage must be strictly monotonic');
   if (direction < 0) {
@@ -140,5 +162,6 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     nmH: metric(vih === null ? null : y[0] - vih, reason),
     monotonic: !(rising && falling),
     ...(spots === undefined ? {} : { spots }),
+    ...(levelCrossings === undefined ? {} : { levelCrossings }),
   };
 }
