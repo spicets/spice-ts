@@ -1,9 +1,10 @@
 import type { NoiseResult } from '@spice-ts/core';
 
-export interface NoiseMetricsArgs { bandHz?: [number, number]; spotFrequenciesHz?: number[]; signalRms?: number; outputSignalRms?: number; outputNoisePercentiles?: number[] }
+export interface NoiseMetricsArgs { bandHz?: [number, number]; bandsHz?: [number, number][]; spotFrequenciesHz?: number[]; signalRms?: number; outputSignalRms?: number; outputNoisePercentiles?: number[] }
 const positive = { type: 'number', exclusiveMinimum: 0 };
 export const noiseMetricsProperties = {
   bandHz: { type: 'array', items: positive, minItems: 2, maxItems: 2 },
+  bandsHz: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'array', items: positive, minItems: 2, maxItems: 2 } },
   spotFrequenciesHz: { type: 'array', items: positive, maxItems: 128 },
   signalRms: { ...positive, maximum: Number.MAX_VALUE, description: 'Input-referred RMS signal in inputUnit (V or A).' },
   outputSignalRms: { ...positive, maximum: Number.MAX_VALUE, description: 'Output-referred RMS signal in volts.' },
@@ -15,6 +16,13 @@ export const noiseMetricsOutputSchema = {
   required: ['bandHz', 'integratedOutputNoiseVrms', 'integratedInputNoiseRms', 'inputUnit', 'spots', 'method'],
   properties: {
     bandHz: noiseMetricsProperties.bandHz,
+    bandResults: {
+      type: 'array', minItems: 1, maxItems: 16, items: {
+        type: 'object', additionalProperties: false,
+        required: ['bandHz', 'integratedOutputNoiseVrms', 'integratedInputNoiseRms', 'inputUnit'],
+        properties: { bandHz: noiseMetricsProperties.bandHz, integratedOutputNoiseVrms: { type: 'number', minimum: 0 }, integratedInputNoiseRms: { type: 'number', minimum: 0 }, inputUnit: { enum: ['V', 'A'] } },
+      },
+    },
     integratedOutputNoiseVrms: { type: 'number', minimum: 0 },
     integratedInputNoiseRms: { type: 'number', minimum: 0 },
     signalToNoiseRatioDb: { type: ['number', 'null'] },
@@ -48,12 +56,13 @@ export function noiseMetricsArgs(raw: unknown): NoiseMetricsArgs {
   const a = raw as Record<string, unknown>;
   const hz = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
   if (('request' in a) === ('netlist' in a) || ('netlist' in a && typeof a.netlist !== 'string')) invalid('Expected exactly one netlist or protocol-v1 request');
-  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'spotFrequenciesHz', 'signalRms', 'outputSignalRms', 'outputNoisePercentiles'].includes(k))
+  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'bandsHz', 'spotFrequenciesHz', 'signalRms', 'outputSignalRms', 'outputNoisePercentiles'].includes(k))
     || ('signalRms' in a && !hz(a.signalRms))
     || ('outputSignalRms' in a && !hz(a.outputSignalRms))
     || ('outputNoisePercentiles' in a && (!Array.isArray(a.outputNoisePercentiles) || a.outputNoisePercentiles.length < 1 || a.outputNoisePercentiles.length > 32 || !a.outputNoisePercentiles.every(v => hz(v) && v < 100)))
     || (a.bandHz !== undefined && (!Array.isArray(a.bandHz) || a.bandHz.length !== 2 || !a.bandHz.every(hz) || a.bandHz[0] >= a.bandHz[1]))
-    || (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length > 128 || !a.spotFrequenciesHz.every(hz)))) invalid('Expected positive finite signalRms and outputSignalRms, an increasing positive bandHz pair and up to 128 positive spotFrequenciesHz');
+    || ('bandsHz' in a && (!Array.isArray(a.bandsHz) || a.bandsHz.length < 1 || a.bandsHz.length > 16 || !a.bandsHz.every(b => Array.isArray(b) && b.length === 2 && b.every(hz) && b[0] < b[1])))
+    || (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length > 128 || !a.spotFrequenciesHz.every(hz)))) invalid('Expected positive finite signals, an increasing positive bandHz pair, 1 to 16 increasing positive bandsHz pairs, and up to 128 positive spotFrequenciesHz');
   return a as NoiseMetricsArgs;
 }
 
@@ -65,7 +74,8 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
     || [out, input].some(y => y.length !== f.length || y.some(v => !Number.isFinite(v) || v < 0))) invalid('Invalid noise spectrum');
   const band = args.bandHz ?? [f[0], f[f.length - 1]];
   if (band[0] < f[0] || band[1] > f[f.length - 1]) invalid('Noise band lies outside the simulated sweep');
-  const integrate = (y: number[]) => {
+  if (args.bandsHz?.some(b => b[0] < f[0] || b[1] > f[f.length - 1])) invalid('Noise band lies outside the simulated sweep');
+  const integrate = (y: number[], band: number[]) => {
     let rms = 0; let nonzero = false;
     // Keep subnormal interval contributions on a common scale until after summation.
     // At this threshold even the widest finite interval cannot overflow the scaled RMS.
@@ -110,8 +120,14 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
     };
     return { frequencyHz, outputNoiseVPerSqrtHz: at(out), inputNoisePerSqrtHz: at(input), outOfRange };
   });
-  const integratedOutputNoiseVrms = integrate(out); const integratedInputNoiseRms = integrate(input);
+  const integratedOutputNoiseVrms = integrate(out, band); const integratedInputNoiseRms = integrate(input, band);
   if (![integratedOutputNoiseVrms, integratedInputNoiseRms].every(Number.isFinite)) invalid('Noise integration overflow');
+  const inputUnit = /^i/i.test(spectrum.inputSource) ? 'A' : 'V';
+  const bandResults = args.bandsHz?.map(bandHz => {
+    const integratedOutputNoiseVrms = integrate(out, bandHz); const integratedInputNoiseRms = integrate(input, bandHz);
+    if (![integratedOutputNoiseVrms, integratedInputNoiseRms].every(Number.isFinite)) invalid('Noise integration overflow');
+    return { bandHz, integratedOutputNoiseVrms, integratedInputNoiseRms, inputUnit };
+  });
   const percentileScale = out.every((density, i) => density <= 2 ** -512 ||
     !((i > 0 && f[i - 1] < band[1] && f[i] > band[0]) ||
       (i + 1 < f.length && f[i] < band[1] && f[i + 1] > band[0]))) ? 2 ** 512 : 1;
@@ -174,7 +190,8 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
     }
     return { percent, frequencyHz: powers.filter(segment => segment.power > 0).at(-1)!.right };
   });
-  return { bandHz: band, integratedOutputNoiseVrms, integratedInputNoiseRms, inputUnit: /^i/i.test(spectrum.inputSource) ? 'A' : 'V', spots, method,
+  return { bandHz: band, integratedOutputNoiseVrms, integratedInputNoiseRms, inputUnit, spots, method,
+    ...(bandResults === undefined ? {} : { bandResults }),
     ...(percentiles === undefined ? {} : { outputNoisePercentileFrequencies: percentiles }),
     ...(args.signalRms === undefined ? {} : integratedInputNoiseRms === 0
       ? { signalToNoiseRatioDb: null, signalToNoiseRatioReason: 'zero integrated input noise' }
