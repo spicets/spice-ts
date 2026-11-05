@@ -54,6 +54,13 @@ describe('output noise percentiles', () => {
     const result = noiseMetrics(s, { bandHz, outputNoisePercentiles: [50] });
     expect(result.outputNoisePercentileFrequencies![0].frequencyHz! / 1.7071067811865475e-200).toBeCloseTo(1, 12);
   });
+  it('preserves clipped edge densities below the representable range', () => {
+    const s = spectrum([1, 1e300], [0, 1e-300]);
+    const bandHz: [number, number] = [1, 1e150];
+    expect(noiseMetrics(s, { bandHz }).integratedOutputNoiseVrms / 7.071067811865474e-301).toBeCloseTo(1, 12);
+    const result = noiseMetrics(s, { bandHz, outputNoisePercentiles: [50] });
+    expect(result.outputNoisePercentileFrequencies![0].frequencyHz! / (1e150 * Math.SQRT1_2)).toBeCloseTo(1, 12);
+  });
   it('supports extreme finite percent values without extrapolation', () => {
     const xs = entries([1, 101], [1, 1], [Number.MIN_VALUE, 99.99999999999999]);
     for (const x of xs) expect(x.frequencyHz).toBeGreaterThanOrEqual(1);

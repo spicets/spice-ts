@@ -112,6 +112,9 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
   });
   const integratedOutputNoiseVrms = integrate(out); const integratedInputNoiseRms = integrate(input);
   if (![integratedOutputNoiseVrms, integratedInputNoiseRms].every(Number.isFinite)) invalid('Noise integration overflow');
+  const percentileScale = out.every((density, i) => density <= 2 ** -512 ||
+    !((i > 0 && f[i - 1] < band[1] && f[i] > band[0]) ||
+      (i + 1 < f.length && f[i] < band[1] && f[i + 1] > band[0]))) ? 2 ** 512 : 1;
   const percentiles = args.outputNoisePercentiles?.map(percent => {
     if (integratedOutputNoiseVrms === 0) return { percent, frequencyHz: null, reason: 'zero integrated output noise' };
     // Normalize by the integrated RMS. Segment power is evaluated as a ratio,
@@ -123,15 +126,21 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
       const rootSpan = Math.sqrt(f[i] - f[i - 1]);
       // Square-root the interpolation weights before division, as in integration:
       // the PSD fraction itself may underflow while its density is representable.
+      // Include the root width before the edge density can underflow. Scale
+      // tiny endpoint densities as in integration to retain subnormal power.
+      const width = Math.sqrt(right - left);
+      const contribution = (density: number, weight: number) => width > 1
+        ? ((density * percentileScale) * weight) * width
+        : ((density * percentileScale) * width) * weight;
       const edgeDensity = (hz: number) => Math.hypot(
-        out[i - 1] * (Math.sqrt(f[i] - hz) / rootSpan),
-        out[i] * (Math.sqrt(hz - f[i - 1]) / rootSpan),
+        contribution(out[i - 1], Math.sqrt(f[i] - hz) / rootSpan),
+        contribution(out[i], Math.sqrt(hz - f[i - 1]) / rootSpan),
       );
       const d0 = edgeDensity(left); const d1 = edgeDensity(right);
       const scale = Math.max(d0, d1);
       const a = scale === 0 ? 0 : (d0 / scale) ** 2;
       const b = scale === 0 ? 0 : (d1 / scale) ** 2;
-      const rootPower = ((scale * Math.sqrt(a / 2 + b / 2)) * Math.sqrt(right - left)) / integratedOutputNoiseVrms;
+      const rootPower = (scale * Math.sqrt(a / 2 + b / 2)) / (integratedOutputNoiseVrms * percentileScale);
       const power = rootPower ** 2;
       powers.push({ left, right, a, b, power });
     }
