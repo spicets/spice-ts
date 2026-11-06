@@ -4,7 +4,7 @@ type Phasor = { magnitude: number; phaseDegrees: number };
 type SignalSet = { x: number[]; signals: Record<string, (number | Phasor)[]>; axisUnit?: string };
 type Metrics = { maxAbsError: number; maxRelError: number | null; xAtWorstError: number; firstExceededX: number | null; pass: boolean };
 type Comparison = Metrics & { signal: string; phase?: Metrics };
-type ErrorCode = 'INVALID_REQUEST' | 'AXIS_MISMATCH' | 'UNKNOWN_SIGNAL' | 'NON_MONOTONIC_AXIS' | 'EMPTY_OVERLAP' | 'UNKNOWN_ANALYSIS' | 'AMBIGUOUS_ANALYSIS' | 'RESOURCE_LIMIT';
+type ErrorCode = 'INVALID_REQUEST' | 'AXIS_MISMATCH' | 'UNKNOWN_SIGNAL' | 'NON_MONOTONIC_AXIS' | 'EMPTY_OVERLAP' | 'UNKNOWN_ANALYSIS' | 'AMBIGUOUS_ANALYSIS' | 'UNKNOWN_STEP' | 'RESOURCE_LIMIT';
 class ComparisonError extends Error {
   constructor(readonly code: ErrorCode, message: string) { super(message); }
 }
@@ -22,8 +22,8 @@ const sourceSchema = {
         { type: 'number' }, { type: 'object', required: ['magnitude', 'phaseDegrees'], additionalProperties: false, properties: { magnitude: { type: 'number', minimum: 0 }, phaseDegrees: { type: 'number' } } },
       ] } } },
     } },
-    { type: 'object', required: ['result', 'analysis'], additionalProperties: false, properties: { result: { $ref: '#/$defs/simulationResult' }, analysis: { type: 'integer', minimum: 0 } } },
-    { type: 'object', required: ['jobId', 'analysis'], additionalProperties: false, properties: { jobId: { type: 'string', minLength: 1 }, analysis: { type: 'integer', minimum: 0 } } },
+    { type: 'object', required: ['result', 'analysis'], additionalProperties: false, properties: { result: { $ref: '#/$defs/simulationResult' }, analysis: { type: 'integer', minimum: 0 }, step: { type: 'integer', minimum: 0 } } },
+    { type: 'object', required: ['jobId', 'analysis'], additionalProperties: false, properties: { jobId: { type: 'string', minLength: 1 }, analysis: { type: 'integer', minimum: 0 }, step: { type: 'integer', minimum: 0 } } },
   ],
 };
 export const compareInputSchema = {
@@ -55,15 +55,17 @@ export const compareOutputSchema = {
 function source(value: unknown, resolveJob: (id: string) => SimulationResultV1): SignalSet {
   if (!record(value)) return fail('INVALID_REQUEST', 'Expected a signal set or result reference');
   if ('result' in value || 'jobId' in value) {
-    if (!fields(value, ['result', 'jobId', 'analysis']) || ('result' in value) === ('jobId' in value)
-      || !Number.isInteger(value.analysis) || (value.analysis as number) < 0) return fail('INVALID_REQUEST', 'Expected exactly one result or jobId and an analysis index');
+    if (!fields(value, ['result', 'jobId', 'analysis', 'step']) || ('result' in value) === ('jobId' in value)
+      || !Number.isInteger(value.analysis) || (value.analysis as number) < 0
+      || (value.step !== undefined && (!Number.isInteger(value.step) || (value.step as number) < 0))) return fail('INVALID_REQUEST', 'Expected exactly one result or jobId and nonnegative integer analysis and step indices');
     if ('jobId' in value && (typeof value.jobId !== 'string' || !value.jobId)) return fail('INVALID_REQUEST', 'Expected a job id');
     const result = 'jobId' in value ? resolveJob(value.jobId as string) : value.result;
     if (!record(result) || result.status !== 'complete' || !Array.isArray(result.analyses)) return fail('INVALID_REQUEST', 'Expected a complete protocol-v1 result');
     const analyses = result.analyses.filter(a => record(a) && a.analysisIndex === value.analysis);
     if (!analyses.length) return fail('UNKNOWN_ANALYSIS', 'No analysis with this index');
-    if (analyses.length !== 1) return fail('AMBIGUOUS_ANALYSIS', 'Select a single non-stepped analysis');
-    const a = analyses[0];
+    if (value.step === undefined && analyses.length !== 1) return fail('AMBIGUOUS_ANALYSIS', 'Select a zero-based step index');
+    const a = value.step === undefined ? analyses[0] : analyses.find(a => (a.step?.index ?? 0) === value.step);
+    if (!a) return fail('UNKNOWN_STEP', 'No step with this index in the selected analysis');
     if (!['op', 'dc', 'tran', 'ac'].includes(a.type)) return fail('INVALID_REQUEST', 'Unknown analysis type');
     const ac = a.type === 'ac';
     const signals: Record<string, unknown> = Object.create(null);
