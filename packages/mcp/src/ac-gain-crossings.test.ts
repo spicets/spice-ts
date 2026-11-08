@@ -21,6 +21,23 @@ describe('requested AC gain crossings', () => {
     expect(Math.abs(result.gainCrossings![1].frequencyHz! / 10 ** 2.5 - 1)).toBeLessThan(1e-12);
   });
 
+  it('finds a crossing when finite phasor ratios overflow and underflow', () => {
+    const trace: SimulationResultV1 = { status: 'complete', analyses: [{
+      type: 'ac', analysisIndex: 0, frequencyHz: [10, 100], currentPhasors: {},
+      voltagePhasors: {
+        out: [1e300, 1e-300].map(magnitude => ({ magnitude, phaseDegrees: 0 })),
+        in: [1e-100, 1e-100].map(magnitude => ({ magnitude, phaseDegrees: 0 })),
+      },
+    }] };
+    const args = { output: 'out', input: 'in' };
+    const legacy = acMetrics(trace, args);
+    const result = acMetrics(trace, { ...args, gainCrossingsDb: [0] });
+    const { gainCrossings, ...rest } = result;
+    expect(rest).toEqual(legacy);
+    expect(gainCrossings![0].frequencyHz).not.toBeNull();
+    expect(Math.abs(gainCrossings![0].frequencyHz! / 10 ** (1 + 2 / 3) - 1)).toBeLessThan(1e-12);
+  });
+
   it('interpolates a finite crossing across a very wide frequency range', () => {
     const result = sweep([0, -20]);
     const trace = result.analyses[0];
@@ -87,8 +104,18 @@ describe('requested AC gain crossings', () => {
     };
     const a = await crossing(stepped, 0);
     const b = await crossing(stepped, 1);
-    expect(a).toBeCloseTo(await crossing(request(deck('1k'))), 10);
-    expect(b).toBeCloseTo(await crossing(request(deck('2k'))), 10);
+    // Independently interpolate the analytic RC response on the .ac dec 20 grid.
+    const expected = (resistance: number) => {
+      const gains = Array.from({ length: 101 }, (_, i) => {
+        const f = 10 ** (i / 20);
+        return -10 * Math.log10(1 + (2 * Math.PI * f * resistance * 1e-6) ** 2);
+      });
+      const i = gains.findIndex(gain => gain <= -10);
+      const fraction = (-10 - gains[i - 1]) / (gains[i] - gains[i - 1]);
+      return 10 ** ((i - 1 + fraction) / 20);
+    };
+    expect(Math.abs(a / expected(1000) - 1)).toBeLessThan(1e-12);
+    expect(Math.abs(b / expected(2000) - 1)).toBeLessThan(1e-12);
     expect(b).toBeLessThan(a);
   });
 
