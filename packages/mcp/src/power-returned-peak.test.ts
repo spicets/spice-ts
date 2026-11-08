@@ -20,6 +20,12 @@ describe('returned power peak', () => {
     expect(metric).toMatchObject({ peakReturnedPowerW: 0.25, peakReturnedPowerTimeS: 0.5 });
   });
 
+  it('finds a finite interior peak when doubling the quadratic coefficient would overflow', () => {
+    const metric = synthetic([0, 1], [0, 1e154], [-1e154, 0]);
+    expect(metric.peakReturnedPowerW! / 2.5e307).toBeCloseTo(1, 14);
+    expect(metric.peakReturnedPowerTimeS).toBe(0.5);
+  });
+
   it('clips the quadratic before finding the peak', () => {
     const metric = synthetic([0, 1], [0, 1], [-1, 0], [0.6, 1]);
     expect(Math.abs(metric.peakReturnedPowerW! - 0.24)).toBeLessThanOrEqual(1e-12);

@@ -191,7 +191,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
         considerReturned(power, time);
       };
       consider(c, left);
-      const vertex = -b / (2 * a);
+      const vertex = (-b / a) / 2;
       if (a < 0 && vertex > 0 && vertex < 1) consider((vl + dv * vertex) * (il + di * vertex), left + duration * vertex);
       if (plan.args.includeReturnedPowerPeak && a > 0 && vertex > 0 && vertex < 1) considerReturned((vl + dv * vertex) * (il + di * vertex), left + duration * vertex);
       consider(vr * ir, right);
