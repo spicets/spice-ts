@@ -1,10 +1,10 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'delay', 'duty'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'delay', 'duty', 'percentile'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
-  from?: number; to?: number; at?: number; value?: number;
+  from?: number; to?: number; at?: number; value?: number; percentile?: number;
   edge?: 'rising' | 'falling' | 'either'; occurrence?: number;
   trigger?: Crossing; target?: Crossing;
 };
@@ -27,10 +27,15 @@ export const measurementListSchema = {
     }, {
       if: { properties: { kind: { const: 'duty' } } },
       then: { required: ['value'], not: { anyOf: ['at', 'edge', 'occurrence', 'trigger', 'target'].map(key => ({ required: [key] })) } },
+    }, {
+      if: { properties: { kind: { const: 'percentile' } } },
+      then: { required: ['percentile'] },
+      else: { not: { required: ['percentile'] } },
     }],
     properties: {
       kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
       analysis: { type: 'integer', minimum: 0 },
+      percentile: { type: 'number', minimum: 0, maximum: 100, description: 'Time-weighted transient percentile over a positive-duration window.' },
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
       edge: { enum: ['rising', 'falling', 'either'] },
@@ -63,7 +68,8 @@ function valid(value: unknown): value is Measurement {
       const n = (m as unknown as Record<string, unknown>)[key];
       return n === undefined || (typeof n === 'number' && Number.isFinite(n));
     })
-    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'occurrence', 'trigger', 'target'].includes(key))
+    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'percentile', 'edge', 'occurrence', 'trigger', 'target'].includes(key))
+    && (m.kind === 'percentile' ? typeof m.percentile === 'number' && Number.isFinite(m.percentile) && m.percentile >= 0 && m.percentile <= 100 : m.percentile === undefined)
     && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
     && (m.kind !== 'duty' || (m.value !== undefined && m.at === undefined && m.edge === undefined))
     && (m.occurrence === undefined || (['cross', 'when'].includes(m.kind) && Number.isSafeInteger(m.occurrence) && m.occurrence > 0))
@@ -148,6 +154,42 @@ function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]
   };
 }
 
+// Each nonconstant linear segment contributes uniform time density over its
+// value interval; a constant segment contributes a point mass. Sort the two
+// endpoint events per segment, then sweep the piecewise-linear CDF and invert
+// its first interval or jump reaching the target. O(n log n) time, O(n) space.
+function timePercentile(points: number[], samples: number[], percentile: number): number {
+  const events: { level: number; slope: number; mass: number }[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const duration = points[i] - points[i - 1];
+    if (!Number.isFinite(duration)) return NaN;
+    const low = Math.min(samples[i - 1], samples[i]);
+    const high = Math.max(samples[i - 1], samples[i]);
+    if (low === high) events.push({ level: low, slope: 0, mass: duration });
+    else {
+      const slope = duration / (high - low);
+      if (!Number.isFinite(slope) || slope === 0) return NaN;
+      events.push({ level: low, slope, mass: 0 }, { level: high, slope: -slope, mass: 0 });
+    }
+  }
+  events.sort((a, b) => a.level - b.level);
+  if (percentile === 0) return events[0].level;
+  if (percentile === 100) return events[events.length - 1].level;
+  const target = (points[points.length - 1] - points[0]) * (percentile / 100);
+  if (!Number.isFinite(target)) return NaN;
+  let cumulative = 0; let slope = 0; let previous = events[0].level;
+  for (const event of events) {
+    const next = cumulative + (event.level === previous ? 0 : slope * (event.level - previous));
+    if (!Number.isFinite(next)) return NaN;
+    if (slope > 0 && next >= target) return previous + (target - cumulative) / slope;
+    cumulative = next + event.mass;
+    if (cumulative >= target) return event.level;
+    slope += event.slope;
+    previous = event.level;
+  }
+  return events[events.length - 1].level;
+}
+
 /** Scalar-only reduction of a bounded simulation. Each measurement fails independently. */
 export function measureResult(result: SimulationResultV1, measurements: unknown[]): { measurements: MeasurementResult[] } {
   return { measurements: measurements.map(raw => {
@@ -189,7 +231,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if ((m.kind === 'integ' || m.kind === 'duty') && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if ((m.kind === 'integ' || m.kind === 'duty' || m.kind === 'percentile') && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
@@ -234,7 +276,10 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     const samples = points.map(interpolate);
     let value: number;
     let unit = data.unit;
-    if (m.kind === 'duty') {
+    if (m.kind === 'percentile') {
+      if (hi === lo) return error('OUT_OF_RANGE', 'Percentile requires a nonzero window');
+      value = timePercentile(points, samples, m.percentile!);
+    } else if (m.kind === 'duty') {
       if (hi === lo) return error('OUT_OF_RANGE', 'Duty requires a nonzero window');
       let duration = 0;
       for (let i = 1; i < points.length; i++) {
