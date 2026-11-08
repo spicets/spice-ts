@@ -259,12 +259,14 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     if (!Number.isFinite(gainDb) || !Number.isFinite(phaseDeg)) return undefinedSpot('UNDEFINED_VALUE');
     return { frequencyHz, gainDb, phaseDeg, reasons: {} };
   });
-  // Preserve legacy metrics and ordinary rounding, but recover requested crossings
-  // when division overflowed or underflowed for otherwise finite phasors.
-  const crossingDb = args.gainCrossingsDb && db.map((gain, i) =>
-    !Number.isFinite(gain) && out[i].magnitude > 0
+  // Preserve legacy metrics and ordinary rounding; division can overflow,
+  // underflow, or lose significant precision for subnormal ratios.
+  const crossingDb = args.gainCrossingsDb && db.map((gain, i) => {
+    const ratio = out[i].magnitude / (input?.[i].magnitude ?? 1);
+    return out[i].magnitude > 0 && (!Number.isFinite(ratio) || ratio < 2 ** -1022)
       ? 20 * (Math.log10(out[i].magnitude) - Math.log10(input?.[i].magnitude ?? 1))
-      : gain);
+      : gain;
+  });
   const gainCrossings = args.gainCrossingsDb?.map(targetDb => {
     const c = crossing(crossingDb!, targetDb);
     if (!c) return { targetDb, frequencyHz: null };

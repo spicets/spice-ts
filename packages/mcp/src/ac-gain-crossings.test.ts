@@ -38,6 +38,23 @@ describe('requested AC gain crossings', () => {
     expect(Math.abs(gainCrossings![0].frequencyHz! / 10 ** (1 + 2 / 3) - 1)).toBeLessThan(1e-12);
   });
 
+  it('accurately locates crossings when finite transfer ratios are subnormal', () => {
+    const trace: SimulationResultV1 = { status: 'complete', analyses: [{
+      type: 'ac', analysisIndex: 0, frequencyHz: [10, 100], currentPhasors: {},
+      voltagePhasors: {
+        out: [1e-300, 3e-304].map(magnitude => ({ magnitude, phaseDegrees: 0 })),
+        in: [1e20, 1e20].map(magnitude => ({ magnitude, phaseDegrees: 0 })),
+      },
+    }] };
+    const args = { output: 'out', input: 'in' };
+    const { gainCrossings, ...legacy } = acMetrics(trace, { ...args, gainCrossingsDb: [-6460] });
+    expect(legacy).toEqual(acMetrics(trace, args));
+    // Analytic endpoint gains are -6400 and 20*log10(3)-6480 dB.
+    const expectedHz = 10 ** (1 + 60 / (80 - 20 * Math.log10(3)));
+    expect(gainCrossings![0].frequencyHz).not.toBeNull();
+    expect(Math.abs(gainCrossings![0].frequencyHz! / expectedHz - 1)).toBeLessThan(1e-12);
+  });
+
   it('interpolates a finite crossing across a very wide frequency range', () => {
     const result = sweep([0, -20]);
     const trace = result.analyses[0];
