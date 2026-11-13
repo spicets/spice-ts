@@ -5,6 +5,7 @@ export interface PowerMetricsArgs {
   netlist: string;
   elements?: string[];
   window?: [number, number];
+  windows?: [number, number][];
   input?: string[];
   output?: string[];
   includeCurrentCrestFactor?: boolean;
@@ -18,6 +19,7 @@ export interface PowerReport {
   window: [number, number];
   elements: { name: string; averagePowerW: number; energyJ: number; absorbedEnergyJ?: number; returnedEnergyJ?: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number; peakReturnedPowerW?: number; peakReturnedPowerTimeS?: number | null; peakAbsCurrentA?: number; currentCrestFactor?: number | null; rmsVoltageV?: number; apparentPowerVA?: number; powerFactor?: number | null; powerFactorReason?: 'zero_apparent_power' }[];
   efficiency: number | null;
+  windowResults?: PowerReport[];
 }
 export const powerMetricsProperties = {
   netlist: { type: 'string', minLength: 1 },
@@ -25,12 +27,13 @@ export const powerMetricsProperties = {
   input: { type: 'array', minItems: 1, maxItems: 128, uniqueItems: true, items: { type: 'string', minLength: 1 } },
   output: { type: 'array', minItems: 1, maxItems: 128, uniqueItems: true, items: { type: 'string', minLength: 1 } },
   window: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: 0 } },
+  windows: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: 0 } } },
   includeCurrentCrestFactor: { type: 'boolean' },
   includePowerFactor: { type: 'boolean' },
   includeEnergyFlow: { type: 'boolean' },
   includeReturnedPowerPeak: { type: 'boolean' },
 };
-export const powerMetricsOutputSchema = {
+const singlePowerReportSchema = {
   type: 'object', required: ['window', 'elements', 'efficiency'], additionalProperties: false,
   properties: {
     window: powerMetricsProperties.window,
@@ -40,6 +43,10 @@ export const powerMetricsOutputSchema = {
       properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'absorbedEnergyJ', 'returnedEnergyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS', 'peakReturnedPowerW', 'peakAbsCurrentA', 'rmsVoltageV', 'apparentPowerVA'].map(k => [k, { type: 'number' }])), peakReturnedPowerTimeS: { type: ['number', 'null'] }, currentCrestFactor: { type: ['number', 'null'] }, powerFactor: { type: ['number', 'null'] }, powerFactorReason: { enum: ['zero_apparent_power'] } },
     } },
   },
+};
+export const powerMetricsOutputSchema = {
+  ...singlePowerReportSchema,
+  properties: { ...singlePowerReportSchema.properties, windowResults: { type: 'array', minItems: 1, maxItems: 16, items: singlePowerReportSchema } },
 };
 export const powerMetricsErrorSchema = {
   type: 'object', required: ['error'], additionalProperties: false,
@@ -70,6 +77,9 @@ export function powerMetricsArgs(raw: unknown): PowerMetricsArgs {
   if (a.window !== undefined && (!Array.isArray(a.window) || a.window.length !== 2
     || a.window.some(t => typeof t !== 'number' || !Number.isFinite(t) || t < 0)
     || a.window[0] >= a.window[1])) invalid('Expected window [tStart,tStop] with 0 <= tStart < tStop');
+  if (a.windows !== undefined && (!Array.isArray(a.windows) || a.windows.length < 1 || a.windows.length > 16
+    || a.windows.some(w => !Array.isArray(w) || w.length !== 2
+      || w.some(t => typeof t !== 'number' || !Number.isFinite(t) || t < 0) || w[0] >= w[1]))) invalid('Expected 1 to 16 windows [tStart,tStop] with 0 <= tStart < tStop');
   return a as unknown as PowerMetricsArgs;
 }
 
@@ -212,5 +222,9 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
   const efficiency = plan.args.output && pin > 0 ? sum(plan.args.output) / pin : null;
   const report: PowerReport = { window: [start, stop], elements, efficiency };
   if (elements.some(e => Object.values(e).some(v => typeof v === 'number' && !Number.isFinite(v))) || (efficiency !== null && !Number.isFinite(efficiency))) invalid('Non-finite power metrics');
+  if (plan.args.windows) {
+    const { windows, ...args } = plan.args;
+    report.windowResults = windows.map(window => powerMetrics(result, { ...plan, args: { ...args, window } }));
+  }
   return report;
 }
