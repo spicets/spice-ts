@@ -64,6 +64,16 @@ describe('requested AC gain crossings', () => {
     expect(Math.abs(hz - 1)).toBeLessThan(1e-12);
   });
 
+  it('returns the exact descending endpoint next to zero gain without interpolating through it', () => {
+    const target = 20 * Math.log10(2);
+    const trace: SimulationResultV1 = { status: 'complete', analyses: [{
+      type: 'ac', analysisIndex: 0, frequencyHz: [10, 100], currentPhasors: {},
+      voltagePhasors: { out: [2, 0].map(magnitude => ({ magnitude, phaseDegrees: 0 })) },
+    }] };
+    const result = acMetrics(trace, { output: 'out', gainCrossingsDb: [target, 0] });
+    expect(result.gainCrossings!.map(c => c.frequencyHz)).toEqual([10, null]);
+  });
+
   it('keeps order and duplicates, finds first descent, counts endpoints and rejects plateaus', () => {
     const m = acMetrics(sweep([0, -20, 0, -20, -20]), { output: 'out', gainCrossingsDb: [-10, 0, -20, -10, 5, -40] });
     expect(m.gainCrossings!.map(c => c.targetDb)).toEqual([-10, 0, -20, -10, 5, -40]);

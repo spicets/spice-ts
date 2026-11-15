@@ -172,8 +172,13 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     phase.push(angle);
   }
   type Crossing = { hz: number; index: number; fraction: number };
-  const crossing = (values: number[], target: number): Crossing | undefined => {
+  const crossing = (values: number[], target: number, allowZeroGainEndpoint = false): Crossing | undefined => {
     for (let i = 1; i < f.length; i++) {
+      // A finite left endpoint followed by zero gain is an exact descent,
+      // but intermediate dB levels cannot be interpolated through -Infinity.
+      if (allowZeroGainEndpoint && values[i - 1] === target && values[i] === -Infinity) {
+        return { hz: f[i - 1], index: i, fraction: 0 };
+      }
       if (!Number.isFinite(values[i - 1]) || !Number.isFinite(values[i])) continue;
       if (values[i - 1] >= target && values[i] <= target && values[i - 1] > values[i]) {
         const fraction = (target - values[i - 1]) / (values[i] - values[i - 1]);
@@ -268,7 +273,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
       : gain;
   });
   const gainCrossings = args.gainCrossingsDb?.map(targetDb => {
-    const c = crossing(crossingDb!, targetDb);
+    const c = crossing(crossingDb!, targetDb, true);
     if (!c) return { targetDb, frequencyHz: null };
     // The frequency ratio can overflow even when both endpoints are finite.
     const hz = Number.isFinite(c.hz) ? c.hz : Math.exp((1 - c.fraction) * Math.log(f[c.index - 1]) + c.fraction * Math.log(f[c.index]));
