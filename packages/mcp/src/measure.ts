@@ -159,17 +159,17 @@ function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]
 // endpoint events per segment, then sweep the piecewise-linear CDF and invert
 // its first interval or jump reaching the target. O(n log n) time, O(n) space.
 function timePercentile(points: number[], samples: number[], percentile: number): number {
-  const events: { level: number; slope: number; mass: number }[] = [];
+  const events: { level: number; slope: number; mass: number; segment: number }[] = [];
   for (let i = 1; i < points.length; i++) {
     const duration = points[i] - points[i - 1];
     if (!Number.isFinite(duration)) return NaN;
     const low = Math.min(samples[i - 1], samples[i]);
     const high = Math.max(samples[i - 1], samples[i]);
-    if (low === high) events.push({ level: low, slope: 0, mass: duration });
+    if (low === high) events.push({ level: low, slope: 0, mass: duration, segment: i });
     else {
       const slope = duration / (high - low);
       if (!Number.isFinite(slope) || slope === 0) return NaN;
-      events.push({ level: low, slope, mass: 0 }, { level: high, slope: -slope, mass: 0 });
+      events.push({ level: low, slope, mass: 0, segment: i }, { level: high, slope: 0, mass: 0, segment: i });
     }
   }
   events.sort((a, b) => a.level - b.level);
@@ -177,6 +177,10 @@ function timePercentile(points: number[], samples: number[], percentile: number)
   if (percentile === 100) return events[events.length - 1].level;
   const target = (points[points.length - 1] - points[0]) * (percentile / 100);
   if (!Number.isFinite(target)) return NaN;
+  // Recompute each ancestor from nonnegative children: removing a large
+  // density then reveals smaller active densities instead of cancelling them.
+  const size = points.length;
+  const densities = new Float64Array(2 * size);
   let cumulative = 0; let slope = 0; let previous = events[0].level;
   for (const event of events) {
     const next = cumulative + (event.level === previous ? 0 : slope * (event.level - previous));
@@ -184,7 +188,15 @@ function timePercentile(points: number[], samples: number[], percentile: number)
     if (slope > 0 && next >= target) return previous + (target - cumulative) / slope;
     cumulative = next + event.mass;
     if (cumulative >= target) return event.level;
-    slope += event.slope;
+    if (event.mass === 0) {
+      let index = size + event.segment;
+      densities[index] = event.slope;
+      while (index > 1) {
+        index = Math.floor(index / 2);
+        densities[index] = densities[2 * index] + densities[2 * index + 1];
+      }
+      slope = densities[1];
+    }
     previous = event.level;
   }
   return events[events.length - 1].level;

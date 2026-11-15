@@ -25,6 +25,13 @@ describe('time-weighted percentile', () => {
     expect(measureResult(flat, [0, 50, 100].map(percentile => ({ ...item, percentile }))).measurements).toEqual(Array(3).fill({ value: -3, unit: 'V' }));
   });
 
+  it('preserves a small active density when larger ramp densities end', () => {
+    const trace = { ...ramp, analyses: [{ ...ramp.analyses[0], timeS: [0, 1, 2, 3], voltagesV: { out: [0, 1e-16, 0, 1] } }] };
+    const result = measureResult(trace, [{ ...item, percentile: 90 }]).measurements[0];
+    expect(result).toMatchObject({ unit: 'V' });
+    expect('value' in result && result.value).toBeCloseTo(0.7, 14);
+  });
+
   it('selects steps, differential voltage and branch current', () => {
     const a = ramp.analyses[0];
     const stepped = { ...ramp, analyses: [0, 1].map(index => ({ ...a, step: { index, parameter: 'r', value: index }, voltagesV: { out: [0, 1, 9, 10], ref: [0, 0.5, 4.5, 5] }, currentsA: { v1: [0, -1, -9, -10] } })) };
