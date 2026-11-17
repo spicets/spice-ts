@@ -21,6 +21,53 @@ async function run(source: string) {
 }
 
 describe('spice_tran_metrics', () => {
+  it('reports sampled slope extrema on nonuniform rising and falling steps', () => {
+    const times = [0, 1, 3, 4, 10];
+    const rising = tranMetrics(samples([0, 1, 5, 6, 6], times), { signal: 'v(out)' });
+    const falling = tranMetrics(samples([6, 5, 1, 0, 0], times), { signal: 'v(out)' });
+    expect(rising).toMatchObject({ maxRiseSlewPerS: 2, maxFallSlewPerS: 0, slewUnit: 'V/s' });
+    expect(falling).toMatchObject({ maxRiseSlewPerS: 0, maxFallSlewPerS: -2, slewUnit: 'V/s' });
+  });
+  it('reports both signs for bipolar overshoot, including current and time offsets', () => {
+    const y = [-2, -3, 1, 3, 2, 2, 2];
+    const times = [0, 1, 2, 3, 4, 5, 10];
+    for (const offset of [0, 100]) {
+      const result = samples(y, times.map(t => t + offset));
+      expect(tranMetrics(result, { signal: 'v(out)' })).toMatchObject({
+        maxRiseSlewPerS: 4, maxFallSlewPerS: -1, slewUnit: 'V/s',
+      });
+      expect(tranMetrics(result, { signal: 'i(v1)' })).toMatchObject({
+        maxRiseSlewPerS: 1, maxFallSlewPerS: -4, slewUnit: 'A/s',
+      });
+    }
+  });
+
+  it('rejects overflowing slew arithmetic without returning nonfinite metrics', () => {
+    const result = samples([0, 1, 1, 1], [0, Number.MIN_VALUE, 1, 10]);
+    expect(tranMetrics(result, { signal: 'v(out)' })).toMatchObject({ error: { code: 'INVALID_DATA' } });
+  });
+
+  it('matches an independent adjacent-sample RC reference from core', async () => {
+    const simulation = await executeTool('spice_simulate', { request: request(rc) });
+    expect(simulation.isError).not.toBe(true);
+    const result = simulation.structuredContent as unknown as SimulationResultV1;
+    const analysis = result.analyses.find(a => a.type === 'tran')!;
+    if (analysis.type !== 'tran') throw new Error('Expected transient');
+    const slopes = analysis.timeS.slice(1).map((time, i) =>
+      (analysis.voltagesV.out[i + 1] - analysis.voltagesV.out[i]) / (time - analysis.timeS[i]));
+    const expectedRise = Math.max(0, ...slopes);
+    const expectedFall = Math.min(0, ...slopes);
+    const metrics = tranMetrics(result, { signal: 'v(out)' }) as TranMetrics;
+    const riseError = Math.abs(metrics.maxRiseSlewPerS - expectedRise);
+    const fallError = Math.abs(metrics.maxFallSlewPerS - expectedFall);
+    expect(riseError).toBeLessThanOrEqual(1e-12 * Math.max(1, Math.abs(expectedRise)));
+    expect(fallError).toBeLessThanOrEqual(1e-12 * Math.max(1, Math.abs(expectedFall)));
+    const publicMetrics = await run(rc);
+    expect(publicMetrics).toMatchObject({ maxRiseSlewPerS: expectedRise, maxFallSlewPerS: expectedFall, slewUnit: 'V/s' });
+    const { slewUnit: _slewUnit, ...missingUnit } = publicMetrics;
+    expect(validator.getValidator(schema())(missingUnit).valid).toBe(false);
+  });
+
   it('matches analytic RC rise time within 1%', async () => {
     const m = await run(rc);
     expect(Math.abs(m.riseTimeS! / (Math.log(9) * 0.001) - 1)).toBeLessThan(0.01);
@@ -73,6 +120,8 @@ describe('spice_tran_metrics', () => {
 
   it('rejects malformed vectors, ambiguous selections and invalid selectors', async () => {
     expect(tranMetrics(samples([0, 1, 1], [0, 0, 1]), { signal: 'v(out)' })).toMatchObject({ error: { code: 'INVALID_DATA' } });
+    expect(tranMetrics(samples([0, 1, 1], [0, 2, 1]), { signal: 'v(out)' })).toMatchObject({ error: { code: 'INVALID_DATA' } });
+    expect(tranMetrics(samples([0, Infinity, 1]), { signal: 'v(out)' })).toMatchObject({ error: { code: 'INVALID_DATA' } });
     expect(tranMetrics(samples([0, NaN, 1]), { signal: 'v(out)' })).toMatchObject({ error: { code: 'INVALID_DATA' } });
     const result = samples([0, 1, 1]);
     result.analyses.push({ ...result.analyses[0] });

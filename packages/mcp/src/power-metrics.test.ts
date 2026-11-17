@@ -5,7 +5,7 @@ import { powerMetrics, powerPlan } from './power-metrics.js';
 
 const dc = 'V1 in 0 10\nR1 in 0 1k\n.tran 0.00001 0.001\n.end';
 interface Report {
-  elements: { name: string; averagePowerW: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number }[];
+  elements: { name: string; averagePowerW: number; energyJ: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number }[];
   efficiency: number | null;
   window: [number, number];
 }
@@ -48,6 +48,20 @@ describe('spice_power_metrics', () => {
     const response = await executeTool('spice_power_metrics', { request: request(input), ...selectors });
     expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
     expect(response.structuredContent).toEqual(expected);
+    const report = response.structuredContent as unknown as Report;
+    const source = report.elements.find(element => element.name === 'V1')!;
+    const load = report.elements.find(element => element.name === 'R1')!;
+    expect(load.energyJ).toBeCloseTo(0.1 * (0.000789 - 0.000123), 12);
+    expect(source.energyJ).toBeCloseTo(-load.energyJ, 12);
+    for (const element of report.elements) {
+      expect(Number.isFinite(element.energyJ)).toBe(true);
+      expect(element.energyJ).toBeCloseTo(element.averagePowerW * (report.window[1] - report.window[0]), 12);
+    }
+    const schema = MCP_TOOLS.find(t => t.name === 'spice_power_metrics')!.outputSchema!;
+    const validate = new AjvJsonSchemaValidator().getValidator(schema);
+    expect(validate(report).valid).toBe(true);
+    const { energyJ: _energyJ, ...withoutEnergy } = load;
+    expect(validate({ ...report, elements: [withoutEnergy] }).valid).toBe(false);
   });
 
   it('advertises exactly one legacy or protocol input in the tool listing', () => {
@@ -115,6 +129,7 @@ describe('spice_power_metrics', () => {
   it('reports 0.1 W absorption and negative source delivery from a DC transient', async () => {
     const result = await run(dc);
     const load = result.elements.find(e => e.name === 'R1')!;
+    expect(load).toMatchObject({ energyJ: expect.closeTo(0.0001, 12) });
     expect(Math.abs(load.averagePowerW / 0.1 - 1)).toBeLessThan(1e-9);
     expect(load.rmsCurrentA).toBeCloseTo(0.01, 12);
     expect(load.peakPowerW).toBeCloseTo(0.1, 12);
@@ -161,16 +176,77 @@ describe('spice_power_metrics', () => {
     });
   });
 
-  it('clips nonuniform segments and trapezoidally integrates power and squared current', () => {
+  it('integrates quadratic power and current squared for a linear ramp', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const report = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: [0, 1],
+      voltagesV: { in: [0, 1] }, currentsA: { V1: [0, 1] },
+    }] }, plan);
+    const metric = report.elements[0];
+    expect(Math.abs(metric.averagePowerW - 1 / 3)).toBeLessThanOrEqual(1e-12);
+    expect(Math.abs(metric.rmsCurrentA - Math.sqrt(1 / 3))).toBeLessThanOrEqual(1e-12);
+    expect(metric).toMatchObject({ peakPowerW: 1, peakTimeS: 1 });
+  });
+
+  it('finds the interior peak of opposing linear ramps', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const report = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: [0, 1],
+      voltagesV: { in: [0, 1] }, currentsA: { V1: [1, 0] },
+    }] }, plan);
+    const metric = report.elements[0];
+    expect(Math.abs(metric.averagePowerW - 1 / 6)).toBeLessThanOrEqual(1e-12);
+    expect(metric).toMatchObject({ peakPowerW: 0.25, peakTimeS: 0.5 });
+  });
+
+  it('finds the interior peak after clipping opposing ramps', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'], window: [0.25, 0.75] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const times = [0, 0.125, 0.625, 1];
+    const metric = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: times,
+      voltagesV: { in: times }, currentsA: { V1: times.map(t => 1 - t) },
+    }] }, plan).elements[0];
+    expect(Math.abs(metric.averagePowerW - 11 / 48)).toBeLessThanOrEqual(1e-12);
+    expect(Math.abs(metric.peakPowerW - 0.25)).toBeLessThanOrEqual(1e-12);
+    expect(Math.abs(metric.peakTimeS - 0.5)).toBeLessThanOrEqual(1e-12);
+  });
+
+  it('clips nonuniform signed ramp waveforms before forming products', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'], window: [0.25, 0.75] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const times = [0, 0.125, 0.625, 1];
+    const metric = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: times,
+      voltagesV: { in: times }, currentsA: { V1: times.map(t => -t) },
+    }] }, plan).elements[0];
+    expect(Math.abs(metric.averagePowerW + 13 / 48)).toBeLessThanOrEqual(1e-12);
+    expect(Math.abs(metric.rmsCurrentA - Math.sqrt(13 / 48))).toBeLessThanOrEqual(1e-12);
+    expect(metric).toMatchObject({ peakPowerW: -1 / 16, peakTimeS: 0.25 });
+  });
+
+  it('retains the earliest peak when multiple segments tie', () => {
+    const plan = powerPlan({ netlist: dc, elements: ['V1'] });
+    if ('error' in plan) throw new Error('Expected a plan');
+    const metric = powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: [0, 1, 2, 3, 4],
+      voltagesV: { in: [0, 1, 0, 1, 0] }, currentsA: { V1: [1, 1, 1, 1, 1] },
+    }] }, plan).elements[0];
+    expect(metric).toMatchObject({ peakPowerW: 1, peakTimeS: 1 });
+  });
+
+  it('clips nonuniform segments and integrates the original waveforms', () => {
     const plan = powerPlan({ netlist: dc, elements: ['V1'], window: [0.5, 2] });
     if ('error' in plan) throw new Error('Expected a plan');
     const report = powerMetrics({ status: 'complete', analyses: [{
       type: 'tran', analysisIndex: 0, timeS: [0, 1, 3],
       voltagesV: { in: [2, 2, 2] }, currentsA: { V1: [0, 1, 3] },
     }] }, plan);
-    // p(t)=2t; i^2 is interpolated between accepted samples, not re-squared at clipped edges.
+    // p(t)=2t and i(t)^2=t^2 on the clipped interval.
     expect(report.elements[0].averagePowerW).toBeCloseTo(2.5, 12);
-    expect(report.elements[0].rmsCurrentA).toBeCloseTo(Math.sqrt(2.25), 12);
+    expect(report.elements[0].rmsCurrentA).toBeCloseTo(Math.sqrt(1.75), 12);
     expect(report.elements[0]).toMatchObject({ peakPowerW: 4, peakTimeS: 2 });
   });
 

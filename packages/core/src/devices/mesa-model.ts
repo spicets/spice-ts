@@ -1,4 +1,5 @@
 import type { ModelParams } from '../types.js';
+import { InvalidCircuitError, UnsupportedModelParameterError } from '../errors.js';
 
 /**
  * ngspice MESA (Z-card, `NMF`) MESFET, LEVEL=2 (`mesa1()`) and LEVEL=3
@@ -7,13 +8,17 @@ import type { ModelParams } from '../types.js';
  * Mirrors ngspice-47 `mesasetup.c` defaults, `mesatemp.c` per-instance
  * temperature mapping (instance TS/TD) and `mesa1()`/`mesa2()`/`MESAload()`
  * in `mesaload.c`, plus the frequency-dispersive output conductance of
- * `MESAacLoad()` (DELFO/FLO/TF/LAMBDAHF). The circuit runs at TEMP = TNOM =
- * 27 C; TS/TD set the source/drain side temperature of one instance.
+ * `MESAacLoad()` (DELFO/FLO/TF/LAMBDAHF). Circuit TEMP and TNOM feed the
+ * preprocessing; TS/TD override circuit TEMP + DTEMP independently.
  *
  * Still rejected rather than ignored: LEVEL=4 (`mesa3()`), sidegating
  * (KS/VSG) and the instance multiplier M.
  */
 export interface MESAInstanceParams {
+  /** Original Celsius side overrides, retained for circuit temperature updates. */
+  sourceTemperature?: number;
+  drainTemperature?: number;
+  deltaTemperature?: number;
   L: number;
   W: number;
   /** Source-side temperature in kelvin (ngspice MESAts). */
@@ -23,6 +28,9 @@ export interface MESAInstanceParams {
 }
 
 export interface MESAModel {
+  /** CKTnomTemp, in kelvin. MESA has no model-card TNOM parameter. */
+  nominalTemperature?: number;
+  defaultTF?: boolean;
   LEVEL: 2 | 3;
   VTO: number;
   LAMBDA: number;
@@ -166,18 +174,19 @@ const BOLTZMANN = 1.38064852e-23;
 const K_OVER_Q = BOLTZMANN / CHARGE;
 const CELSIUS_TO_KELVIN = 273.15;
 const EPSILON_GAAS = 12.244 * 8.85418e-12;
-/** CKTtemp = CKTnomTemp: the circuit always runs at 27 C with a MESA device. */
+/** Default CKTtemp and CKTnomTemp in kelvin. */
 export const MESA_NOMINAL_TEMPERATURE = 300.15;
 /** ngspice CKTgmin default, added to both gate junctions by MESAload. */
 export const MESA_JUNCTION_GMIN = 1e-12;
 
-export function resolveMESAModel(model: ModelParams): MESAModel {
+export function resolveMESAModel(model: ModelParams, temperature = 27, nominalTemperature = 27): MESAModel {
   if (model.type !== 'NMF') throw new Error(`Unsupported MESA model type: '${model.type}'`);
   const level = model.params.LEVEL ?? 2;
   if (level !== 2 && level !== 3) throw new Error(`Unsupported NMF model level: ${level}`);
   for (const name of Object.keys(model.params)) {
     if (!MODEL_PARAMETERS.has(name)) {
-      throw new Error(`Unsupported NMF level-${level} model parameter: '${name}'`);
+      throw new UnsupportedModelParameterError('', name,
+        `Unsupported NMF level-${level} model parameter: '${name}'`, { model: 'MESA', modelName: model.name });
     }
   }
   for (const [name, alias] of ALIASES) {
@@ -188,6 +197,8 @@ export function resolveMESAModel(model: ModelParams): MESAModel {
   const p = model.params;
   const lambda = p.LAMBDA ?? 0.045;
   const resolved: MESAModel = {
+    nominalTemperature: nominalTemperature + CELSIUS_TO_KELVIN,
+    defaultTF: p.TF === undefined,
     LEVEL: level,
     VTO: p.VTO ?? p.VT0 ?? -1.26,
     LAMBDA: lambda,
@@ -228,15 +239,17 @@ export function resolveMESAModel(model: ModelParams): MESAModel {
     DELTA: p.DELTA ?? 5,
     TC: p.TC ?? 0,
     TVTO: p.TVTO ?? p.ALPHAT ?? 0,
-    TLAMBDA: p.TLAMBDA ?? Number.MAX_VALUE,
-    TETA0: p.TETA0 ?? Number.MAX_VALUE,
-    TETA1: p.TETA1 ?? 0,
-    TMU: p.TMU ?? 300.15,
+    // mesamparam.c converts explicitly supplied characteristic temperatures,
+    // including TETA1, from Celsius. mesasetup.c defaults are already kelvin.
+    TLAMBDA: p.TLAMBDA === undefined ? Number.MAX_VALUE : p.TLAMBDA + CELSIUS_TO_KELVIN,
+    TETA0: p.TETA0 === undefined ? Number.MAX_VALUE : p.TETA0 + CELSIUS_TO_KELVIN,
+    TETA1: p.TETA1 === undefined ? 0 : p.TETA1 + CELSIUS_TO_KELVIN,
+    TMU: p.TMU === undefined ? 300.15 : p.TMU + CELSIUS_TO_KELVIN,
     XTM0: p.XTM0 ?? 0,
     XTM1: p.XTM1 ?? 0,
     XTM2: p.XTM2 ?? 0,
     // ngspice mesasetup.c: TF defaults to CKTtemp.
-    TF: p.TF ?? MESA_NOMINAL_TEMPERATURE,
+    TF: (p.TF ?? temperature) + CELSIUS_TO_KELVIN,
     FLO: p.FLO ?? 0,
     DELFO: p.DELFO ?? 0,
     AG: p.AG ?? 0,
@@ -257,15 +270,18 @@ export function resolveMESAModel(model: ModelParams): MESAModel {
   return resolved;
 }
 
-export function resolveMESAInstance(params: Record<string, number> = {}): MESAInstanceParams {
+export function resolveMESAInstance(params: Record<string, number> = {}, temperature = 27): MESAInstanceParams {
   for (const name of Object.keys(params)) {
     if (!INSTANCE_PARAMETERS.has(name)) {
-      throw new Error(`Unsupported NMF MESA instance parameter: '${name}'`);
+      throw new InvalidCircuitError(`Unsupported NMF MESA instance parameter: '${name}'`);
     }
   }
   // ngspice mesaparam.c: TS/TD are given in Celsius; unset they are CKTtemp + DTEMP.
-  const local = MESA_NOMINAL_TEMPERATURE + (params.DTEMP ?? 0);
+  const local = temperature + CELSIUS_TO_KELVIN + (params.DTEMP ?? 0);
   const instance = {
+    ...(params.TS === undefined ? {} : { sourceTemperature: params.TS }),
+    ...(params.TD === undefined ? {} : { drainTemperature: params.TD }),
+    ...(params.DTEMP === undefined ? {} : { deltaTemperature: params.DTEMP }),
     L: params.L ?? 1e-6,
     W: params.W ?? 20e-6,
     TS: params.TS === undefined ? local : params.TS + CELSIUS_TO_KELVIN,
@@ -274,8 +290,8 @@ export function resolveMESAInstance(params: Record<string, number> = {}): MESAIn
   if (!(instance.L > 0) || !(instance.W > 0)) {
     throw new Error('NMF MESA instance L and W must be positive');
   }
-  if (!(instance.TS > 0) || !(instance.TD > 0)) {
-    throw new Error('NMF MESA instance temperatures must be above 0 K');
+  if (![instance.TS, instance.TD].every(value => Number.isFinite(value) && value > 0)) {
+    throw new InvalidCircuitError('NMF MESA instance temperatures must be above 0 K and finite');
   }
   return instance;
 }
@@ -287,7 +303,7 @@ export function resolveMESAInstance(params: Record<string, number> = {}): MESAIn
 export function mesaSeriesResistances(model: MESAModel, instance: MESAInstanceParams) {
   const scale = (value: number, temperature: number): number => {
     if (value === 0) return 0;
-    const dt = temperature - MESA_NOMINAL_TEMPERATURE;
+    const dt = temperature - (model.nominalTemperature ?? MESA_NOMINAL_TEMPERATURE);
     return value * (1 + model.TC1 * dt + model.TC2 * dt * dt);
   };
   return {
@@ -301,7 +317,7 @@ export function mesaSeriesResistances(model: MESAModel, instance: MESAInstancePa
 
 /** ngspice `MESAtemp` for one instance. */
 export function mesaInstanceState(model: MESAModel, instance: MESAInstanceParams): MESAInstanceState {
-  const nominal = MESA_NOMINAL_TEMPERATURE;
+  const nominal = model.nominalTemperature ?? MESA_NOMINAL_TEMPERATURE;
   const { L, W, TS: ts, TD: td } = instance;
   let vpo: number;
   let vpou = 0;

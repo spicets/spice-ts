@@ -169,7 +169,7 @@ export class JFET implements DeviceModel {
   ) {
     this.params = resolveNJFETParams(params);
     this.params.TNOM = params.TNOM ?? environment.nominalTemperatureC ?? 27;
-    const temperatureC = instance.TEMP ?? environment.temperatureC ?? 27;
+    const temperatureC = instance.TEMP ?? ((environment.temperatureC ?? 27) + (instance.DTEMP ?? 0));
     applyTemperature(this.params, params, temperatureC);
     this.thermalVoltage = (temperatureC + 273.15) * K_OVER_Q * this.params.N;
     const area = instance.AREA ?? 1;

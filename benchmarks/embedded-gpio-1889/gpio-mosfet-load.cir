@@ -1,0 +1,10 @@
+gpio-mosfet-load original MIT maker circuit
+Vdd supply 0 5
+Vgpio gpio 0 PULSE(0 3.3 1u 10n 10n 5u 10u)
+Rg gpio gate 100
+Rpd gate 0 100k
+Rload supply out 100
+M1 out gate 0 0 NM
+.model NM NMOS (LEVEL=1 VTO=1 KP=0.02 CGSO=50p CGDO=20p)
+.tran 100n 30u
+.end

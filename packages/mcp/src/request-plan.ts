@@ -10,6 +10,8 @@ import type { ResolvedOptionsV1, SimulationRequestV1 } from '@spice-ts/core/prot
 export interface RequestPlan {
   analyses: readonly AnalysisDirective[];
   netlistOptions: Readonly<SimulationOptions>;
+  temperature?: number;
+  nominalTemperature?: number;
 }
 
 /**
@@ -29,7 +31,7 @@ export async function requestPlan(request: SimulationRequestV1): Promise<Request
     if (source === undefined) throw new ParseError(`Virtual include '${path}' was not provided`, 0, path);
     return source;
   });
-  return { analyses: [...circuit.analyses], netlistOptions: circuit.simulationOptions };
+  return { analyses: [...circuit.analyses], netlistOptions: circuit.simulationOptions, temperature: circuit.temperature, nominalTemperature: circuit.nominalTemperature };
 }
 
 export function estimatedResultPoints(request: SimulationRequestV1, plan: RequestPlan): number {
@@ -47,6 +49,8 @@ export function resolvedOptions(request: SimulationRequestV1, plan: RequestPlan)
   const netlist = plan.netlistOptions;
   return {
     backend: 'spice-ts-js',
+    ...((requested?.temperature ?? plan.temperature) !== undefined ? { temperature: requested?.temperature ?? plan.temperature } : {}),
+    ...((requested?.nominalTemperature ?? plan.nominalTemperature) !== undefined ? { nominalTemperature: requested?.nominalTemperature ?? plan.nominalTemperature } : {}),
     abstol: requested?.abstol ?? netlist.abstol ?? 1e-12,
     vntol: requested?.vntol ?? netlist.vntol ?? 1e-6,
     reltol: requested?.reltol ?? netlist.reltol ?? 1e-3,

@@ -11,6 +11,13 @@ import { createToolExecutor, DEFAULT_MCP_LIMITS, executeTool } from './server.js
 const RC_PULSE = 'V1 a 0 PULSE(0 1 0 1n 1n 5u 10u)\nR1 a b 1k\nC1 b 0 1n';
 
 describe('MCP resolvedOptions match what core actually runs (#407)', () => {
+  it('reports effective request and netlist circuit temperatures', async () => {
+    const source = 'V1 a 0 1\nR1 a 0 1k\n.temp 40\n.options TNOM=35\n.op';
+    const first = await streamedRun(spice(source));
+    expect(first.resolvedOptions).toMatchObject({ temperature: 40, nominalTemperature: 35 });
+    const second = await streamedRun({ ...spice(source), options: { temperature: 85, nominalTemperature: 27 } });
+    expect(second.resolvedOptions).toMatchObject({ temperature: 85, nominalTemperature: 27 });
+  });
   it('reports the core-effective transient timestep cap when none is requested', async () => {
     const request = spice(`${RC_PULSE}\n.tran 1u 20u`);
     const { resolvedOptions, result } = await streamedRun(request);

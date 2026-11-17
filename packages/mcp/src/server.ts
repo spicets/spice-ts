@@ -281,7 +281,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_tf',
-    description: 'Run native small-signal .tf for v(node) or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). Optional params overrides require SPICE input. Reject conflicting analyses, steps and control blocks.',
+    description: 'Run native small-signal .tf for v(node), differential v(positive,negative), or i(vsrc) and an independent voltage/current input source. Return gain and port resistances with units. Accept exactly one legacy netlist or protocol-v1 request (spice, spice-ts or circuit-json). Optional params overrides require SPICE input. Reject conflicting analyses, steps and control blocks.',
     inputSchema: { ...requestInputSchema, required: ['output', 'input_source'],
       properties: { ...requestInputSchema.properties, ...tfInputSchema.properties },
       oneOf: [{ required: ['netlist'] }, { required: ['request'] }] },
@@ -344,7 +344,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_optimize',
-    description: 'Deterministic bounded search over one to three top-level SPICE .param values toward a scalar spice_measure objective. Golden-section search for one parameter, coordinate descent for two or three. Absolute objective tolerance, default 40 and hard maximum 100 evaluations. Returns best parameters, achieved value and ordered history; TARGET_NOT_REACHED means no convergence, not proof of global infeasibility. One shared wall-time budget.',
+    description: 'Deterministic bounded search over one to three top-level SPICE .param or R/C/L component values toward a scalar spice_measure objective. Component targets support SPICE text and native spice-ts JSON. Golden-section search for one parameter, coordinate descent for two or three. Absolute objective tolerance, default 40 and hard maximum 100 evaluations. Returns best parameters, achieved value and ordered history; TARGET_NOT_REACHED means no convergence, not proof of global infeasibility. One shared wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'parameters', 'objective', 'target'],
       properties: { ...requestInputSchema.properties, ...optimizeProperties },
@@ -361,7 +361,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_corners',
-    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Optional top-level .param overrides and/or temp in Celsius require SPICE text; JSON overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
+    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Top-level .param overrides require SPICE text. Temperature in Celsius supports SPICE text and spice-ts JSON, overriding request temperature for native JSON; circuit-json temperature and JSON parameter overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'corners', 'measurement'],
       properties: { ...requestInputSchema.properties, ...cornersProperties },
@@ -419,8 +419,8 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_disto_metrics',
-    description: 'Run exactly one unstepped .disto from SPICE text or native spice-ts JSON for output v(node). Native independent sources accept params.distortionF1 and params.distortionF2 objects with magnitude and optional phase in degrees; never infer excitation from AC. circuit-json returns UNSUPPORTED_FEATURE naming missing DISTOF1/DISTOF2 source fields. Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
-    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+\\)$' } },
+    description: 'Run exactly one unstepped .disto from SPICE text or native spice-ts JSON for output v(node) or differential v(node,node). Native independent sources accept params.distortionF1 and params.distortionF2 objects with magnitude and optional phase in degrees; never infer excitation from AC. circuit-json returns UNSUPPORTED_FEATURE naming missing DISTOF1/DISTOF2 source fields. Return HD2/HD3 or SIM2/DIM2/DIM3 complex voltages, absolute magnitude, dBV (not dBc) and phase in degrees at each swept F1 frequency. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dBV and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
+    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)$' } },
       // circuit-json recognizes .disto only to return its actionable unsupported error.
       $defs: { ...commonSchemaV1.$defs,
         // Keep the native branch disjoint from the circuit-json-only analysis override.
@@ -432,8 +432,8 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_pz_metrics',
-    description: 'Run exactly one unstepped pole-zero analysis (mode pol or pz) from SPICE text, spice-ts JSON or circuit-json. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Other analyses are not executed.',
-    inputSchema: requestInputSchema,
+    description: 'Run exactly one unstepped pole-zero analysis (mode pol or pz) from SPICE text, spice-ts JSON or circuit-json. Return finite poles/zeros, conjugate-pair natural frequency, damping and signed Q, dominant pole and strict left-half-plane stability. Root frequencyHz is magnitude/(2*pi); Q is null at zero damping. Optionally include pole decay time constants (-1/Re) in seconds; null values include a reason. Other analyses are not executed.',
+    inputSchema: { ...requestInputSchema, properties: { ...requestInputSchema.properties, includeTimeConstants: { type: 'boolean', description: 'Include pole exponential-envelope decay time constants in seconds.' } } },
     outputSchema: {
       type: 'object', oneOf: [pzMetricsOutputSchema, toolFailureOutputSchema],
       $defs: commonSchemaV1.$defs,
@@ -446,7 +446,7 @@ export const MCP_TOOLS = Object.freeze([
       ...requestInputSchema,
       required: [],
       oneOf: [{ required: ['netlist'], not: { required: ['request'] } }, { required: ['request'], not: { required: ['netlist'] } }],
-      properties: { ...requestInputSchema.properties, netlist: { type: 'string' }, ...noiseMetricsProperties },
+      properties: { ...requestInputSchema.properties, netlist: { type: 'string' }, params: paramsSchema, ...noiseMetricsProperties },
     },
     outputSchema: {
       type: 'object', oneOf: [noiseMetricsOutputSchema, toolFailureOutputSchema],
@@ -455,7 +455,7 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_measure',
-    description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; optional step selects the zero-based SimulationResultV1 step.index (required for multiple steps). Unstepped analyses accept step 0 only. Signals are v(node), i(branch), mag(v(node)), or db(v(node)). Cross/when return the first matching axis coordinate.',
+    description: 'Simulate once and return up to 128 scalar measurements. Analysis is a zero-based index; optional step selects the zero-based SimulationResultV1 step.index (required for multiple steps). Unstepped analyses accept step 0 only. Signals are v(node), v(positive,negative), i(branch), or AC projections mag(...), db(...), and phase(...) of either signal. Phase is unwrapped in frequency order and returned in degrees; zero or non-finite phasors fail. Cross/when return the first matching axis coordinate.',
     inputSchema: {
       ...requestInputSchema,
       required: ['request', 'measurements'],
@@ -760,7 +760,7 @@ async function executeToolWithStore(
       }
       throwIfCancelled(options.signal);
       const { request } = convertRequest(original);
-      const result = await runCorners(args, request, (request, measurements) => executeToolWithStore(
+      const result = await runCorners(args, request, original.input.format, (request, measurements) => executeToolWithStore(
         'spice_measure', { request, measurements },
         { ...options, limits: { ...effective, maxWallTimeMs: Math.max(1, deadline - Date.now()) } }, streamStore,
       ), result => {
@@ -837,6 +837,9 @@ async function executeToolWithStore(
     const noiseSelectors = name === 'spice_noise_metrics' ? noiseMetricsArgs(args) : undefined;
     const distoSelector = name === 'spice_disto_metrics' ? distoOutput(args) : undefined;
     const measurements = name === 'spice_measure' && isRecord(args) ? args.measurements : undefined;
+    if (name === 'spice_pz_metrics' && isRecord(args) && args.includeTimeConstants !== undefined && typeof args.includeTimeConstants !== 'boolean') {
+      throw apiError('INVALID_REQUEST', 'includeTimeConstants must be a boolean', 'validation', {});
+    }
     if (name === 'spice_measure' && (!Array.isArray(measurements) || measurements.length < 1 || measurements.length > 128)) {
       throw apiError('INVALID_REQUEST', 'Expected 1 through 128 measurements', 'validation', {});
     }
@@ -850,8 +853,8 @@ async function executeToolWithStore(
     if (name === 'spice_pz_metrics' && original.input.format !== 'spice' && !validatePoleZeroInput(original.input).valid) {
       throw apiError('INVALID_REQUEST', 'Invalid pole-zero JSON input', 'validation', {});
     }
-    if ((name === 'spice_simulate' || name === 'spice_simulation_start') && isRecord(args) && args.params !== undefined) {
-      enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
+    if ((name === 'spice_simulate' || name === 'spice_simulation_start' || name === 'spice_noise_metrics') && isRecord(args) && args.params !== undefined) {
+      enforceMaximum('maxDocumentBytes', limits.maxDocumentBytes, Buffer.byteLength(JSON.stringify(args)), 'validation');
       original = overrideParameters(original, args.params);
       enforceMaximum('maxDocumentBytes', effective.maxDocumentBytes, Buffer.byteLength(JSON.stringify(original.input)), 'validation');
     }
@@ -893,7 +896,7 @@ async function executeToolWithStore(
       }
       if (name === 'spice_pz_metrics') {
         const result = await runInWorker<PoleZeroResult>('pz', bounded, effective.maxWallTimeMs, options);
-        const metrics = pzMetrics(result);
+        const metrics = pzMetrics(result, isRecord(args) && args.includeTimeConstants === true);
         enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(metrics)), 'transport');
         return success(metrics, diagnostics);
       }

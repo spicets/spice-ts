@@ -10,6 +10,8 @@ export interface JFETInstanceParams {
   ICVGS?: number;
   /** Instance temperature in degrees Celsius (ngspice jfet/jfet2 `temp`). */
   TEMP?: number;
+  /** Offset from circuit temperature, ignored when TEMP is given. */
+  DTEMP?: number;
 }
 
 export interface ParsedJFETInstance {
@@ -28,10 +30,10 @@ export function jfetInstanceDescriptorParams(params: JFETInstanceParams): Record
 }
 
 /**
- * Parse `Jname d g s model [area] [AREA=val] [M=val] [OFF] [IC=vds,vgs] [TEMP=val]`.
+ * Parse `Jname d g s model [area] [AREA=val] [M=val] [OFF] [IC=vds,vgs] [TEMP=val] [DTEMP=val]`.
  *
  * `TEMP` overrides circuit temperature for ngspice-47 JFET/JFET2 laws.
- * Other instance keywords (DTEMP, ...) are rejected rather than ignored.
+ * Otherwise `DTEMP` adds to circuit temperature. Unknown keywords are rejected.
  */
 export function parseJFETInstance(tokens: string[], lineNumber: number): ParsedJFETInstance {
   const line = tokens.join(' ');
@@ -62,13 +64,13 @@ export function parseJFETInstance(tokens: string[], lineNumber: number): ParsedJ
       params.ICVGS = vgs;
       continue;
     }
-    const match = /^(TEMP|AREA|M)=(.+)$/i.exec(token);
+    const match = /^(TEMP|DTEMP|AREA|M)=(.+)$/i.exec(token);
     const positional = index === 5 && !token.includes('=');
     if (!match && !positional) unsupported();
-    const key = (match ? match[1].toUpperCase() : 'AREA') as 'TEMP' | 'AREA' | 'M';
+    const key = (match ? match[1].toUpperCase() : 'AREA') as 'TEMP' | 'DTEMP' | 'AREA' | 'M';
     if (params[key] !== undefined) unsupported();
     const value = parseNumber(match ? match[2] : token);
-    if (!Number.isFinite(value) || (key !== 'TEMP' && value <= 0)) unsupported();
+    if (!Number.isFinite(value) || ((key === 'AREA' || key === 'M') && value <= 0)) unsupported();
     params[key] = value;
   }
   return {

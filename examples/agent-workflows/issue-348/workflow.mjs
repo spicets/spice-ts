@@ -70,7 +70,7 @@ assert.deepEqual(capabilities, {
   tf: { tool: 'spice_tf', analyses: ['tf'] },
   impedance: { tool: 'spice_impedance', analyses: ['ac'] },
   parameterOverrides: {
-    tools: ['spice_simulate', 'spice_simulation_start'],
+    tools: ['spice_simulate', 'spice_simulation_start', 'spice_noise_metrics'],
     input: 'params',
     valueType: 'Record<string, number> (finite numbers)',
     scope: 'top-level .param in spice source only',

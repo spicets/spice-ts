@@ -100,8 +100,8 @@ describe('JFET instance TEMP= (#717)', () => {
   });
 
   it('still rejects other instance keywords', () => {
-    expect(() => parse('t\nJ1 d g 0 MOD DTEMP=3\n.model MOD NJF\n.op\n.end'))
-      .toThrow("Unsupported JFET instance parameter: 'DTEMP=3'");
+    expect(() => parse('t\nJ1 d g 0 MOD BOGUS=3\n.model MOD NJF\n.op\n.end'))
+      .toThrow("Unsupported JFET instance parameter: 'BOGUS=3'");
   });
 
   it('parses the unchanged corpus-g PJFET_DC/pjfet-2108.cir deck', () => {

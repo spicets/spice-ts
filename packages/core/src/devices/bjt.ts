@@ -2,6 +2,7 @@ import type {
   ChargeIntegration, ChargeTruncation, ConvergenceTolerances, DeviceModel, StampContext,
 } from './device.js';
 import { DEVICE_GMIN } from './device.js';
+import { InvalidCircuitError } from '../errors.js';
 import {
   depletionCharge, stampChargeBranch, stampChargeCurrent, TransientChargeState,
 } from './charge-state.js';
@@ -485,6 +486,8 @@ export function hasBiasDependentBaseResistance(
 
 /** Gummel-Poon instance geometry: ngspice-47 bjt.c `area`, `areab`, `areac` and `m`. */
 export interface BJTInstanceScaling {
+  TEMP?: number;
+  DTEMP?: number;
   AREA?: number;
   AREAB?: number;
   AREAC?: number;
@@ -592,6 +595,7 @@ export class BJT implements DeviceModel {
   /** Instance-scaled parameters at TNOM; {@link params} holds them at the device temperature. */
   private readonly nominal: BJTParams;
   private temperature = NOMINAL_TEMPERATURE_C;
+  private circuitTemperature = NOMINAL_TEMPERATURE_C;
   /** B-C area factor: bjttemp.c BCtSatCur = tSatCur * {@link bjtBaseCollectorArea}. */
   private readonly baseCollectorArea: number;
   /** B-C saturation current at the device temperature (bjttemp.c BCtSatCur, times M). */
@@ -686,6 +690,7 @@ export class BJT implements DeviceModel {
     private readonly instance?: BJTInstanceScaling,
     /** External C/B/E for BJTgetic; stamping nodes may be internal primes. */
     private readonly icTerminals?: readonly number[],
+    circuitTemperature = NOMINAL_TEMPERATURE_C,
   ) {
     this.suppliedParams = { ...params };
     const resolved = resolveBJTParams(params);
@@ -695,7 +700,7 @@ export class BJT implements DeviceModel {
     this.multiplier = instance?.M ?? 1;
     this.params = { ...this.nominal };
     this.baseCollectorSatCur = this.nominal.IS * this.baseCollectorArea;
-    this.applyTemperature();
+    this.setTemperature(circuitTemperature);
     this.stampsBaseResistance = hasBiasDependentBaseResistance(this.nominal);
     if (this.stampsBaseResistance !== (nodes[4] !== undefined && nodes[4] !== nodes[1])) {
       throw new Error(
@@ -710,7 +715,12 @@ export class BJT implements DeviceModel {
   }
 
   setTemperature(value: number): void {
-    this.temperature = value;
+    const effective = this.instance?.TEMP ?? value + (this.instance?.DTEMP ?? 0);
+    if (!Number.isFinite(effective) || effective + CONSTCTOK <= 0) {
+      throw new InvalidCircuitError(`BJT '${this.name}' effective temperature must be finite and above absolute zero`);
+    }
+    this.circuitTemperature = value;
+    this.temperature = effective;
     this.applyTemperature();
   }
 
@@ -727,8 +737,7 @@ export class BJT implements DeviceModel {
   withSensitivityParameter(parameter: 'IS' | 'BF' | 'NF' | 'VAF' | 'BR' | 'NR' | 'M', value: number): BJT {
     const model = parameter === 'M' ? this.suppliedParams : { ...this.suppliedParams, [parameter]: value };
     const instance = parameter === 'M' ? { ...this.instance, M: value } : this.instance;
-    const copy = new BJT(this.name, this.nodes, model, instance, this.icTerminals);
-    copy.setTemperature(this.temperature);
+    const copy = new BJT(this.name, this.nodes, model, instance, this.icTerminals, this.circuitTemperature);
     return copy;
   }
 

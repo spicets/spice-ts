@@ -6,21 +6,23 @@ Bidirectional conversion between tscircuit `circuit-json` documents and the spic
 import { fromCircuitJSON, toCircuitJSON } from '@spice-ts/circuit-json';
 ```
 
-`fromCircuitJSON` supports simple resistors, capacitors, inductors, diodes/LEDs, DC and sinewave/square voltage/current sources, enhancement-mode MOSFETs, BJTs, source ports, source nets, and source traces. PCB, schematic, and CAD elements produce nonfatal `LAYOUT_ONLY` diagnostics. Unsupported simulation elements or parameters produce error diagnostics and no circuit value.
+`fromCircuitJSON` supports simple resistors, capacitors, inductors, diodes/LEDs, DC, sinewave, square, symmetric triangle, and sawtooth voltage/current sources, enhancement-mode MOSFETs, BJTs, source ports, source nets, and source traces. PCB, schematic, and CAD elements produce nonfatal `LAYOUT_ONLY` diagnostics. Unsupported simulation elements or parameters produce error diagnostics and no circuit value.
 
 | circuit-json element | SPICE / IR mapping | Value |
 | --- | --- | --- |
 | `simple_current_source` | `I`, `{ waveform: 'dc', dc: current }` | `current` in amperes; `wave_shape: 'dc'` (default when omitted) |
 | `simple_current_source` (`sinewave`) | `I`, `SIN(offset amplitude frequency 0 0 phase)` | `current` offset and `peak_to_peak_current / 2` amplitude in amperes; frequency in Hz, phase in degrees (default `0`) |
 | `simple_current_source` (`square`) | `I`, `PULSE(v1 v2 delay rise fall width period)` | `current ± peak_to_peak_current / 2` levels in amperes; shared square timing rules below |
+| `simple_current_source` (`triangle`) | `I`, `PULSE(v1 v2 delay period/2 period/2 0 period)` | `current ± peak_to_peak_current / 2` levels in amperes; frequency in Hz and phase in degrees |
+| `simple_current_source` (`sawtooth`) | `I`, `PULSE(v1 v2 delay rise fall 0 period)` | `current ± peak_to_peak_current / 2` levels in amperes; sawtooth timing rules below |
 
-`simple_current_source` uses the SPICE sign convention: positive current flows from the positive (`p`, first) terminal through the source to the negative (`n`, second) terminal. Thus `I1 0 n1 1m` with `R1 n1 0 1k` gives V(n1) = +1 V; reversing the source gives -1 V. Port order and connectivity are preserved. DC export emits explicit `wave_shape: 'dc'`. For DC sources, missing/nonfinite current, unsupported shapes, or extra waveform fields retain `UNSUPPORTED_ELEMENT` diagnostics with no circuit value. Supported sinewave/square sources instead report invalid or missing fields as `UNSUPPORTED_PARAMETER` with field JSON pointers. No current is inferred from display text, and a missing value never defaults to 0 A. Explicit finite zero and negative currents and signed peak-to-peak currents are supported.
+`simple_current_source` uses the SPICE sign convention: positive current flows from the positive (`p`, first) terminal through the source to the negative (`n`, second) terminal. Thus `I1 0 n1 1m` with `R1 n1 0 1k` gives V(n1) = +1 V; reversing the source gives -1 V. Port order and connectivity are preserved. DC export emits explicit `wave_shape: 'dc'`. For DC sources, missing/nonfinite current, unsupported shapes, or extra waveform fields retain `UNSUPPORTED_ELEMENT` diagnostics with no circuit value. Supported sinewave/square/triangle/sawtooth sources instead report invalid or missing fields as `UNSUPPORTED_PARAMETER` with field JSON pointers. No current is inferred from display text, and a missing value never defaults to 0 A. Explicit finite zero and negative currents and signed peak-to-peak currents are supported.
 
-Current waveforms use exactly the voltage-source mapping, validation, and lossless export rules, replacing `voltage`/`peak_to_peak_voltage` with `current`/`peak_to_peak_current` in amperes. Sine frequency must be finite (zero and negative values are preserved); square frequency must be positive, phase nonnegative, and duty cycle strictly between 0 and 1. Omitted phase defaults to `0`, and omitted square duty cycle to `0.5`. Square derived overflow/underflow is rejected. Both `I` and `V` retain the same exact representability checks and `LOSSY_EXPORT` diagnostics, including with `allowLossy`.
+Supported current waveforms use the corresponding voltage-source mapping, validation, and lossless export rules, replacing `voltage`/`peak_to_peak_voltage` with `current`/`peak_to_peak_current` in amperes. Sine frequency must be finite (zero and negative values are preserved); square frequency must be positive, phase nonnegative, and duty cycle strictly between 0 and 1. Omitted phase defaults to `0`, and omitted square duty cycle to `0.5`. Square derived overflow/underflow is rejected. Both `I` and `V` retain the same exact representability checks and `LOSSY_EXPORT` diagnostics, including with `allowLossy`.
 
 The `circuit-json` 0.0.525 schema maps `simple_inductor.inductance` (henries) to `L.params.inductance` and DC `simple_voltage_source.voltage` (volts) to `V.params = { waveform: 'dc', dc: voltage }`. Inductor display/rating metadata does not alter simulation. Numeric simulation values must be finite.
 
-For `simple_voltage_source` with `wave_shape: 'sinewave'`, import maps `voltage` to offset VO in volts, `peak_to_peak_voltage / 2` to peak amplitude VA in volts, `frequency` to FREQ in Hz, and `phase` to PHASE in degrees (the pinned schema's normalized rotation unit). Frequency and peak-to-peak voltage must be explicit finite numbers; omitted phase defaults to zero. The waveform is `SIN(VO VA FREQ 0 0 PHASE)`. Export reverses this mapping. Delay TD and damping THETA must be zero or omitted; nonzero values, explicit DC operating-point overrides, AC annotations and extra parameters produce `LOSSY_EXPORT`, never silent loss. Triangle and sawtooth remain unsupported. Without `wave_shape` (or with explicit `dc`), waveform parameters are rejected rather than ignored.
+For `simple_voltage_source` with `wave_shape: 'sinewave'`, import maps `voltage` to offset VO in volts, `peak_to_peak_voltage / 2` to peak amplitude VA in volts, `frequency` to FREQ in Hz, and `phase` to PHASE in degrees (the pinned schema's normalized rotation unit). Frequency and peak-to-peak voltage must be explicit finite numbers; omitted phase defaults to zero. The waveform is `SIN(VO VA FREQ 0 0 PHASE)`. Export reverses this mapping. Delay TD and damping THETA must be zero or omitted; nonzero values, explicit DC operating-point overrides, AC annotations and extra parameters produce `LOSSY_EXPORT`, never silent loss. Without `wave_shape` (or with explicit `dc`), waveform parameters are rejected rather than ignored.
 
 `simple_diode` and `simple_led` map to `D.params = { modelName: '' }`, meaning core's default generic diode (`.model DEFAULT D`, IS=1e-14 A, N=1). This is not an LED-specific forward-drop or optical model. LED color/wavelength and custom diode parameters produce `UNSUPPORTED_PARAMETER`, not a silently approximated model. When constructing a core `Circuit`, use the named anode/cathode ports with `addDiode(name, anode, cathode)` (no model name); port names and connectivity are preserved by the adapter. Export uses canonical `simple_diode` for this generic model, including imported LEDs.
 
@@ -60,5 +62,36 @@ and timing value exactly in double precision. Unequal edges, equal edges other
 than `PER * 1e-6`, omitted/zero edges (which core may default from TSTEP), finite
 pulse counts, DC operating-point overrides, AC annotations and extra parameters
 produce `LOSSY_EXPORT` diagnostics, not silent approximations. With `allowLossy`,
-any returned subset remains explicitly marked lossy. Triangle and sawtooth
-continue to return explicit `UNSUPPORTED_PARAMETER` diagnostics.
+any returned subset remains explicitly marked lossy.
+
+## Triangle voltage and current sources
+
+`simple_voltage_source` with `wave_shape: 'triangle'` maps to generic
+`PULSE(voltage - peak_to_peak_voltage / 2, voltage + peak_to_peak_voltage / 2, TD, PER / 2, PER / 2, 0, PER)`.
+`PER` is `1 / frequency` and `TD` is `phase / 360 * PER`, with phase defaulting
+to zero. As with square sources, phase is a nonnegative initial delay, not a
+phase advance: the source holds its first level until TD, then ramps up and
+down. Frequency must be finite and positive; voltage and signed peak-to-peak
+voltage must be finite, including zero amplitude. The adapter rejects conflicting
+waveform timing fields and unrepresentable derived parameters. Export recognizes
+only symmetric zero-plateau PULSE sources whose levels and timing survive exact
+re-import; other PULSE parameters produce `LOSSY_EXPORT` rather than approximation.
+For `simple_current_source`, substitute `current` and `peak_to_peak_current` in
+amperes for the voltage fields. The same timing, phase, and exact export rules
+apply. Source terminal order remains `p` then `n`.
+
+
+## Sawtooth voltage sources
+
+The pinned schema specifies a sawtooth shape and numeric fields, but not edge timing.
+This adapter defines a finite reset, not an ideal discontinuity: `PER = 1 / frequency`,
+`TF = PER * 1e-6`, `TR = PER - TF`, and `PW = 0`. It maps to
+`PULSE(voltage - peak_to_peak_voltage / 2, voltage + peak_to_peak_voltage / 2, TD, TR, TF, 0, PER)`.
+`TD = phase / 360 * PER`, with phase in degrees defaulting to zero and interpreted
+as a nonnegative initial delay. Signed peak-to-peak voltage controls ramp direction.
+Frequency must be finite and positive; voltage, peak-to-peak voltage, and phase must
+be finite, and derived values must remain representable. Export requires exact
+re-import of all levels and timings; unsupported fields and overrides are diagnosed
+as `LOSSY_EXPORT`, including with `allowLossy`. Current sources use the same timing
+and validation with `current` and `peak_to_peak_current` in amperes. Export identifies
+canonical PULSE timing, not source provenance, and requires exact re-import.

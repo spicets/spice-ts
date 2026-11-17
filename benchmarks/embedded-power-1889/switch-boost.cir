@@ -1,0 +1,12 @@
+Ideal switch boost converter original MIT circuit
+Vdd supply 0 3.3
+Vdrive ctrl 0 PULSE(0 3.3 1u 10n 10n 5u 10u)
+L1 supply sw 100u
+S1 sw 0 ctrl 0 SWMOD
+D1 sw out DF
+C1 out 0 10u
+Rload out 0 100
+.model SWMOD SW(RON=0.1 ROFF=1Meg VT=1.65 VH=0)
+.model DF D(IS=1e-12)
+.tran 100n 50u
+.end

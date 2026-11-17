@@ -1,0 +1,16 @@
+d_state counter - self-authored MIT (#1864)
+* SPDX-License-Identifier: MIT
+vclk clk 0 PULSE(0 1 10n 1n 1n 9n 20n)
+vreset reset 0 0
+ven en 0 PWL(0 1 79n 1 80n 0 100n 0 101n 1)
+aadc [en clk reset] [enable clock rst] adc
+.model adc adc_bridge(in_low=.2 in_high=.8)
+astate [enable] clock rst [q0 q1] machine
+.model machine d_state(state_file="state.txt" clk_delay=3n reset_delay=5n)
+adac [q0 q1] [out0 out1] dac
+.model dac dac_bridge(out_low=0 out_high=1 out_undef=.5 t_rise=2n t_fall=2n)
+r0 out0 0 1k
+r1 out1 0 1k
+.tran .1n 140n
+.save v(out0) v(out1)
+.end

@@ -1,0 +1,7 @@
+anti-alias original MIT project sensor example
+Vsig in 0 PULSE(0 3.3 1u 20n 20n 10u 20u)
+Rin in adc 1k
+Caa adc 0 10n
+Rload adc 0 1Meg
+.tran 100n 80u
+.end

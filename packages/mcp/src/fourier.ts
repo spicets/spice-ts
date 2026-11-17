@@ -6,6 +6,7 @@ export interface FourierArgs {
   fundamentalHz: number;
   harmonicCount?: number;
   analysis?: number;
+  step?: number;
   windowStartS?: number;
 }
 interface FourierMetrics {
@@ -14,13 +15,14 @@ interface FourierMetrics {
   thdPercent: number;
   harmonics: FourierResult['harmonics'];
 }
-const codes = ['UNKNOWN_SIGNAL', 'NO_TRANSIENT', 'INSUFFICIENT_PERIOD', 'INVALID_DATA'] as const;
+const codes = ['UNKNOWN_SIGNAL', 'NO_TRANSIENT', 'UNKNOWN_STEP', 'AMBIGUOUS_ANALYSIS', 'INSUFFICIENT_PERIOD', 'INVALID_DATA'] as const;
 type FourierError = { error: { code: typeof codes[number]; message: string } };
 export const fourierProperties = {
   signal: { type: 'string', minLength: 1, maxLength: 256 },
   fundamentalHz: { type: 'number', exclusiveMinimum: 0 },
   harmonicCount: { type: 'integer', minimum: 1, maximum: 64, default: 9 },
   analysis: { type: 'integer', minimum: 0 },
+  step: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
   windowStartS: { type: 'number', minimum: 0 },
 };
 const rowProperties = Object.fromEntries(['harmonic', 'frequency', 'magnitude', 'phase', 'normalizedMagnitude', 'normalizedPhase'].map(key => [key, { type: 'number' }]));
@@ -51,8 +53,9 @@ export function fourierArgs(raw: unknown): FourierArgs {
     || typeof a.fundamentalHz !== 'number' || !Number.isFinite(a.fundamentalHz) || a.fundamentalHz <= 0
     || (a.harmonicCount !== undefined && (!Number.isInteger(a.harmonicCount) || (a.harmonicCount as number) < 1 || (a.harmonicCount as number) > 64))
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
+    || (a.step !== undefined && (!Number.isSafeInteger(a.step) || (a.step as number) < 0))
     || (a.windowStartS !== undefined && (typeof a.windowStartS !== 'number' || !Number.isFinite(a.windowStartS) || a.windowStartS < 0))) {
-    throw { code: 'INVALID_REQUEST', message: 'Expected signal, positive finite fundamentalHz, harmonicCount 1 through 64, optional nonnegative analysis and windowStartS', phase: 'validation', retryable: false, details: {} };
+    throw { code: 'INVALID_REQUEST', message: 'Expected signal, positive finite fundamentalHz, harmonicCount 1 through 64, optional nonnegative integer analysis and step, and windowStartS', phase: 'validation', retryable: false, details: {} };
   }
   return a as unknown as FourierArgs;
 }
@@ -62,8 +65,12 @@ const error = (code: FourierError['error']['code'], message: string): FourierErr
 /** ngspice .four defaults: last complete period, 200-point grid, linear interpolation. */
 export function fourierMetrics(result: SimulationResultV1, args: FourierArgs): FourierMetrics | FourierError {
   const selected = result.analyses.filter(a => args.analysis === undefined ? a.type === 'tran' : a.analysisIndex === args.analysis);
-  if (selected.length !== 1 || selected[0].type !== 'tran') return error('NO_TRANSIENT', 'Select exactly one transient analysis; run stepped analyses separately');
-  const a = selected[0];
+  if (!selected.length || selected.some(a => a.type !== 'tran')) return error('NO_TRANSIENT', 'Select a transient analysis');
+  if (new Set(selected.map(a => a.analysisIndex)).size !== 1) return error('AMBIGUOUS_ANALYSIS', 'Select exactly one transient analysis');
+  const traces = args.step === undefined ? selected : selected.filter(a => (a.step?.index ?? 0) === args.step);
+  if (!traces.length) return error('UNKNOWN_STEP', 'No transient trace has the requested step index');
+  if (traces.length !== 1 || traces[0].type !== 'tran') return error('AMBIGUOUS_ANALYSIS', 'Select exactly one transient step');
+  const a = traces[0];
   const match = /^([vi])\(([^()]+)\)$/i.exec(args.signal);
   const values = match?.[1].toLowerCase() === 'v' ? a.voltagesV : a.currentsA;
   const key = match && Object.keys(values).find(key => key.toLowerCase() === match[2].toLowerCase());

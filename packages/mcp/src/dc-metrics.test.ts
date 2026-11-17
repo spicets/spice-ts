@@ -64,11 +64,11 @@ describe('spice_dc_metrics', () => {
   it('handles descending sweeps, peak coordinates and nonmonotonic output', () => {
     const result = { status: 'complete' as const, analyses: [{ type: 'dc' as const, analysisIndex: 0, axis: { name: 'Vin', unit: 'V' as const, values: [3, 2, 1, 0] }, voltagesV: { out: [0, 2, 1, 3] }, currentsA: {} }] };
     const m = dcMetricsResult(result, { sweptSource: 'vIN', output: 'v(out)' });
-    expect(m.gainMax).toEqual({ value: 2, unit: 'V/V', input: 2.5, sweepPoint: 2.5 });
+    expect(m.gainMax).toEqual({ value: 2, unit: 'V/V', input: 0.5, sweepPoint: 0.5 });
     expect(m.monotonic).toBe(false);
-    expect(m.switchingThreshold.value).toBe(2);
-    expect(m.voh.value).toBe(0);
-    expect(m.vol.value).toBe(3);
+    expect(m.switchingThreshold.value).toBe(1);
+    expect(m.voh.value).toBe(3);
+    expect(m.vol.value).toBe(0);
     expect(m.vil.value).toBeCloseTo(5 / 6, 12);
     expect(m.vih.value).toBeCloseTo(13 / 6, 12);
     expect(() => dcMetricsResult({ ...result, analyses: [...result.analyses, ...result.analyses] }, { sweptSource: 'Vin', output: 'v(out)' })).toThrow();

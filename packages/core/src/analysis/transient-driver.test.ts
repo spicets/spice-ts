@@ -35,6 +35,45 @@ describe('createTransientSim', () => {
     sim.dispose();
   });
 
+  it('step and exact-target advancement preserve warm transient state', async () => {
+    const sim = await createTransientSim(RC_NETLIST);
+    const first = sim.step();
+    expect(first.time).toBeGreaterThan(0);
+    const samples = sim.advanceTo(0.0001234567);
+    expect(samples.at(-1)!.time).toBe(0.0001234567);
+    expect(sim.advanceTo(sim.simTime)).toEqual([]);
+    expect(() => sim.advanceTo(NaN)).toThrow();
+    expect(() => sim.advanceTo(first.time)).toThrow();
+    expect(() => sim.advanceTo(2e-3)).toThrow();
+    const final = sim.advanceTo(1e-3).at(-1)!;
+    const baseline = await createTransientSim(RC_NETLIST);
+    const reference = baseline.advanceTo(1e-3).at(-1)!;
+    expect(final.voltages.get('2')).toBeCloseTo(reference.voltages.get('2')!, 6);
+    sim.dispose();
+    expect(() => sim.advanceTo(1e-3)).toThrow();
+    baseline.dispose();
+  });
+
+  it('matches a single transient run across multiple exact targets', async () => {
+    const { simulate } = await import('../simulate.js');
+    const reference = (await simulate(DYNAMIC_HISTORY_NETLIST)).transient!;
+    const sim = await createTransientSim(DYNAMIC_HISTORY_NETLIST);
+    const samples = [sim.peekInitialStep(), ...sim.advanceTo(1.23e-6),
+      ...sim.advanceTo(4.56e-6), ...sim.advanceTo(sim.stopTime!)];
+    const voltages = reference.voltage('out');
+    for (let i = 0; i < reference.time.length; i++) {
+      const t = reference.time[i];
+      const upper = samples.findIndex(s => s.time >= t);
+      if (upper <= 0) continue;
+      const a = samples[upper - 1];
+      const b = samples[upper];
+      const fraction = (t - a.time) / (b.time - a.time);
+      const value = a.voltages.get('out')! + fraction * (b.voltages.get('out')! - a.voltages.get('out')!);
+      expect(Math.abs(value - voltages[i])).toBeLessThan(0.003);
+    }
+    sim.dispose();
+  });
+
   it('advanceUntil(t) returns multiple steps', async () => {
     const sim = await createTransientSim(RC_NETLIST);
     const steps = sim.advanceUntil(100e-6);

@@ -1,0 +1,7 @@
+thermistor original MIT project sensor example
+Vdd supply 0 PULSE(0 3.3 1u 20n 20n 20u 40u)
+Rfixed supply adc 10k
+Rntc adc 0 6.8k
+Cinput adc 0 1n
+.tran 100n 80u
+.end

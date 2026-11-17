@@ -1,0 +1,8 @@
+PWM RLC output original MIT circuit
+Vdrive pwm 0 PULSE(0 3.3 1u 10n 10n 5u 10u)
+Rseries pwm in 10
+L1 in out 100u
+C1 out 0 100n
+Rload out 0 1k
+.tran 100n 50u
+.end

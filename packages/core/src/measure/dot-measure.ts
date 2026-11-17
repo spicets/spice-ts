@@ -247,6 +247,19 @@ export function measurePlot(directive: AnalysisDirective, result: SimulationResu
       const lower = name.toLowerCase();
       const direct = vectors.get(lower);
       if (direct) return direct;
+      const differential = /^v\(([^(),]+),([^(),]+)\)$/.exec(lower);
+      if (directive.type === 'tran' && differential) {
+        const node = (name: string) => {
+          const key = name.trim();
+          return key === '0' || key === 'gnd' ? scale.re.map(() => 0) : vectors.get(key)?.re;
+        };
+        const positive = node(differential[1]);
+        const negative = node(differential[2]);
+        if (!positive || !negative) return undefined;
+        const result = realVector(lower, positive.map((value, i) => value - negative[i]), scale);
+        vectors.set(lower, result);
+        return result;
+      }
       const voltage = /^v\(([^(),]+)\)$/.exec(lower);
       if (voltage) return vectors.get(voltage[1].trim());
       const current = /^i\(([^(),]+)\)$/.exec(lower);

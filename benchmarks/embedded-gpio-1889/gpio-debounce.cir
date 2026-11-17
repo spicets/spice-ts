@@ -1,0 +1,7 @@
+gpio-debounce original MIT maker circuit
+Vbutton input 0 PULSE(0 3.3 1u 10n 10n 10u 20u)
+Rseries input out 10k
+Cfilter out 0 1n
+Rleak out 0 1Meg
+.tran 100n 30u
+.end

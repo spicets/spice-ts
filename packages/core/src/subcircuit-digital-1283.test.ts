@@ -60,7 +60,7 @@ describe('digital XSPICE cards in subcircuits (#1283)', () => {
   it('keeps the typed error for an unimplemented code model in a subcircuit', async () => {
     await expect(simulate([
       'unsupported model', '.subckt cell in out',
-      '.model unknown d_state', 'a1 in out unknown', '.ends',
+      '.model unknown d_process', 'a1 in out unknown', '.ends',
       'x1 in out cell', '.op', '.end',
     ].join('\n'))).rejects.toThrow(UnsupportedCodeModelError);
   });

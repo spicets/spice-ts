@@ -7,6 +7,7 @@ import {
   mesaACConductance,
   mesaInstanceState,
   MESA_JUNCTION_GMIN,
+  resolveMESAInstance,
   type MESAInstanceParams,
   type MESAInstanceState,
   type MESAModel,
@@ -32,7 +33,7 @@ export class MESA implements DeviceModel {
    */
   readonly integratesTransientCharge = true;
   private readonly charges = new TransientChargeState(2);
-  private readonly state: MESAInstanceState;
+  private state: MESAInstanceState;
   /** Channel terms of the last conducting load (ngspice instance fields for MESAacLoad). */
   private small: MESASmallSignalTerms | undefined;
 
@@ -44,6 +45,21 @@ export class MESA implements DeviceModel {
     readonly junctionGmin = MESA_JUNCTION_GMIN,
   ) {
     this.state = mesaInstanceState(model, instance);
+  }
+
+  /** mesasetup.c TS/TD override CKTtemp + DTEMP independently. */
+  setTemperature(celsius: number): void {
+    const instance = resolveMESAInstance({
+      L: this.instance.L, W: this.instance.W,
+      ...(this.instance.sourceTemperature === undefined ? {} : { TS: this.instance.sourceTemperature }),
+      ...(this.instance.drainTemperature === undefined ? {} : { TD: this.instance.drainTemperature }),
+      ...(this.instance.deltaTemperature === undefined ? {} : { DTEMP: this.instance.deltaTemperature }),
+    }, celsius);
+    this.state = mesaInstanceState({
+      ...this.model,
+      TF: this.model.defaultTF ? celsius + 273.15 : this.model.TF,
+    }, instance);
+    this.small = undefined;
   }
 
   private terminals(): [number, number, number, number, number] {

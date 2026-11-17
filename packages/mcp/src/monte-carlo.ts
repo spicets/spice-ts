@@ -27,7 +27,21 @@ function invalid(message: string): never {
 
 /** Deliberately accepts literal top-level R/C/L values only, not expressions or model cards. */
 function nominal(request: SimulationRequestV1, element: string): number {
-  if (request.input.format !== 'spice' || typeof request.input.source !== 'string') invalid('Monte Carlo requires SPICE text');
+  if (request.input.format === 'spice-ts') {
+    const components = request.input.document?.circuit?.components;
+    if (!Array.isArray(components)) invalid('Expected native circuit components');
+    const matches = components.filter(c => typeof c?.name === 'string' && c.name.toLowerCase() === element.toLowerCase());
+    if (matches.length !== 1) invalid(`Unknown or ambiguous top-level element: ${element}`);
+    const component = matches[0];
+    const type = element[0].toLowerCase();
+    if (typeof component.type !== 'string' || component.type.toLowerCase() !== type) invalid(`Tolerance target ${element} must have matching R/C/L component type`);
+    const field = ({ r: 'resistance', c: 'capacitance', l: 'inductance' } as Record<string, string>)[type];
+    const value = component.params?.[field];
+    if (typeof value !== 'number') invalid(`Tolerance target ${element} requires a literal numeric ${field}`);
+    if (!Number.isFinite(value) || value <= 0) invalid(`Nominal component value for ${element} must be finite and positive`);
+    return value;
+  }
+  if (request.input.format !== 'spice' || typeof request.input.source !== 'string') invalid('Monte Carlo requires SPICE text or native spice-ts JSON IR');
   let depth = 0; let control = false;
   const values: string[] = [];
   const lines = request.input.source.split(/\r?\n/);

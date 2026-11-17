@@ -54,6 +54,14 @@ const metadata = {
 } as const;
 
 describe('protocol v1 JSON Schemas', () => {
+  it('validates bounded output selectors in the request schema', () => {
+    const id = 'https://spice-ts.dev/schemas/v1/simulation-request.schema.json';
+    const request = positive.requests.spice;
+    expect(ajv.validate(id, { ...request, outputs: ['v(out)', 'i(V1)'] })).toBe(true);
+    for (const outputs of [[], Array(65).fill('v(out)'), ['v()'], ['v(out)\n'], ['v(a,b)'], ['v(' + 'a'.repeat(254) + ')'], [5], null]) {
+      expect(ajv.validate(id, { ...request, outputs })).toBe(false);
+    }
+  });
   it('accepts sensitivity only in native requests, not generic analyses, results or streams', () => {
     const sens = { type: 'sens', mode: 'dc', outputNode: 'out' };
     const request = structuredClone(positive.requests.native);

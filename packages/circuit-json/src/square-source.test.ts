@@ -46,12 +46,6 @@ describe('square voltage source imports (#1727)', () => {
     });
   });
 
-  it.each(['triangle', 'sawtooth'])('continues rejecting %s', wave_shape => {
-    const result = fromCircuitJSON(source({ ...square, wave_shape }));
-    expect(result.value).toBeUndefined();
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'UNSUPPORTED_PARAMETER', path: '/0/wave_shape' }));
-  });
-
   it.each(['frequency', 'peak_to_peak_voltage', 'phase', 'duty_cycle'])('continues rejecting DC waveform parameter %s', key => {
     const result = fromCircuitJSON(source({ voltage: 1, wave_shape: 'dc', [key]: 1 }));
     expect(result.value).toBeUndefined();

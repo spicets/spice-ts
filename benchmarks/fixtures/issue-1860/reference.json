@@ -1,0 +1,63 @@
+{
+  "version": "ngspice-47",
+  "command": "SPICE_ASCIIRAWFILE=1 ngspice -n -b -r out.raw deck.cir",
+  "rows": [
+    {
+      "name": "npn-dtemp",
+      "deck": "VBIC instance temperature #1860 npn-dtemp\nVC c 0 2\nVB b 0 0.65\nQ1 c b 0 0 QM DTEMP=23\n.model QM NPN LEVEL=4 IS=1e-16 IBEI=1e-18 IBCI=2e-17\n+ RCX=10 RCI=60 RBX=10 RBI=40 RE=2 RBP=40 CJE=1p CJC=0.2p TF=10p\n.options TEMP=27 RELTOL=1e-10 ABSTOL=1e-18 VNTOL=1e-12\n.save i(VC) i(VB)\n.op\n.end\n",
+      "reference": {
+        "i(vc)": -3.719340480601296e-05,
+        "i(vb)": -3.719326042336824e-07
+      }
+    },
+    {
+      "name": "npn-temp",
+      "deck": "VBIC instance temperature #1860 npn-temp\nVC c 0 2\nVB b 0 0.65\nQ1 c b 0 0 QM TEMP=50\n.model QM NPN LEVEL=4 IS=1e-16 IBEI=1e-18 IBCI=2e-17\n+ RCX=10 RCI=60 RBX=10 RBI=40 RE=2 RBP=40 CJE=1p CJC=0.2p TF=10p\n.options TEMP=27 RELTOL=1e-10 ABSTOL=1e-18 VNTOL=1e-12\n.save i(VC) i(VB)\n.op\n.end\n",
+      "reference": {
+        "i(vc)": -3.719340480601296e-05,
+        "i(vb)": -3.719326042336824e-07
+      }
+    },
+    {
+      "name": "npn-both",
+      "deck": "VBIC instance temperature #1860 npn-both\nVC c 0 2\nVB b 0 0.65\nQ1 c b 0 0 QM TEMP=50 DTEMP=-100\n.model QM NPN LEVEL=4 IS=1e-16 IBEI=1e-18 IBCI=2e-17\n+ RCX=10 RCI=60 RBX=10 RBI=40 RE=2 RBP=40 CJE=1p CJC=0.2p TF=10p\n.options TEMP=27 RELTOL=1e-10 ABSTOL=1e-18 VNTOL=1e-12\n.save i(VC) i(VB)\n.op\n.end\n",
+      "reference": {
+        "i(vc)": -6.383167638901455e-09,
+        "i(vb)": -6.238468269748055e-11
+      }
+    },
+    {
+      "name": "pnp-dtemp",
+      "deck": "VBIC instance temperature #1860 pnp-dtemp\nVC c 0 -2\nVB b 0 -0.65\nQ1 c b 0 0 QM DTEMP=23\n.model QM PNP LEVEL=4 IS=1e-16 IBEI=1e-18 IBCI=2e-17\n+ RCX=10 RCI=60 RBX=10 RBI=40 RE=2 RBP=40 CJE=1p CJC=0.2p TF=10p\n.options TEMP=27 RELTOL=1e-10 ABSTOL=1e-18 VNTOL=1e-12\n.save i(VC) i(VB)\n.op\n.end\n",
+      "reference": {
+        "i(vc)": 3.719340480599077e-05,
+        "i(vb)": 3.719326042336824e-07
+      }
+    },
+    {
+      "name": "pnp-temp",
+      "deck": "VBIC instance temperature #1860 pnp-temp\nVC c 0 -2\nVB b 0 -0.65\nQ1 c b 0 0 QM TEMP=50\n.model QM PNP LEVEL=4 IS=1e-16 IBEI=1e-18 IBCI=2e-17\n+ RCX=10 RCI=60 RBX=10 RBI=40 RE=2 RBP=40 CJE=1p CJC=0.2p TF=10p\n.options TEMP=27 RELTOL=1e-10 ABSTOL=1e-18 VNTOL=1e-12\n.save i(VC) i(VB)\n.op\n.end\n",
+      "reference": {
+        "i(vc)": 3.719340480599077e-05,
+        "i(vb)": 3.719326042336824e-07
+      }
+    },
+    {
+      "name": "pnp-both",
+      "deck": "VBIC instance temperature #1860 pnp-both\nVC c 0 -2\nVB b 0 -0.65\nQ1 c b 0 0 QM TEMP=50 DTEMP=-100\n.model QM PNP LEVEL=4 IS=1e-16 IBEI=1e-18 IBCI=2e-17\n+ RCX=10 RCI=60 RBX=10 RBI=40 RE=2 RBP=40 CJE=1p CJC=0.2p TF=10p\n.options TEMP=27 RELTOL=1e-10 ABSTOL=1e-18 VNTOL=1e-12\n.save i(VC) i(VB)\n.op\n.end\n",
+      "reference": {
+        "i(vc)": 6.383167638901455e-09,
+        "i(vb)": 6.238468269748055e-11
+      }
+    },
+    {
+      "name": "npn-dtemp-tran",
+      "deck": "VBIC instance temperature #1860 npn-dtemp\nVC c 0 2\nVB b 0 PWL(0 0.6 1n 0.6 1.1n 0.65)\nQ1 c b 0 0 QM DTEMP=23\n.model QM NPN LEVEL=4 IS=1e-16 IBEI=1e-18 IBCI=2e-17\n+ RCX=10 RCI=60 RBX=10 RBI=40 RE=2 RBP=40 CJE=1p CJC=0.2p TF=10p\n.options TEMP=27 RELTOL=1e-5 ABSTOL=1e-14 VNTOL=1e-9\n.save i(VC) i(VB)\n.tran 10p 10n\n.end\n",
+      "reference": {
+        "time": 1e-08,
+        "i(vc)": -3.719340480599077e-05,
+        "i(vb)": -3.719326042336824e-07
+      }
+    }
+  ]
+}

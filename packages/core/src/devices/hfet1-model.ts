@@ -1,9 +1,13 @@
 import type { ModelParams } from '../types.js';
+import { UnsupportedModelParameterError } from '../errors.js';
 import { DEVICE_GMIN } from './device.js';
 
 export interface HFET1InstanceParams {
   L: number;
   W: number;
+  TEMP?: number;
+  DTEMP?: number;
+  thermalVoltage?: number;
 }
 
 export interface HFET1Model {
@@ -55,7 +59,9 @@ export function resolveHFET1Model(model: ModelParams): HFET1Model {
   if (level !== 5) throw new Error(`Unsupported NHFET model level: ${level}`);
   for (const name of Object.keys(model.params)) {
     if (!MODEL_PARAMETERS.has(name)) {
-      throw new Error(`Unsupported NHFET level-5 model parameter: '${name}'`);
+      throw new UnsupportedModelParameterError('', name,
+        `Unsupported NHFET level-5 model parameter: '${name}'; hfettemp.c:71-73,89-91 temperature laws are not ported`,
+        { modelName: model.name, model: 'HFET1' });
     }
   }
   if (model.params.VT0 !== undefined && model.params.VTO !== undefined) {
@@ -91,11 +97,12 @@ export function resolveHFET1Model(model: ModelParams): HFET1Model {
 
 export function resolveHFET1Instance(params: Record<string, number> = {}): HFET1InstanceParams {
   for (const name of Object.keys(params)) {
-    if (name !== 'L' && name !== 'W') {
+    if (name !== 'L' && name !== 'W' && name !== 'TEMP' && name !== 'DTEMP') {
       throw new Error(`Unsupported NHFET level-5 instance parameter: '${name}'`);
     }
   }
-  const instance = { L: params.L ?? 1e-6, W: params.W ?? 20e-6 };
+  const instance = { L: params.L ?? 1e-6, W: params.W ?? 20e-6,
+    TEMP: params.TEMP, DTEMP: params.DTEMP };
   if (instance.L <= 0 || instance.W <= 0) {
     throw new Error('NHFET level-5 instance L and W must be positive');
   }
@@ -120,7 +127,7 @@ function intrinsic(vGS: number, vDS: number, model: HFET1Model, instance: HFET1I
   }
 
   const { L, W } = instance;
-  const vt = THERMAL_VOLTAGE;
+  const vt = instance.thermalVoltage ?? THERMAL_VOLTAGE;
   const di = 0.04e-6;
   const deltad = 4.5e-9;
   const delta = 3;
@@ -186,8 +193,8 @@ function leakage(voltage: number, density: number, instance: HFET1InstanceParams
   const is2 = 1.15e6 * instance.W * instance.L / 2;
   const m1 = 1.32;
   const m2 = 6.9;
-  const vt1 = THERMAL_VOLTAGE * m1;
-  const vt2 = THERMAL_VOLTAGE * m2;
+  const vt1 = (instance.thermalVoltage ?? THERMAL_VOLTAGE) * m1;
+  const vt2 = (instance.thermalVoltage ?? THERMAL_VOLTAGE) * m2;
   let current: number;
   let conductance: number;
   if (is1 === 0 || is2 === 0) {
@@ -218,7 +225,7 @@ function leakage(voltage: number, density: number, instance: HFET1InstanceParams
     current = Math.max(-is1, approximation + (voltage - initialVoltage) / initialSlope) * 0.99999;
     conductance = 1 / (resistance + vt1 / (current + is1) + vt2 / (current + is2));
   }
-  const argument = -voltage * 0.04 / THERMAL_VOLTAGE;
+  const argument = -voltage * 0.04 / (instance.thermalVoltage ?? THERMAL_VOLTAGE);
   const exponential = Math.exp(Math.min(argument, 80));
   const gateResistanceLeakage = 40 * instance.L * instance.W / 2;
   current += gateResistanceLeakage * voltage * exponential;

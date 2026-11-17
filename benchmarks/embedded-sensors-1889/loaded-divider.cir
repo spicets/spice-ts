@@ -1,0 +1,8 @@
+loaded-divider original MIT project sensor example
+Vdd supply 0 PULSE(0 3.3 1u 20n 20n 20u 40u)
+Rtop supply adc 10k
+Rbottom adc 0 10k
+Rload adc 0 100k
+Cinput adc 0 1n
+.tran 100n 80u
+.end

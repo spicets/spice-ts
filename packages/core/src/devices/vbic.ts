@@ -640,6 +640,7 @@ export class VBIC implements DeviceModel {
   /** Local (positive, negative) node pair of each evaluation branch voltage. */
   private readonly branchTerminals: readonly (readonly [number, number])[];
   private temperature = NOMINAL_TEMPERATURE_C;
+  private circuitTemperature = NOMINAL_TEMPERATURE_C;
   private thermal: VBICTemperatureState;
   /** ngspice vbictemp.c tVcrit, from the temperature-mapped IS: shared by all six junctions. */
   private criticalVoltage: number;
@@ -658,6 +659,8 @@ export class VBIC implements DeviceModel {
     private readonly parallelMultiplier = 1,
     /** Original C/B/E/S nodes before the circuit expands constant series resistors. */
     private readonly externalTerminals?: readonly number[],
+    private readonly instance: { TEMP?: number; DTEMP?: number } = {},
+    circuitTemperature = NOMINAL_TEMPERATURE_C,
   ) {
     this.params = resolveVBICParams(supplied, polarity);
     const expected = vbicNodeCount(this.params);
@@ -672,6 +675,7 @@ export class VBIC implements DeviceModel {
     this.evaluationWorkspace = new DualWorkspace(this.branchTerminals.length);
     this.thermal = resolveVBICTemperature(this.params, this.temperature);
     this.criticalVoltage = this.vcrit();
+    this.setTemperature(circuitTemperature);
   }
 
   /** vbictemp.c: tVcrit = Vt * ln(Vt / (sqrt(2) * tIS * area * m)). */
@@ -682,14 +686,24 @@ export class VBIC implements DeviceModel {
 
   /** Evaluate at a circuit temperature in degrees Celsius (ngspice VBICtemp). */
   setTemperature(value: number): void {
+    // vbictemp.c adds DTEMP even when TEMP is given, unlike Gummel-Poon.
+    const effective = (this.instance.TEMP ?? value) + (this.instance.DTEMP ?? 0);
+    if (!Number.isFinite(effective) || effective <= -273.15) {
+      throw new InvalidCircuitError(`VBIC '${this.name}' effective temperature must be finite and above absolute zero`);
+    }
     this.loadCharge = undefined;
-    this.temperature = value;
-    this.thermal = resolveVBICTemperature(this.params, value);
+    this.circuitTemperature = value;
+    this.temperature = effective;
+    this.thermal = resolveVBICTemperature(this.params, effective);
     this.criticalVoltage = this.vcrit();
   }
 
   getTemperature(): number {
     return this.temperature;
+  }
+
+  getCircuitTemperature(): number {
+    return this.circuitTemperature;
   }
 
   private hasThermalCharge(): boolean {

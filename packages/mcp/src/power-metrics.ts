@@ -5,15 +5,21 @@ export interface PowerMetricsArgs {
   netlist: string;
   elements?: string[];
   window?: [number, number];
+  windows?: [number, number][];
   input?: string[];
   output?: string[];
+  includeCurrentCrestFactor?: boolean;
+  includePowerFactor?: boolean;
+  includeEnergyFlow?: boolean;
+  includeReturnedPowerPeak?: boolean;
 }
 interface ElementProbe { name: string; positive: string; negative: string; branch: string }
 export interface PowerPlan { netlist: string; probes: ElementProbe[]; args: PowerMetricsArgs }
 export interface PowerReport {
   window: [number, number];
-  elements: { name: string; averagePowerW: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number }[];
+  elements: { name: string; averagePowerW: number; energyJ: number; absorbedEnergyJ?: number; returnedEnergyJ?: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number; peakReturnedPowerW?: number; peakReturnedPowerTimeS?: number | null; peakAbsCurrentA?: number; currentCrestFactor?: number | null; rmsVoltageV?: number; apparentPowerVA?: number; powerFactor?: number | null; powerFactorReason?: 'zero_apparent_power' }[];
   efficiency: number | null;
+  windowResults?: PowerReport[];
 }
 export const powerMetricsProperties = {
   netlist: { type: 'string', minLength: 1 },
@@ -21,17 +27,26 @@ export const powerMetricsProperties = {
   input: { type: 'array', minItems: 1, maxItems: 128, uniqueItems: true, items: { type: 'string', minLength: 1 } },
   output: { type: 'array', minItems: 1, maxItems: 128, uniqueItems: true, items: { type: 'string', minLength: 1 } },
   window: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: 0 } },
+  windows: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: 0 } } },
+  includeCurrentCrestFactor: { type: 'boolean' },
+  includePowerFactor: { type: 'boolean' },
+  includeEnergyFlow: { type: 'boolean' },
+  includeReturnedPowerPeak: { type: 'boolean' },
 };
-export const powerMetricsOutputSchema = {
+const singlePowerReportSchema = {
   type: 'object', required: ['window', 'elements', 'efficiency'], additionalProperties: false,
   properties: {
     window: powerMetricsProperties.window,
     efficiency: { type: ['number', 'null'] },
     elements: { type: 'array', items: {
-      type: 'object', required: ['name', 'averagePowerW', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'], additionalProperties: false,
-      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'].map(k => [k, { type: 'number' }])) },
+      type: 'object', required: ['name', 'averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'], additionalProperties: false,
+      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'absorbedEnergyJ', 'returnedEnergyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS', 'peakReturnedPowerW', 'peakAbsCurrentA', 'rmsVoltageV', 'apparentPowerVA'].map(k => [k, { type: 'number' }])), peakReturnedPowerTimeS: { type: ['number', 'null'] }, currentCrestFactor: { type: ['number', 'null'] }, powerFactor: { type: ['number', 'null'] }, powerFactorReason: { enum: ['zero_apparent_power'] } },
     } },
   },
+};
+export const powerMetricsOutputSchema = {
+  ...singlePowerReportSchema,
+  properties: { ...singlePowerReportSchema.properties, windowResults: { type: 'array', minItems: 1, maxItems: 16, items: singlePowerReportSchema } },
 };
 export const powerMetricsErrorSchema = {
   type: 'object', required: ['error'], additionalProperties: false,
@@ -55,9 +70,16 @@ export function powerMetricsArgs(raw: unknown): PowerMetricsArgs {
       || new Set(list.map(v => v.toLowerCase())).size !== list.length)) invalid(`Invalid ${key} list`);
   }
   if ((a.input === undefined) !== (a.output === undefined)) invalid('Provide both input and output designations');
+  if (a.includeCurrentCrestFactor !== undefined && typeof a.includeCurrentCrestFactor !== 'boolean') invalid('Expected includeCurrentCrestFactor to be a boolean');
+  if (a.includePowerFactor !== undefined && typeof a.includePowerFactor !== 'boolean') invalid('Expected includePowerFactor to be a boolean');
+  if (a.includeEnergyFlow !== undefined && typeof a.includeEnergyFlow !== 'boolean') invalid('Expected includeEnergyFlow to be a boolean');
+  if (a.includeReturnedPowerPeak !== undefined && typeof a.includeReturnedPowerPeak !== 'boolean') invalid('Expected includeReturnedPowerPeak to be a boolean');
   if (a.window !== undefined && (!Array.isArray(a.window) || a.window.length !== 2
     || a.window.some(t => typeof t !== 'number' || !Number.isFinite(t) || t < 0)
     || a.window[0] >= a.window[1])) invalid('Expected window [tStart,tStop] with 0 <= tStart < tStop');
+  if (a.windows !== undefined && (!Array.isArray(a.windows) || a.windows.length < 1 || a.windows.length > 16
+    || a.windows.some(w => !Array.isArray(w) || w.length !== 2
+      || w.some(t => typeof t !== 'number' || !Number.isFinite(t) || t < 0) || w[0] >= w[1]))) invalid('Expected 1 to 16 windows [tStart,tStop] with 0 <= tStart < tStop');
   return a as unknown as PowerMetricsArgs;
 }
 
@@ -80,8 +102,12 @@ export function powerPlan(args: PowerMetricsArgs): PowerPlan | { error: { code: 
   for (const name of names) {
     const c = components.find(c => c.name.toLowerCase() === name.toLowerCase());
     if (!c) invalid(`Unknown element: ${name}`);
-    if (c.ports.length !== 2 || !['R', 'C', 'L', 'V', 'I', 'D', 'H', 'F'].includes(c.type)) invalid(`Element ${name} is not a supported two-terminal device`);
-    const [positive, negative] = c.ports.map(p => p.net);
+    const controlled = c.type === 'E' || c.type === 'G';
+    if (controlled ? c.ports.length !== 4 : c.ports.length !== 2 || !['R', 'C', 'L', 'V', 'I', 'D', 'H', 'F'].includes(c.type)) invalid(`Element ${name} is not a supported two-terminal device`);
+    // E/G IR ports are control-first, unlike the output-first SPICE card.
+    const positive = controlled ? c.ports.find(p => p.name === 'outP')?.net : c.ports[0].net;
+    const negative = controlled ? c.ports.find(p => p.name === 'outN')?.net : c.ports[1].net;
+    if (positive === undefined || negative === undefined) invalid(`Missing output terminals: ${name}`);
     let branch = c.name;
     if (c.type !== 'V' && c.type !== 'L') {
       let suffix = probes.length;
@@ -89,7 +115,7 @@ export function powerPlan(args: PowerMetricsArgs): PowerPlan | { error: { code: 
       const node = `__power_${suffix}`;
       branch = `V__power_${suffix}`;
       const escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const line = new RegExp(`^(\\s*${escaped}\\s+)\\S+`, 'im');
+      const line = new RegExp(`^([ \\t]*${escaped}[ \\t(,]+)[^\\s(),]+`, 'im');
       if (!line.test(netlist)) invalid(`Cannot probe element: ${name}`);
       netlist = `${branch} ${positive} ${node} 0\n${netlist.replace(line, `$1${node}`)}`;
     }
@@ -116,26 +142,89 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     const current = vector(trace.currentsA, probe.branch);
     const vp = vector(trace.voltagesV, probe.positive);
     const vn = vector(trace.voltagesV, probe.negative);
-    const power = current.map((i, k) => (vp[k] - vn[k]) * i);
-    const square = current.map(i => i * i);
-    let energy = 0; let squareIntegral = 0; let peakPowerW = -Infinity; let peakTimeS = start;
+    let energy = 0; let absorbedEnergyJ = 0; let returnedEnergyJ = 0; let rmsScale = 0; let rmsNormalized = 0; let voltageScale = 0; let voltageNormalized = 0; let peakPowerW = -Infinity; let peakTimeS = start;
+    let peakReturnedPowerW = 0; let peakReturnedPowerTimeS: number | null = null;
     for (let k = 1; k < times.length; k++) {
       const left = Math.max(start, times[k - 1]); const right = Math.min(stop, times[k]);
       if (right <= left) continue;
-      // Integrate piecewise-linear power and i^2, clipping segments at window edges.
+      // Clip the linear input waveforms before integrating their quadratic products.
       const at = (values: number[], t: number) => values[k - 1] + (values[k] - values[k - 1]) * ((t - times[k - 1]) / (times[k] - times[k - 1]));
-      const pl = at(power, left); const pr = at(power, right);
-      energy += (pl + pr) * (right - left) / 2;
-      squareIntegral += (at(square, left) + at(square, right)) * (right - left) / 2;
-      if (pl > peakPowerW) { peakPowerW = pl; peakTimeS = left; }
-      if (pr > peakPowerW) { peakPowerW = pr; peakTimeS = right; }
+      const vl = at(vp, left) - at(vn, left); const vr = at(vp, right) - at(vn, right);
+      const il = at(current, left); const ir = at(current, right);
+      const dv = vr - vl; const di = ir - il; const duration = right - left;
+      const a = dv * di; const b = vl * di + il * dv; const c = vl * il;
+      energy += duration * (c + b / 2 + a / 3);
+      if (plan.args.includeEnergyFlow) {
+        const cuts = [0, 1];
+        for (const [l, r] of [[vl, vr], [il, ir]]) {
+          if ((l < 0 && r > 0) || (l > 0 && r < 0)) {
+            const scale = Math.max(Math.abs(l), Math.abs(r));
+            cuts.push((Math.abs(l) / scale) / (Math.abs(l) / scale + Math.abs(r) / scale));
+          }
+        }
+        cuts.sort((x, y) => x - y);
+        // Simpson's rule is exact for the quadratic product on each sign-constant interval.
+        for (let j = 1; j < cuts.length; j++) {
+          const x = cuts[j - 1]; const y = cuts[j]; const mid = (x + y) / 2;
+          const product = (t: number) => (vl + dv * t) * (il + di * t);
+          const part = duration * (y - x) * (product(x) / 6 + product(mid) * (2 / 3) + product(y) / 6);
+          if (part > 0) absorbedEnergyJ += part;
+          else returnedEnergyJ -= part;
+        }
+      }
+      // Normalize before squaring, and combine segment RMS values without squaring their scale.
+      const scale = Math.max(Math.abs(il), Math.abs(ir));
+      if (scale > 0) {
+        const l = il / scale; const r = ir / scale;
+        const nextScale = Math.max(rmsScale, scale);
+        const segmentRms = Math.sqrt((l * l + l * r + r * r) / 3);
+        const weight = Math.sqrt(duration) / Math.sqrt(stop - start);
+        rmsNormalized = Math.hypot(rmsNormalized * (rmsScale / nextScale), (scale / nextScale) * segmentRms * weight);
+        rmsScale = nextScale;
+      }
+      if (plan.args.includePowerFactor) {
+        const scaleV = Math.max(Math.abs(vl), Math.abs(vr));
+        if (scaleV > 0) {
+          const l = vl / scaleV; const r = vr / scaleV;
+          const nextScale = Math.max(voltageScale, scaleV);
+          const segmentRms = Math.sqrt((l * l + l * r + r * r) / 3);
+          const weight = Math.sqrt(duration) / Math.sqrt(stop - start);
+          voltageNormalized = Math.hypot(voltageNormalized * (voltageScale / nextScale), (scaleV / nextScale) * segmentRms * weight);
+          voltageScale = nextScale;
+        }
+      }
+      const considerReturned = (power: number, time: number) => {
+        if (plan.args.includeReturnedPowerPeak && -power > peakReturnedPowerW) { peakReturnedPowerW = -power; peakReturnedPowerTimeS = time; }
+      };
+      const consider = (power: number, time: number) => {
+        if (power > peakPowerW) { peakPowerW = power; peakTimeS = time; }
+        considerReturned(power, time);
+      };
+      consider(c, left);
+      const vertex = (-b / a) / 2;
+      if (a < 0 && vertex > 0 && vertex < 1) consider((vl + dv * vertex) * (il + di * vertex), left + duration * vertex);
+      if (plan.args.includeReturnedPowerPeak && a > 0 && vertex > 0 && vertex < 1) considerReturned((vl + dv * vertex) * (il + di * vertex), left + duration * vertex);
+      consider(vr * ir, right);
     }
-    return { name: probe.name, averagePowerW: energy / (stop - start), rmsCurrentA: Math.sqrt(squareIntegral / (stop - start)), peakPowerW, peakTimeS };
+    // An RMS cannot exceed the largest endpoint magnitude; clamp roundoff in the norm.
+    const normalized = Math.min(1, rmsNormalized);
+    const rmsVoltageV = voltageScale * Math.min(1, voltageNormalized);
+    const apparentPowerVA = rmsVoltageV * (rmsScale * normalized);
+    return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: rmsScale * normalized, peakPowerW, peakTimeS,
+      ...(plan.args.includeEnergyFlow ? { absorbedEnergyJ, returnedEnergyJ } : {}),
+      ...(plan.args.includeReturnedPowerPeak ? { peakReturnedPowerW, peakReturnedPowerTimeS } : {}),
+      ...(plan.args.includeCurrentCrestFactor ? { peakAbsCurrentA: rmsScale, currentCrestFactor: rmsScale === 0 ? null : 1 / normalized } : {}),
+      ...(plan.args.includePowerFactor ? { rmsVoltageV, apparentPowerVA, powerFactor: apparentPowerVA === 0 ? null : (energy / (stop - start)) / apparentPowerVA,
+        ...(apparentPowerVA === 0 ? { powerFactorReason: 'zero_apparent_power' as const } : {}) } : {}) };
   });
   const sum = (names: string[]) => elements.filter(e => names.some(n => n.toLowerCase() === e.name.toLowerCase())).reduce((s, e) => s + e.averagePowerW, 0);
   const pin = plan.args.input ? -sum(plan.args.input) : 0;
   const efficiency = plan.args.output && pin > 0 ? sum(plan.args.output) / pin : null;
   const report: PowerReport = { window: [start, stop], elements, efficiency };
   if (elements.some(e => Object.values(e).some(v => typeof v === 'number' && !Number.isFinite(v))) || (efficiency !== null && !Number.isFinite(efficiency))) invalid('Non-finite power metrics');
+  if (plan.args.windows) {
+    const { windows, ...args } = plan.args;
+    report.windowResults = windows.map(window => powerMetrics(result, { ...plan, args: { ...args, window } }));
+  }
   return report;
 }

@@ -7,6 +7,7 @@ import {
   type HFET1InstanceParams,
   type HFET1Model,
 } from './hfet1-model.js';
+import { InvalidCircuitError } from '../errors.js';
 
 export class HFET1 implements DeviceModel {
   readonly branches: number[] = [];
@@ -25,7 +26,19 @@ export class HFET1 implements DeviceModel {
     readonly nodes: number[],
     readonly model: HFET1Model,
     readonly instance: HFET1InstanceParams,
-  ) {}
+    circuitTemperature = 27,
+  ) {
+    this.setTemperature(circuitTemperature);
+  }
+
+  /** ngspice-47 hfettemp.c:62-74: absolute TEMP overrides circuit TEMP + DTEMP. */
+  setTemperature(celsius: number): void {
+    const kelvin = (this.instance.TEMP ?? (celsius + (this.instance.DTEMP ?? 0))) + 273.15;
+    if (!Number.isFinite(kelvin) || kelvin <= 0) {
+      throw new InvalidCircuitError(`${this.name}: HFET1 temperature must be finite and above absolute zero`);
+    }
+    this.instance.thermalVoltage = 1.380649e-23 * kelvin / 1.602176634e-19;
+  }
 
   stamp(ctx: StampContext): void {
     const [drain, gate, source] = this.nodes;

@@ -1,0 +1,9 @@
+shunt-sense original MIT project sensor example
+Vdd supply 0 PULSE(0 3.3 1u 20n 20n 20u 40u)
+Rload supply shunt 33
+Rshunt shunt 0 0.1
+Rsense shunt adc 1k
+Cfilter adc 0 10n
+Radc adc 0 1Meg
+.tran 100n 80u
+.end

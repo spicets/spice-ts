@@ -5,7 +5,7 @@ export interface TfArgs { netlist: string; output: string; input_source: string;
 export const tfInputSchema = {
   type: 'object', additionalProperties: false, required: ['netlist', 'output', 'input_source'],
   properties: {
-    netlist: { type: 'string', minLength: 1 }, output: { type: 'string', minLength: 1 },
+    netlist: { type: 'string', minLength: 1 }, output: { type: 'string', minLength: 1, description: 'Output selector: v(node), differential v(positive,negative), or i(vsrc); differential terminals must be literal node names, not brace expressions.' },
     input_source: { type: 'string', minLength: 1 }, params: paramsSchema,
   },
 };
@@ -32,9 +32,10 @@ export function tfArgs(args: unknown): TfArgs {
   if (Object.keys(a).some(k => !['netlist', 'output', 'input_source', 'params'].includes(k))
     || typeof a.netlist !== 'string' || !a.netlist.trim()
     || typeof a.output !== 'string'
-    || !/^(?:v\([^\s(),]+\)|i\(v[^\s(),]*\))$/i.test(a.output)
+    || !/^(?:v\([^\s(),]+(?:,[^\s(),]+)?\)|i\(v[^\s(),]*\))$/i.test(a.output)
+    || (/^v\(/i.test(a.output) && a.output.includes(',') && /[{}]/.test(a.output))
     || typeof a.input_source !== 'string' || !/^[vi][^\s(),]*$/i.test(a.input_source)) {
-    invalid('Expected netlist, output v(node) or i(vsrc), and independent input_source');
+    invalid('Expected netlist, output v(node), v(node,node) or i(vsrc), and independent input_source');
   }
   return a as unknown as TfArgs;
 }

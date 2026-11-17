@@ -665,6 +665,16 @@ export const XSPICE_CODE_MODEL_SPECS: ReadonlyMap<string, XspiceCodeModelSpec> =
         real('input_load', 1e-12),
       ],
     },
+    {
+      // ngspice-47 digital/d_state/ifspec.ifs.
+      name: 'd_state',
+      connections: [{ ...digital('in', 'in', true), nullAllowed: true }, digital('clk', 'in'),
+        { ...digital('reset', 'in'), nullAllowed: true }, digital('out', 'out', true, [1, undefined])],
+      params: [real('clk_delay', 1e-9), real('reset_delay', 1e-9),
+        { name: 'state_file', type: 'string' as const, defaultValue: ['state.txt'], vector: false, nullAllowed: true },
+        { name: 'reset_state', type: 'int' as const, defaultValue: [0], vector: false, nullAllowed: true },
+        real('input_load', 1e-12), real('clk_load', 1e-12), real('reset_load', 1e-12)],
+    },
     // ngspice-47 digital/{d_open_c,d_open_e}/ifspec.ifs:30-74.
     ...(['d_open_c', 'd_open_e'] as const).map(name => ({
       ...unaryGate(name),

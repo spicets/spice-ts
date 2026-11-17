@@ -1,0 +1,9 @@
+gpio-npn-switch original MIT maker circuit
+Vdd supply 0 5
+Vgpio gpio 0 PULSE(0 3.3 1u 10n 10n 5u 10u)
+Rb gpio base 2.2k
+Rload supply out 1k
+Q1 out base 0 NPN1
+.model NPN1 NPN (IS=1e-14 BF=100)
+.tran 100n 30u
+.end

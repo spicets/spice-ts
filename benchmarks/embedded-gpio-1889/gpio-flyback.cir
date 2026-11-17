@@ -1,0 +1,11 @@
+gpio-flyback original MIT maker circuit
+Vdd supply 0 5
+Vgpio gpio 0 PULSE(0 3.3 1u 10n 10n 10u 20u)
+Rcoil supply coil 50
+Lcoil coil out 100u
+Dfly out supply DF
+M1 out gpio 0 0 NM
+.model DF D(IS=1e-12)
+.model NM NMOS (LEVEL=1 VTO=1 KP=0.02)
+.tran 100n 30u
+.end

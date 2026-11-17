@@ -1,0 +1,12 @@
+differential original MIT project sensor example
+Vpos p 0 PULSE(1.2 2.1 1u 20n 20n 20u 40u)
+Vneg n 0 PULSE(2.1 1.2 1u 20n 20n 20u 40u)
+Rp p ap 1k
+Rn n an 1k
+Cp ap 0 1n
+Cn an 0 1n
+Cdiff ap an 4.7n
+Rbiasp ap 0 1Meg
+Rbiasn an 0 1Meg
+.tran 100n 80u
+.end
