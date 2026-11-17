@@ -159,6 +159,13 @@ function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]
 // endpoint events per segment, then sweep the piecewise-linear CDF and invert
 // its first interval or jump reaching the target. O(n log n) time, O(n) space.
 function timePercentile(points: number[], samples: number[], percentile: number): number {
+  if (percentile === 0 || percentile === 100) {
+    let extreme = samples[0];
+    for (let i = 1; i < samples.length; i++) {
+      extreme = percentile === 0 ? Math.min(extreme, samples[i]) : Math.max(extreme, samples[i]);
+    }
+    return extreme;
+  }
   const events: { level: number; slope: number; mass: number; segment: number }[] = [];
   for (let i = 1; i < points.length; i++) {
     const duration = points[i] - points[i - 1];
@@ -173,8 +180,6 @@ function timePercentile(points: number[], samples: number[], percentile: number)
     }
   }
   events.sort((a, b) => a.level - b.level);
-  if (percentile === 0) return events[0].level;
-  if (percentile === 100) return events[events.length - 1].level;
   const target = (points[points.length - 1] - points[0]) * (percentile / 100);
   if (!Number.isFinite(target)) return NaN;
   // Recompute each ancestor from nonnegative children: removing a large

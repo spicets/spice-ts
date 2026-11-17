@@ -32,6 +32,11 @@ describe('time-weighted percentile', () => {
     expect('value' in result && result.value).toBeCloseTo(0.7, 14);
   });
 
+  it('returns finite extrema even when their difference overflows', () => {
+    const trace = { ...ramp, analyses: [{ ...ramp.analyses[0], timeS: [0, 1], voltagesV: { out: [-1e308, 1e308] } }] };
+    expect(measureResult(trace, [0, 100].map(percentile => ({ ...item, percentile }))).measurements).toEqual([-1e308, 1e308].map(value => ({ value, unit: 'V' })));
+  });
+
   it('selects steps, differential voltage and branch current', () => {
     const a = ramp.analyses[0];
     const stepped = { ...ramp, analyses: [0, 1].map(index => ({ ...a, step: { index, parameter: 'r', value: index }, voltagesV: { out: [0, 1, 9, 10], ref: [0, 0.5, 4.5, 5] }, currentsA: { v1: [0, -1, -9, -10] } })) };
