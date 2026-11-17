@@ -62,6 +62,10 @@ describe('impedance reflection', () => {
     expect(reflection.imaginary).toBe(Number.MIN_VALUE);
     expect(reflection.magnitude).toBe(Number.MIN_VALUE);
   });
+  it('preserves a subnormal imaginary reflection with negative resistance', () => {
+    const reflection = report(-5e307, 1e-16, 1e308).points[0].reflection!;
+    expect(reflection.imaginary).toBe(2 * Number.MIN_VALUE);
+  });
   it('advertises null and reason as a pair', () => {
     const base = report(50, 0, 50);
     const point = base.points[0];

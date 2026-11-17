@@ -135,9 +135,10 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
       const real = ((a * cr + b * ci) / denominator) / q;
       const doubledReference = r0 <= Number.MAX_VALUE / 2 ? (2 * r0) / scale : 2 * (r0 / scale);
       // Retain guard bits when normalizing a tiny reactance would round before
-      // division by q; remove the power-of-two scale only at the end.
+      // division by q; remove the power-of-two scale only at the end. Bound
+      // 1/q so the guarded intermediate remains safely finite.
       const guard = 2 ** 52;
-      const imaginary = Math.abs(b) < 1e-300 && q >= 1
+      const imaginary = Math.abs(b) < 1e-300 && q >= 1 / guard
         ? (((doubledReference * ((reactanceOhm * guard / scale) / q)) / denominator) / q) / guard
         : ((doubledReference * ci) / denominator) / q;
       const magnitude = Math.hypot(real, imaginary);
