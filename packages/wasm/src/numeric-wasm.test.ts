@@ -162,8 +162,8 @@ describe('bounded numeric WebAssembly backend', () => {
           inputFormats: ['spice'],
           analyses: ['op', 'dc', 'tran', 'ac'],
           devicesByAnalysis: {
-            op: ['R', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'],
-            dc: ['R', 'I', 'V', 'D', 'J', 'S', 'W'],
+            op: ['R', 'C', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'],
+            dc: ['R', 'C', 'I', 'V', 'D', 'J', 'S', 'W'],
             tran: ['R', 'C', 'L', 'I', 'V', 'J', 'S', 'W'],
             ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S', 'W'],
           },
@@ -1375,7 +1375,7 @@ describe('bounded numeric WebAssembly backend', () => {
     const wasm = await engine('spice-ts-wasm');
     try {
       for (const [name, source] of Object.entries({
-        capacitor: 'V1 in 0 1\nC1 in 0 1u\n.op',
+        behavioral: 'V1 in 0 1\nB1 out 0 V=V(in)\nR1 out 0 1k\n.op',
         waveform: 'V1 in 0 PULSE(0 1 0 1n 1n 1m 2m)\nR1 in 0 1k\n.op',
         unsupportedDiodeParameterTransient: 'V1 in 0 1\nD1 in 0 D\n.model D D(CJSW=1p)\n.tran 1u 1m',
       })) {
