@@ -4,9 +4,10 @@ import { paramsSchema } from './params.js';
 
 type ACAnalysis = Extract<AnalysisDirective, { type: 'ac' }>;
 
-export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis; includeAdmittance?: boolean; includeSeriesEquivalent?: boolean; includeParallelEquivalent?: boolean; spotFrequenciesHz?: number[]; referenceResistanceOhm?: number }
+export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis; includeAdmittance?: boolean; includeSeriesEquivalent?: boolean; includeParallelEquivalent?: boolean; spotFrequenciesHz?: number[]; referenceResistanceOhm?: number; includeMatchingMetrics?: boolean }
 export interface ImpedanceSpectrum { frequencyHz: number[]; positive: { magnitude: number; phaseDegrees: number }[]; negative: { magnitude: number; phaseDegrees: number }[] }
 export const impedanceProperties = {
+  includeMatchingMetrics: { type: 'boolean', description: 'Include sampled-point return loss and VSWR; requires referenceResistanceOhm.' },
   referenceResistanceOhm: { type: 'number', exclusiveMinimum: 0, maximum: Number.MAX_VALUE, description: 'Positive finite reference resistance for sampled-point voltage reflection coefficients.' },
   includeAdmittance: { type: 'boolean' },
   includeParallelEquivalent: { type: 'boolean', description: 'Add local frequency-specific parallel C/L equivalents to sampled points, not physical topology or spot queries.' },
@@ -33,11 +34,21 @@ export const impedanceOutputSchema = {
       allOf: [
         { if: { required: ['reflectionReason'] }, then: { required: ['reflection'], properties: { reflection: { type: 'null' } } } },
         { if: { required: ['reflection'], properties: { reflection: { type: 'null' } } }, then: { required: ['reflectionReason'] } },
+        { if: { required: ['returnLossDb'], properties: { returnLossDb: { type: 'null' } } }, then: { required: ['returnLossReason'] } },
+        { if: { required: ['returnLossReason'] }, then: { required: ['returnLossDb'], properties: { returnLossDb: { type: 'null' } } } },
+        { if: { required: ['vswr'], properties: { vswr: { type: 'null' } } }, then: { required: ['vswrReason'] } },
+        { if: { required: ['vswrReason'] }, then: { required: ['vswr'], properties: { vswr: { type: 'null' } } } },
+        { if: { required: ['returnLossDb'] }, then: { required: ['vswr'] } },
+        { if: { required: ['vswr'] }, then: { required: ['returnLossDb'] } },
       ],
       required: ['frequencyHz', 'magnitudeOhm', 'phaseDeg', 'resistanceOhm', 'reactanceOhm'], properties: {
         frequencyHz: number, magnitudeOhm: number, phaseDeg: number, resistanceOhm: number, reactanceOhm: number, conductanceS: number, susceptanceS: number,
         reflection: { anyOf: [{ type: 'null' }, { type: 'object', additionalProperties: false, required: ['real', 'imaginary', 'magnitude'], properties: { real: finiteNumber, imaginary: finiteNumber, magnitude: { ...finiteNumber, minimum: 0 } } }] },
         reflectionReason: { enum: ['zero-denominator', 'unrepresentable'] },
+        returnLossDb: { type: ['number', 'null'], minimum: -Number.MAX_VALUE, maximum: Number.MAX_VALUE },
+        returnLossReason: { enum: ['infinite-perfect-match', 'undefined-reflection'] },
+        vswr: { type: ['number', 'null'], minimum: 1, maximum: Number.MAX_VALUE },
+        vswrReason: { enum: ['unbounded', 'nonpassive', 'undefined-reflection', 'unrepresentable'] },
         seriesCapacitanceF: { type: ['number', 'null'] }, seriesInductanceH: { type: ['number', 'null'] },
         parallelCapacitanceF: { type: ['number', 'null'] }, parallelInductanceH: { type: ['number', 'null'] },
         parallelEquivalentReason: { enum: ['zero_impedance', 'unrepresentable'], description: 'Zero impedance has no reciprocal; unrepresentable means the reciprocal or nonzero equivalent is outside the finite positive number range.' },
@@ -61,8 +72,10 @@ export function impedanceInvalid(message: string, reason?: typeof impedanceError
 }
 export function impedanceArgs(raw: unknown): ImpedanceSelectors {
   const a = raw as Record<string, unknown> | null;
-  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params', 'includeAdmittance', 'includeSeriesEquivalent', 'includeParallelEquivalent', 'spotFrequenciesHz', 'referenceResistanceOhm'].includes(k))) impedanceInvalid('Expected request, port and supported impedance options');
+  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params', 'includeAdmittance', 'includeSeriesEquivalent', 'includeParallelEquivalent', 'spotFrequenciesHz', 'referenceResistanceOhm', 'includeMatchingMetrics'].includes(k))) impedanceInvalid('Expected request, port and supported impedance options');
   if (a.referenceResistanceOhm !== undefined && (typeof a.referenceResistanceOhm !== 'number' || !Number.isFinite(a.referenceResistanceOhm) || a.referenceResistanceOhm <= 0)) impedanceInvalid('Expected a positive finite reference resistance');
+  if (a.includeMatchingMetrics !== undefined && typeof a.includeMatchingMetrics !== 'boolean') impedanceInvalid('Expected includeMatchingMetrics to be a boolean');
+  if (a.includeMatchingMetrics === true && a.referenceResistanceOhm === undefined) impedanceInvalid('Matching metrics require referenceResistanceOhm');
   if (a.includeAdmittance !== undefined && typeof a.includeAdmittance !== 'boolean') impedanceInvalid('Expected includeAdmittance to be a boolean');
   if (a.includeSeriesEquivalent !== undefined && typeof a.includeSeriesEquivalent !== 'boolean') impedanceInvalid('Expected includeSeriesEquivalent to be a boolean');
   if (a.includeParallelEquivalent !== undefined && typeof a.includeParallelEquivalent !== 'boolean') impedanceInvalid('Expected includeParallelEquivalent to be a boolean');
@@ -82,7 +95,7 @@ export function impedanceArgs(raw: unknown): ImpedanceSelectors {
     sweep = { type: 'ac', ...s } as ACAnalysis;
   }
   if (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length > 128 || !a.spotFrequenciesHz.every(v => typeof v === 'number' && Number.isFinite(v) && v > 0))) impedanceInvalid('Expected at most 128 positive finite spot frequencies');
-  return { port, sweep, includeAdmittance: a.includeAdmittance as boolean | undefined, includeSeriesEquivalent: a.includeSeriesEquivalent as boolean | undefined, includeParallelEquivalent: a.includeParallelEquivalent as boolean | undefined, spotFrequenciesHz: a.spotFrequenciesHz as number[] | undefined, referenceResistanceOhm: a.referenceResistanceOhm as number | undefined };
+  return { port, sweep, includeMatchingMetrics: a.includeMatchingMetrics as boolean | undefined, includeAdmittance: a.includeAdmittance as boolean | undefined, includeSeriesEquivalent: a.includeSeriesEquivalent as boolean | undefined, includeParallelEquivalent: a.includeParallelEquivalent as boolean | undefined, spotFrequenciesHz: a.spotFrequenciesHz as number[] | undefined, referenceResistanceOhm: a.referenceResistanceOhm as number | undefined };
 }
 export function impedancePlan(request: SimulationRequestV1, sweep: ACAnalysis): SimulationRequestV1 {
   // Reuse the standard bounded AC point estimator without executing a user deck during preflight.
@@ -146,7 +159,39 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
         ? { reflection: { real, imaginary, magnitude } }
         : { reflection: null, reflectionReason: 'unrepresentable' };
     };
-    const point = { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg, ...equivalent(), ...reflection() };
+    const reflected = reflection();
+    const matching = () => {
+      if (!selectors.includeMatchingMetrics) return {};
+      const gamma = reflected.reflection;
+      if (!gamma) return { returnLossDb: null, returnLossReason: 'undefined-reflection', vswr: null, vswrReason: 'undefined-reflection' };
+      const r0 = selectors.referenceResistanceOhm!;
+      if (resistanceOhm === r0 && reactanceOhm === 0) return { returnLossDb: null, returnLossReason: 'infinite-perfect-match', vswr: 1 };
+      // log(hypot(a,b)) without overflow or underflow, retaining a nonzero mismatch.
+      const logHypot = (a: number, b: number) => {
+        const scale = Math.max(Math.abs(a), Math.abs(b));
+        return Math.log(scale) + Math.log(Math.hypot(a / scale, b / scale));
+      };
+      const scale = Math.max(Math.abs(resistanceOhm), Math.abs(reactanceOhm), r0);
+      const sum = resistanceOhm + r0;
+      const diff = resistanceOhm - r0;
+      const logD = Number.isFinite(sum) ? logHypot(sum, reactanceOhm) : Math.log(scale) + logHypot(resistanceOhm / scale + r0 / scale, reactanceOhm / scale);
+      const logN = Number.isFinite(diff) ? logHypot(diff, reactanceOhm) : Math.log(scale) + logHypot(resistanceOhm / scale - r0 / scale, reactanceOhm / scale);
+      // Around |Gamma| = 1, subtraction of nearly equal logarithms loses the
+      // mismatch. Use |Gamma|² = 1 - 4 R R0 / |Z+R0|² instead.
+      const delta = Math.exp(Math.log(4) + Math.log(Math.abs(resistanceOhm)) + Math.log(r0) - 2 * logD);
+      const logGamma = gamma.magnitude === 1 && delta < 0.5
+        ? Math.log1p(resistanceOhm < 0 ? delta : -delta) / 2
+        : gamma.magnitude > 0 && gamma.magnitude !== 1 ? Math.log(gamma.magnitude) : logN - logD;
+      const returnLossDb = resistanceOhm === 0 ? 0 : -20 / Math.LN10 * logGamma;
+      if (resistanceOhm < 0) return { returnLossDb, vswr: null, vswrReason: 'nonpassive' };
+      if (resistanceOhm === 0) return { returnLossDb, vswr: null, vswrReason: 'unbounded' };
+      // VSWR = (|Z+R|+|Z-R|)^2 / (4 R Re(Z)); log domain avoids overflow.
+      const logSum = Math.max(logD, logN) + Math.log1p(Math.exp(-Math.abs(logD - logN)));
+      const logVswr = 2 * logSum - Math.log(4) - Math.log(r0) - Math.log(resistanceOhm);
+      const vswr = Math.exp(logVswr);
+      return Number.isFinite(vswr) ? { returnLossDb, vswr: Math.max(1, vswr) } : { returnLossDb, vswr: null, vswrReason: 'unrepresentable' };
+    };
+    const point = { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg, ...equivalent(), ...reflected, ...matching() };
     if (!selectors.includeAdmittance && !selectors.includeParallelEquivalent) return point;
     if (selectors.includeParallelEquivalent && frequencyHz <= 0) impedanceInvalid('Expected a positive frequency for parallel equivalent');
     const scale = Math.max(Math.abs(resistanceOhm), Math.abs(reactanceOhm));
