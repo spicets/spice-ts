@@ -59,7 +59,7 @@ describe('bounded native JSON DC sweeps', () => {
       expect(actual.axis.values).toEqual(axis);
       for (const [field, values] of Object.entries({ voltagesV: fixture.voltages, currentsA: fixture.currents })) {
         const vectors = actual[field as 'voltagesV' | 'currentsA'];
-        for (const [name, expected] of Object.entries(values)) expected.forEach((value, i) => expect(Math.abs(vectors[name]![i]! - value), `${field}.${name}[${i}]`).toBeLessThanOrEqual(tol(value)));
+        for (const [name, expected] of Object.entries(values) as [string, number[]][]) expected.forEach((value, i) => expect(Math.abs(vectors[name]![i]! - value), `${field}.${name}[${i}]`).toBeLessThanOrEqual(tol(value)));
       }
       let maxError = 0;
       for (const ref of [core, text.data.analyses[0]]) for (const field of ['voltagesV', 'currentsA'] as const) {
