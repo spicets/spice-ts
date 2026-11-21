@@ -616,6 +616,9 @@ interpret them as stability margins, not an arbitrary closed-loop response.
 Phase starts on [-180, 180) and unwraps between adjacent samples; sample densely
 enough to avoid phase aliasing. Exact target samples at either endpoint count
 when part of a strictly descending segment; flat or rising segments do not.
+For requested phase crossings, zero output magnitude breaks phase continuity:
+segments cannot cross the zero sample, and the next nonzero segment starts at
+its principal phase rather than inheriting a branch across the gap.
 `peakingDb` is the maximum sampled gain minus the lowest-frequency gain;
 `peakFrequencyHz` is the first sampled frequency attaining that maximum. These
 do not estimate peaks between samples. A monotone low-pass has zero peaking.
