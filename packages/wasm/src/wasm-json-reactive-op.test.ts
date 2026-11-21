@@ -68,6 +68,15 @@ describe('numeric WASM native reactive operating points', () => {
     } finally { await wasm.close(); }
   });
 
+  it('rejects a capacitor-only node even when gmin could regularize it', async () => {
+    const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    const doc = { ...document, circuit: { nets: ['a'], components: [component('C', 'C1', 'a', '0', { capacitance: 1e-6 })] } };
+    try {
+      const result = await wasm.simulate({ ...request(doc), options: { gmin: 0.001 } }, { requestId: 'floating' });
+      expect(result.ok, JSON.stringify(result)).toBe(false);
+    } finally { await wasm.close(); }
+  });
+
   it('preserves limits, unknown-net, singular and unsupported boundaries', async () => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {

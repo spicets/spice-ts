@@ -738,6 +738,10 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const order = compiled.nodeCount + compiled.branchCount;
   if (order < 1) throw numericError('INVALID_CIRCUIT', 'The circuit has no numeric unknowns', 'compile');
   if (order > NUMERIC_WASM_LIMITS.maxSystemOrder) throw resourceLimit('maxSystemOrder', NUMERIC_WASM_LIMITS.maxSystemOrder, order);
+  if (components.some(component => component.type.toUpperCase() === 'C')) {
+    const paths = new Map(components.map((component, index) => [component.name.toUpperCase(), `/input/document/circuit/components/${index}`]));
+    preflightTopology(compiled, name => paths.get(name.toUpperCase()) ?? `/compiled/devices/${name.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+  }
   return { analysis: 'op', compiled, order };
 }
 
