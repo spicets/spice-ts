@@ -710,15 +710,26 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
     !['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'].includes(key))) {
     unsupported('native-document', 'Only flat native circuits without additional directives are supported');
   }
+  const nets = new Set(document.circuit.nets.map(net => net.toLowerCase()));
   for (const component of components) {
     const type = component.type.toUpperCase();
-    if (!['R', 'I', 'V'].includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
-      unsupported('device', 'Only independent R, I and V devices are supported');
+    if (!['R', 'C', 'L', 'I', 'V'].includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
+      unsupported('device', 'Only independent R, C, L, I and V devices are supported');
     }
-    const allowed = type === 'R' ? ['resistance'] : ['dc', 'waveform'];
+    if (type === 'C' || type === 'L') {
+      const key = type === 'C' ? 'capacitance' : 'inductance';
+      const value = component.params[key];
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+        throw numericError('INVALID_CIRCUIT', `${component.name} requires a positive finite ${key}`, 'validation');
+      }
+      if (component.ports.some(port => !['0', 'gnd'].includes(port.net.toLowerCase()) && !nets.has(port.net.toLowerCase()))) {
+        throw numericError('INVALID_CIRCUIT', `${component.name} references an unknown net`, 'validation');
+      }
+    }
+    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : ['dc', 'waveform'];
     if (Object.keys(component.params).some(key => !allowed.includes(key)) ||
       (component.params.waveform !== undefined && component.params.waveform !== 'dc')) {
-      unsupported('device-parameters', 'Only numeric resistances and DC sources are supported');
+      unsupported('device-parameters', 'Only numeric passive values and DC sources are supported');
     }
   }
   // Reuse core's native schema/compiler semantics, but perform the solve in WASM.
