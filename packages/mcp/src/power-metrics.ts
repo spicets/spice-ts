@@ -12,12 +12,13 @@ export interface PowerMetricsArgs {
   includePowerFactor?: boolean;
   includeEnergyFlow?: boolean;
   includeReturnedPowerPeak?: boolean;
+  includeCharge?: boolean;
 }
 interface ElementProbe { name: string; positive: string; negative: string; branch: string }
 export interface PowerPlan { netlist: string; probes: ElementProbe[]; args: PowerMetricsArgs }
 export interface PowerReport {
   window: [number, number];
-  elements: { name: string; averagePowerW: number; energyJ: number; absorbedEnergyJ?: number; returnedEnergyJ?: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number; peakReturnedPowerW?: number; peakReturnedPowerTimeS?: number | null; peakAbsCurrentA?: number; currentCrestFactor?: number | null; rmsVoltageV?: number; apparentPowerVA?: number; powerFactor?: number | null; powerFactorReason?: 'zero_apparent_power' }[];
+  elements: { name: string; averagePowerW: number; energyJ: number; absorbedEnergyJ?: number; returnedEnergyJ?: number; chargeC?: number; averageCurrentA?: number; rmsCurrentA: number; peakPowerW: number; peakTimeS: number; peakReturnedPowerW?: number; peakReturnedPowerTimeS?: number | null; peakAbsCurrentA?: number; currentCrestFactor?: number | null; rmsVoltageV?: number; apparentPowerVA?: number; powerFactor?: number | null; powerFactorReason?: 'zero_apparent_power' }[];
   efficiency: number | null;
   windowResults?: PowerReport[];
 }
@@ -32,6 +33,7 @@ export const powerMetricsProperties = {
   includePowerFactor: { type: 'boolean' },
   includeEnergyFlow: { type: 'boolean' },
   includeReturnedPowerPeak: { type: 'boolean' },
+  includeCharge: { type: 'boolean' },
 };
 const singlePowerReportSchema = {
   type: 'object', required: ['window', 'elements', 'efficiency'], additionalProperties: false,
@@ -40,7 +42,7 @@ const singlePowerReportSchema = {
     efficiency: { type: ['number', 'null'] },
     elements: { type: 'array', items: {
       type: 'object', required: ['name', 'averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'], additionalProperties: false,
-      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'absorbedEnergyJ', 'returnedEnergyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS', 'peakReturnedPowerW', 'peakAbsCurrentA', 'rmsVoltageV', 'apparentPowerVA'].map(k => [k, { type: 'number' }])), peakReturnedPowerTimeS: { type: ['number', 'null'] }, currentCrestFactor: { type: ['number', 'null'] }, powerFactor: { type: ['number', 'null'] }, powerFactorReason: { enum: ['zero_apparent_power'] } },
+      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'absorbedEnergyJ', 'returnedEnergyJ', 'chargeC', 'averageCurrentA', 'rmsCurrentA', 'peakPowerW', 'peakTimeS', 'peakReturnedPowerW', 'peakAbsCurrentA', 'rmsVoltageV', 'apparentPowerVA'].map(k => [k, { type: 'number' }])), peakReturnedPowerTimeS: { type: ['number', 'null'] }, currentCrestFactor: { type: ['number', 'null'] }, powerFactor: { type: ['number', 'null'] }, powerFactorReason: { enum: ['zero_apparent_power'] } },
     } },
   },
 };
@@ -74,6 +76,7 @@ export function powerMetricsArgs(raw: unknown): PowerMetricsArgs {
   if (a.includePowerFactor !== undefined && typeof a.includePowerFactor !== 'boolean') invalid('Expected includePowerFactor to be a boolean');
   if (a.includeEnergyFlow !== undefined && typeof a.includeEnergyFlow !== 'boolean') invalid('Expected includeEnergyFlow to be a boolean');
   if (a.includeReturnedPowerPeak !== undefined && typeof a.includeReturnedPowerPeak !== 'boolean') invalid('Expected includeReturnedPowerPeak to be a boolean');
+  if (a.includeCharge !== undefined && typeof a.includeCharge !== 'boolean') invalid('Expected includeCharge to be a boolean');
   if (a.window !== undefined && (!Array.isArray(a.window) || a.window.length !== 2
     || a.window.some(t => typeof t !== 'number' || !Number.isFinite(t) || t < 0)
     || a.window[0] >= a.window[1])) invalid('Expected window [tStart,tStop] with 0 <= tStart < tStop');
@@ -143,7 +146,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     const vp = vector(trace.voltagesV, probe.positive);
     const vn = vector(trace.voltagesV, probe.negative);
     let energy = 0; let absorbedEnergyJ = 0; let returnedEnergyJ = 0; let rmsScale = 0; let rmsNormalized = 0; let voltageScale = 0; let voltageNormalized = 0; let peakPowerW = -Infinity; let peakTimeS = start;
-    let peakReturnedPowerW = 0; let peakReturnedPowerTimeS: number | null = null;
+    let peakReturnedPowerW = 0; let peakReturnedPowerTimeS: number | null = null; let chargeC = 0;
     for (let k = 1; k < times.length; k++) {
       const left = Math.max(start, times[k - 1]); const right = Math.min(stop, times[k]);
       if (right <= left) continue;
@@ -152,6 +155,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       const vl = at(vp, left) - at(vn, left); const vr = at(vp, right) - at(vn, right);
       const il = at(current, left); const ir = at(current, right);
       const dv = vr - vl; const di = ir - il; const duration = right - left;
+      if (plan.args.includeCharge) chargeC += duration * (il / 2 + ir / 2);
       const a = dv * di; const b = vl * di + il * dv; const c = vl * il;
       energy += duration * (c + b / 2 + a / 3);
       if (plan.args.includeEnergyFlow) {
@@ -212,6 +216,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     const apparentPowerVA = rmsVoltageV * (rmsScale * normalized);
     return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: rmsScale * normalized, peakPowerW, peakTimeS,
       ...(plan.args.includeEnergyFlow ? { absorbedEnergyJ, returnedEnergyJ } : {}),
+      ...(plan.args.includeCharge ? { chargeC, averageCurrentA: chargeC / (stop - start) } : {}),
       ...(plan.args.includeReturnedPowerPeak ? { peakReturnedPowerW, peakReturnedPowerTimeS } : {}),
       ...(plan.args.includeCurrentCrestFactor ? { peakAbsCurrentA: rmsScale, currentCrestFactor: rmsScale === 0 ? null : 1 / normalized } : {}),
       ...(plan.args.includePowerFactor ? { rmsVoltageV, apparentPowerVA, powerFactor: apparentPowerVA === 0 ? null : (energy / (stop - start)) / apparentPowerVA,
