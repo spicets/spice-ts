@@ -15,7 +15,7 @@ export const acMetricsProperties = {
   step: { type: 'integer', minimum: 0 },
   frequenciesHz: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number', exclusiveMinimum: 0 }, description: 'Transfer spots in request order. Gain dB and unwrapped phase are interpolated linearly in log frequency; no extrapolation.' },
   gainCrossingsDb: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested gain targets in dB; first descending crossings in sweep order, interpolated in log frequency without extrapolation.' },
-  phaseCrossingsDeg: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested phase targets in degrees; first descending unwrapped phase crossings in sweep order, interpolated in log frequency without extrapolation.' },
+  phaseCrossingsDeg: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested phase targets in degrees; first descending unwrapped phase crossings in sweep order, interpolated in log frequency without extrapolation. Zero magnitude breaks continuity; unwrapping restarts at principal phase.' },
   includeBandpass: { type: 'boolean', description: 'Report sampled global peak and nearest half-power crossings, interpolating gain in dB linearly in log frequency. The first maximum wins ties; crossings are never extrapolated.' },
   groupDelayAtHz: { type: 'number', exclusiveMinimum: 0, description: 'Frequency in Hz for group delay. Sample delays use centered phase differences, or one-sided differences at endpoints; between samples delays are linearly interpolated in Hz. No extrapolation; adjacent phase changes must be below 180 degrees.' },
 };
@@ -169,6 +169,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     if (args.groupDelayAtHz < f[0] || args.groupDelayAtHz > f[f.length - 1]) invalid('Group delay frequency is outside the sweep', { reason: 'GROUP_DELAY_OUT_OF_RANGE' });
   }
   const db: number[] = []; const phase: number[] = [];
+  const requestedPhase: number[] | undefined = args.phaseCrossingsDeg && [];
   for (let i = 0; i < f.length; i++) {
     const p = out[i]; const q = input?.[i];
     if (!Number.isFinite(p.magnitude) || p.magnitude < 0 || !Number.isFinite(p.phaseDegrees)
@@ -180,6 +181,16 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     let angle = p.phaseDegrees - (q?.phaseDegrees ?? 0);
     // Choose the principal initial phase, then unwrap relative to the preceding sample.
     angle = ((angle + 180) % 360 + 360) % 360 - 180;
+    if (requestedPhase) {
+      // A zero phasor breaks phase continuity; restart from principal phase.
+      let requestedAngle = p.magnitude === 0 ? NaN : angle;
+      const previous = requestedPhase[i - 1];
+      if (Number.isFinite(previous)) {
+        while (requestedAngle - previous > 180) requestedAngle -= 360;
+        while (requestedAngle - previous < -180) requestedAngle += 360;
+      }
+      requestedPhase.push(requestedAngle);
+    }
     if (i > 0) {
       while (angle - phase[i - 1] > 180) angle -= 360;
       while (angle - phase[i - 1] < -180) angle += 360;
@@ -294,7 +305,6 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     const hz = Number.isFinite(c.hz) ? c.hz : Math.exp((1 - c.fraction) * Math.log(f[c.index - 1]) + c.fraction * Math.log(f[c.index]));
     return { targetDb, frequencyHz: hz };
   });
-  const requestedPhase = args.phaseCrossingsDeg && phase.map((angle, i) => out[i].magnitude === 0 ? NaN : angle);
   const phaseCrossings = args.phaseCrossingsDeg?.map(targetDeg => {
     const c = crossing(requestedPhase!, targetDeg);
     if (!c) return { targetDeg, frequencyHz: null, reason: 'NO_PHASE_CROSSING' as const };

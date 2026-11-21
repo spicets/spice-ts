@@ -27,6 +27,17 @@ describe('requested phase crossings', () => {
     const result = acMetrics(sweep([-45, -90, -135], [1, 0, 1]), { output: 'out', phaseCrossingsDeg: [-90] });
     expect(result.phaseCrossings![0]).toEqual({ targetDeg: -90, frequencyHz: null, reason: 'NO_PHASE_CROSSING' });
   });
+  it('restarts unwrapping after zero magnitude regardless of its undefined phase', () => {
+    const targets = [165, -195, -180];
+    const query = (zeroPhase: number) => acMetrics(sweep([-170, zeroPhase, 170, 160], [1, 0, 1, 1]), {
+      output: 'out', phaseCrossingsDeg: targets,
+    }).phaseCrossings!;
+    const expected = query(0);
+    expect(query(-170)).toEqual(expected);
+    expect(expected[0].frequencyHz).toBeCloseTo(1e6);
+    expect(expected[1]).toEqual({ targetDeg: -195, frequencyHz: null, reason: 'NO_PHASE_CROSSING' });
+    expect(expected[2]).toEqual({ targetDeg: -180, frequencyHz: null, reason: 'NO_PHASE_CROSSING' });
+  });
   it('preserves legacy response when omitted', () => {
     const trace = sweep([-45, -135]);
     const legacy = acMetrics(trace, { output: 'out' });
