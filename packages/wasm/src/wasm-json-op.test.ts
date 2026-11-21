@@ -97,7 +97,7 @@ describe('numeric WASM JSON operating point', () => {
         { apiVersion: '1', input: { format: 'spice-ts', document: doc }, options }, { requestId: 'rejected' });
       const device = await run({ ...document, circuit: { ...document.circuit, components: [component('Z', 'Z1', ['in', '0'], {})] } });
       expect(device).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'device' } } });
-      const analysis = await run({ ...document, analyses: [{ type: 'dc', source: 'V1', start: 0, stop: 1, step: 1 }] });
+      const analysis = await run({ ...document, analyses: [{ type: 'ac', variation: 'lin', points: 2, startFreq: 1, stopFreq: 2 }] });
       expect(analysis).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'analysis' } } });
       for (const [limit, value] of [['maxComponents', 2], ['maxSourceBytes', 10], ['maxSerializedResultBytes', 10]] as const) {
         const limited = await run(document, { limits: { [limit]: value } });

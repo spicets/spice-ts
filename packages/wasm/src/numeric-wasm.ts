@@ -694,7 +694,45 @@ function polar(real: number, imaginary: number): { magnitude: number; phaseDegre
   };
 }
 
-function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> }): PreparedLinearOp {
+function prepareDc(compiled: CompiledCircuit, order: number, request: SimulationRequestV1, measurements: WasmMeasurement[]): PreparedLinearDc {
+  const compiledAnalysis = compiled.analyses[0];
+  if (compiledAnalysis?.type !== 'dc') unsupported('analysis', 'Exactly one .dc analysis is supported');
+  const innerPointCount = dcPointCount(compiledAnalysis.start, compiledAnalysis.stop, compiledAnalysis.step);
+  const secondary = compiledAnalysis.secondary;
+  if (secondary && measurements.length) unsupported('measurement', 'DC measurements require a single sweep');
+  const pointCount = innerPointCount * (secondary ? dcPointCount(secondary.start, secondary.stop, secondary.step) : 1);
+  const pointLimit = Math.min(
+    NUMERIC_WASM_LIMITS.maxResultPoints,
+    request.options?.limits?.maxResultPoints ?? Infinity,
+  );
+  if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
+  const resolveSource = (name: string): SweepableSource => {
+    const normalized = name.toUpperCase();
+    const sources = compiled.devices.filter(device => {
+      const candidate = device as unknown as Partial<SweepableSource>;
+      return candidate.name?.toUpperCase() === normalized && candidate.waveform !== undefined
+        && ['V', 'I'].includes(deviceType(candidate.name) ?? '');
+    }) as unknown as SweepableSource[];
+    if (sources.length !== 1) {
+      throw numericError('INVALID_CIRCUIT', `DC sweep source '${name}' must identify one independent source`, 'validation', {
+        feature: 'dc-source', source: name, matches: sources.length,
+      });
+    }
+    if (!['dc', 'ac'].includes(sources[0]!.waveform.type)) {
+      unsupported('source-waveform', 'DC sweep sources must use a constant or DC value');
+    }
+    return sources[0]!;
+  };
+  if (secondary?.source.toUpperCase() === compiledAnalysis.source.toUpperCase()) {
+    throw numericError('INVALID_CIRCUIT', 'DC sweep sources must be distinct', 'validation', { feature: 'dc-source' });
+  }
+  return {
+    analysis: 'dc', compiled, order, measurements, sweep: compiledAnalysis, source: resolveSource(compiledAnalysis.source),
+    secondarySource: secondary ? resolveSource(secondary.source) : undefined, innerPointCount, pointCount,
+  };
+}
+
+function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> }): PreparedLinearOp | PreparedLinearDc {
   const document = request.input.document;
   const sourceBytes = new TextEncoder().encode(JSON.stringify(request.input)).byteLength;
   const sourceLimit = Math.min(NUMERIC_WASM_LIMITS.maxSourceBytes, request.options?.limits?.maxSourceBytes ?? Infinity);
@@ -705,7 +743,13 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   if (components.length > componentLimit) throw resourceLimit('maxComponents', componentLimit, components.length);
   const analysisLimit = Math.min(1, request.options?.limits?.maxAnalyses ?? Infinity);
   if (document.analyses.length > analysisLimit) throw resourceLimit('maxAnalyses', analysisLimit, document.analyses.length);
-  if (document.analyses.length !== 1 || document.analyses[0]?.type !== 'op') unsupported('analysis', 'Exactly one .op analysis is supported');
+  const nativeAnalysis = document.analyses[0];
+  if (document.analyses.length !== 1 || (nativeAnalysis?.type !== 'op' && nativeAnalysis?.type !== 'dc')) unsupported('analysis', 'Exactly one .op or .dc analysis is supported');
+  if (nativeAnalysis.type === 'dc') {
+    if (nativeAnalysis.secondary !== undefined) unsupported('dc-nested-sweep', 'Native nested DC sweeps are not supported');
+    if (nativeAnalysis.measurements !== undefined) unsupported('measurement', 'Native DC measurements are not supported');
+    if (Object.keys(nativeAnalysis).some(key => !['type', 'source', 'start', 'stop', 'step'].includes(key))) unsupported('dc-options', 'Additional native DC options are not supported');
+  }
   if (document.models.length || document.subcircuits.length || Object.keys(document).some(key =>
     !['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'].includes(key))) {
     unsupported('native-document', 'Only flat native circuits without additional directives are supported');
@@ -742,6 +786,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
     const paths = new Map(components.map((component, index) => [component.name.toUpperCase(), `/input/document/circuit/components/${index}`]));
     preflightTopology(compiled, name => paths.get(name.toUpperCase()) ?? `/compiled/devices/${name.replaceAll('~', '~0').replaceAll('/', '~1')}`);
   }
+  if (nativeAnalysis.type === 'dc') return prepareDc(compiled, order, request, []);
   return { analysis: 'op', compiled, order };
 }
 
@@ -863,42 +908,7 @@ function prepare(request: SimulationRequestV1): PreparedNumeric {
   if (analysis === 'op') return { analysis, compiled, order };
 
   const compiledAnalysis = compiled.analyses[0];
-  if (analysis === 'dc') {
-    if (compiledAnalysis?.type !== 'dc') unsupported('analysis', 'Exactly one .dc analysis is supported');
-    const innerPointCount = dcPointCount(compiledAnalysis.start, compiledAnalysis.stop, compiledAnalysis.step);
-    const secondary = compiledAnalysis.secondary;
-    if (secondary && measurements.length) unsupported('measurement', 'DC measurements require a single sweep');
-    const pointCount = innerPointCount * (secondary ? dcPointCount(secondary.start, secondary.stop, secondary.step) : 1);
-    const pointLimit = Math.min(
-      NUMERIC_WASM_LIMITS.maxResultPoints,
-      request.options?.limits?.maxResultPoints ?? Infinity,
-    );
-    if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
-    const resolveSource = (name: string): SweepableSource => {
-      const normalized = name.toUpperCase();
-      const sources = compiled.devices.filter(device => {
-        const candidate = device as unknown as Partial<SweepableSource>;
-        return candidate.name?.toUpperCase() === normalized && candidate.waveform !== undefined
-          && ['V', 'I'].includes(deviceType(candidate.name) ?? '');
-      }) as unknown as SweepableSource[];
-      if (sources.length !== 1) {
-        throw numericError('INVALID_CIRCUIT', `DC sweep source '${name}' must identify one independent source`, 'validation', {
-          feature: 'dc-source', source: name, matches: sources.length,
-        });
-      }
-      if (!['dc', 'ac'].includes(sources[0]!.waveform.type)) {
-        unsupported('source-waveform', 'DC sweep sources must use a constant or DC value');
-      }
-      return sources[0]!;
-    };
-    if (secondary?.source.toUpperCase() === compiledAnalysis.source.toUpperCase()) {
-      throw numericError('INVALID_CIRCUIT', 'DC sweep sources must be distinct', 'validation', { feature: 'dc-source' });
-    }
-    return {
-      analysis, compiled, order, measurements, sweep: compiledAnalysis, source: resolveSource(compiledAnalysis.source),
-      secondarySource: secondary ? resolveSource(secondary.source) : undefined, innerPointCount, pointCount,
-    };
-  }
+  if (analysis === 'dc') return prepareDc(compiled, order, request, measurements);
   if (analysis === 'tran') {
     if (compiledAnalysis?.type !== 'tran') unsupported('analysis', 'Exactly one .tran analysis is supported');
     const { timestep, stopTime, startTime = 0, maxTimestep } = compiledAnalysis;

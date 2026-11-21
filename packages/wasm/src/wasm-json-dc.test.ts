@@ -108,6 +108,7 @@ describe('bounded native JSON DC sweeps', () => {
 
   it.each([
     ['nested sweep', { ...base, analyses: [{ ...sweep, secondary: { source: 'V2', start: 0, stop: 1, step: 1 } }] }],
+    ['measurements', { ...base, analyses: [{ ...sweep, measurements: [] }] }],
     ['model', { ...base, models: [{ name: 'Dmod', type: 'D', params: {} }] }],
   ])('rejects unsupported %s without partial execution', async (_name, document) => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
