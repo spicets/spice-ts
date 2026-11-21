@@ -1,5 +1,68 @@
 # @spice-ts/wasm
 
+## 0.4.0
+
+### Minor Changes
+
+- a255bbb: Support circuit TEMP/TNOM for bounded BJT WASM operating points and DC sweeps using core's temperature law. Accept XTI, EG and XTB with OP/DC circuit temperature cards while preserving AC/TRAN rejection. Pass circuit TNOM into core BJT models as a default, preserving model-level overrides.
+- 05e0d4a: Support bounded diode AC analysis with a WASM-computed operating point, junction conductance, depletion/diffusion capacitance and the split-complex WASM solver.
+- fda9ed6: Support circuit TEMP/TNOM for bounded MOS1 WASM operating points and DC sweeps using core's existing temperature law, including RD/RS/RSH. Inherit circuit TNOM in core MOS1 models while preserving explicit model overrides. Keep circuit temperature cards unsupported for WASM AC/TRAN.
+- e7a39a5: Support bounded MOSFET LEVEL=1 DC sweeps using warm-started Newton iterations over the WASM linear solver. Preserve typed refusals for unsupported model and instance options.
+- 53d82b2: Add bounded fixed-grid transient simulation for static junction diodes with R/C/L/V/I and SIN sources. Reuse core diode stamps and Newton iteration over the WASM linear solver, with accepted static-current trapezoidal history and structured model/work-limit errors. Only IS, N and RS diode model parameters are supported; charge and breakdown parameters remain unsupported. This slice retains the passive WASM time grid, not core's adaptive timestep/breakpoint driver, so it does not promise identical-timepoint core waveform parity.
+- aa5ef99: Support AM voltage and current sources in WASM transient analysis using core waveform evaluation and adaptive timesteps. Preserve core coefficient defaults, delays and phases, and reject malformed AM lists with structured unsupported-feature errors.
+- b95b6b8: Support constant coupled inductors in WASM OP, DC sweep, transient and AC analyses using core mutual-inductance stamps and WASM linear solves. Validate coupling forms and references, preserve the 64-unknown bound, and use the shared adaptive controller for coupled transients.
+
+### Patch Changes
+
+- 79ba4bc: Support circuit TEMP/TNOM for bounded JFET level-1 OP/DC using core temperature-adjusted stamps, including model temperature coefficients. Keep circuit temperature unsupported for TRAN/AC.
+- Updated dependencies [a255bbb]
+- Updated dependencies [fda9ed6]
+- Updated dependencies [e0f45ac]
+- Updated dependencies [c01ece9]
+- Updated dependencies [386bee0]
+- Updated dependencies [0cb1c52]
+- Updated dependencies [b7f1fbe]
+- Updated dependencies [954519c]
+- Updated dependencies [729b2b8]
+- Updated dependencies [d5d9097]
+- Updated dependencies [d8b0f1c]
+- Updated dependencies [515714e]
+- Updated dependencies [541c28c]
+- Updated dependencies [97b38ba]
+- Updated dependencies [2fd13a3]
+- Updated dependencies [7915db5]
+- Updated dependencies [f0d4cac]
+- Updated dependencies [df514a5]
+- Updated dependencies [59165fe]
+- Updated dependencies [ed9e3d1]
+- Updated dependencies [ef4de09]
+- Updated dependencies [e28d932]
+- Updated dependencies [114ab90]
+- Updated dependencies [c85c586]
+- Updated dependencies [3b085d4]
+- Updated dependencies [d1258e5]
+- Updated dependencies [b690771]
+- Updated dependencies [1afb711]
+- Updated dependencies [9b8b4e4]
+- Updated dependencies [5664ee8]
+- Updated dependencies [d4bd0b2]
+- Updated dependencies [f0a876e]
+- Updated dependencies [6104e97]
+- Updated dependencies [3370848]
+- Updated dependencies [f9c3e11]
+- Updated dependencies [a49ecad]
+- Updated dependencies [fadec73]
+- Updated dependencies [02a6d97]
+- Updated dependencies [8396811]
+- Updated dependencies [4cc5d7d]
+- Updated dependencies [30a73c3]
+- Updated dependencies [8e14842]
+- Updated dependencies [223162e]
+- Updated dependencies [7f2255c]
+- Updated dependencies [afefa01]
+- Updated dependencies [931cd22]
+  - @spice-ts/core@0.5.0
+
 ## 0.3.1
 
 ### Patch Changes
