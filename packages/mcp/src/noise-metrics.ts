@@ -94,21 +94,27 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
   if (args.outputNoiseBandwidthAtHz !== undefined && (args.outputNoiseBandwidthAtHz < f[0] || args.outputNoiseBandwidthAtHz > f[f.length - 1])) invalid('Noise bandwidth reference lies outside the simulated sweep');
   if (args.inputNoiseBandwidthAtHz !== undefined && (args.inputNoiseBandwidthAtHz < f[0] || args.inputNoiseBandwidthAtHz > f[f.length - 1])) invalid('Noise bandwidth reference lies outside the simulated sweep');
   const outputNoisePeak = args.includeOutputNoisePeak ? (() => {
+    // Compare on a common scale so subnormal candidate densities do not tie by rounding.
+    const scale = out.every((density, i) => density <= 2 ** -512 ||
+      !((i > 0 && f[i - 1] < band[1] && f[i] >= band[0]) ||
+        (i + 1 < f.length && f[i] <= band[1] && f[i + 1] > band[0]) ||
+        (f[i] >= band[0] && f[i] <= band[1]))) ? 2 ** 512 : 1;
     const densityAt = (hz: number) => {
       const i = f.findIndex(value => value >= hz);
-      if (f[i] === hz) return out[i];
-      if (out[i - 1] === out[i]) return out[i];
+      if (f[i] === hz) return out[i] * scale;
+      if (out[i - 1] === out[i]) return out[i] * scale;
       const rootSpan = Math.sqrt(f[i] - f[i - 1]);
-      return Math.hypot(out[i - 1] * (Math.sqrt(f[i] - hz) / rootSpan), out[i] * (Math.sqrt(hz - f[i - 1]) / rootSpan));
+      return Math.hypot((out[i - 1] * scale) * (Math.sqrt(f[i] - hz) / rootSpan), (out[i] * scale) * (Math.sqrt(hz - f[i - 1]) / rootSpan));
     };
     let peak = { frequencyHz: band[0], outputNoiseVPerSqrtHz: densityAt(band[0]) };
     for (let i = 0; i < f.length; i++) {
-      if (f[i] > band[0] && f[i] < band[1] && out[i] > peak.outputNoiseVPerSqrtHz) {
-        peak = { frequencyHz: f[i], outputNoiseVPerSqrtHz: out[i] };
+      if (f[i] > band[0] && f[i] < band[1] && out[i] * scale > peak.outputNoiseVPerSqrtHz) {
+        peak = { frequencyHz: f[i], outputNoiseVPerSqrtHz: out[i] * scale };
       }
     }
     const lastDensity = densityAt(band[1]);
-    return lastDensity > peak.outputNoiseVPerSqrtHz ? { frequencyHz: band[1], outputNoiseVPerSqrtHz: lastDensity } : peak;
+    if (lastDensity > peak.outputNoiseVPerSqrtHz) peak = { frequencyHz: band[1], outputNoiseVPerSqrtHz: lastDensity };
+    return { ...peak, outputNoiseVPerSqrtHz: peak.outputNoiseVPerSqrtHz / scale };
   })() : undefined;
   const integrate = (y: number[], band: number[]) => {
     let rms = 0; let nonzero = false;

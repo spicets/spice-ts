@@ -44,6 +44,9 @@ describe('output noise sampled peak', () => {
     const s = spectrum([10, 30, 110], [1, 3, 5]);
     const options = { bandHz: [10, 30] as [number, number], bandsHz: [[30, 110]] as [number, number][], spotFrequenciesHz: [20], outputNoiseBandwidthAtHz: 30 };
     const old = noiseMetrics(s, options);
+    expect(old.integratedOutputNoiseVrms).toBeCloseTo(10, 12);
+    expect(old.integratedInputNoiseRms).toBeCloseTo(Math.sqrt(20), 12);
+    expect(old.outputEquivalentNoiseBandwidthHz).toBeCloseTo(100 / 9, 12);
     expect(noiseMetrics(s, { ...options, includeOutputNoisePeak: false })).toEqual(old);
     expect(old).not.toHaveProperty('outputNoisePeak');
     const { outputNoisePeak, ...rest } = noiseMetrics(s, { ...options, includeOutputNoisePeak: true });
@@ -60,6 +63,13 @@ describe('output noise sampled peak', () => {
     const result = noiseMetrics(decreasing, { bandHz: [15, 25], includeOutputNoisePeak: true }).outputNoisePeak!;
     expect(result.frequencyHz).toBe(15);
     expect(result.outputNoiseVPerSqrtHz).toBeCloseTo(Math.sqrt(7), 14);
+  });
+  it('retains subnormal clipped boundary peaks without premature rounding', () => {
+    const m = Number.MIN_VALUE;
+    const result = noiseMetrics(spectrum([10, 30], [m, 2 * m]), { bandHz: [15, 20], includeOutputNoisePeak: true }).outputNoisePeak;
+    expect(result).toEqual({ frequencyHz: 20, outputNoiseVPerSqrtHz: 2 * m });
+    const roundedTie = noiseMetrics(spectrum([10, 30], [m, 3 * m]), { bandHz: [15, 20], includeOutputNoisePeak: true }).outputNoisePeak;
+    expect(roundedTie).toEqual({ frequencyHz: 20, outputNoiseVPerSqrtHz: 2 * m });
   });
   it('keeps representable peak densities at extreme scales', () => {
     for (const scale of [1e-200, 1e200]) {
