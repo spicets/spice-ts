@@ -91,7 +91,7 @@ describe('numeric WASM native reactive operating points', () => {
       expect(await run(many)).toMatchObject({ ok: false, error: { code: 'RESOURCE_LIMIT', details: { limit: 'maxSystemOrder', observed: 65 } } });
       const singular = { ...document, circuit: { nets: ['a'], components: [component('L', 'L1', 'a', '0', { inductance: 1 }), component('L', 'L2', 'a', '0', { inductance: 1 })] } };
       expect(await run(singular)).toMatchObject({ ok: false, error: { code: 'SINGULAR_MATRIX' } });
-      const analysis = { ...document, analyses: [{ type: 'dc', source: 'V1', start: 0, stop: 1, step: 1 }] } as SpiceTsCircuitDocumentV1;
+      const analysis = { ...document, analyses: [{ type: 'ac', variation: 'lin', points: 2, startFreq: 1, stopFreq: 2 }] } as SpiceTsCircuitDocumentV1;
       expect(await run(analysis)).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'analysis' } } });
       const model = { ...document, circuit: { ...document.circuit, components: document.circuit.components.map(c => c.type === 'C' ? { ...c, model: 'CMOD' } : c) } };
       expect(await run(model)).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'device' } } });
