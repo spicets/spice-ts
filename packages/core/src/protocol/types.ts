@@ -137,7 +137,7 @@ export interface AcResultV1 {
   voltagePhasors: Record<string, ComplexPolarV1[]>;
   currentPhasors: Record<string, ComplexPolarV1[]>;
 }
-export type AnalysisResultV1 = OperatingPointResultV1 | DcResultV1 | TransientResultV1 | AcResultV1 | import('./wire/types.js').TfResultV1;
+export type AnalysisResultV1 = OperatingPointResultV1 | DcResultV1 | TransientResultV1 | AcResultV1 | import('./wire/types.js').TfResultV1 | import('./wire/types.js').NoiseResultV1;
 export interface SimulationResultV1 { status: 'complete'; analyses: AnalysisResultV1[] }
 
 export type ProtocolCompletionV1 = 'complete' | 'failed' | 'limited' | 'cancelled';

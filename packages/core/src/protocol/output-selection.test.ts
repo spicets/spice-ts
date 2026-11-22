@@ -24,7 +24,7 @@ describe('protocol output selection', () => {
     const callbacks: AnalysisResultV1[] = [];
     const filtered = await simulateProtocolV1(request(analysis, ['V(OUT)', 'I(v1)']), { onAnalysisComplete: value => callbacks.push(value) });
     const expected = full.analyses.map(item => {
-      if (item.type === 'tf') throw new Error('unexpected tf');
+      if (item.type === 'tf' || item.type === 'noise') throw new Error('unexpected analysis');
       if (item.type === 'ac') return { ...item, voltagePhasors: { out: item.voltagePhasors.out }, currentPhasors: { V1: item.currentPhasors.V1 } };
       return { ...item, voltagesV: { out: item.voltagesV.out }, currentsA: { V1: item.currentsA.V1 } };
     });

@@ -40,7 +40,7 @@ export interface PoleZeroAnalysisV1 {
   mode: 'pol' | 'zer' | 'pz';
 }
 
-/** Scalar noise request, separate from the v1 result/stream union. */
+/** Noise request, separate from the v1 stream union. */
 export interface NoiseAnalysisV1 {
   type: 'noise';
   outputNode: string;
@@ -165,7 +165,17 @@ export interface TfResultV1 {
   type: 'tf'; analysisIndex: number; step?: StepCoordinateV1;
   transferFunction: number; inputResistanceOhm: number; outputResistanceOhm: number;
 }
-export type AnalysisResultV1 = OperatingPointResultV1 | DcResultV1 | TransientResultV1 | AcResultV1 | TfResultV1;
+export interface NoiseResultV1 {
+  type: 'noise'; analysisIndex: number; step?: StepCoordinateV1;
+  frequencyHz: number[];
+  outputNoiseDensity: number[]; inputNoiseDensity: number[];
+  outputNoiseDensityUnit: 'V/sqrt(Hz)' | 'V^2/Hz';
+  inputNoiseDensityUnit: 'V/sqrt(Hz)' | 'A/sqrt(Hz)' | 'V^2/Hz' | 'A^2/Hz';
+  integratedOutputNoise?: number; integratedInputNoise?: number;
+  integratedOutputNoiseUnit: 'V' | 'V^2';
+  integratedInputNoiseUnit: 'V' | 'A' | 'V^2' | 'A^2';
+}
+export type AnalysisResultV1 = OperatingPointResultV1 | DcResultV1 | TransientResultV1 | AcResultV1 | TfResultV1 | NoiseResultV1;
 export interface SimulationResultV1 { status: 'complete'; analyses: AnalysisResultV1[] }
 
 export interface DiagnosticSourceV1 { file: string; line: number; column?: number; excerpt?: string }

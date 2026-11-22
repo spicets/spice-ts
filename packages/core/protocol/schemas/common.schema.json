@@ -2447,6 +2447,86 @@
       },
       "additionalProperties": false
     },
+    "noiseResult": {
+      "type": "object",
+      "required": [
+        "type",
+        "analysisIndex",
+        "frequencyHz",
+        "outputNoiseDensity",
+        "inputNoiseDensity",
+        "outputNoiseDensityUnit",
+        "inputNoiseDensityUnit",
+        "integratedOutputNoiseUnit",
+        "integratedInputNoiseUnit"
+      ],
+      "properties": {
+        "type": {
+          "const": "noise"
+        },
+        "analysisIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step": {
+          "$ref": "#/$defs/step"
+        },
+        "frequencyHz": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "outputNoiseDensity": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "inputNoiseDensity": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "outputNoiseDensityUnit": {
+          "enum": [
+            "V/sqrt(Hz)",
+            "V^2/Hz"
+          ]
+        },
+        "inputNoiseDensityUnit": {
+          "enum": [
+            "V/sqrt(Hz)",
+            "A/sqrt(Hz)",
+            "V^2/Hz",
+            "A^2/Hz"
+          ]
+        },
+        "integratedOutputNoise": {
+          "type": "number"
+        },
+        "integratedInputNoise": {
+          "type": "number"
+        },
+        "integratedOutputNoiseUnit": {
+          "enum": [
+            "V",
+            "V^2"
+          ]
+        },
+        "integratedInputNoiseUnit": {
+          "enum": [
+            "V",
+            "A",
+            "V^2",
+            "A^2"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "tfAnalysis": {
       "type": "object",
       "required": [
@@ -2485,6 +2565,9 @@
         },
         {
           "$ref": "#/$defs/tfResult"
+        },
+        {
+          "$ref": "#/$defs/noiseResult"
         }
       ]
     },

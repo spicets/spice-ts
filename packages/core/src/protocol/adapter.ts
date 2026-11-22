@@ -139,9 +139,9 @@ export async function simulatePoleZeroProtocolV1(request: SimulationRequestV1) {
 }
 
 /** Bounded noise spectrum for scalar consumers, separate from the v1 result/stream union. */
-export async function simulateNoiseProtocolV1(request: SimulationRequestV1) {
+export async function simulateNoiseProtocolV1(request: SimulationRequestV1, execution?: ProtocolExecutionOptionsV1, validateOutput = false, onInputKind?: (current: boolean) => void) {
   if (request.outputs !== undefined) invalidNativeField('/outputs');
-  const guard = protocolGuard(request);
+  const guard = protocolGuard(request, execution);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
   guard.maximum('maxAnalyses', circuit.analyses.length, 'validation');
@@ -152,6 +152,18 @@ export async function simulateNoiseProtocolV1(request: SimulationRequestV1) {
   });
   circuit.analyses.splice(0, circuit.analyses.length, noise[0]);
   const compiled = circuit.compile(guard);
+  if (validateOutput && request.input.format === 'spice-ts') {
+    const nodes = new Set([...compiled.nodeIndexMap.keys()].map(node => node.toLowerCase()));
+    const spec = request.input.document.noiseAnalyses![0]!;
+    for (const field of ['outputNode', 'outputReferenceNode'] as const) {
+      const node = spec[field];
+      if (node !== undefined && !['0', 'gnd'].includes(node.toLowerCase()) && !nodes.has(node.toLowerCase())) invalidNativeField(`/input/document/noiseAnalyses/0/${field}`);
+    }
+  }
+  if (onInputKind) {
+    const source = compiled.devices.find(device => device.name.toLowerCase() === noise[0]!.inputSource.toLowerCase());
+    onInputKind(source instanceof CurrentSource);
+  }
   if (compiled.steps.length) throw new ProtocolExecutionError({
     code: 'INVALID_REQUEST', message: 'Stepped noise analyses must be run separately',
     phase: 'validation', retryable: false, details: {},
@@ -169,6 +181,24 @@ export async function simulateProtocolV1(
   request: SimulationRequestV1,
   execution?: ProtocolExecutionOptionsV1,
 ): Promise<SimulationResultV1> {
+  if (request.input.format === 'spice-ts' && request.input.document.noiseAnalyses?.length === 1 && request.input.document.analyses.length === 0 && !request.input.document.poleZeroAnalyses?.length) {
+    let currentInput = false;
+    const noise = await simulateNoiseProtocolV1(request, execution, true, current => { currentInput = current; });
+    const inputUnit = currentInput ? 'A' : 'V';
+    const analysis: AnalysisResultV1 = { type: 'noise', analysisIndex: 0, frequencyHz: noise.frequencies,
+      outputNoiseDensity: noise.outputNoiseDensity, inputNoiseDensity: noise.inputNoiseDensity,
+      outputNoiseDensityUnit: noise.squared ? 'V^2/Hz' : 'V/sqrt(Hz)',
+      inputNoiseDensityUnit: noise.squared ? `${inputUnit}^2/Hz` : `${inputUnit}/sqrt(Hz)`,
+      integratedOutputNoiseUnit: noise.squared ? 'V^2' : 'V',
+      integratedInputNoiseUnit: noise.squared ? `${inputUnit}^2` : inputUnit,
+      ...(noise.integratedOutputNoise !== undefined ? { integratedOutputNoise: noise.integratedOutputNoise } : {}),
+      ...(noise.integratedInputNoise !== undefined ? { integratedInputNoise: noise.integratedInputNoise } : {}),
+    };
+    const result: SimulationResultV1 = { status: 'complete', analyses: [analysis] };
+    protocolGuard(request, execution).maximum('maxSerializedResultBytes', utf8Bytes(JSON.stringify(result)), 'serialize');
+    execution?.onAnalysisComplete?.(analysis);
+    return result;
+  }
   const guard = protocolGuard(request, execution);
   enforceInputLimits(request, guard);
   const circuit = await requestCircuit(request, guard);
@@ -303,7 +333,7 @@ function validateOutputSelection(request: SimulationRequestV1, compiled: Compile
 function selectOutputVectors(result: AnalysisResultV1, selection: OutputSelection): AnalysisResultV1 {
   const pick = <T>(record: Record<string, T>, names: Set<string>): Record<string, T> =>
     Object.fromEntries(Object.entries(record).filter(([name]) => names.has(name)));
-  if (result.type === 'tf') return result;
+  if (result.type === 'tf' || result.type === 'noise') return result;
   if (result.type === 'ac') return { ...result, voltagePhasors: pick(result.voltagePhasors, selection.nodes), currentPhasors: pick(result.currentPhasors, selection.branches) };
   if (result.type === 'op') return { ...result, voltagesV: pick(result.voltagesV, selection.nodes), currentsA: pick(result.currentsA, selection.branches) };
   return { ...result, voltagesV: pick(result.voltagesV, selection.nodes), currentsA: pick(result.currentsA, selection.branches) };
@@ -574,6 +604,7 @@ function resultPointCount(analyses: readonly AnalysisResultV1[]): number {
       case 'dc': return total + analysis.axis.values.length;
       case 'tran': return total + analysis.timeS.length;
       case 'ac': return total + analysis.frequencyHz.length;
+      case 'noise': return total + analysis.frequencyHz.length;
     }
   }, 0);
 }

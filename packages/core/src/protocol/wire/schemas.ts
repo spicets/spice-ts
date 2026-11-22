@@ -163,6 +163,14 @@ const tranResult = object(['type', 'analysisIndex', 'timeS', 'voltagesV', 'curre
 const acResult = object(['type', 'analysisIndex', 'frequencyHz', 'voltagePhasors', 'currentPhasors'], { type: { const: 'ac' }, ...commonResult, frequencyHz: array({ type: 'number', minimum: 0 }), measurements: array(measurementResult), voltagePhasors: complexSeriesRecord, currentPhasors: complexSeriesRecord });
 const simulationResult = object(['status', 'analyses'], { status: { const: 'complete' }, analyses: array(ref('analysisResult')) });
 const tfResult = object(['type', 'analysisIndex', 'transferFunction', 'inputResistanceOhm', 'outputResistanceOhm'], { type: { const: 'tf' }, ...commonResult, transferFunction: number, inputResistanceOhm: number, outputResistanceOhm: number });
+const noiseResult = object(['type', 'analysisIndex', 'frequencyHz', 'outputNoiseDensity', 'inputNoiseDensity', 'outputNoiseDensityUnit', 'inputNoiseDensityUnit', 'integratedOutputNoiseUnit', 'integratedInputNoiseUnit'], {
+  type: { const: 'noise' }, ...commonResult, frequencyHz: array(frequency),
+  outputNoiseDensity: array(number), inputNoiseDensity: array(number),
+  outputNoiseDensityUnit: { enum: ['V/sqrt(Hz)', 'V^2/Hz'] },
+  inputNoiseDensityUnit: { enum: ['V/sqrt(Hz)', 'A/sqrt(Hz)', 'V^2/Hz', 'A^2/Hz'] },
+  integratedOutputNoise: number, integratedInputNoise: number,
+  integratedOutputNoiseUnit: { enum: ['V', 'V^2'] }, integratedInputNoiseUnit: { enum: ['V', 'A', 'V^2', 'A^2'] },
+});
 const diagnostic = object(['severity', 'code', 'message'], {
   severity: { enum: ['info', 'warning', 'error'] }, code: string, message: string, path: string,
   source: object(['file', 'line'], { file: string, line: integer(1), column: integer(1), excerpt: string }),
@@ -229,8 +237,8 @@ export const commonSchemaV1 = {
       input: { type: 'object', required: ['format', 'document'], properties: { format: { const: 'spice-ts' }, document: { type: 'object', required: ['temperatureSweep'], properties: { temperatureSweep: {} } } } },
       options: { type: 'object', required: ['temperature'], properties: { temperature: {} } },
     } } },
-    complex, opResult, dcResult, tranResult, acResult, tfResult, tfAnalysis,
-    analysisResult: { oneOf: [ref('opResult'), ref('dcResult'), ref('tranResult'), ref('acResult'), ref('tfResult')] }, simulationResult,
+    complex, opResult, dcResult, tranResult, acResult, tfResult, noiseResult, tfAnalysis,
+    analysisResult: { oneOf: [ref('opResult'), ref('dcResult'), ref('tranResult'), ref('acResult'), ref('tfResult'), ref('noiseResult')] }, simulationResult,
     diagnostic, apiError, resolvedOptions, runMetadata, partialRunMetadata, successEnvelope, failureEnvelope,
     streamPoint, simulationEvent, partialResult, failureTerminal,
     streamTerminal: { oneOf: [ref('successEnvelope'), ref('failureTerminal')] }, simulationReadData,
