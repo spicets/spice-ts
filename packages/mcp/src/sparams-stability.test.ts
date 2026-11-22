@@ -47,6 +47,10 @@ describe('sampled stability', () => {
     expect(result.delta === null || result.delta.real === -1).toBe(true);
     if (result.delta === null) expect(result.reason).toBeTruthy();
   });
+  it('reports unreliable K when determinant rounding destroys its numerator', () => {
+    const result = metric([1, 1e-10, 1e-10, 1]);
+    expect(result).toMatchObject({ rollettK: null, reason: expect.stringContaining('reliably') });
+  });
   it('reports unilateral K as undefined without a verdict', () => {
     expect(metric([0.2, 0, 2, 0.3])).toMatchObject({ rollettK: null, reason: expect.stringContaining('undefined') });
   });

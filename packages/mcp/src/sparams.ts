@@ -183,6 +183,17 @@ function sampledStability(result: SParameterResult, index: number) {
   const scale = Math.max(1, Math.hypot(a.real, a.imaginary), Math.hypot(d.real, d.imaginary), deltaMagnitude);
   const numerator = (1 / scale) ** 2 - (Math.hypot(a.real, a.imaginary) / scale) ** 2
     - (Math.hypot(d.real, d.imaginary) / scale) ** 2 + (deltaMagnitude / scale) ** 2;
+  // Cancellation can erase the determinant's contribution before division by a
+  // very small transmission product. Do not report a precise-looking K when
+  // the numerator is within the floating-point error of its contributing terms.
+  const aScaled = Math.hypot(a.real, a.imaginary) / scale;
+  const dScaled = Math.hypot(d.real, d.imaginary) / scale;
+  const deltaScaled = deltaMagnitude / scale;
+  const errorScale = (1 / scale) ** 2 + aScaled ** 2 + dScaled ** 2 + deltaScaled ** 2
+    + 2 * deltaScaled * (aScaled * dScaled + (bMag / scale) * (cMag / scale));
+  if (Math.abs(numerator) <= 16 * Number.EPSILON * errorScale) {
+    return { delta, deltaMagnitude, rollettK: null, reason: 'K numerator could not be computed reliably due to cancellation.' };
+  }
   const denominator = 2 * ((bMag / scale) * (cMag / scale));
   let k = numerator / denominator;
   if (!Number.isFinite(k) || !Number.isFinite(denominator) || denominator === 0 || (k === 0 && numerator !== 0)) {
