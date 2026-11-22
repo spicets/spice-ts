@@ -1,8 +1,8 @@
 import type { SimulationResultV1, SpiceApiErrorV1 } from '@spice-ts/core/protocol';
 
 type CrossingDirection = 'either' | 'rising' | 'falling';
-type DcMetricsInput = { sweptSource: string; output: string; input?: string; analysis?: number; step?: number; sweepPoints?: number[]; outputLevelsV?: number[]; crossingDirection?: CrossingDirection };
-type DcSpot = { sweepPoint: number; inputValue: number | null; outputValue: number | null; outOfRange: boolean };
+type DcMetricsInput = { sweptSource: string; output: string; input?: string; analysis?: number; step?: number; sweepPoints?: number[]; includeSpotGain?: boolean; outputLevelsV?: number[]; crossingDirection?: CrossingDirection };
+type DcSpot = { sweepPoint: number; inputValue: number | null; outputValue: number | null; outOfRange: boolean; gain?: number | null; gainReason?: string };
 type LevelCrossing = { outputLevelV: number; sweepPoint: number | null };
 type Metric = { value: number | null; unit: string; reason?: string };
 type GainMetric = Metric & { input?: number; sweepPoint?: number };
@@ -17,6 +17,7 @@ export const dcMetricsProperties = {
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
   sweepPoints: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Swept-source coordinates in request order; linearly interpolated without extrapolation.' },
+  includeSpotGain: { type: 'boolean', description: 'Add V/V local piecewise-linear secant gain, not an analytic derivative. Exact knots use the following interval in sweep traversal, except the final knot uses the preceding interval. Requires sweepPoints. Out-of-range, zero-input-delta and nonrepresentable gains are null with gainReason.' },
   outputLevelsV: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Output voltage levels in request order; first crossing in sweep traversal, without extrapolation.' },
   crossingDirection: { type: 'string', enum: ['either', 'rising', 'falling'], description: 'Direction of output crossing in sweep traversal. Requires outputLevelsV; defaults to either.' },
   output: { type: 'string', minLength: 1, maxLength: 256, pattern: voltagePattern, description: 'Voltage expression v(node) or v(positive,negative).' },
@@ -33,7 +34,7 @@ export const dcMetricsOutputSchema = {
     ...Object.fromEntries(['switchingThreshold', 'voh', 'vol', 'vil', 'vih', 'nmL', 'nmH'].map(key => [key, metricSchema])),
     gainMax: { ...metricSchema, properties: { ...metricSchema.properties, input: { type: 'number' }, sweepPoint: { type: 'number' } } },
     monotonic: { type: 'boolean' },
-    spots: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['sweepPoint', 'inputValue', 'outputValue', 'outOfRange'], properties: { sweepPoint: { type: 'number' }, inputValue: { type: ['number', 'null'] }, outputValue: { type: ['number', 'null'] }, outOfRange: { type: 'boolean' } } } },
+    spots: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['sweepPoint', 'inputValue', 'outputValue', 'outOfRange'], properties: { sweepPoint: { type: 'number' }, inputValue: { type: ['number', 'null'] }, outputValue: { type: ['number', 'null'] }, outOfRange: { type: 'boolean' }, gain: { type: ['number', 'null'] }, gainReason: { type: 'string' } } } },
     levelCrossings: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['outputLevelV', 'sweepPoint'], properties: { outputLevelV: { type: 'number' }, sweepPoint: { type: ['number', 'null'] } } } },
   },
 };
@@ -45,6 +46,7 @@ export function dcMetricsInput(args: unknown): DcMetricsInput {
   const fields = args as Record<string, unknown>;
   if (Object.keys(fields).some(key => !['request', ...Object.keys(dcMetricsProperties)].includes(key))) invalid('Unknown DC metric argument');
   if (fields.sweepPoints !== undefined && (!Array.isArray(fields.sweepPoints) || fields.sweepPoints.length < 1 || fields.sweepPoints.length > 128 || Array.from(fields.sweepPoints).some(v => typeof v !== 'number' || !Number.isFinite(v)))) invalid('Invalid sweepPoints');
+  if (fields.includeSpotGain !== undefined && (typeof fields.includeSpotGain !== 'boolean' || (fields.includeSpotGain && fields.sweepPoints === undefined))) invalid('includeSpotGain must be boolean and requires sweepPoints when true');
   if (fields.outputLevelsV !== undefined && (!Array.isArray(fields.outputLevelsV) || fields.outputLevelsV.length < 1 || fields.outputLevelsV.length > 128 || Array.from(fields.outputLevelsV).some(v => typeof v !== 'number' || !Number.isFinite(v)))) invalid('Invalid outputLevelsV');
   if (fields.crossingDirection !== undefined && (fields.outputLevelsV === undefined || !['either', 'rising', 'falling'].includes(fields.crossingDirection as string))) invalid('Invalid crossingDirection');
   for (const key of ['analysis', 'step']) {
@@ -56,7 +58,7 @@ export function dcMetricsInput(args: unknown): DcMetricsInput {
   for (const signal of [fields.output, fields.input].filter(v => v !== undefined)) {
     if (!new RegExp(voltagePattern).test(signal as string)) invalid('DC transfer expressions must be v(node) or v(positive,negative)');
   }
-  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined, analysis: fields.analysis as number | undefined, step: fields.step as number | undefined, sweepPoints: fields.sweepPoints as number[] | undefined, outputLevelsV: fields.outputLevelsV as number[] | undefined, crossingDirection: fields.crossingDirection as CrossingDirection | undefined };
+  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined, analysis: fields.analysis as number | undefined, step: fields.step as number | undefined, sweepPoints: fields.sweepPoints as number[] | undefined, includeSpotGain: fields.includeSpotGain as boolean | undefined, outputLevelsV: fields.outputLevelsV as number[] | undefined, crossingDirection: fields.crossingDirection as CrossingDirection | undefined };
 }
 const metric = (value: number | null, reason?: string, unit = 'V'): Metric => {
   if (value !== null && !Number.isFinite(value)) return { value: null, unit, reason: 'Non-finite metric' };
@@ -114,9 +116,10 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     }
     return { outputLevelV, sweepPoint };
   });
-  const direction = Math.sign(x[1] - x[0]);
-  if (!direction || x.some((v, i) => i > 0 && Math.sign(v - x[i - 1]) !== direction)) invalid('Input voltage must be strictly monotonic');
-  if (direction < 0) {
+  const direction = input.includeSpotGain ? (x.slice(1).map((v, i) => Math.sign(v - x[i])).find(d => d !== 0) ?? 1) : Math.sign(x[1] - x[0]);
+  if (!direction || x.some((v, i) => i > 0 && Math.sign(v - x[i - 1]) !== direction && (!input.includeSpotGain || v !== x[i - 1]))) invalid('Input voltage must be strictly monotonic');
+  const reversed = direction < 0;
+  if (reversed) {
     x = [...x].reverse();
     y = [...y].reverse();
     sweep = [...sweep].reverse();
@@ -126,18 +129,43 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     const sweepDirection = Math.sign(sweep[1] - sweep[0]);
     if (!sweepDirection || sweep.some((v, i) => i > 0 && Math.sign(v - sweep[i - 1]) !== sweepDirection)) invalid('Sweep coordinates must be strictly monotonic');
     spots = input.sweepPoints.map(sweepPoint => {
-      if (sweepDirection * (sweepPoint - sweep[0]) < 0 || sweepDirection * (sweepPoint - sweep[sweep.length - 1]) > 0) return { sweepPoint, inputValue: null, outputValue: null, outOfRange: true };
+      if (sweepDirection * (sweepPoint - sweep[0]) < 0 || sweepDirection * (sweepPoint - sweep[sweep.length - 1]) > 0) return { sweepPoint, inputValue: null, outputValue: null, outOfRange: true, ...(input.includeSpotGain ? { gain: null, gainReason: 'Outside sweep range' } : {}) };
       let i = 1;
       while (i < sweep.length - 1 && sweepDirection * (sweepPoint - sweep[i]) > 0) i++;
-      const t = (sweepPoint - sweep[i - 1]) / (sweep[i] - sweep[i - 1]);
-      return { sweepPoint, inputValue: x[i - 1] + t * (x[i] - x[i - 1]), outputValue: y[i - 1] + t * (y[i] - y[i - 1]), outOfRange: false };
+      const delta = sweep[i] - sweep[i - 1];
+      const t = input.includeSpotGain && !Number.isFinite(delta)
+        ? (sweepPoint / 2 - sweep[i - 1] / 2) / (sweep[i] / 2 - sweep[i - 1] / 2)
+        : (sweepPoint - sweep[i - 1]) / delta;
+      const interpolate = (values: number[]) => {
+        const value = values[i - 1] + t * (values[i] - values[i - 1]);
+        return input.includeSpotGain && !Number.isFinite(value) ? values[i - 1] * (1 - t) + values[i] * t : value;
+      };
+      const spot: DcSpot = { sweepPoint, inputValue: interpolate(x), outputValue: interpolate(y), outOfRange: false };
+      if (input.includeSpotGain) {
+        // i is the preceding interval at a knot in this normalized order.
+        // Choose the following interval in the original traversal instead.
+        let end = i;
+        if (!reversed && sweepPoint === sweep[i] && i < sweep.length - 1) end++;
+        if (reversed && sweepPoint === sweep[i - 1] && i > 1) end--;
+        const zeroInput = x[end] === x[end - 1];
+        let dx = x[end] - x[end - 1]; let dy = y[end] - y[end - 1];
+        if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
+          dx = x[end] / 2 - x[end - 1] / 2;
+          dy = y[end] / 2 - y[end - 1] / 2;
+        }
+        const gain = dy / dx;
+        spot.gain = zeroInput || !Number.isFinite(gain) || (gain === 0 && y[end] !== y[end - 1]) ? null : gain;
+        if (spot.gain === null) spot.gainReason = zeroInput ? 'Zero input voltage change' : 'Non-finite or nonrepresentable gain';
+      }
+      return spot;
     });
   }
   const gains: number[] = []; const mid: number[] = []; let peak = 0;
   let rising = false; let falling = false;
   for (let i = 1; i < x.length; i++) {
     gains.push((y[i] - y[i - 1]) / (x[i] - x[i - 1]));
-    mid.push((x[i] + x[i - 1]) / 2);
+    const midpoint = (a: number, b: number) => input.includeSpotGain && !Number.isFinite(a + b) ? a / 2 + b / 2 : (a + b) / 2;
+    mid.push(midpoint(x[i], x[i - 1]));
     if (Math.abs(gains[i - 1]) > Math.abs(gains[peak])) peak = i - 1;
     rising ||= y[i] > y[i - 1]; falling ||= y[i] < y[i - 1];
   }
