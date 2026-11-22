@@ -23,7 +23,7 @@ export const distoMetricsOutputSchema = {
   type: 'object', additionalProperties: false,
   required: ['output', 'magnitudeUnit', 'decibelReference', 'f2Hz', 'products'],
   properties: {
-    output: { type: 'string' }, magnitudeUnit: { const: 'V' }, decibelReference: { const: '1 V' }, f2Hz: nullableNumber,
+    output: { type: 'string' }, magnitudeUnit: { enum: ['V', 'A'] }, decibelReference: { enum: ['1 V', '1 A'] }, f2Hz: nullableNumber,
     products: { type: 'array', items: {
       type: 'object', additionalProperties: false, required: ['product', 'points'],
       properties: {
@@ -88,14 +88,15 @@ export function distoOutput(args: unknown): string {
   const a = args as Record<string, unknown> | null;
   if (!a || typeof a !== 'object' || Array.isArray(a)
     || Object.keys(a).some(k => !['request', 'output'].includes(k))
-    || typeof a.output !== 'string' || !/^v\([^\s(),]+(?:,[^\s(),]+)?\)$/i.test(a.output)) {
-    throw { code: 'INVALID_REQUEST', message: 'Expected output v(node) or v(node,node)', phase: 'validation', retryable: false, details: {} };
+    || typeof a.output !== 'string' || !/^(?:v\([^\s(),]+(?:,[^\s(),]+)?\)|i\([^\s(),]+\))$/i.test(a.output)) {
+    throw { code: 'INVALID_REQUEST', message: 'Expected output v(node), v(node,node), or i(voltageSource)', phase: 'validation', retryable: false, details: {} };
   }
   return a.output;
 }
 export function distoMetrics(spectrum: DistoSpectrum, output: string) {
   const result = new DistortionResult(spectrum.frequencies, spectrum.voltageArrays, spectrum.currentArrays, spectrum.f2OverF1);
   const names = { 2: 'HD2', 3: 'HD3', 'f1+f2': 'SIM2', 'f1-f2': 'DIM2', '2f1-f2': 'DIM3' };
+  const isCurrent = output[0].toLowerCase() === 'i';
   const [positive, negative] = output.slice(2, -1).split(',');
   const products = result.products.map(product => {
     let values: ComplexDistortionValue[];
@@ -103,13 +104,17 @@ export function distoMetrics(spectrum: DistoSpectrum, output: string) {
       const voltage = (node: string) => node === '0'
         ? result.frequencies.map(() => ({ real: 0, imaginary: 0 }))
         : result.voltage(node, product);
-      values = voltage(positive);
-      if (negative !== undefined) {
-        const reference = voltage(negative);
-        values = values.map((value, i) => ({ real: value.real - reference[i].real, imaginary: value.imaginary - reference[i].imaginary }));
+      if (isCurrent) {
+        values = result.current(positive, product);
+      } else {
+        values = voltage(positive);
+        if (negative !== undefined) {
+          const reference = voltage(negative);
+          values = values.map((value, i) => ({ real: value.real - reference[i].real, imaginary: value.imaginary - reference[i].imaginary }));
+        }
       }
     } catch {
-      throw { code: 'INVALID_REQUEST', message: `Unknown output node: ${output}`, phase: 'validation', retryable: false, details: {} };
+      throw { code: 'INVALID_REQUEST', message: `Unknown output ${isCurrent ? 'branch' : 'node'}: ${output}`, phase: 'validation', retryable: false, details: {} };
     }
     return { product: names[product], points: values.map((value, i) => {
       const magnitude = Math.hypot(value.real, value.imaginary);
@@ -121,6 +126,6 @@ export function distoMetrics(spectrum: DistoSpectrum, output: string) {
         phaseDeg: magnitude === 0 ? null : Math.atan2(value.imaginary, value.real) * 180 / Math.PI };
     }) };
   });
-  return { output, magnitudeUnit: 'V', decibelReference: '1 V',
+  return { output, magnitudeUnit: isCurrent ? 'A' : 'V', decibelReference: isCurrent ? '1 A' : '1 V',
     f2Hz: result.f2OverF1 === undefined ? null : result.frequencies[0] * result.f2OverF1, products };
 }
