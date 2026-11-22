@@ -66,6 +66,7 @@ describe('sampled complex transfer', () => {
     }] });
     expect(() => acMetrics(sample(1, 0), { output: 'out', input: 'input', includeComplexTransfer: true })).toThrowError(expect.objectContaining({ details: { reason: 'UNDEFINED_TRANSFER' } }));
     expect(() => acMetrics(sample(1e308, 1e-308), { output: 'out', input: 'input', includeComplexTransfer: true })).toThrowError(expect.objectContaining({ details: expect.objectContaining({ reason: 'UNDEFINED_TRANSFER' }) }));
+    expect(() => acMetrics(sample(1e-300, 1e100, 45), { output: 'out', input: 'input', includeComplexTransfer: true })).toThrowError(expect.objectContaining({ details: expect.objectContaining({ reason: 'UNDEFINED_TRANSFER' }) }));
     const count = 10001;
     const huge: SimulationResultV1 = { status: 'complete', analyses: [{ type: 'ac', analysisIndex: 0, frequencyHz: Array.from({ length: count }, (_, i) => i + 1), currentPhasors: {}, voltagePhasors: { out: Array.from({ length: count }, () => ({ magnitude: 1, phaseDegrees: 0 })) } }] };
     expect(() => acMetrics(huge, { output: 'out', includeComplexTransfer: true })).toThrowError(expect.objectContaining({ details: { reason: 'TOO_MANY_COMPLEX_TRANSFER_SAMPLES' } }));

@@ -194,7 +194,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
       const halfRatio = Number.isFinite(ratio) ? 0 : (p.magnitude / 2) / q!.magnitude;
       const component = (factor: number) => Number.isFinite(ratio) ? ratio * factor : halfRatio * (2 * factor);
       const real = component(Math.cos(angle)); const imaginary = component(Math.sin(angle));
-      if (!Number.isFinite(real) || !Number.isFinite(imaginary)) invalid('Complex transfer is not representable', { reason: 'UNDEFINED_TRANSFER' });
+      if ((p.magnitude !== 0 && ratio === 0) || !Number.isFinite(real) || !Number.isFinite(imaginary)) invalid('Complex transfer is not representable', { reason: 'UNDEFINED_TRANSFER' });
       complexTransfer.push({ frequencyHz: f[i], real, imaginary });
     }
     db.push(20 * Math.log10(p.magnitude / (q?.magnitude ?? 1)));
