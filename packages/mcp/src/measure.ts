@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'delay', 'duty'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'delay', 'duty', 'pulseWidth'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
@@ -22,19 +22,22 @@ export const measurementListSchema = {
       then: { required: ['trigger', 'target'], not: { anyOf: ['signal', 'at', 'value', 'edge'].map(key => ({ required: [key] })) } },
       else: { required: ['signal'], not: { anyOf: ['trigger', 'target'].map(key => ({ required: [key] })) } },
     }, {
-      if: { properties: { kind: { enum: ['cross', 'when'] } } },
+      if: { properties: { kind: { enum: ['cross', 'when', 'pulseWidth'] } } },
       else: { not: { required: ['occurrence'] } },
     }, {
       if: { properties: { kind: { const: 'duty' } } },
       then: { required: ['value'], not: { anyOf: ['at', 'edge', 'occurrence', 'trigger', 'target'].map(key => ({ required: [key] })) } },
+    }, {
+      if: { properties: { kind: { const: 'pulseWidth' } } },
+      then: { required: ['value', 'edge'], properties: { edge: { enum: ['rising', 'falling'] } }, not: { required: ['at'] } },
     }],
     properties: {
       kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
       analysis: { type: 'integer', minimum: 0 },
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
-      edge: { enum: ['rising', 'falling', 'either'] },
-      occurrence: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER, description: 'One-based crossing within from/to; defaults to 1.' },
+      edge: { enum: ['rising', 'falling', 'either'], description: 'For pulseWidth, rising selects high pulses and falling selects low pulses. A crossing is first contact with the threshold, including the start of a plateau.' },
+      occurrence: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER, description: 'One-based crossing, or complete pulse for pulseWidth, within from/to; defaults to 1.' },
       ...Object.fromEntries(['trigger', 'target'].map(key => [key, {
         type: 'object', description: 'Transient crossing; counted independently within from/to. Delay is target time minus trigger time, in seconds.', required: ['signal', 'threshold'], additionalProperties: false,
         properties: { signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription }, threshold: { type: 'number' }, edge: { enum: ['rising', 'falling', 'either'], description: 'Defaults to either.' }, occurrence: { type: 'integer', minimum: 1, description: 'One-based crossing number; defaults to 1.' } },
@@ -66,7 +69,8 @@ function valid(value: unknown): value is Measurement {
     && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'occurrence', 'trigger', 'target'].includes(key))
     && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
     && (m.kind !== 'duty' || (m.value !== undefined && m.at === undefined && m.edge === undefined))
-    && (m.occurrence === undefined || (['cross', 'when'].includes(m.kind) && Number.isSafeInteger(m.occurrence) && m.occurrence > 0))
+    && (m.kind !== 'pulseWidth' || (m.value !== undefined && m.at === undefined && (m.edge === 'rising' || m.edge === 'falling')))
+    && (m.occurrence === undefined || (['cross', 'when', 'pulseWidth'].includes(m.kind) && Number.isSafeInteger(m.occurrence) && m.occurrence > 0))
     && (m.edge === undefined || ['rising', 'falling', 'either'].includes(m.edge))
     && (m.from === undefined || m.to === undefined || m.from <= m.to)
     && (m.kind !== 'at' || m.at !== undefined)
@@ -189,16 +193,44 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if ((m.kind === 'integ' || m.kind === 'duty') && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if ((m.kind === 'integ' || m.kind === 'duty' || m.kind === 'pulseWidth') && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
     if (!x.length || x.length !== y.length || ![...x, ...y].every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal has empty or non-finite data');
-    if (x.length > 1 && x[0] > x[x.length - 1]) { x = [...x].reverse(); y = [...y].reverse(); }
+    if (m.kind !== 'pulseWidth' && x.length > 1 && x[0] > x[x.length - 1]) { x = [...x].reverse(); y = [...y].reverse(); }
     if (x.some((v, i) => i > 0 && v <= x[i - 1])) return error('INVALID_MEASUREMENT', 'Analysis axis must be strictly monotonic');
     const lo = m.from ?? x[0];
     const hi = m.to ?? x[x.length - 1];
     if (lo < x[0] || hi > x[x.length - 1] || lo > hi || (m.at !== undefined && (m.at < lo || m.at > hi))) return error('OUT_OF_RANGE', 'Measurement lies outside the analysis window');
+    if (m.kind === 'pulseWidth') {
+      const threshold = m.value!;
+      let entry: number | undefined;
+      let count = 0;
+      for (let i = 1; i < x.length; i++) {
+        const a = y[i - 1]; const b = y[i];
+        // A crossing is recorded on first contact with the threshold. A plateau
+        // does not create further crossings until the signal leaves it.
+        const rising = a < threshold && b >= threshold;
+        const falling = a > threshold && b <= threshold;
+        if (!rising && !falling) continue;
+        const delta = b - a;
+        const fraction = Number.isFinite(delta)
+          ? (threshold - a) / delta
+          : (threshold / 2 - a / 2) / (b / 2 - a / 2);
+        const time = x[i - 1] + (x[i] - x[i - 1]) * fraction;
+        if (time < lo || time > hi) continue;
+        if (m.edge === (rising ? 'rising' : 'falling')) entry = time;
+        else if (entry !== undefined) {
+          if (++count === (m.occurrence ?? 1)) {
+            const value = time - entry;
+            return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
+          }
+          entry = undefined;
+        }
+      }
+      return error('NO_CROSSING', 'No complete pulse in the selected window');
+    }
     const interpolate = (at: number): number => {
       let left = 0; let right = x.length - 1;
       while (left < right) {
