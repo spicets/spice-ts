@@ -181,7 +181,8 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
       const delta = Math.exp(Math.log(4) + Math.log(Math.abs(resistanceOhm)) + Math.log(r0) - 2 * logD);
       const logGamma = gamma.magnitude === 1 && delta < 0.5
         ? Math.log1p(resistanceOhm < 0 ? delta : -delta) / 2
-        : gamma.magnitude > 0 && gamma.magnitude !== 1 ? Math.log(gamma.magnitude) : logN - logD;
+        // Subnormal magnitudes have too few significant bits for accurate logarithms.
+        : gamma.magnitude >= 2 ** -1022 && gamma.magnitude !== 1 ? Math.log(gamma.magnitude) : logN - logD;
       const returnLossDb = resistanceOhm === 0 ? 0 : -20 / Math.LN10 * logGamma;
       if (resistanceOhm < 0) return { returnLossDb, vswr: null, vswrReason: 'nonpassive' };
       if (resistanceOhm === 0) return { returnLossDb, vswr: null, vswrReason: 'unbounded' };

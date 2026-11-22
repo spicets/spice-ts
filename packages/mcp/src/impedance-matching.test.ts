@@ -46,6 +46,13 @@ describe('impedance matching metrics', () => {
     expect(extreme.vswrReason).toBe('unrepresentable');
     expect(valid(report(1e300, 0, 1e-100)).valid).toBe(true);
   });
+  it('computes return loss accurately when reflection magnitude is subnormal', () => {
+    const point = report(1e308, 5e-16, 1e308).points[0];
+    // |Gamma| = X / hypot(2R, X); use logarithms to avoid overflow.
+    const expected = 20 * (Math.log10(2) + Math.log10(1e308) - Math.log10(5e-16));
+    expect(point.returnLossDb).toBeCloseTo(expected, 9);
+    expect(point.vswr).toBe(1);
+  });
   it('leaves the old shape and spot queries unchanged when omitted or false', () => {
     const spectrum = { frequencyHz: [100], positive: [{ magnitude: 100, phaseDegrees: 0 }], negative: [{ magnitude: 0, phaseDegrees: 0 }] };
     const legacy = impedanceReport(spectrum, { port, referenceResistanceOhm: 50, spotFrequenciesHz: [100] });
