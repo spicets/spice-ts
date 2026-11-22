@@ -61,13 +61,18 @@ it('exposes validated reciprocity through the public MCP on an equal-reference p
   const response = await executeTool('spice_sparams', args);
   expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
   expect(output(response.structuredContent).valid).toBe(true);
-  const report = response.structuredContent as unknown as { points: { frequencyHz: number; parameters: Record<string, { reciprocityDifferenceMagnitude: number; groupDelaySeconds: number | null }> }[] };
+  const report = response.structuredContent as unknown as { points: { frequencyHz: number; parameters: Record<string, { reciprocityDifferenceMagnitude: number | null; groupDelaySeconds: number | null }> }[] };
   expect(report.points.map(p => p.frequencyHz)).toEqual(frequenciesHz);
-  for (const point of report.points) {
+  const differences = report.points.map(point => {
     expect(Object.keys(point.parameters)).toEqual(['S21']);
     expect(point.parameters.S21.groupDelaySeconds).toBeNull();
-  }
-  const maxDifference = Math.max(...report.points.map(p => p.parameters.S21.reciprocityDifferenceMagnitude));
+    const difference = point.parameters.S21.reciprocityDifferenceMagnitude;
+    expect(typeof difference).toBe('number');
+    expect(Number.isFinite(difference)).toBe(true);
+    if (typeof difference !== 'number') throw new Error('Expected a numeric reciprocity difference');
+    return difference;
+  });
+  const maxDifference = Math.max(...differences);
   process.stdout.write(`RC maximum absolute reciprocity difference: ${maxDifference}\n`);
   expect(maxDifference).toBeLessThanOrEqual(1e-10);
   const legacy = await executeTool('spice_sparams', { netlist });
