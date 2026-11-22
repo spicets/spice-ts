@@ -37,6 +37,8 @@ describe('sampled stability', () => {
   });
   it('handles extreme finite and nonrepresentable values', () => {
     near(metric([0, 1e-150, 1e-150, 0]).rollettK, 5e299);
+    const cancellation = metric([1e200, 1e200, 1e200, 1e200]);
+    near(cancellation.delta!.real, 0); near(cancellation.rollettK, -1);
     expect(metric([0, 1e-200, 1e-200, 0])).toMatchObject({ rollettK: null, reason: expect.stringContaining('representable') });
     expect(metric([0, 1e200, 1e200, 0])).toMatchObject({ delta: null, rollettK: null, reason: expect.stringContaining('Delta') });
   });

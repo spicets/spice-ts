@@ -152,8 +152,15 @@ export function sparamsArgs(args: unknown): SparamsArgs {
 }
 function sampledStability(result: SParameterResult, index: number) {
   const [a, b, c, d] = ['S_1_1', 'S_1_2', 'S_2_1', 'S_2_2'].map(key => result.vectors.get(key)![index]);
-  const real = (a.real * d.real - a.imaginary * d.imaginary) - (b.real * c.real - b.imaginary * c.imaginary);
-  const imaginary = (a.real * d.imaginary + a.imaginary * d.real) - (b.real * c.imaginary + b.imaginary * c.real);
+  let real = (a.real * d.real - a.imaginary * d.imaginary) - (b.real * c.real - b.imaginary * c.imaginary);
+  let imaginary = (a.real * d.imaginary + a.imaginary * d.real) - (b.real * c.imaginary + b.imaginary * c.real);
+  if (!Number.isFinite(real) || !Number.isFinite(imaginary)) {
+    // Scale before multiplying to permit cancellation of otherwise overflowing products.
+    const scale = Math.max(...[a, b, c, d].flatMap(v => [Math.abs(v.real), Math.abs(v.imaginary)]));
+    const [x, y, z, w] = [a, b, c, d].map(v => ({ real: v.real / scale, imaginary: v.imaginary / scale }));
+    real = ((x.real * w.real - x.imaginary * w.imaginary) - (y.real * z.real - y.imaginary * z.imaginary)) * scale * scale;
+    imaginary = ((x.real * w.imaginary + x.imaginary * w.real) - (y.real * z.imaginary + y.imaginary * z.real)) * scale * scale;
+  }
   const deltaMagnitude = Math.hypot(real, imaginary);
   if (!Number.isFinite(real) || !Number.isFinite(imaginary) || !Number.isFinite(deltaMagnitude)) {
     return { delta: null, deltaMagnitude: null, rollettK: null, reason: 'Delta calculation overflowed or is not representable as a finite number.' };
