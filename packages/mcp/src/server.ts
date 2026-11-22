@@ -1182,6 +1182,9 @@ class StreamStore {
   ): Promise<void> {
     const solveOptions = { ...options, signal: job.controller.signal };
     try {
+      if (job.request.input.format === 'spice-ts' && job.request.input.document.noiseAnalyses?.length) {
+        throw apiError('UNSUPPORTED_FEATURE', 'Noise analysis streaming is not supported', 'validation', { feature: 'noise-streaming' });
+      }
       const result = options.simulate
         ? await boundedCall(() => options.simulate!(job.request), limits.maxWallTimeMs, job.controller.signal)
         : await runStreamingWorker(job.request, limits.maxWallTimeMs, solveOptions, events => {
@@ -1197,6 +1200,7 @@ class StreamStore {
           return new Promise<void>(resolve => { job.releaseBatch = resolve; });
         });
       enforceResultBounds(result, limits);
+      if (result.analyses.some(analysis => analysis.type === 'noise')) throw apiError('UNSUPPORTED_FEATURE', 'Noise analysis streaming is not supported', 'validation', { feature: 'noise-streaming' });
       if (!job.terminal) {
         if (!job.liveEventsProduced) {
           job.backlog = { source: resultEvents(result) };
@@ -1386,6 +1390,7 @@ function streamCursor(jobId: string, offset: number): string {
 /** Lazily derive the stream events of a finished result, so only the unread window is materialised. */
 function* resultEvents(result: SimulationResultV1): Generator<SimulationEventV1, void, undefined> {
   for (const analysis of result.analyses) {
+    if (analysis.type === 'noise') throw apiError('UNSUPPORTED_FEATURE', 'Noise analysis streaming is not supported', 'validation', { feature: 'noise-streaming' });
     const common = { analysisIndex: analysis.analysisIndex, ...(analysis.step ? { step: analysis.step } : {}) };
     yield { type: 'analysis-start', analysis: analysis.type, ...common };
     let pointCount = 0;
@@ -1399,7 +1404,7 @@ function* resultEvents(result: SimulationResultV1): Generator<SimulationEventV1,
   }
 }
 
-type PointAnalysisV1 = Exclude<AnalysisResultV1, { type: 'op' | 'tf' }>;
+type PointAnalysisV1 = Exclude<AnalysisResultV1, { type: 'op' | 'tf' | 'noise' }>;
 
 function analysisPointCount(analysis: PointAnalysisV1): number {
   switch (analysis.type) {
@@ -1658,7 +1663,8 @@ function enforceResultBounds(result: SimulationResultV1, limits: McpLimits): voi
       case 'tf': points += 1; break;
       case 'dc': points += analysis.axis.values.length; break;
       case 'tran': points += analysis.timeS.length; break;
-      case 'ac': points += analysis.frequencyHz.length; break;
+      case 'ac':
+      case 'noise': points += analysis.frequencyHz.length; break;
     }
   }
   enforceMaximum('maxResultPoints', limits.maxResultPoints, points, 'serialize');

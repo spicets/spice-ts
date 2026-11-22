@@ -153,7 +153,7 @@ function metadataFor(
 }
 
 function requestedAnalysisCount(request: SimulationRequestV1): number {
-  if (request.input.format === 'spice-ts') return request.input.document.analyses.length;
+  if (request.input.format === 'spice-ts') return request.input.document.analyses.length + (request.input.document.noiseAnalyses?.length ?? 0) + (request.input.document.poleZeroAnalyses?.length ?? 0);
   if (request.input.format === 'circuit-json') return request.input.analyses.length;
   return Array.from(request.input.source.matchAll(/^\s*\.(?:op|dc|tran|ac|noise|tf|sens)\b/gim)).length;
 }
@@ -174,6 +174,7 @@ function pointCount(analyses: AnalysisResultV1[]): number {
       case 'dc': return total + analysis.axis.values.length;
       case 'tran': return total + analysis.timeS.length;
       case 'ac': return total + analysis.frequencyHz.length;
+      case 'noise': return total + analysis.frequencyHz.length;
     }
   }, 0);
 }

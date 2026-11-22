@@ -376,6 +376,17 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
       let pending: SimulationEventV1[] = [];
       let emittedPointCount = 0;
       try {
+        if (streamState.cancelled) {
+          yield cancelledRead(streamOptions.requestId, request, manifest, emitted, backend);
+          return;
+        }
+        if (envelope.data.analyses.some(analysis => analysis.type === 'noise')) {
+          yield failedRead(failure(streamOptions.requestId, {
+            code: 'UNSUPPORTED_FEATURE', message: 'Noise analysis streaming is not supported',
+            retryable: false, phase: 'validation', details: { feature: 'noise-streaming' },
+          }, request, manifest, backend));
+          return;
+        }
         for (const event of resultEvents(envelope.data)) {
           if (streamState.cancelled) {
             yield cancelledRead(streamOptions.requestId, request, manifest, emitted, backend);
@@ -425,6 +436,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
 function resultEvents(result: SimulationResultV1): SimulationEventV1[] {
   const events: SimulationEventV1[] = [];
   for (const analysis of result.analyses) {
+    if (analysis.type === 'noise') throw new Error('Noise analysis is not streamable');
     const common = { analysisIndex: analysis.analysisIndex, ...(analysis.step ? { step: analysis.step } : {}) };
     events.push({ type: 'analysis-start', analysis: analysis.type, ...common });
     const points = analysisPoints(analysis);
@@ -434,7 +446,7 @@ function resultEvents(result: SimulationResultV1): SimulationEventV1[] {
   return events;
 }
 
-function analysisPoints(analysis: AnalysisResultV1): Array<Extract<SimulationEventV1, { type: 'point' }>['point']> {
+function analysisPoints(analysis: Exclude<AnalysisResultV1, { type: 'noise' }>): Array<Extract<SimulationEventV1, { type: 'point' }>['point']> {
   switch (analysis.type) {
     case 'op':
     case 'tf': return [];

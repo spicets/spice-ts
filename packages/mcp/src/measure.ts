@@ -74,7 +74,7 @@ function valid(value: unknown): value is Measurement {
 }
 
 function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]; unit: string; axisUnit: string } | undefined {
-  if (a.type === 'tf') return undefined;
+  if (a.type === 'tf' || a.type === 'noise') return undefined;
   const match = /^(?:(db|mag|phase)\()?([vi])\(([^()]+)\)\)?$/i.exec(signal);
   if (!match) return undefined;
   const [, transform, quantity, name] = match;
