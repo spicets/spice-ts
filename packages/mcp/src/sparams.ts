@@ -173,6 +173,26 @@ function sampledStability(result: SParameterResult, index: number) {
         ? NaN : ((x.real * w.imaginary + x.imaginary * w.real) - (y.real * z.imaginary + y.imaginary * z.real)) * scale * scale;
     }
   }
+  // Detect cancellation of rounded products, including products that round to
+  // the same value despite having different exact factors. Identical factor
+  // pairs with opposite signs cancel exactly and need no warning.
+  const unreliable = (terms: [number, number, number][], component: number) => {
+    const remaining = terms.filter(([p, q]) => p !== 0 && q !== 0);
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      const [p, q, sign] = remaining[i];
+      const j = remaining.findIndex(([r, s, other], n) => n < i && sign === -other
+        && ((p === r && q === s) || (p === s && q === r)));
+      if (j >= 0) { remaining.splice(i, 1); remaining.splice(j, 1); i--; }
+    }
+    if (remaining.length < 2) return false;
+    const scale = Math.max(...remaining.flatMap(([p, q]) => [Math.abs(p), Math.abs(q)]));
+    const sum = remaining.reduce((v, [p, q]) => v + Math.abs((p / scale) * (q / scale)), 0);
+    return Math.abs((component / scale) / scale) <= 8 * Number.EPSILON * sum;
+  };
+  if (unreliable([[a.real, d.real, 1], [a.imaginary, d.imaginary, -1], [b.real, c.real, -1], [b.imaginary, c.imaginary, 1]], real)
+    || unreliable([[a.real, d.imaginary, 1], [a.imaginary, d.real, 1], [b.real, c.imaginary, -1], [b.imaginary, c.real, -1]], imaginary)) {
+    return { delta: null, deltaMagnitude: null, rollettK: null, reason: 'Delta could not be computed reliably due to cancellation.' };
+  }
   const deltaMagnitude = Math.hypot(real, imaginary);
   if (!Number.isFinite(real) || !Number.isFinite(imaginary) || !Number.isFinite(deltaMagnitude)) {
     return { delta: null, deltaMagnitude: null, rollettK: null, reason: 'Delta calculation overflowed or could not be computed reliably as a finite number.' };
@@ -195,6 +215,10 @@ function sampledStability(result: SParameterResult, index: number) {
     return { delta, deltaMagnitude, rollettK: null, reason: 'K numerator could not be computed reliably due to cancellation.' };
   }
   const denominator = 2 * ((bMag / scale) * (cMag / scale));
+  // Subnormal division can lose most of the denominator's significant bits.
+  if (denominator > 0 && denominator < 2 ** -1021) {
+    return { delta, deltaMagnitude, rollettK: null, reason: 'K denominator could not be computed reliably at subnormal precision.' };
+  }
   let k = numerator / denominator;
   if (!Number.isFinite(k) || !Number.isFinite(denominator) || denominator === 0 || (k === 0 && numerator !== 0)) {
     // Avoid under/overflow in the denominator when K itself remains representable.

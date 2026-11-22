@@ -51,6 +51,18 @@ describe('sampled stability', () => {
     const result = metric([1, 1e-10, 1e-10, 1]);
     expect(result).toMatchObject({ rollettK: null, reason: expect.stringContaining('reliably') });
   });
+  it('does not report a rounded-away near-cancellation as a reliable determinant', () => {
+    const a = 2 ** 300;
+    const result = metric([a, a * (1 + 2 ** -52), a * (1 - 2 ** -52), a]);
+    expect(result.delta === null || result.delta.real === 2 ** 496).toBe(true);
+    if (result.delta === null) expect(result.reason).toContain('reliably');
+  });
+  it('does not report a K computed from a precision-losing subnormal denominator', () => {
+    const result = metric([1 + 3 * 2 ** -49, 5 * 2 ** -537, 1.5 * 2 ** -537, 0]);
+    const expected = -1.4381545078898528e308;
+    expect(result.rollettK === null || Math.abs(result.rollettK / expected - 1) < 1e-12).toBe(true);
+    if (result.rollettK === null) expect(result.reason).toContain('reliably');
+  });
   it('reports unilateral K as undefined without a verdict', () => {
     expect(metric([0.2, 0, 2, 0.3])).toMatchObject({ rollettK: null, reason: expect.stringContaining('undefined') });
   });
