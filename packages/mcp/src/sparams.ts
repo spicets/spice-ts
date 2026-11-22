@@ -87,6 +87,7 @@ export interface SparamsArgs {
   /** One-based [output port, input port]. Omit to return the full matrix. */
   portPair?: [number, number];
   frequenciesHz?: number[];
+  includeGroupDelay?: boolean;
 }
 export const sparamsInputSchema = {
   type: 'object', additionalProperties: false, required: ['netlist'],
@@ -94,6 +95,7 @@ export const sparamsInputSchema = {
     netlist: { type: 'string', minLength: 1 },
     portPair: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'integer', minimum: 1 } },
     frequenciesHz: { type: 'array', minItems: 1, items: { type: 'number', exclusiveMinimum: 0 } },
+    includeGroupDelay: { type: 'boolean', description: 'Include backward sampled phase-secant group delay in seconds. Phase wrapping can alias delay; this is not a continuous or alias-free estimate. Explicit frequencies are separate one-point segments and produce null delays.' },
   },
 };
 const nullable = { type: ['number', 'null'] };
@@ -109,7 +111,7 @@ export const sparamsOutputSchema = {
         parameters: { type: 'object', additionalProperties: {
           type: 'object', additionalProperties: false, required: ['real', 'imaginary', 'magnitude', 'magnitudeDb', 'phaseDeg'],
           properties: { real: { type: 'number' }, imaginary: { type: 'number' }, magnitude: { type: 'number' }, magnitudeDb: nullable, phaseDeg: nullable,
-            returnLossDb: nullable, insertionLossDb: nullable, vswr: nullable },
+            returnLossDb: nullable, insertionLossDb: nullable, vswr: nullable, groupDelaySeconds: nullable },
         } },
       },
     } },
@@ -121,8 +123,9 @@ export function sparamsInvalid(message: string, path?: string): never {
 export function sparamsArgs(args: unknown): SparamsArgs {
   if (!args || typeof args !== 'object' || Array.isArray(args)) sparamsInvalid('Expected S-parameter arguments');
   const a = args as Record<string, unknown>;
-  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz'].includes(k))
+  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz', 'includeGroupDelay'].includes(k))
     || typeof a.netlist !== 'string' || !a.netlist.trim()
+    || (a.includeGroupDelay !== undefined && typeof a.includeGroupDelay !== 'boolean')
     || (a.portPair !== undefined && (!Array.isArray(a.portPair) || a.portPair.length !== 2
       || !a.portPair.every(p => Number.isInteger(p) && p > 0)))
     || (a.frequenciesHz !== undefined && (!Array.isArray(a.frequenciesHz) || !a.frequenciesHz.length
@@ -150,8 +153,23 @@ export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
         const magnitudeDb = magnitude === 0 ? null : 20 * Math.log10(magnitude);
         // Keep conventional two-digit names, but delimit multi-digit indices to avoid collisions.
         const key = i >= 10 || j >= 10 ? `S_${i}_${j}` : `S${i}${j}`;
+        let groupDelaySeconds: number | null = null;
+        if (args.includeGroupDelay && index > 0 && magnitude !== 0) {
+          const previous = result.vectors.get(`S_${i}_${j}`)?.[index - 1];
+          const spacing = frequencyHz - result.frequencies[index - 1];
+          if (previous && (previous.real !== 0 || previous.imaginary !== 0) && Number.isFinite(spacing) && spacing > 0) {
+            let phase = Math.atan2(imaginary, real) - Math.atan2(previous.imaginary, previous.real);
+            if (phase > Math.PI) phase -= 2 * Math.PI;
+            if (phase < -Math.PI) phase += 2 * Math.PI;
+            if (Math.abs(phase) !== Math.PI) {
+              const delay = (-phase / (2 * Math.PI)) / spacing;
+              if (Number.isFinite(delay)) groupDelaySeconds = delay;
+            }
+          }
+        }
         return [key, {
           real, imaginary, magnitude, magnitudeDb, phaseDeg: magnitude === 0 ? null : Math.atan2(imaginary, real) * 180 / Math.PI,
+          ...(args.includeGroupDelay ? { groupDelaySeconds } : {}),
           ...(i === j ? { returnLossDb: magnitudeDb === null ? null : -magnitudeDb,
             vswr: magnitude < 1 ? (1 + magnitude) / (1 - magnitude) : null }
             : { insertionLossDb: magnitudeDb === null ? null : -magnitudeDb }),
