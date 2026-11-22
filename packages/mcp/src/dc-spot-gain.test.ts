@@ -9,7 +9,7 @@ type Spot = { gain: number | null; gainReason?: string; inputValue: number | nul
 const get = async (args: Record<string, unknown>, result?: object) => {
   const response = await executeTool(tool.name, { ...base, ...args }, result ? { simulate: async () => result as never } : undefined);
   expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
-  return response.structuredContent as { spots: Spot[] };
+  return response.structuredContent as { spots: Spot[]; gainMax: { value: number | null; unit: string; input?: number; sweepPoint?: number; reason?: string } };
 };
 const trace = (axis: number[], input: number[], output: number[], index = 0) => ({ type: 'dc' as const, analysisIndex: 0, step: { index, parameter: 'R', value: index }, axis: { name: 'V1', unit: 'V' as const, values: axis }, voltagesV: { in: input, out: output, ref: axis.map(() => 1) }, currentsA: {} });
 const simulation = (...analyses: ReturnType<typeof trace>[]) => ({ status: 'complete' as const, analyses });
@@ -38,6 +38,20 @@ describe('DC spot gain', () => {
     expect(content.spots[1].gainReason).toMatch(/zero/i);
     const constant = simulation(trace([0, 1], [1, 1], [0, 1]));
     expect((await get({ input: 'v(in)', sweepPoints: [0.5], includeSpotGain: true }, constant)).spots[0].gain).toBeNull();
+  });
+
+  it('ignores an initial input plateau when finding the global gain peak', async () => {
+    const result = simulation(trace([0, 1, 2], [0, 0, 1], [0, 0, 2]));
+    const content = await get({ input: 'v(in)', sweepPoints: [0.5, 1.5], includeSpotGain: true }, result);
+    expect(content.spots.map(s => s.gain)).toEqual([null, 2]);
+    expect(content.gainMax).toEqual({ value: 2, unit: 'V/V', input: 0.5, sweepPoint: 1.5 });
+  });
+
+  it('reports an undefined global gain when every input interval is a plateau', async () => {
+    const result = simulation(trace([0, 1, 2], [1, 1, 1], [0, 1, 1]));
+    const content = await get({ input: 'v(in)', sweepPoints: [0.5], includeSpotGain: true }, result);
+    expect(content.gainMax).toEqual({ value: null, unit: 'V/V', reason: expect.stringMatching(/input/i) });
+    expect(new AjvJsonSchemaValidator().getValidator(tool.outputSchema!)(content).valid).toBe(true);
   });
 
   it('uses selected steps and differential voltage selectors', async () => {

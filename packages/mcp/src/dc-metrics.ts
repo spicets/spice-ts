@@ -160,13 +160,15 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
       return spot;
     });
   }
-  const gains: number[] = []; const mid: number[] = []; let peak = 0;
+  const gains: number[] = []; const mid: number[] = []; let peak = -1;
   let rising = false; let falling = false;
   for (let i = 1; i < x.length; i++) {
-    gains.push((y[i] - y[i - 1]) / (x[i] - x[i - 1]));
+    // Keep a gap in the sampled gains so unity-crossing interpolation cannot bridge a plateau.
+    const plateau = x[i] === x[i - 1];
+    gains.push(plateau ? NaN : (y[i] - y[i - 1]) / (x[i] - x[i - 1]));
     const midpoint = (a: number, b: number) => input.includeSpotGain && !Number.isFinite(a + b) ? a / 2 + b / 2 : (a + b) / 2;
     mid.push(midpoint(x[i], x[i - 1]));
-    if (Math.abs(gains[i - 1]) > Math.abs(gains[peak])) peak = i - 1;
+    if (!plateau && (peak < 0 || Math.abs(gains[i - 1]) > Math.abs(gains[peak]))) peak = i - 1;
     rising ||= y[i] > y[i - 1]; falling ||= y[i] < y[i - 1];
   }
   const crossings = (axis: number[], values: number[], target: number): number[] => {
@@ -185,7 +187,7 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
   const vih = unity.length >= 2 ? unity[unity.length - 1] : null;
   const reason = 'Fewer than two unity-gain crossings';
   return {
-    gainMax: { ...metric(Math.abs(gains[peak]), undefined, 'V/V'), input: mid[peak], sweepPoint: (sweep[peak] + sweep[peak + 1]) / 2 },
+    gainMax: peak < 0 ? metric(null, 'No intervals with input voltage change', 'V/V') : { ...metric(Math.abs(gains[peak]), undefined, 'V/V'), input: mid[peak], sweepPoint: (sweep[peak] + sweep[peak + 1]) / 2 },
     switchingThreshold: metric(crossings(x, y.map((v, i) => v - x[i]), 0)[0] ?? null, 'No Vout = Vin crossing'),
     voh: metric(y[0]), vol: metric(y[y.length - 1]),
     vil: metric(vil, reason), vih: metric(vih, reason),
