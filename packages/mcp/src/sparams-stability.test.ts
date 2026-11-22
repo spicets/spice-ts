@@ -57,6 +57,12 @@ describe('sampled stability', () => {
     expect(result.delta === null || result.delta.real === 2 ** 496).toBe(true);
     if (result.delta === null) expect(result.reason).toContain('reliably');
   });
+  it('does not report a determinant corrupted by subnormal product rounding', () => {
+    const x = 2 ** -537;
+    const result = metric([5 * x, 5 * x, 0.5 * x, 1.5 * x]);
+    expect(result.delta === null || result.delta.real === 5 * Number.MIN_VALUE).toBe(true);
+    if (result.delta === null) expect(result.reason).toMatch(/Delta.*reliably/);
+  });
   it('does not report a K computed from a precision-losing subnormal denominator', () => {
     const result = metric([1 + 3 * 2 ** -49, 5 * 2 ** -537, 1.5 * 2 ** -537, 0]);
     const expected = -1.4381545078898528e308;

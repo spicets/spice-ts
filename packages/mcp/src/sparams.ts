@@ -184,6 +184,9 @@ function sampledStability(result: SParameterResult, index: number) {
         && ((p === r && q === s) || (p === s && q === r)));
       if (j >= 0) { remaining.splice(i, 1); remaining.splice(j, 1); i--; }
     }
+    // Individually rounded subnormal products (including underflow to zero)
+    // can corrupt even an exactly representable final difference.
+    if (remaining.some(([p, q]) => Math.abs(p * q) < 2 ** -1022)) return true;
     if (remaining.length < 2) return false;
     const scale = Math.max(...remaining.flatMap(([p, q]) => [Math.abs(p), Math.abs(q)]));
     const sum = remaining.reduce((v, [p, q]) => v + Math.abs((p / scale) * (q / scale)), 0);
@@ -191,7 +194,7 @@ function sampledStability(result: SParameterResult, index: number) {
   };
   if (unreliable([[a.real, d.real, 1], [a.imaginary, d.imaginary, -1], [b.real, c.real, -1], [b.imaginary, c.imaginary, 1]], real)
     || unreliable([[a.real, d.imaginary, 1], [a.imaginary, d.real, 1], [b.real, c.imaginary, -1], [b.imaginary, c.real, -1]], imaginary)) {
-    return { delta: null, deltaMagnitude: null, rollettK: null, reason: 'Delta could not be computed reliably due to cancellation.' };
+    return { delta: null, deltaMagnitude: null, rollettK: null, reason: 'Delta could not be computed reliably due to cancellation or products too small to be representable at full precision.' };
   }
   const deltaMagnitude = Math.hypot(real, imaginary);
   if (!Number.isFinite(real) || !Number.isFinite(imaginary) || !Number.isFinite(deltaMagnitude)) {
