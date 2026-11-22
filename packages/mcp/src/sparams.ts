@@ -88,6 +88,7 @@ export interface SparamsArgs {
   portPair?: [number, number];
   frequenciesHz?: number[];
   includeGroupDelay?: boolean;
+  includeReciprocity?: boolean;
 }
 export const sparamsInputSchema = {
   type: 'object', additionalProperties: false, required: ['netlist'],
@@ -96,6 +97,7 @@ export const sparamsInputSchema = {
     portPair: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'integer', minimum: 1 } },
     frequenciesHz: { type: 'array', minItems: 1, items: { type: 'number', exclusiveMinimum: 0 } },
     includeGroupDelay: { type: 'boolean', description: 'Include backward sampled phase-secant group delay in seconds. Phase wrapping can alias delay; this is not a continuous or alias-free estimate. Explicit frequencies are separate one-point segments and produce null delays.' },
+    includeReciprocity: { type: 'boolean', description: 'Include the absolute dimensionless complex difference |Sij - Sji| at each sample. It depends on reference normalization; unequal-reference matrices cannot generally be judged reciprocal from this metric. This is not a dB ratio, passivity test or categorical verdict.' },
   },
 };
 const nullable = { type: ['number', 'null'] };
@@ -111,7 +113,8 @@ export const sparamsOutputSchema = {
         parameters: { type: 'object', additionalProperties: {
           type: 'object', additionalProperties: false, required: ['real', 'imaginary', 'magnitude', 'magnitudeDb', 'phaseDeg'],
           properties: { real: { type: 'number' }, imaginary: { type: 'number' }, magnitude: { type: 'number' }, magnitudeDb: nullable, phaseDeg: nullable,
-            returnLossDb: nullable, insertionLossDb: nullable, vswr: nullable, groupDelaySeconds: nullable },
+            returnLossDb: nullable, insertionLossDb: nullable, vswr: nullable, groupDelaySeconds: nullable,
+            reciprocityDifferenceMagnitude: { ...nullable, description: 'Absolute complex difference |Sij - Sji|, dimensionless. Null when the reverse sample is missing or nonfinite, or subtraction or magnitude is not representable as a finite number. Depends on reference normalization.' } },
         } },
       },
     } },
@@ -123,9 +126,10 @@ export function sparamsInvalid(message: string, path?: string): never {
 export function sparamsArgs(args: unknown): SparamsArgs {
   if (!args || typeof args !== 'object' || Array.isArray(args)) sparamsInvalid('Expected S-parameter arguments');
   const a = args as Record<string, unknown>;
-  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz', 'includeGroupDelay'].includes(k))
+  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz', 'includeGroupDelay', 'includeReciprocity'].includes(k))
     || typeof a.netlist !== 'string' || !a.netlist.trim()
     || (a.includeGroupDelay !== undefined && typeof a.includeGroupDelay !== 'boolean')
+    || (a.includeReciprocity !== undefined && typeof a.includeReciprocity !== 'boolean')
     || (a.portPair !== undefined && (!Array.isArray(a.portPair) || a.portPair.length !== 2
       || !a.portPair.every(p => Number.isInteger(p) && p > 0)))
     || (a.frequenciesHz !== undefined && (!Array.isArray(a.frequenciesHz) || !a.frequenciesHz.length
@@ -153,6 +157,14 @@ export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
         const magnitudeDb = magnitude === 0 ? null : 20 * Math.log10(magnitude);
         // Keep conventional two-digit names, but delimit multi-digit indices to avoid collisions.
         const key = i >= 10 || j >= 10 ? `S_${i}_${j}` : `S${i}${j}`;
+        let reciprocityDifferenceMagnitude: number | null = null;
+        if (args.includeReciprocity) {
+          const reverse = result.vectors.get(`S_${j}_${i}`)?.[index];
+          if (reverse && Number.isFinite(reverse.real) && Number.isFinite(reverse.imaginary)) {
+            const difference = Math.hypot(real - reverse.real, imaginary - reverse.imaginary);
+            if (Number.isFinite(difference)) reciprocityDifferenceMagnitude = difference;
+          }
+        }
         let groupDelaySeconds: number | null = null;
         if (args.includeGroupDelay && index > 0 && magnitude !== 0) {
           const previous = result.vectors.get(`S_${i}_${j}`)?.[index - 1];
@@ -170,6 +182,7 @@ export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
         return [key, {
           real, imaginary, magnitude, magnitudeDb, phaseDeg: magnitude === 0 ? null : Math.atan2(imaginary, real) * 180 / Math.PI,
           ...(args.includeGroupDelay ? { groupDelaySeconds } : {}),
+          ...(args.includeReciprocity ? { reciprocityDifferenceMagnitude } : {}),
           ...(i === j ? { returnLossDb: magnitudeDb === null ? null : -magnitudeDb,
             vswr: magnitude < 1 ? (1 + magnitude) / (1 - magnitude) : null }
             : { insertionLossDb: magnitudeDb === null ? null : -magnitudeDb }),
