@@ -32,6 +32,21 @@ describe('sampled stability', () => {
     near(result.delta!.real, 0.03); near(result.delta!.imaginary, 0.14);
     near(result.deltaMagnitude, Math.hypot(0.03, 0.14));
   });
+  it('preserves a finite imaginary determinant when real products overflow and cancel', () => {
+    const raw = matrix([1e200, 1e200, 1e200, 1e200]);
+    raw.vectors.get('S_1_1')![0].imaginary = 1e-200;
+    const result = sparamsReport([raw], { netlist: 'x', includeStability: true }).points[0].stability!;
+    expect(result).toMatchObject({ delta: { real: 0, imaginary: 1 }, deltaMagnitude: 1, reason: null });
+  });
+  it('does not silently discard a term in an overflowing determinant component', () => {
+    const raw = matrix([1e200, 1e200, 1e200, 1e200]);
+    raw.vectors.get('S_1_1')![0].imaginary = 1e-200;
+    raw.vectors.get('S_2_2')![0].imaginary = 1e200;
+    raw.vectors.get('S_1_2')![0].imaginary = 1e200;
+    const result = sparamsReport([raw], { netlist: 'x', includeStability: true }).points[0].stability!;
+    expect(result.delta === null || result.delta.real === -1).toBe(true);
+    if (result.delta === null) expect(result.reason).toBeTruthy();
+  });
   it('reports unilateral K as undefined without a verdict', () => {
     expect(metric([0.2, 0, 2, 0.3])).toMatchObject({ rollettK: null, reason: expect.stringContaining('undefined') });
   });

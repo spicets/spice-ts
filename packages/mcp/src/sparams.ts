@@ -158,12 +158,24 @@ function sampledStability(result: SParameterResult, index: number) {
     // Scale before multiplying to permit cancellation of otherwise overflowing products.
     const scale = Math.max(...[a, b, c, d].flatMap(v => [Math.abs(v.real), Math.abs(v.imaginary)]));
     const [x, y, z, w] = [a, b, c, d].map(v => ({ real: v.real / scale, imaginary: v.imaginary / scale }));
-    real = ((x.real * w.real - x.imaginary * w.imaginary) - (y.real * z.real - y.imaginary * z.imaginary)) * scale * scale;
-    imaginary = ((x.real * w.imaginary + x.imaginary * w.real) - (y.real * z.imaginary + y.imaginary * z.real)) * scale * scale;
+    // Never overwrite a directly representable component with a lossy scaled one.
+    // If a nonzero product vanishes under scaling, report an unrepresentable
+    // determinant rather than silently dropping a term after cancellation.
+    const lost = (p: number, q: number, sp: number, sq: number) => p !== 0 && q !== 0 && sp * sq === 0;
+    if (!Number.isFinite(real)) {
+      real = lost(a.real, d.real, x.real, w.real) || lost(a.imaginary, d.imaginary, x.imaginary, w.imaginary)
+        || lost(b.real, c.real, y.real, z.real) || lost(b.imaginary, c.imaginary, y.imaginary, z.imaginary)
+        ? NaN : ((x.real * w.real - x.imaginary * w.imaginary) - (y.real * z.real - y.imaginary * z.imaginary)) * scale * scale;
+    }
+    if (!Number.isFinite(imaginary)) {
+      imaginary = lost(a.real, d.imaginary, x.real, w.imaginary) || lost(a.imaginary, d.real, x.imaginary, w.real)
+        || lost(b.real, c.imaginary, y.real, z.imaginary) || lost(b.imaginary, c.real, y.imaginary, z.real)
+        ? NaN : ((x.real * w.imaginary + x.imaginary * w.real) - (y.real * z.imaginary + y.imaginary * z.real)) * scale * scale;
+    }
   }
   const deltaMagnitude = Math.hypot(real, imaginary);
   if (!Number.isFinite(real) || !Number.isFinite(imaginary) || !Number.isFinite(deltaMagnitude)) {
-    return { delta: null, deltaMagnitude: null, rollettK: null, reason: 'Delta calculation overflowed or is not representable as a finite number.' };
+    return { delta: null, deltaMagnitude: null, rollettK: null, reason: 'Delta calculation overflowed or could not be computed reliably as a finite number.' };
   }
   const delta = { real, imaginary };
   const bMag = Math.hypot(b.real, b.imaginary), cMag = Math.hypot(c.real, c.imaginary);
