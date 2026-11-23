@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'delay', 'duty', 'pulseWidth'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'pulseWidth'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
@@ -193,7 +193,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if ((m.kind === 'integ' || m.kind === 'duty' || m.kind === 'pulseWidth') && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if ((m.kind === 'integ' || m.kind === 'absInteg' || m.kind === 'duty' || m.kind === 'pulseWidth') && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
@@ -289,16 +289,24 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const max = samples.reduce((a, b) => Math.max(a, b));
       value = m.kind === 'min' ? min : m.kind === 'max' ? max : max - min;
     } else if (hi === lo) {
-      value = m.kind === 'integ' ? 0 : m.kind === 'rms' ? Math.abs(samples[0]) : samples[0];
+      value = m.kind === 'integ' || m.kind === 'absInteg' ? 0 : m.kind === 'rms' ? Math.abs(samples[0]) : samples[0];
     } else {
       let integral = 0;
       for (let i = 1; i < points.length; i++) {
         const a = samples[i - 1]; const b = samples[i];
-        integral += (points[i] - points[i - 1]) * (m.kind === 'rms' ? (a * a + a * b + b * b) / 3 : (a + b) / 2);
+        const width = points[i] - points[i - 1];
+        if (m.kind === 'absInteg') {
+          const aa = Math.abs(a); const bb = Math.abs(b);
+          if ((a < 0 && b > 0) || (a > 0 && b < 0)) {
+            const scale = Math.max(aa, bb);
+            const fraction = (aa / scale) / (aa / scale + bb / scale);
+            integral += width * (aa / 2 * fraction + bb / 2 * (1 - fraction));
+          } else integral += width * (aa / 2 + bb / 2);
+        } else integral += width * (m.kind === 'rms' ? (a * a + a * b + b * b) / 3 : (a + b) / 2);
       }
-      value = m.kind === 'integ' ? integral : m.kind === 'rms' ? Math.sqrt(integral / (hi - lo)) : integral / (hi - lo);
+      value = m.kind === 'integ' || m.kind === 'absInteg' ? integral : m.kind === 'rms' ? Math.sqrt(integral / (hi - lo)) : integral / (hi - lo);
     }
-    if (m.kind === 'integ') unit += '*s';
+    if (m.kind === 'integ' || m.kind === 'absInteg') unit += '*s';
     return Number.isFinite(value) ? { value, unit } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
   }) };
 }
