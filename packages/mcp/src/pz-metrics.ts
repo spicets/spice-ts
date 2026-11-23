@@ -1,5 +1,12 @@
 import type { PoleZeroResult, PoleZeroValue } from '@spice-ts/core';
 
+type PairMetrics = {
+  kind: 'pole' | 'zero'; indices: number[]; naturalFrequencyRadPerSec: number;
+  naturalFrequencyHz: number; dampingRatio: number; q: number | null;
+  dampedFrequencyHz?: number | null; dampedFrequencyReason?: 'unrepresentable';
+  oscillationPeriodS?: number | null; oscillationPeriodReason?: 'unrepresentable';
+};
+
 const rootSchema = {
   type: 'object', additionalProperties: false, required: ['re', 'im', 'frequencyHz'],
   properties: { re: { type: 'number' }, im: { type: 'number' }, frequencyHz: { type: 'number', minimum: 0 } },
@@ -30,6 +37,10 @@ export const pzMetricsOutputSchema = {
           naturalFrequencyRadPerSec: { type: 'number', exclusiveMinimum: 0 },
           naturalFrequencyHz: { type: 'number', exclusiveMinimum: 0 },
           dampingRatio: { type: 'number' }, q: { type: ['number', 'null'] },
+          dampedFrequencyHz: { type: ['number', 'null'], exclusiveMinimum: 0, description: 'Pole-pair damped frequency, not a guarantee of response ringing amplitude or settling.' },
+          dampedFrequencyReason: { enum: ['unrepresentable'] },
+          oscillationPeriodS: { type: ['number', 'null'], exclusiveMinimum: 0, description: 'Pole-pair oscillation period, not a guarantee of response ringing amplitude or settling.' },
+          oscillationPeriodReason: { enum: ['unrepresentable'] },
         },
       },
     },
@@ -48,7 +59,7 @@ export const pzMetricsOutputSchema = {
   }],
 };
 
-export function pzMetrics(result: PoleZeroResult, includeTimeConstants = false) {
+export function pzMetrics(result: PoleZeroResult, includeTimeConstants = false, includeDampedOscillation = false) {
   const invalid = (kind: 'pole' | 'zero', index: number, metric: string): never => {
     throw { code: 'INVALID_DATA', message: `Non-finite or unrepresentable ${kind} ${metric}`, phase: 'analysis', retryable: false, details: { kind, index, metric } };
   };
@@ -64,7 +75,7 @@ export function pzMetrics(result: PoleZeroResult, includeTimeConstants = false) 
   const zeros = result.zeros.map(root('zero'));
   const pairs = (roots: PoleZeroValue[], kind: 'pole' | 'zero') => {
     const used = new Set<number>();
-    return roots.flatMap((r, i) => {
+    return roots.flatMap<PairMetrics>((r, i) => {
       if (used.has(i) || r.imaginary === 0) return [];
       const j = roots.findIndex((s, j) => j > i && !used.has(j) && s.real === r.real && s.imaginary === -r.imaginary);
       if (j < 0) return [];
@@ -77,7 +88,14 @@ export function pzMetrics(result: PoleZeroResult, includeTimeConstants = false) 
       if (!Number.isFinite(zeta)) invalid(kind, i, 'dampingRatio');
       const q = r.real === 0 ? null : 1 / (2 * zeta);
       if (q !== null && !Number.isFinite(q)) invalid(kind, i, 'q');
-      return [{ kind, indices: [i, j], naturalFrequencyRadPerSec: wn, naturalFrequencyHz, dampingRatio: zeta, q }];
+      const pair = { kind, indices: [i, j], naturalFrequencyRadPerSec: wn, naturalFrequencyHz, dampingRatio: zeta, q };
+      if (kind !== 'pole' || !includeDampedOscillation) return [pair];
+      const dampedFrequencyHz = Math.abs(r.imaginary) / (2 * Math.PI);
+      const oscillationPeriodS = (2 * Math.PI) / Math.abs(r.imaginary);
+      return [{ ...pair,
+        ...(Number.isFinite(dampedFrequencyHz) && dampedFrequencyHz > 0 ? { dampedFrequencyHz } : { dampedFrequencyHz: null, dampedFrequencyReason: 'unrepresentable' }),
+        ...(Number.isFinite(oscillationPeriodS) && oscillationPeriodS > 0 ? { oscillationPeriodS } : { oscillationPeriodS: null, oscillationPeriodReason: 'unrepresentable' }),
+      }];
     });
   };
   return {
