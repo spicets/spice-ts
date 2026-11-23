@@ -315,10 +315,10 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
         const width = a + b;
         const t = a / width;
         const f0 = previous.frequencyHz; const f1 = current.frequencyHz;
-        // A tiny fraction can underflow before multiplication by a large frequency.
+        // Subnormal fractions lose precision (or underflow) before frequency multiplication.
         const weighted = (frequency: number, distance: number) => {
           const fraction = distance / width;
-          if (fraction !== 0) return fraction * frequency;
+          if (fraction >= 2 ** -1022) return fraction * frequency;
           const ratio = frequency / width;
           return Number.isFinite(ratio) ? distance * ratio : (distance * frequency) / width;
         };

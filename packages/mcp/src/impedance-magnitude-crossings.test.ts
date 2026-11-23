@@ -29,6 +29,12 @@ describe('sampled magnitude crossings', () => {
     expect(Math.abs(crossing / 2e-300 - 1)).toBeLessThanOrEqual(1e-12);
   });
 
+  it('preserves precision when the interpolation fraction is nonzero subnormal', () => {
+    // Analytic linear interpolation: 1e-30 + (8e-224 - 1e-224) * 1e300 / 1e100.
+    const crossing = run([1e-30, 1e300], [1e-224, 1e100], [8e-224]).magnitudeCrossings![0].frequencyHz!;
+    expect(Math.abs(crossing / 7.000001e-24 - 1)).toBeLessThanOrEqual(1e-12);
+  });
+
   it('handles later exact hits, plateaus, single samples, and huge positive magnitudes', () => {
     expect(run([10, 20, 30], [2, 2, 4], [2, 4, 3]).magnitudeCrossings).toEqual([
       { magnitudeOhm: 2, frequencyHz: 10 }, { magnitudeOhm: 4, frequencyHz: 30 }, { magnitudeOhm: 3, frequencyHz: 25 },
