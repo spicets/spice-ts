@@ -312,10 +312,18 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
         const a = Math.abs(magnitudeOhm - previous.magnitudeOhm);
         const b = Math.abs(current.magnitudeOhm - magnitudeOhm);
         // The values are nonnegative, so the bracket width cannot exceed MAX_VALUE.
-        const t = a / (a + b);
+        const width = a + b;
+        const t = a / width;
         const f0 = previous.frequencyHz; const f1 = current.frequencyHz;
+        // A tiny fraction can underflow before multiplication by a large frequency.
+        const weighted = (frequency: number, distance: number) => {
+          const fraction = distance / width;
+          if (fraction !== 0) return fraction * frequency;
+          const ratio = frequency / width;
+          return Number.isFinite(ratio) ? distance * ratio : (distance * frequency) / width;
+        };
         const interpolated = selectors.sweep?.variation === 'lin'
-          ? (1 - t) * f0 + t * f1
+          ? weighted(f0, b) + weighted(f1, a)
           : Math.exp((1 - t) * Math.log(f0) + t * Math.log(f1));
         frequencyHz = Number.isFinite(interpolated) ? interpolated : null;
         break;

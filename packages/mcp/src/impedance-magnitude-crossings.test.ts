@@ -24,6 +24,11 @@ describe('sampled magnitude crossings', () => {
     }
   });
 
+  it('preserves a representable frequency contribution when the fraction underflows', () => {
+    const crossing = run([1e-300, 1e300], [1e-300, 1e300], [2e-300]).magnitudeCrossings![0].frequencyHz!;
+    expect(Math.abs(crossing / 2e-300 - 1)).toBeLessThanOrEqual(1e-12);
+  });
+
   it('handles later exact hits, plateaus, single samples, and huge positive magnitudes', () => {
     expect(run([10, 20, 30], [2, 2, 4], [2, 4, 3]).magnitudeCrossings).toEqual([
       { magnitudeOhm: 2, frequencyHz: 10 }, { magnitudeOhm: 4, frequencyHz: 30 }, { magnitudeOhm: 3, frequencyHz: 25 },
@@ -61,9 +66,24 @@ describe('sampled magnitude crossings', () => {
     expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
     expect(validate(tool.outputSchema!, response.structuredContent)).toBe(true);
     const report = response.structuredContent as { points: { frequencyHz: number; magnitudeOhm: number }[]; magnitudeCrossings: { magnitudeOhm: number; frequencyHz: number }[] };
-    const i = report.points.findIndex((p, j) => j > 0 && (p.magnitudeOhm - level) * (report.points[j - 1].magnitudeOhm - level) < 0);
+    // Independent circuit equations: series R-C, or series R-L with C || Rleak.
+    const analytic = (frequency: number) => {
+      const omega = 2 * Math.PI * frequency;
+      if (!logarithmic) return Math.hypot(100, -1 / (omega * 1e-6));
+      const g = 1e-9; const susceptance = omega * 1e-6;
+      const denominator = g * g + susceptance * susceptance;
+      return Math.hypot(10 + g / denominator, omega * 0.01 - susceptance / denominator);
+    };
+    const reference = report.points.map((point, index) => {
+      const frequencyHz = logarithmic ? 100 * 10 ** (index / 10) : 100 + 100 * index;
+      const magnitudeOhm = analytic(frequencyHz);
+      expect(Math.abs(point.frequencyHz / frequencyHz - 1)).toBeLessThanOrEqual(1e-10);
+      expect(Math.abs(point.magnitudeOhm / magnitudeOhm - 1)).toBeLessThanOrEqual(1e-10);
+      return { frequencyHz, magnitudeOhm };
+    });
+    const i = reference.findIndex((p, j) => j > 0 && (p.magnitudeOhm - level) * (reference[j - 1].magnitudeOhm - level) < 0);
     expect(i).toBeGreaterThan(0);
-    const a = report.points[i - 1]; const b = report.points[i];
+    const a = reference[i - 1]; const b = reference[i];
     const t = (level - a.magnitudeOhm) / (b.magnitudeOhm - a.magnitudeOhm);
     const expected = logarithmic ? a.frequencyHz * (b.frequencyHz / a.frequencyHz) ** t : a.frequencyHz + (b.frequencyHz - a.frequencyHz) * t;
     const error = Math.abs(report.magnitudeCrossings[0].frequencyHz / expected - 1);
