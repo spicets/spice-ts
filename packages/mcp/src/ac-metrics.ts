@@ -4,7 +4,7 @@ const metricNames = ['dcGainDb', 'f3dbHz', 'unityGainHz', 'phaseMarginDeg', 'gai
 type Metric = typeof metricNames[number];
 const reasonCodes = ['NON_FINITE_GAIN', 'NO_HALF_POWER_CROSSING', 'NO_UNITY_GAIN_CROSSING', 'NO_PHASE_CROSSING'] as const;
 type ReasonCode = typeof reasonCodes[number];
-export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number; includeBandpass?: boolean; frequenciesHz?: number[]; gainCrossingsDb?: number[]; phaseCrossingsDeg?: number[] }
+export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number; includeBandpass?: boolean; includeComplexTransfer?: boolean; frequenciesHz?: number[]; gainCrossingsDb?: number[]; phaseCrossingsDeg?: number[] }
 const bandpassNames = ['peakFrequencyHz', 'lowerHalfPowerHz', 'upperHalfPowerHz', 'bandwidthHz', 'qualityFactor'] as const;
 type BandpassMetric = typeof bandpassNames[number];
 type BandpassReason = 'NON_FINITE_GAIN' | 'NO_LOWER_HALF_POWER_CROSSING' | 'NO_UPPER_HALF_POWER_CROSSING' | 'NON_FINITE_BANDPASS';
@@ -16,6 +16,7 @@ export const acMetricsProperties = {
   frequenciesHz: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number', exclusiveMinimum: 0 }, description: 'Transfer spots in request order. Gain dB and unwrapped phase are interpolated linearly in log frequency; no extrapolation.' },
   gainCrossingsDb: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested gain targets in dB; first descending crossings in sweep order, interpolated in log frequency without extrapolation.' },
   phaseCrossingsDeg: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested phase targets in degrees; first descending unwrapped phase crossings in sweep order, interpolated in log frequency without extrapolation. Zero magnitude breaks continuity; unwrapping restarts at principal phase.' },
+  includeComplexTransfer: { type: 'boolean', description: 'Return up to 10000 sampled rectangular transfer values, without interpolation.' },
   includeBandpass: { type: 'boolean', description: 'Report sampled global peak and nearest half-power crossings, interpolating gain in dB linearly in log frequency. The first maximum wins ties; crossings are never extrapolated.' },
   groupDelayAtHz: { type: 'number', exclusiveMinimum: 0, description: 'Frequency in Hz for group delay. Sample delays use centered phase differences, or one-sided differences at endpoints; between samples delays are linearly interpolated in Hz. No extrapolation; adjacent phase changes must be below 180 degrees.' },
 };
@@ -25,6 +26,10 @@ export const acMetricsOutputSchema = {
   properties: {
     ...Object.fromEntries(metricNames.map(key => [key, { type: ['number', 'null'] }])),
     groupDelaySeconds: { type: 'number' },
+    complexTransfer: { type: 'array', minItems: 1, maxItems: 10000, items: {
+      type: 'object', additionalProperties: false, required: ['frequencyHz', 'real', 'imaginary'],
+      properties: { frequencyHz: { type: 'number', exclusiveMinimum: 0 }, real: { type: 'number' }, imaginary: { type: 'number' } },
+    } },
     phaseCrossings: { type: 'array', minItems: 1, maxItems: 32, items: {
       type: 'object', additionalProperties: false, required: ['targetDeg', 'frequencyHz'],
       properties: { targetDeg: { type: 'number' }, frequencyHz: { type: ['number', 'null'], exclusiveMinimum: 0 }, reason: { type: 'string', enum: ['NO_PHASE_CROSSING'] } },
@@ -98,7 +103,8 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
   if (a.groupDelayAtHz !== undefined && (typeof a.groupDelayAtHz !== 'number' || !Number.isFinite(a.groupDelayAtHz) || a.groupDelayAtHz <= 0)) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
   }
-  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz', 'includeBandpass', 'frequenciesHz', 'gainCrossingsDb', 'phaseCrossingsDeg'].includes(key))
+  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz', 'includeBandpass', 'includeComplexTransfer', 'frequenciesHz', 'gainCrossingsDb', 'phaseCrossingsDeg'].includes(key))
+    || (a.includeComplexTransfer !== undefined && typeof a.includeComplexTransfer !== 'boolean')
     || (a.includeBandpass !== undefined && typeof a.includeBandpass !== 'boolean')
     || typeof a.output !== 'string' || !a.output.length || a.output.length > 256
     || (a.input !== undefined && (typeof a.input !== 'string' || !a.input.length || a.input.length > 256))
@@ -117,6 +123,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   if (args.groupDelayAtHz !== undefined && (!Number.isFinite(args.groupDelayAtHz) || args.groupDelayAtHz <= 0)) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
   }
+  if (args.includeComplexTransfer !== undefined && typeof args.includeComplexTransfer !== 'boolean') invalid('includeComplexTransfer must be boolean');
   const selected = result.analyses.filter(a => args.analysis === undefined ? a.type === 'ac' : a.analysisIndex === args.analysis);
   if (!selected.length || selected.some(a => a.type !== 'ac') || new Set(selected.map(a => a.analysisIndex)).size !== 1) invalid('Select exactly one AC analysis');
   const traces = args.step === undefined ? selected : selected.filter(a => (a.step?.index ?? 0) === args.step);
@@ -168,6 +175,8 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   if (args.groupDelayAtHz !== undefined) {
     if (args.groupDelayAtHz < f[0] || args.groupDelayAtHz > f[f.length - 1]) invalid('Group delay frequency is outside the sweep', { reason: 'GROUP_DELAY_OUT_OF_RANGE' });
   }
+  if (args.includeComplexTransfer && f.length > 10000) invalid('Complex transfer exceeds 10000 samples', { reason: 'TOO_MANY_COMPLEX_TRANSFER_SAMPLES' });
+  const complexTransfer: { frequencyHz: number; real: number; imaginary: number }[] | undefined = args.includeComplexTransfer ? [] : undefined;
   const db: number[] = []; const phase: number[] = [];
   const requestedPhase: number[] | undefined = args.phaseCrossingsDeg && [];
   for (let i = 0; i < f.length; i++) {
@@ -177,6 +186,17 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
       invalid('Transfer function contains invalid phasors or a zero input', { reason: 'UNDEFINED_TRANSFER' });
     }
     if (args.groupDelayAtHz !== undefined && p.magnitude === 0) invalid('Group delay is undefined for zero output magnitude', { reason: 'UNDEFINED_TRANSFER' });
+    if (complexTransfer) {
+      const angle = ((p.phaseDegrees % 360) - ((q?.phaseDegrees ?? 0) % 360)) * Math.PI / 180;
+      const ratio = p.magnitude / (q?.magnitude ?? 1);
+      // Halving the numerator avoids overflow where the complex magnitude is
+      // above MAX_VALUE but each rectangular component is representable.
+      const halfRatio = Number.isFinite(ratio) ? 0 : (p.magnitude / 2) / q!.magnitude;
+      const component = (factor: number) => Number.isFinite(ratio) ? ratio * factor : halfRatio * (2 * factor);
+      const real = component(Math.cos(angle)); const imaginary = component(Math.sin(angle));
+      if ((p.magnitude !== 0 && ratio === 0) || !Number.isFinite(real) || !Number.isFinite(imaginary)) invalid('Complex transfer is not representable', { reason: 'UNDEFINED_TRANSFER' });
+      complexTransfer.push({ frequencyHz: f[i], real, imaginary });
+    }
     db.push(20 * Math.log10(p.magnitude / (q?.magnitude ?? 1)));
     let angle = p.phaseDegrees - (q?.phaseDegrees ?? 0);
     // Choose the principal initial phase, then unwrap relative to the preceding sample.
@@ -320,6 +340,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     peakingDb: finite('peakingDb', db[peakIndex] - db[0], 'NON_FINITE_GAIN'),
     peakFrequencyHz: finite('peakFrequencyHz', Number.isFinite(db[peakIndex]) ? f[peakIndex] : undefined, 'NON_FINITE_GAIN'),
     referenceFrequencyHz: f[0], reasons,
+    ...(complexTransfer === undefined ? {} : { complexTransfer }),
     ...(groupDelaySeconds === undefined ? {} : { groupDelaySeconds }),
     ...(bandpass === undefined ? {} : { bandpass }),
     ...(spots === undefined ? {} : { spots }),
