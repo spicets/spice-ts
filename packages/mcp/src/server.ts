@@ -420,7 +420,7 @@ export const MCP_TOOLS = Object.freeze([
   {
     name: 'spice_disto_metrics',
     description: 'Run exactly one unstepped .disto from SPICE text or native spice-ts JSON for output v(node), differential v(node,node), or branch current i(voltageSource). Native independent sources accept params.distortionF1 and params.distortionF2 objects with magnitude and optional phase in degrees; never infer excitation from AC. circuit-json returns UNSUPPORTED_FEATURE naming missing DISTOF1/DISTOF2 source fields. Return HD2/HD3 or SIM2/DIM2/DIM3 complex values, absolute magnitude, dB referenced to 1 V or 1 A (not dBc) and phase in degrees at each swept F1 frequency. Current orientation follows core. F2 is fixed at start-F1 times F2OVERF1. Zero magnitude has null dB and phase. Core supports bounded diodes and ideal linear devices, not BJT distortion.',
-    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$' } },
+    inputSchema: { ...requestInputSchema, required: ['request', 'output'], properties: { ...requestInputSchema.properties, output: { type: 'string', pattern: '^(?:[vV]\\([^\\s(),]+(?:,[^\\s(),]+)?\\)|[iI]\\([^\\s(),]+\\))$' }, spotFrequenciesHz: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number', exclusiveMinimum: 0 }, description: 'Input sweep frequencies in Hz. Per-product spots interpolate rectangular values in the sweep coordinate; outside the sweep value is null.' } },
       // circuit-json recognizes .disto only to return its actionable unsupported error.
       $defs: { ...commonSchemaV1.$defs,
         // Keep the native branch disjoint from the circuit-json-only analysis override.
@@ -893,7 +893,10 @@ async function executeToolWithStore(
     try {
       if (distoSelector) {
         const spectrum = await runInWorker<DistoSpectrum>('disto', bounded, effective.maxWallTimeMs, options);
-        const metrics = distoMetrics(spectrum, distoSelector);
+        const analysis = plan.analyses[0];
+        if (analysis.type !== 'disto') unsupportedDisto();
+        const spots = (args as { spotFrequenciesHz?: number[] }).spotFrequenciesHz;
+        const metrics = distoMetrics(spectrum, distoSelector, spots, analysis.variation);
         enforceMaximum('maxSerializedResultBytes', effective.maxSerializedResultBytes, Buffer.byteLength(JSON.stringify(metrics)), 'transport');
         return success(metrics, diagnostics);
       }
