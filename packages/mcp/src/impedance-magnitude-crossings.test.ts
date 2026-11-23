@@ -35,6 +35,12 @@ describe('sampled magnitude crossings', () => {
     expect(Math.abs(crossing / 7.000001e-24 - 1)).toBeLessThanOrEqual(1e-12);
   });
 
+  it('preserves a representable contribution when frequency divided by width underflows', () => {
+    // The exact interpolation adds roughly 4e-324 Hz to the smallest positive float.
+    const crossing = run([Number.MIN_VALUE, 2e-16], [0, 1e308], [2]).magnitudeCrossings![0].frequencyHz;
+    expect(crossing).toBe(2 * Number.MIN_VALUE);
+  });
+
   it('handles later exact hits, plateaus, single samples, and huge positive magnitudes', () => {
     expect(run([10, 20, 30], [2, 2, 4], [2, 4, 3]).magnitudeCrossings).toEqual([
       { magnitudeOhm: 2, frequencyHz: 10 }, { magnitudeOhm: 4, frequencyHz: 30 }, { magnitudeOhm: 3, frequencyHz: 25 },
