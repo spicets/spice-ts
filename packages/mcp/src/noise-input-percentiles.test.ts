@@ -46,6 +46,11 @@ describe('input noise percentiles', () => {
     for (const x of result) { expect(Number.isFinite(x.frequencyHz)).toBe(true); expect(x.frequencyHz).toBeGreaterThanOrEqual(1); expect(x.frequencyHz).toBeLessThanOrEqual(101); }
     expect(entries([1e-100, 1e308], [1, 1], [Number.MIN_VALUE])[0].frequencyHz! / 4.9406564584124655e-18).toBeCloseTo(1, 12);
   });
+  it('locates a tiny percentile in a segment whose normalized power underflows', () => {
+    const frequency = entries([1, 2 ** 332, 2 ** 1023], [2 ** -194, 2 ** -194, 1], [Number.MIN_VALUE])[0].frequencyHz!;
+    expect(frequency).toBeLessThan(2 ** 332);
+    expect(frequency / (2 ** 336 / 100)).toBeCloseTo(1, 11);
+  });
   it('leaves existing output unchanged when the input option is omitted', () => {
     const s = spectrum([1, 101], [1, 1], [0, 2]);
     const baseline = noiseMetrics(s, { outputNoisePercentiles: [50], signalRms: 2 });

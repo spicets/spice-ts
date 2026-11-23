@@ -211,6 +211,11 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
         (i + 1 < f.length && f[i] < band[1] && f[i + 1] > band[0]))) ? 2 ** 512 : 1;
     return requested?.map(percent => {
       if (rms === 0) return { percent, frequencyHz: null, reason };
+      // Scale tiny-percentile segment powers before squaring so a segment can
+      // remain comparable even when its normalized power would underflow.
+      const tiny = percent < 1e-300;
+      const targetScale = tiny ? 2 ** 512 : 1;
+      const rootTargetScale = tiny ? 2 ** 256 : 1;
       // Normalize by the integrated RMS. Segment power is evaluated as a ratio,
       // keeping both very small and very large densities representable.
       const powers: { left: number; right: number; a: number; b: number; power: number }[] = [];
@@ -240,22 +245,19 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
         const a = scale === 0 ? 0 : (d0 / scale) ** 2;
         const b = scale === 0 ? 0 : (d1 / scale) ** 2;
         const rootPower = (scale / (rms * percentileScale)) * Math.sqrt(a + b);
-        const power = rootPower ** 2;
+        const power = (rootPower * rootTargetScale) ** 2;
         powers.push({ left, right, a, b, power });
       }
-      const total = powers.reduce((sum, segment) => sum + segment.power, 0);
+      const total = powers.reduce((sum, segment) => sum + segment.power / targetScale, 0);
       if (!(total > 0) || !Number.isFinite(total)) invalid('Noise percentile integration overflow or underflow');
       // Keep subnormal percentages scaled until the frequency displacement is
       // computed; percent / 100 and the segment fraction can both underflow.
-      const tiny = percent < 1e-300;
-      const targetScale = tiny ? 2 ** 512 : 1;
       let target = total * ((percent * targetScale) / 100);
       for (const segment of powers) {
         if (segment.power === 0) continue;
-        const segmentTarget = segment.power * targetScale;
-        if (target > segmentTarget) { target -= segmentTarget; continue; }
+        if (target > segment.power) { target -= segment.power; continue; }
         if (tiny && target > 0) {
-          const logFraction = Math.log(target) - Math.log(segment.power) - Math.log(targetScale);
+          const logFraction = Math.log(target) - Math.log(segment.power);
           const root = Math.hypot(Math.sqrt(Math.max(0, 1 - Math.exp(logFraction))) * segment.a, Math.exp(logFraction / 2) * segment.b);
           const logPosition = logFraction + Math.log(segment.a + segment.b) - Math.log(segment.a + root);
           const offset = Math.exp(Math.log(segment.right - segment.left) + logPosition);
