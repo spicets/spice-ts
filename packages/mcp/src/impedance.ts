@@ -12,8 +12,8 @@ export const impedanceProperties = {
   includeMatchingMetrics: { type: 'boolean', description: 'Include sampled-point return loss and VSWR; requires referenceResistanceOhm.' },
   referenceResistanceOhm: { type: 'number', exclusiveMinimum: 0, maximum: Number.MAX_VALUE, description: 'Positive finite reference resistance for sampled-point voltage reflection coefficients.' },
   includeAdmittance: { type: 'boolean' },
-  includeParallelEquivalent: { type: 'boolean', description: 'Add local frequency-specific parallel C/L equivalents to sampled points, not physical topology or spot queries.' },
-  includeSeriesEquivalent: { type: 'boolean', description: 'Add local frequency-specific series C/L equivalents to sampled points, not physical topology or spot queries.' },
+  includeParallelEquivalent: { type: 'boolean', description: 'Add local frequency-specific parallel C/L equivalents to sampled points and in-range spots, not physical topology.' },
+  includeSeriesEquivalent: { type: 'boolean', description: 'Add local frequency-specific series C/L equivalents to sampled points and in-range spots, not physical topology.' },
   port: { type: 'object', additionalProperties: false, required: ['positive', 'negative'], properties: {
     positive: { type: 'string', minLength: 1, maxLength: 256 }, negative: { type: 'string', minLength: 1, maxLength: 256 },
   } },
@@ -31,6 +31,9 @@ export const impedanceOutputSchema = {
     reactanceCrossings: { type: 'array', minItems: 1, maxItems: 128, description: 'First sampled/interpolated reactance-level crossings in sweep order, not proof of physical resonance; null when absent.', items: { type: 'object', additionalProperties: false, required: ['reactanceOhm', 'frequencyHz'], properties: { reactanceOhm: finiteNumber, frequencyHz: { anyOf: [finiteNumber, { type: 'null' }] } } } },
     spots: { type: 'array', maxItems: 128, description: 'Requested frequencies in input order. Complex impedance is interpolated in log frequency, or linear frequency for lin sweeps; out-of-range values are null.', items: { type: 'object', additionalProperties: false,
       required: ['frequencyHz', 'resistanceOhm', 'reactanceOhm', 'magnitudeOhm', 'phaseDeg', 'outOfRange'], properties: {
+        seriesCapacitanceF: { type: ['number', 'null'] }, seriesInductanceH: { type: ['number', 'null'] },
+        parallelCapacitanceF: { type: ['number', 'null'] }, parallelInductanceH: { type: ['number', 'null'] },
+        seriesEquivalentReason: { const: 'unrepresentable' }, parallelEquivalentReason: { enum: ['zero_impedance', 'unrepresentable'] },
         frequencyHz: number, resistanceOhm: { type: ['number', 'null'] }, reactanceOhm: { type: ['number', 'null'] }, magnitudeOhm: { type: ['number', 'null'] }, phaseDeg: { type: ['number', 'null'] }, outOfRange: { type: 'boolean' },
       } } },
     points: { type: 'array', minItems: 1, items: { type: 'object', additionalProperties: false,
@@ -113,6 +116,43 @@ export function impedancePlan(request: SimulationRequestV1, sweep: ACAnalysis): 
 }
 export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelectors) {
   if (!s.frequencyHz.length || s.positive.length !== s.frequencyHz.length || s.negative.length !== s.frequencyHz.length) impedanceInvalid('Incomplete impedance spectrum');
+  const equivalent = (frequencyHz: number, reactanceOhm: number) => {
+    if (!selectors.includeSeriesEquivalent) return {};
+    if (reactanceOhm === 0) return { seriesCapacitanceF: null, seriesInductanceH: null };
+    if (frequencyHz <= 0) impedanceInvalid('Expected a positive frequency for series equivalent');
+    const x = Math.abs(reactanceOhm);
+    let value = reactanceOhm < 0 ? (1 / x) / frequencyHz / (2 * Math.PI) : (x / frequencyHz) / (2 * Math.PI);
+    // Recover finite results when intermediate division overflowed or underflowed.
+    if (!Number.isFinite(value) || value === 0) {
+      const logValue = reactanceOhm < 0
+        ? -Math.log(x) - Math.log(frequencyHz) - Math.log(2 * Math.PI)
+        : Math.log(x) - Math.log(frequencyHz) - Math.log(2 * Math.PI);
+      value = Math.exp(logValue);
+    }
+    const representable = Number.isFinite(value) && value > 0;
+    return {
+      seriesCapacitanceF: reactanceOhm < 0 && representable ? value : null,
+      seriesInductanceH: reactanceOhm > 0 && representable ? value : null,
+      ...(representable ? {} : { seriesEquivalentReason: 'unrepresentable' }),
+    };
+  };
+  const parallel = (frequencyHz: number, resistanceOhm: number, reactanceOhm: number) => {
+    if (!selectors.includeParallelEquivalent) return {};
+    const scale = Math.max(Math.abs(resistanceOhm), Math.abs(reactanceOhm));
+    const re = resistanceOhm / scale; const im = reactanceOhm / scale;
+    const denominator = re * re + im * im;
+    const susceptanceS = (-im / denominator) / scale;
+    const empty = { parallelCapacitanceF: null, parallelInductanceH: null };
+    if (scale === 0 || !Number.isFinite(susceptanceS) || (reactanceOhm !== 0 && susceptanceS === 0)) return { ...empty, parallelEquivalentReason: scale === 0 ? 'zero_impedance' : 'unrepresentable' };
+    if (susceptanceS === 0) return empty;
+    const b = Math.abs(susceptanceS);
+    let value = susceptanceS > 0 ? (b / frequencyHz) / (2 * Math.PI) : (1 / b) / frequencyHz / (2 * Math.PI);
+    if (!Number.isFinite(value) || value === 0) {
+      value = Math.exp((susceptanceS > 0 ? Math.log(b) : -Math.log(b)) - Math.log(frequencyHz) - Math.log(2 * Math.PI));
+    }
+    if (!Number.isFinite(value) || value === 0) return { ...empty, parallelEquivalentReason: 'unrepresentable' };
+    return { parallelCapacitanceF: susceptanceS > 0 ? value : null, parallelInductanceH: susceptanceS < 0 ? value : null };
+  };
   const points = s.frequencyHz.map((frequencyHz, i) => {
     const p = s.positive[i]; const n = s.negative[i];
     const angle = Math.PI / 180;
@@ -121,26 +161,6 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
     const magnitudeOhm = Math.hypot(resistanceOhm, reactanceOhm);
     const phaseDeg = Math.atan2(reactanceOhm, resistanceOhm) / angle;
     if (![frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg].every(Number.isFinite)) impedanceInvalid('Non-finite impedance spectrum');
-    const equivalent = () => {
-      if (!selectors.includeSeriesEquivalent) return {};
-      if (reactanceOhm === 0) return { seriesCapacitanceF: null, seriesInductanceH: null };
-      if (frequencyHz <= 0) impedanceInvalid('Expected a positive frequency for series equivalent');
-      const x = Math.abs(reactanceOhm);
-      let value = reactanceOhm < 0 ? (1 / x) / frequencyHz / (2 * Math.PI) : (x / frequencyHz) / (2 * Math.PI);
-      // Recover finite results when intermediate division overflowed or underflowed.
-      if (!Number.isFinite(value) || value === 0) {
-        const logValue = reactanceOhm < 0
-          ? -Math.log(x) - Math.log(frequencyHz) - Math.log(2 * Math.PI)
-          : Math.log(x) - Math.log(frequencyHz) - Math.log(2 * Math.PI);
-        value = Math.exp(logValue);
-      }
-      const representable = Number.isFinite(value) && value > 0;
-      return {
-        seriesCapacitanceF: reactanceOhm < 0 && representable ? value : null,
-        seriesInductanceH: reactanceOhm > 0 && representable ? value : null,
-        ...(representable ? {} : { seriesEquivalentReason: 'unrepresentable' }),
-      };
-    };
     const reflection = () => {
       const r0 = selectors.referenceResistanceOhm;
       if (r0 === undefined) return {};
@@ -202,7 +222,7 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
       const vswr = Math.exp(logVswr);
       return Number.isFinite(vswr) ? { returnLossDb, vswr: Math.max(1, vswr) } : { returnLossDb, vswr: null, vswrReason: 'unrepresentable' };
     };
-    const point = { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg, ...equivalent(), ...reflected, ...matching(),
+    const point = { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm, phaseDeg, ...equivalent(frequencyHz, reactanceOhm), ...reflected, ...matching(),
       ...(selectors.includeQualityFactor ? { qualityFactor: impedanceQualityFactor(resistanceOhm, reactanceOhm) } : {}) };
     if (!selectors.includeAdmittance && !selectors.includeParallelEquivalent) return point;
     if (selectors.includeParallelEquivalent && frequencyHz <= 0) impedanceInvalid('Expected a positive frequency for parallel equivalent');
@@ -215,21 +235,8 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
       && !(resistanceOhm !== 0 && conductanceS === 0)
       && !(reactanceOhm !== 0 && susceptanceS === 0);
     if (selectors.includeAdmittance && !representable) impedanceInvalid(scale === 0 ? 'Cannot compute admittance of zero impedance' : 'Admittance is not representable');
-    const parallel = () => {
-      if (!selectors.includeParallelEquivalent) return {};
-      const empty = { parallelCapacitanceF: null, parallelInductanceH: null };
-      if (scale === 0 || !Number.isFinite(susceptanceS) || (reactanceOhm !== 0 && susceptanceS === 0)) return { ...empty, parallelEquivalentReason: scale === 0 ? 'zero_impedance' : 'unrepresentable' };
-      if (susceptanceS === 0) return empty;
-      const b = Math.abs(susceptanceS);
-      let value = susceptanceS > 0 ? (b / frequencyHz) / (2 * Math.PI) : (1 / b) / frequencyHz / (2 * Math.PI);
-      if (!Number.isFinite(value) || value === 0) {
-        value = Math.exp((susceptanceS > 0 ? Math.log(b) : -Math.log(b)) - Math.log(frequencyHz) - Math.log(2 * Math.PI));
-      }
-      if (!Number.isFinite(value) || value === 0) return { ...empty, parallelEquivalentReason: 'unrepresentable' };
-      return { parallelCapacitanceF: susceptanceS > 0 ? value : null, parallelInductanceH: susceptanceS < 0 ? value : null };
-    };
-    if (selectors.includeAdmittance) return { ...point, ...parallel(), conductanceS, susceptanceS };
-    return { ...point, ...parallel() };
+    if (selectors.includeAdmittance) return { ...point, ...parallel(frequencyHz, resistanceOhm, reactanceOhm), conductanceS, susceptanceS };
+    return { ...point, ...parallel(frequencyHz, resistanceOhm, reactanceOhm) };
   });
   let min = points[0]; let max = points[0];
   const resonanceHz: number[] = [];
@@ -251,7 +258,7 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
     const index = points.findIndex(p => p.frequencyHz >= frequencyHz);
     if (index < 0 || frequencyHz < points[0].frequencyHz) return { frequencyHz, resistanceOhm: null, reactanceOhm: null, magnitudeOhm: null, phaseDeg: null, outOfRange: true };
     const upper = points[index];
-    if (upper.frequencyHz === frequencyHz) return { frequencyHz, resistanceOhm: upper.resistanceOhm, reactanceOhm: upper.reactanceOhm, magnitudeOhm: upper.magnitudeOhm, phaseDeg: upper.phaseDeg, outOfRange: false };
+    if (upper.frequencyHz === frequencyHz) return { frequencyHz, resistanceOhm: upper.resistanceOhm, reactanceOhm: upper.reactanceOhm, magnitudeOhm: upper.magnitudeOhm, phaseDeg: upper.phaseDeg, outOfRange: false, ...equivalent(frequencyHz, upper.reactanceOhm), ...parallel(frequencyHz, upper.resistanceOhm, upper.reactanceOhm) };
     const lower = points[index - 1];
     // log1p preserves nearby frequency differences; log subtraction avoids overflow for wide spans.
     const logRatio = (value: number) => {
@@ -263,7 +270,7 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
       : logRatio(frequencyHz) / logRatio(upper.frequencyHz);
     const resistanceOhm = lower.resistanceOhm + fraction * (upper.resistanceOhm - lower.resistanceOhm);
     const reactanceOhm = lower.reactanceOhm + fraction * (upper.reactanceOhm - lower.reactanceOhm);
-    return { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm: Math.hypot(resistanceOhm, reactanceOhm), phaseDeg: Math.atan2(reactanceOhm, resistanceOhm) * 180 / Math.PI, outOfRange: false };
+    return { frequencyHz, resistanceOhm, reactanceOhm, magnitudeOhm: Math.hypot(resistanceOhm, reactanceOhm), phaseDeg: Math.atan2(reactanceOhm, resistanceOhm) * 180 / Math.PI, outOfRange: false, ...equivalent(frequencyHz, reactanceOhm), ...parallel(frequencyHz, resistanceOhm, reactanceOhm) };
   });
   const reactanceCrossings = selectors.reactanceLevelsOhm?.map(reactanceOhm => {
     let frequencyHz: number | null = null;

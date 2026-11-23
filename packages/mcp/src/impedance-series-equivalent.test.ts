@@ -47,9 +47,13 @@ type Point = { frequencyHz: number; reactanceOhm: number; seriesCapacitanceF: nu
     expect(disabled.structuredContent).toEqual(omitted.structuredContent);
     expect(validate(tool.inputSchema, { ...args, includeSeriesEquivalent: true })).toBe(true);
     expect(validate(tool.outputSchema!, enabled.structuredContent)).toBe(true);
-    const old = omitted.structuredContent as unknown as { points: Record<string, unknown>[]; spots: unknown[] };
-    const result = enabled.structuredContent as unknown as { points: Record<string, unknown>[]; spots: unknown[] };
-    expect(result.spots).toEqual(old.spots);
+    const old = omitted.structuredContent as unknown as { points: Record<string, unknown>[]; spots: Record<string, unknown>[] };
+    const result = enabled.structuredContent as unknown as { points: Record<string, unknown>[]; spots: Record<string, unknown>[] };
+    result.spots.forEach((spot, i) => {
+      const { seriesCapacitanceF, seriesInductanceH, ...rest } = spot;
+      expect(seriesCapacitanceF).toBeNull(); expect(seriesInductanceH).toBeNull();
+      expect(rest).toEqual(old.spots[i]);
+    });
     result.points.forEach((p, i) => {
       const { seriesCapacitanceF, seriesInductanceH, ...rest } = p;
       expect(seriesCapacitanceF).toBeNull(); expect(seriesInductanceH).toBeNull();
