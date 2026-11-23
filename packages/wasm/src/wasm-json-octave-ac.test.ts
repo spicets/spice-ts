@@ -101,6 +101,10 @@ describe('native WASM octave AC', () => {
   it('preserves invalid sweep and unsupported feature errors', async () => {
     const wasm = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
+      const measured = doc();
+      measured.analyses[0] = { ...measured.analyses[0]!, measurements: [{ name: 'sample', kind: 'find', vector: 'vm(out)', at: 2 }] } as typeof measured.analyses[0];
+      const result = await wasm.simulate(request(measured), { requestId: 'measured-value' });
+      expect(result).toMatchObject({ ok: true, data: { analyses: [{ measurements: [{ name: 'sample', value: expect.any(Number) }] }] } });
       for (const execute of [wasm.validate.bind(wasm), wasm.simulate.bind(wasm)]) {
         for (const [field, value] of [['startFreq', 0], ['stopFreq', -1], ['points', 0], ['points', 1.5]] as const) {
           const input = doc();
@@ -110,7 +114,10 @@ describe('native WASM octave AC', () => {
         }
         const measured = doc();
         measured.analyses[0] = { ...measured.analyses[0]!, measurements: [{ name: 'sample', kind: 'find', vector: 'vm(out)', at: 2 }] } as typeof measured.analyses[0];
-        expect(await execute(request(measured), { requestId: 'measured' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
+        expect(await execute(request(measured), { requestId: 'measured' })).toMatchObject({ ok: true });
+        const unsupportedMeasure = doc();
+        unsupportedMeasure.analyses[0] = { ...unsupportedMeasure.analyses[0]!, measurements: [{ name: 'sample', kind: 'avg', vector: 'vm(out)' }] } as typeof unsupportedMeasure.analyses[0];
+        expect(await execute(request(unsupportedMeasure), { requestId: 'unsupported-measured' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
         expect(await execute({ ...request(doc()), outputs: ['V(out)'] }, { requestId: 'outputs' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
       }
     } finally { await wasm.close(); }

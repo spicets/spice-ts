@@ -1,6 +1,6 @@
 import { addDcMeasurements, addMeasurements, parseWasmMeasurement, type WasmMeasurement } from './measurement.js';
 import { addFourierCard, takeFourierOptions, fourierWork } from './fourier-cards.js';
-import { CCCS, CCVS, circuitFromDocument, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, preflightTopology, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
+import { ACResult, evaluateMeasureCards, measureCard, measurePlot, CCCS, CCVS, circuitFromDocument, createTransientSim, frequencyGrid, frequencyPointCount, parseTitleless, preflightTopology, VCCS, VCVS, type Circuit, type CompiledCircuit, type SparseSolver, type StampContext, type TransientStep } from '@spice-ts/core';
 import { addFourier } from './fourier.js';
 import type {
   JsonObject,
@@ -672,6 +672,28 @@ function simulateAc(
       voltagePhasors, currentPhasors,
     }],
   };
+  if (request.input.format === 'spice-ts') {
+    const analysis = request.input.document.analyses[0];
+    const ac = result.analyses[0];
+    if (analysis?.type === 'ac' && analysis.measurements && ac?.type === 'ac') {
+      const work = frequenciesHz.length * analysis.measurements.length;
+      if (work > 1_000_000) throw resourceLimit('maxMeasurementWork', 1_000_000, work);
+      const convert = (vectors: typeof voltagePhasors) => new Map(Object.entries(vectors).map(([name, samples]) => [name, samples.map(sample => ({ magnitude: sample.magnitude, phase: sample.phaseDegrees }))]));
+      const directive = compiled.analyses[0];
+      if (directive?.type !== 'ac') throw new Error('AC directive unavailable');
+      const plot = measurePlot(directive, { ac: new ACResult(frequenciesHz, convert(voltagePhasors), convert(currentPhasors)), warnings: [] });
+      if (!plot) throw new Error('AC plot unavailable');
+      const values = new Map<string, number>();
+      ac.measurements = analysis.measurements.map((measurement, index) => {
+        if (measurement.kind !== 'find' || measurement.at === undefined) throw new Error('Unsupported measurement');
+        const card = measureCard(`.meas ac ${measurement.name} find ${measurement.vector} at=${measurement.at}`, index + 1, 0);
+        const measured = evaluateMeasureCards([card], 'ac', plot, values)[0]!;
+        return measured.status === 'ok' && measured.value !== undefined && Number.isFinite(measured.value)
+          ? { name: measured.name, value: measured.value }
+          : { name: measured.name, diagnostic: { code: 'MEASUREMENT_FAILED', message: measured.error ?? 'Measurement failed' } };
+      });
+    }
+  }
   enforceSerializedResultLimit(result, request);
   return result;
 }
@@ -707,7 +729,27 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   if (document.analyses.length > analysisLimit) throw resourceLimit('maxAnalyses', analysisLimit, document.analyses.length);
   const nativeAnalysis = document.analyses[0];
   if (document.analyses.length !== 1 || (nativeAnalysis?.type !== 'op' && nativeAnalysis?.type !== 'ac')) unsupported('analysis', 'Exactly one .op or .ac analysis is supported');
-  if (nativeAnalysis.type === 'ac' && nativeAnalysis.measurements !== undefined) unsupported('analysis', 'Only unmeasured AC sweeps are supported');
+  if (nativeAnalysis.type === 'ac' && nativeAnalysis.measurements !== undefined) {
+    const entries = nativeAnalysis.measurements;
+    const root = '/input/document/analyses/0/measurements';
+    const invalid = (path: string): never => { throw numericError('INVALID_REQUEST', `Invalid native measurement at ${path}`, 'validation', { path }); };
+    if (!Array.isArray(entries) || entries.length > 100) invalid(root);
+    const names = new Set<string>();
+    for (const [index, entry] of entries.entries()) {
+      const path = `${root}/${index}`;
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) invalid(path);
+      const value = entry as unknown as Record<string, unknown>;
+      if (typeof value.name !== 'string' || !/^[a-z][a-z0-9_]*$/i.test(value.name) || names.has(value.name.toLowerCase())) invalid(`${path}/name`);
+      names.add((value.name as string).toLowerCase());
+      if (value.kind !== 'find') unsupported('measurement', 'Only native AC FIND AT measurements are supported');
+      if (value.when !== undefined && value.at !== undefined) invalid(path);
+      if (value.when !== undefined) unsupported('measurement', 'Only native AC FIND AT measurements are supported');
+      for (const key of Object.keys(value)) if (!['name', 'kind', 'vector', 'at'].includes(key)) invalid(`${path}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+      if (typeof value.vector !== 'string' || !/^v(?:m|db|p)\([^\s(),]+\)$/i.test(value.vector)) invalid(`${path}/vector`);
+      if (value.at === undefined) invalid(path);
+      if (typeof value.at !== 'number' || !Number.isFinite(value.at) || value.at < 0) invalid(`${path}/at`);
+    }
+  }
   if (document.models.length || document.subcircuits.length || Object.keys(document).some(key =>
     !['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'].includes(key))) {
     unsupported('native-document', 'Only flat native circuits without additional directives are supported');
