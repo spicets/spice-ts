@@ -89,6 +89,7 @@ export interface SparamsArgs {
   frequenciesHz?: number[];
   includeGroupDelay?: boolean;
   includeReciprocity?: boolean;
+  includeStability?: boolean;
 }
 export const sparamsInputSchema = {
   type: 'object', additionalProperties: false, required: ['netlist'],
@@ -98,6 +99,7 @@ export const sparamsInputSchema = {
     frequenciesHz: { type: 'array', minItems: 1, items: { type: 'number', exclusiveMinimum: 0 } },
     includeGroupDelay: { type: 'boolean', description: 'Include backward sampled phase-secant group delay in seconds. Phase wrapping can alias delay; this is not a continuous or alias-free estimate. Explicit frequencies are separate one-point segments and produce null delays.' },
     includeReciprocity: { type: 'boolean', description: 'Include the absolute dimensionless complex difference |Sij - Sji| at each sample. It depends on reference normalization; unequal-reference matrices cannot generally be judged reciprocal from this metric. This is not a dB ratio, passivity test or categorical verdict.' },
+    includeStability: { type: 'boolean', description: 'Include sampled two-port Rollett stability metrics for equal positive real references. Not a global stability guarantee.' },
   },
 };
 const nullable = { type: ['number', 'null'] };
@@ -110,6 +112,15 @@ export const sparamsOutputSchema = {
       type: 'object', additionalProperties: false, required: ['frequencyHz', 'parameters'],
       properties: {
         frequencyHz: { type: 'number' },
+        stability: {
+          type: 'object', additionalProperties: false, required: ['delta', 'deltaMagnitude', 'rollettK', 'reason'],
+          description: 'Sampled two-port criterion only. Null K means undefined or nonrepresentable, not unstable.',
+          properties: {
+            delta: { anyOf: [{ type: 'object', additionalProperties: false, required: ['real', 'imaginary'], properties: { real: { type: 'number' }, imaginary: { type: 'number' } } }, { type: 'null' }] },
+            deltaMagnitude: nullable, rollettK: nullable,
+            reason: { type: ['string', 'null'], description: 'Why K or delta is null, if applicable.' },
+          },
+        },
         parameters: { type: 'object', additionalProperties: {
           type: 'object', additionalProperties: false, required: ['real', 'imaginary', 'magnitude', 'magnitudeDb', 'phaseDeg'],
           properties: { real: { type: 'number' }, imaginary: { type: 'number' }, magnitude: { type: 'number' }, magnitudeDb: nullable, phaseDeg: nullable,
@@ -126,10 +137,11 @@ export function sparamsInvalid(message: string, path?: string): never {
 export function sparamsArgs(args: unknown): SparamsArgs {
   if (!args || typeof args !== 'object' || Array.isArray(args)) sparamsInvalid('Expected S-parameter arguments');
   const a = args as Record<string, unknown>;
-  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz', 'includeGroupDelay', 'includeReciprocity'].includes(k))
+  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz', 'includeGroupDelay', 'includeReciprocity', 'includeStability'].includes(k))
     || typeof a.netlist !== 'string' || !a.netlist.trim()
     || (a.includeGroupDelay !== undefined && typeof a.includeGroupDelay !== 'boolean')
     || (a.includeReciprocity !== undefined && typeof a.includeReciprocity !== 'boolean')
+    || (a.includeStability !== undefined && typeof a.includeStability !== 'boolean')
     || (a.portPair !== undefined && (!Array.isArray(a.portPair) || a.portPair.length !== 2
       || !a.portPair.every(p => Number.isInteger(p) && p > 0)))
     || (a.frequenciesHz !== undefined && (!Array.isArray(a.frequenciesHz) || !a.frequenciesHz.length
@@ -138,14 +150,112 @@ export function sparamsArgs(args: unknown): SparamsArgs {
   }
   return a as unknown as SparamsArgs;
 }
+function sampledStability(result: SParameterResult, index: number) {
+  const [a, b, c, d] = ['S_1_1', 'S_1_2', 'S_2_1', 'S_2_2'].map(key => result.vectors.get(key)![index]);
+  let real = (a.real * d.real - a.imaginary * d.imaginary) - (b.real * c.real - b.imaginary * c.imaginary);
+  let imaginary = (a.real * d.imaginary + a.imaginary * d.real) - (b.real * c.imaginary + b.imaginary * c.real);
+  if (!Number.isFinite(real) || !Number.isFinite(imaginary)) {
+    // Scale before multiplying to permit cancellation of otherwise overflowing products.
+    const scale = Math.max(...[a, b, c, d].flatMap(v => [Math.abs(v.real), Math.abs(v.imaginary)]));
+    const [x, y, z, w] = [a, b, c, d].map(v => ({ real: v.real / scale, imaginary: v.imaginary / scale }));
+    // Never overwrite a directly representable component with a lossy scaled one.
+    // If a nonzero product vanishes under scaling, report an unrepresentable
+    // determinant rather than silently dropping a term after cancellation.
+    const lost = (p: number, q: number, sp: number, sq: number) => p !== 0 && q !== 0 && sp * sq === 0;
+    if (!Number.isFinite(real)) {
+      real = lost(a.real, d.real, x.real, w.real) || lost(a.imaginary, d.imaginary, x.imaginary, w.imaginary)
+        || lost(b.real, c.real, y.real, z.real) || lost(b.imaginary, c.imaginary, y.imaginary, z.imaginary)
+        ? NaN : ((x.real * w.real - x.imaginary * w.imaginary) - (y.real * z.real - y.imaginary * z.imaginary)) * scale * scale;
+    }
+    if (!Number.isFinite(imaginary)) {
+      imaginary = lost(a.real, d.imaginary, x.real, w.imaginary) || lost(a.imaginary, d.real, x.imaginary, w.real)
+        || lost(b.real, c.imaginary, y.real, z.imaginary) || lost(b.imaginary, c.real, y.imaginary, z.real)
+        ? NaN : ((x.real * w.imaginary + x.imaginary * w.real) - (y.real * z.imaginary + y.imaginary * z.real)) * scale * scale;
+    }
+  }
+  // Detect cancellation of rounded products, including products that round to
+  // the same value despite having different exact factors. Identical factor
+  // pairs with opposite signs cancel exactly and need no warning.
+  const unreliable = (terms: [number, number, number][], component: number) => {
+    const remaining = terms.filter(([p, q]) => p !== 0 && q !== 0);
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      const [p, q, sign] = remaining[i];
+      const j = remaining.findIndex(([r, s, other], n) => n < i && sign === -other
+        && ((p === r && q === s) || (p === s && q === r)));
+      if (j >= 0) { remaining.splice(i, 1); remaining.splice(j, 1); i--; }
+    }
+    // Individually rounded subnormal products (including underflow to zero)
+    // can corrupt even an exactly representable final difference.
+    if (remaining.some(([p, q]) => Math.abs(p * q) < 2 ** -1022)) return true;
+    if (remaining.length < 2) return false;
+    const scale = Math.max(...remaining.flatMap(([p, q]) => [Math.abs(p), Math.abs(q)]));
+    const sum = remaining.reduce((v, [p, q]) => v + Math.abs((p / scale) * (q / scale)), 0);
+    return Math.abs((component / scale) / scale) <= 8 * Number.EPSILON * sum;
+  };
+  if (unreliable([[a.real, d.real, 1], [a.imaginary, d.imaginary, -1], [b.real, c.real, -1], [b.imaginary, c.imaginary, 1]], real)
+    || unreliable([[a.real, d.imaginary, 1], [a.imaginary, d.real, 1], [b.real, c.imaginary, -1], [b.imaginary, c.real, -1]], imaginary)) {
+    return { delta: null, deltaMagnitude: null, rollettK: null, reason: 'Delta could not be computed reliably due to cancellation or products too small to be representable at full precision.' };
+  }
+  const deltaMagnitude = Math.hypot(real, imaginary);
+  if (!Number.isFinite(real) || !Number.isFinite(imaginary) || !Number.isFinite(deltaMagnitude)) {
+    return { delta: null, deltaMagnitude: null, rollettK: null, reason: 'Delta calculation overflowed or could not be computed reliably as a finite number.' };
+  }
+  const delta = { real, imaginary };
+  const bMag = Math.hypot(b.real, b.imaginary), cMag = Math.hypot(c.real, c.imaginary);
+  if (bMag === 0 || cMag === 0) return { delta, deltaMagnitude, rollettK: null, reason: 'Zero transmission makes K undefined.' };
+  const scale = Math.max(1, Math.hypot(a.real, a.imaginary), Math.hypot(d.real, d.imaginary), deltaMagnitude);
+  const numerator = (1 / scale) ** 2 - (Math.hypot(a.real, a.imaginary) / scale) ** 2
+    - (Math.hypot(d.real, d.imaginary) / scale) ** 2 + (deltaMagnitude / scale) ** 2;
+  // Cancellation can erase the determinant's contribution before division by a
+  // very small transmission product. Do not report a precise-looking K when
+  // the numerator is within the floating-point error of its contributing terms.
+  const aScaled = Math.hypot(a.real, a.imaginary) / scale;
+  const dScaled = Math.hypot(d.real, d.imaginary) / scale;
+  const deltaScaled = deltaMagnitude / scale;
+  const errorScale = (1 / scale) ** 2 + aScaled ** 2 + dScaled ** 2 + deltaScaled ** 2
+    + 2 * deltaScaled * (aScaled * dScaled + (bMag / scale) * (cMag / scale));
+  if (Math.abs(numerator) <= 16 * Number.EPSILON * errorScale) {
+    return { delta, deltaMagnitude, rollettK: null, reason: 'K numerator could not be computed reliably due to cancellation.' };
+  }
+  const denominator = 2 * ((bMag / scale) * (cMag / scale));
+  // Subnormal division can lose most of the denominator's significant bits.
+  if (denominator > 0 && denominator < 2 ** -1021) {
+    return { delta, deltaMagnitude, rollettK: null, reason: 'K denominator could not be computed reliably at subnormal precision.' };
+  }
+  let k = numerator / denominator;
+  if (!Number.isFinite(k) || !Number.isFinite(denominator) || denominator === 0 || (k === 0 && numerator !== 0)) {
+    // Avoid under/overflow in the denominator when K itself remains representable.
+    k = numerator === 0 ? 0 : Math.sign(numerator) * Math.exp(Math.log(Math.abs(numerator)) + 2 * Math.log(scale) - Math.log(2) - Math.log(bMag) - Math.log(cMag));
+  }
+  return Number.isFinite(k) && (k !== 0 || numerator === 0)
+    ? { delta, deltaMagnitude, rollettK: k, reason: null }
+    : { delta, deltaMagnitude, rollettK: null, reason: 'K is not representable as a finite number.' };
+}
+
 export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
   const { ports, referenceImpedances } = results[0];
+  if (args.includeStability) {
+    for (const result of results) {
+      if (result.ports.length !== 2 || result.referenceImpedances.length !== 2
+        || !Number.isFinite(result.referenceImpedances[0]) || result.referenceImpedances[0] <= 0
+        || result.referenceImpedances[0] !== result.referenceImpedances[1]) {
+        sparamsInvalid('Stability requires two ports with equal positive finite real references');
+      }
+      for (const key of ['S_1_1', 'S_1_2', 'S_2_1', 'S_2_2']) {
+        const vector = result.vectors.get(key);
+        if (!vector || result.frequencies.some((_, i) => !vector[i] || !Number.isFinite(vector[i].real) || !Number.isFinite(vector[i].imaginary))) {
+          sparamsInvalid('Stability requires all four finite complex S-parameters at every sample');
+        }
+      }
+    }
+  }
   if (args.portPair?.some(p => p > ports.length)) sparamsInvalid('Port index exceeds the number of RF ports');
   const pairs = args.portPair ? [args.portPair] : ports.flatMap((_, i) => ports.map((__, j) => [i + 1, j + 1]));
   return {
     ports, referenceImpedancesOhm: referenceImpedances,
     points: results.flatMap(result => result.frequencies.map((frequencyHz, index) => ({
       frequencyHz,
+      ...(args.includeStability ? { stability: sampledStability(result, index) } : {}),
       parameters: Object.fromEntries(pairs.map(([i, j]) => {
         const vector = result.vectors.get(`S_${i}_${j}`)?.[index];
         if (!vector || !Number.isFinite(vector.real) || !Number.isFinite(vector.imaginary)) {
