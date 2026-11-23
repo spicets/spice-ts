@@ -320,7 +320,16 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
           const fraction = distance / width;
           if (fraction >= 2 ** -1022) return fraction * frequency;
           const ratio = frequency / width;
-          return Number.isFinite(ratio) ? distance * ratio : (distance * frequency) / width;
+          if (ratio >= 2 ** -1022 && Number.isFinite(ratio)) return distance * ratio;
+          // If both ratios are tiny, multiplying first can retain a normal
+          // intermediate even though either division would lose precision.
+          const product = distance * frequency;
+          if (product >= 2 ** -1022 && Number.isFinite(product)) return product / width;
+          // Scale a tiny product before division, without changing its value.
+          const scale = 2 ** 512;
+          const scaledFrequency = frequency * scale;
+          if (Number.isFinite(scaledFrequency)) return ((distance * scaledFrequency) / width) / scale;
+          return (product / width);
         };
         const interpolated = selectors.sweep?.variation === 'lin'
           ? weighted(f0, b) + weighted(f1, a)
