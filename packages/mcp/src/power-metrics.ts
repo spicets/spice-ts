@@ -154,6 +154,18 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     const current = vector(trace.currentsA, probe.branch);
     const vp = vector(trace.voltagesV, probe.positive);
     const vn = vector(trace.voltagesV, probe.negative);
+    // Remove each terminal's constant offset before interpolation, preserving
+    // small differential changes that would round away at clipped boundaries.
+    const centered = (values: number[]) => {
+      let min = Infinity; let max = -Infinity;
+      for (const value of values) { min = Math.min(min, value); max = Math.max(max, value); }
+      const first = Math.max(0, times.findIndex((time, index) => index > 0 && time > start) - 1);
+      const candidate = values[first];
+      const reference = values.every(value => Number.isFinite(value - candidate)) ? candidate : min / 2 + max / 2;
+      return values.map(value => value - reference);
+    };
+    const rippleVp = plan.args.includeVoltageRipple ? centered(vp) : vp;
+    const rippleVn = plan.args.includeVoltageRipple ? centered(vn) : vn;
     let energy = 0; let absorbedEnergyJ = 0; let returnedEnergyJ = 0; let rmsScale = 0; let rmsNormalized = 0; let voltageScale = 0; let voltageNormalized = 0; let peakPowerW = -Infinity; let peakTimeS = start;
     let peakReturnedPowerW = 0; let peakReturnedPowerTimeS: number | null = null; let chargeC = 0;
     const rippleSegments: [number, number, number][] = [];
@@ -167,7 +179,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       const il = at(current, left); const ir = at(current, right);
       const dv = vr - vl; const di = ir - il; const duration = right - left;
       if (plan.args.includeCurrentRipple) rippleSegments.push([il, ir, duration]);
-      if (plan.args.includeVoltageRipple) voltageRippleSegments.push([vl, vr, duration]);
+      if (plan.args.includeVoltageRipple) voltageRippleSegments.push([at(rippleVp, left) - at(rippleVn, left), at(rippleVp, right) - at(rippleVn, right), duration]);
       if (plan.args.includeCharge) chargeC += duration * (il / 2 + ir / 2);
       const a = dv * di; const b = vl * di + il * dv; const c = vl * il;
       energy += duration * (c + b / 2 + a / 3);

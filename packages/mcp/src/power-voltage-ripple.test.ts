@@ -41,6 +41,19 @@ describe('DC-removed voltage RMS', () => {
       for (const [index, [start, stop]] of windows.entries()) close(report.windowResults![index].elements[0].rmsAcVoltageV!, oracle(times, values, start, stop));
     }
   });
+  it('preserves small ripple when clipping a large-offset ramp', () => {
+    const report = synthetic([0, 1], [1e12, 1e12 + 2], [[0, 0.00001]]);
+    close(report.windowResults![0].elements[0].rmsAcVoltageV!, 0.00001 / Math.sqrt(3));
+  });
+  it('preserves clipped differential ripple and rejects common-mode changes', () => {
+    const plan = powerPlan({ netlist: 'V1 a b 1\n.tran 0.1 1', elements: ['V1'], includeVoltageRipple: true, window: [0, 0.00001] });
+    if ('error' in plan) throw new Error('Expected plan');
+    const measure = (a: number[], b: number[]) => powerMetrics({ status: 'complete', analyses: [{
+      type: 'tran', analysisIndex: 0, timeS: [0, 1], voltagesV: { a, b }, currentsA: { V1: [0, 0] },
+    }] }, plan).elements[0].rmsAcVoltageV!;
+    close(measure([1e12, 1e12 + 2], [1e12, 1e12 + 1]), 0.00001 / Math.sqrt(12));
+    expect(measure([1e12, 1e12 + 2], [1e12, 1e12 + 2])).toBe(0);
+  });
   it('preserves resolvable ripple under large DC bias and extreme voltage scales', () => {
     close(synthetic([0, 1], [1e15, 1e15 + 2]).elements[0].rmsAcVoltageV!, 1 / Math.sqrt(3));
     for (const scale of [1e-200, 1e200]) close(synthetic([0, 1], [0, scale]).elements[0].rmsAcVoltageV!, scale / Math.sqrt(12));
