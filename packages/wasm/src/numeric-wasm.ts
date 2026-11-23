@@ -694,7 +694,7 @@ function polar(real: number, imaginary: number): { magnitude: number; phaseDegre
   };
 }
 
-function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> }): PreparedLinearOp {
+function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> }): PreparedLinearOp | PreparedPassiveAc {
   const document = request.input.document;
   const sourceBytes = new TextEncoder().encode(JSON.stringify(request.input)).byteLength;
   const sourceLimit = Math.min(NUMERIC_WASM_LIMITS.maxSourceBytes, request.options?.limits?.maxSourceBytes ?? Infinity);
@@ -705,7 +705,9 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   if (components.length > componentLimit) throw resourceLimit('maxComponents', componentLimit, components.length);
   const analysisLimit = Math.min(1, request.options?.limits?.maxAnalyses ?? Infinity);
   if (document.analyses.length > analysisLimit) throw resourceLimit('maxAnalyses', analysisLimit, document.analyses.length);
-  if (document.analyses.length !== 1 || document.analyses[0]?.type !== 'op') unsupported('analysis', 'Exactly one .op analysis is supported');
+  const nativeAnalysis = document.analyses[0];
+  if (document.analyses.length !== 1 || (nativeAnalysis?.type !== 'op' && nativeAnalysis?.type !== 'ac')) unsupported('analysis', 'Exactly one .op or .ac analysis is supported');
+  if (nativeAnalysis.type === 'ac' && (nativeAnalysis.variation === 'oct' || nativeAnalysis.measurements !== undefined)) unsupported('analysis', 'Only unmeasured linear or decade AC sweeps are supported');
   if (document.models.length || document.subcircuits.length || Object.keys(document).some(key =>
     !['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'].includes(key))) {
     unsupported('native-document', 'Only flat native circuits without additional directives are supported');
@@ -726,10 +728,14 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
         throw numericError('INVALID_CIRCUIT', `${component.name} references an unknown net`, 'validation');
       }
     }
-    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : ['dc', 'waveform'];
+    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : ['dc', 'waveform'];
     if (Object.keys(component.params).some(key => !allowed.includes(key)) ||
-      (component.params.waveform !== undefined && component.params.waveform !== 'dc')) {
+      (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac')) ||
+      (component.params.waveform !== 'ac' && (component.params.magnitude !== undefined || component.params.phase !== undefined))) {
       unsupported('device-parameters', 'Only numeric passive values and DC sources are supported');
+    }
+    if ((type === 'I' || type === 'V') && ['dc', 'magnitude', 'phase'].some(key => component.params[key] !== undefined && (typeof component.params[key] !== 'number' || !Number.isFinite(component.params[key])))) {
+      throw numericError('INVALID_CIRCUIT', `${component.name} requires finite numeric source parameters`, 'validation');
     }
   }
   // Reuse core's native schema/compiler semantics, but perform the solve in WASM.
@@ -738,11 +744,18 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const order = compiled.nodeCount + compiled.branchCount;
   if (order < 1) throw numericError('INVALID_CIRCUIT', 'The circuit has no numeric unknowns', 'compile');
   if (order > NUMERIC_WASM_LIMITS.maxSystemOrder) throw resourceLimit('maxSystemOrder', NUMERIC_WASM_LIMITS.maxSystemOrder, order);
-  if (components.some(component => component.type.toUpperCase() === 'C')) {
+  if (nativeAnalysis.type === 'op' && components.some(component => component.type.toUpperCase() === 'C')) {
     const paths = new Map(components.map((component, index) => [component.name.toUpperCase(), `/input/document/circuit/components/${index}`]));
     preflightTopology(compiled, name => paths.get(name.toUpperCase()) ?? `/compiled/devices/${name.replaceAll('~', '~0').replaceAll('/', '~1')}`);
   }
-  return { analysis: 'op', compiled, order };
+  if (nativeAnalysis.type === 'op') return { analysis: 'op', compiled, order };
+  const compiledAnalysis = compiled.analyses[0];
+  if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
+  const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
+  const pointCount = frequencyPointCount(compiledAnalysis, reltol, 'ac');
+  const pointLimit = Math.min(NUMERIC_WASM_LIMITS.maxAcPoints, request.options?.limits?.maxResultPoints ?? Infinity);
+  if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
+  return { analysis: 'ac', compiled, order, frequenciesHz: frequencyGrid(compiledAnalysis, reltol, 'ac') };
 }
 
 function prepare(request: SimulationRequestV1): PreparedNumeric {
