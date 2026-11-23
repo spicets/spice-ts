@@ -19,6 +19,12 @@ export interface DistoSpectrum {
   f2OverF1?: number;
 }
 const nullableNumber = { type: ['number', 'null'] };
+const spotValueSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['real', 'imaginary', 'magnitude', 'magnitudeDb', 'phaseDeg'],
+  properties: { real: { type: 'number' }, imaginary: { type: 'number' }, magnitude: { type: 'number', minimum: 0 },
+    magnitudeDb: nullableNumber, phaseDeg: nullableNumber },
+};
 export const distoMetricsOutputSchema = {
   type: 'object', additionalProperties: false,
   required: ['output', 'magnitudeUnit', 'decibelReference', 'f2Hz', 'products'],
@@ -28,6 +34,8 @@ export const distoMetricsOutputSchema = {
       type: 'object', additionalProperties: false, required: ['product', 'points'],
       properties: {
         product: { enum: ['HD2', 'HD3', 'SIM2', 'DIM2', 'DIM3'] },
+        spots: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['frequencyHz', 'value'],
+          properties: { frequencyHz: { type: 'number' }, value: { anyOf: [spotValueSchema, { type: 'null' }] } } } },
         points: { type: 'array', items: {
           type: 'object', additionalProperties: false,
           required: ['frequencyHz', 'real', 'imaginary', 'magnitude', 'magnitudeDb', 'phaseDeg'],
@@ -87,13 +95,15 @@ export function validateDistoJsonInput(input: unknown): void {
 export function distoOutput(args: unknown): string {
   const a = args as Record<string, unknown> | null;
   if (!a || typeof a !== 'object' || Array.isArray(a)
-    || Object.keys(a).some(k => !['request', 'output'].includes(k))
-    || typeof a.output !== 'string' || !/^(?:v\([^\s(),]+(?:,[^\s(),]+)?\)|i\([^\s(),]+\))$/i.test(a.output)) {
-    throw { code: 'INVALID_REQUEST', message: 'Expected output v(node), v(node,node), or i(voltageSource)', phase: 'validation', retryable: false, details: {} };
+    || Object.keys(a).some(k => !['request', 'output', 'spotFrequenciesHz'].includes(k))
+    || typeof a.output !== 'string' || !/^(?:v\([^\s(),]+(?:,[^\s(),]+)?\)|i\([^\s(),]+\))$/i.test(a.output)
+    || (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length < 1
+      || a.spotFrequenciesHz.length > 128 || !Array.from(a.spotFrequenciesHz).every(f => typeof f === 'number' && Number.isFinite(f) && f > 0)))) {
+    throw { code: 'INVALID_REQUEST', message: 'Expected output v(node), v(node,node), or i(voltageSource), and optional spotFrequenciesHz with 1-128 positive finite numbers', phase: 'validation', retryable: false, details: {} };
   }
   return a.output;
 }
-export function distoMetrics(spectrum: DistoSpectrum, output: string) {
+export function distoMetrics(spectrum: DistoSpectrum, output: string, spotFrequenciesHz?: number[], variation: 'lin' | 'dec' | 'oct' = 'dec') {
   const result = new DistortionResult(spectrum.frequencies, spectrum.voltageArrays, spectrum.currentArrays, spectrum.f2OverF1);
   const names = { 2: 'HD2', 3: 'HD3', 'f1+f2': 'SIM2', 'f1-f2': 'DIM2', '2f1-f2': 'DIM3' };
   const isCurrent = output[0].toLowerCase() === 'i';
@@ -116,15 +126,32 @@ export function distoMetrics(spectrum: DistoSpectrum, output: string) {
     } catch {
       throw { code: 'INVALID_REQUEST', message: `Unknown output ${isCurrent ? 'branch' : 'node'}: ${output}`, phase: 'validation', retryable: false, details: {} };
     }
-    return { product: names[product], points: values.map((value, i) => {
+    const metrics = (value: ComplexDistortionValue) => {
       const magnitude = Math.hypot(value.real, value.imaginary);
       if (![value.real, value.imaginary, magnitude].every(Number.isFinite)) {
         throw { code: 'INVALID_REQUEST', message: 'Non-finite distortion result', phase: 'serialize', retryable: false, details: {} };
       }
-      return { frequencyHz: result.frequencies[i], ...value, magnitude,
+      return { ...value, magnitude,
         magnitudeDb: magnitude === 0 ? null : 20 * Math.log10(magnitude),
         phaseDeg: magnitude === 0 ? null : Math.atan2(value.imaginary, value.real) * 180 / Math.PI };
-    }) };
+    };
+    const points = values.map((value, i) => ({ frequencyHz: result.frequencies[i], ...metrics(value) }));
+    const spots = spotFrequenciesHz?.map(frequencyHz => {
+      const frequencies = result.frequencies;
+      if (!frequencies.length || frequencyHz < frequencies[0] || frequencyHz > frequencies[frequencies.length - 1]) return { frequencyHz, value: null };
+      let lo = 0, hi = frequencies.length - 1;
+      while (hi - lo > 1) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (frequencies[mid] < frequencyHz) lo = mid; else hi = mid;
+      }
+      if (frequencyHz === frequencies[lo]) return { frequencyHz, value: metrics(values[lo]) };
+      if (frequencyHz === frequencies[hi]) return { frequencyHz, value: metrics(values[hi]) };
+      const coordinate = variation === 'lin' ? (f: number) => f : Math.log;
+      const t = (coordinate(frequencyHz) - coordinate(frequencies[lo])) / (coordinate(frequencies[hi]) - coordinate(frequencies[lo]));
+      return { frequencyHz, value: metrics({ real: values[lo].real * (1 - t) + values[hi].real * t,
+        imaginary: values[lo].imaginary * (1 - t) + values[hi].imaginary * t }) };
+    });
+    return { product: names[product], points, ...(spots === undefined ? {} : { spots }) };
   });
   return { output, magnitudeUnit: isCurrent ? 'A' : 'V', decibelReference: isCurrent ? '1 A' : '1 V',
     f2Hz: result.f2OverF1 === undefined ? null : result.frequencies[0] * result.f2OverF1, products };
