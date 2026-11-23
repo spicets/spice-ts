@@ -4,9 +4,10 @@ import { paramsSchema } from './params.js';
 
 type ACAnalysis = Extract<AnalysisDirective, { type: 'ac' }>;
 
-export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis; includeAdmittance?: boolean; includeSeriesEquivalent?: boolean; includeParallelEquivalent?: boolean; spotFrequenciesHz?: number[]; reactanceLevelsOhm?: number[]; referenceResistanceOhm?: number; includeMatchingMetrics?: boolean; includeQualityFactor?: boolean }
+export interface ImpedanceSelectors { port: { positive: string; negative: string }; sweep?: ACAnalysis; includeAdmittance?: boolean; includeSeriesEquivalent?: boolean; includeParallelEquivalent?: boolean; spotFrequenciesHz?: number[]; reactanceLevelsOhm?: number[]; magnitudeLevelsOhm?: number[]; referenceResistanceOhm?: number; includeMatchingMetrics?: boolean; includeQualityFactor?: boolean }
 export interface ImpedanceSpectrum { frequencyHz: number[]; positive: { magnitude: number; phaseDegrees: number }[]; negative: { magnitude: number; phaseDegrees: number }[] }
 export const impedanceProperties = {
+  magnitudeLevelsOhm: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number', exclusiveMinimum: 0, maximum: Number.MAX_VALUE }, description: 'Positive finite sampled magnitude levels. First crossings interpolate sampled |Z| in linear frequency for lin sweeps and log frequency for dec/oct sweeps, not a new simulation or physical resonance.' },
   reactanceLevelsOhm: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number', minimum: -Number.MAX_VALUE, maximum: Number.MAX_VALUE }, description: 'Sampled reactance levels. The first interpolated crossing is not proof of physical resonance.' },
   includeQualityFactor: { type: 'boolean', description: 'Include local series impedance Q = |reactance| / resistance, not resonator or loaded Q.' },
   includeMatchingMetrics: { type: 'boolean', description: 'Include sampled-point return loss and VSWR; requires referenceResistanceOhm.' },
@@ -28,6 +29,7 @@ const extremum = { type: 'object', additionalProperties: false, required: ['magn
 export const impedanceOutputSchema = {
   type: 'object', additionalProperties: false, required: ['port', 'points', 'summary'], properties: {
     port: impedanceProperties.port,
+    magnitudeCrossings: { type: 'array', minItems: 1, maxItems: 128, description: 'First sampled/interpolated magnitude-level crossings in sweep order, not physical resonance or a new simulation; null when absent.', items: { type: 'object', additionalProperties: false, required: ['magnitudeOhm', 'frequencyHz'], properties: { magnitudeOhm: { type: 'number', exclusiveMinimum: 0, maximum: Number.MAX_VALUE }, frequencyHz: { anyOf: [finiteNumber, { type: 'null' }] } } } },
     reactanceCrossings: { type: 'array', minItems: 1, maxItems: 128, description: 'First sampled/interpolated reactance-level crossings in sweep order, not proof of physical resonance; null when absent.', items: { type: 'object', additionalProperties: false, required: ['reactanceOhm', 'frequencyHz'], properties: { reactanceOhm: finiteNumber, frequencyHz: { anyOf: [finiteNumber, { type: 'null' }] } } } },
     spots: { type: 'array', maxItems: 128, description: 'Requested frequencies in input order. Complex impedance is interpolated in log frequency, or linear frequency for lin sweeps; out-of-range values are null.', items: { type: 'object', additionalProperties: false,
       required: ['frequencyHz', 'resistanceOhm', 'reactanceOhm', 'magnitudeOhm', 'phaseDeg', 'outOfRange'], properties: {
@@ -79,7 +81,7 @@ export function impedanceInvalid(message: string, reason?: typeof impedanceError
 }
 export function impedanceArgs(raw: unknown): ImpedanceSelectors {
   const a = raw as Record<string, unknown> | null;
-  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params', 'includeAdmittance', 'includeSeriesEquivalent', 'includeParallelEquivalent', 'spotFrequenciesHz', 'referenceResistanceOhm', 'includeMatchingMetrics', 'includeQualityFactor', 'reactanceLevelsOhm'].includes(k))) impedanceInvalid('Expected request, port and supported impedance options');
+  if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(k => !['request', 'port', 'sweep', 'params', 'includeAdmittance', 'includeSeriesEquivalent', 'includeParallelEquivalent', 'spotFrequenciesHz', 'referenceResistanceOhm', 'includeMatchingMetrics', 'includeQualityFactor', 'reactanceLevelsOhm', 'magnitudeLevelsOhm'].includes(k))) impedanceInvalid('Expected request, port and supported impedance options');
   if (a.includeQualityFactor !== undefined && typeof a.includeQualityFactor !== 'boolean') impedanceInvalid('Expected includeQualityFactor to be a boolean');
   if (a.referenceResistanceOhm !== undefined && (typeof a.referenceResistanceOhm !== 'number' || !Number.isFinite(a.referenceResistanceOhm) || a.referenceResistanceOhm <= 0)) impedanceInvalid('Expected a positive finite reference resistance');
   if (a.includeMatchingMetrics !== undefined && typeof a.includeMatchingMetrics !== 'boolean') impedanceInvalid('Expected includeMatchingMetrics to be a boolean');
@@ -104,7 +106,8 @@ export function impedanceArgs(raw: unknown): ImpedanceSelectors {
   }
   if (a.spotFrequenciesHz !== undefined && (!Array.isArray(a.spotFrequenciesHz) || a.spotFrequenciesHz.length > 128 || !a.spotFrequenciesHz.every(v => typeof v === 'number' && Number.isFinite(v) && v > 0))) impedanceInvalid('Expected at most 128 positive finite spot frequencies');
   if (a.reactanceLevelsOhm !== undefined && (!Array.isArray(a.reactanceLevelsOhm) || a.reactanceLevelsOhm.length < 1 || a.reactanceLevelsOhm.length > 128 || !a.reactanceLevelsOhm.every(v => typeof v === 'number' && Number.isFinite(v)))) impedanceInvalid('Expected 1 to 128 finite reactance levels');
-  return { port, sweep, reactanceLevelsOhm: a.reactanceLevelsOhm as number[] | undefined, includeQualityFactor: a.includeQualityFactor as boolean | undefined, includeMatchingMetrics: a.includeMatchingMetrics as boolean | undefined, includeAdmittance: a.includeAdmittance as boolean | undefined, includeSeriesEquivalent: a.includeSeriesEquivalent as boolean | undefined, includeParallelEquivalent: a.includeParallelEquivalent as boolean | undefined, spotFrequenciesHz: a.spotFrequenciesHz as number[] | undefined, referenceResistanceOhm: a.referenceResistanceOhm as number | undefined };
+  if (a.magnitudeLevelsOhm !== undefined && (!Array.isArray(a.magnitudeLevelsOhm) || a.magnitudeLevelsOhm.length < 1 || a.magnitudeLevelsOhm.length > 128 || !a.magnitudeLevelsOhm.every(v => typeof v === 'number' && Number.isFinite(v) && v > 0))) impedanceInvalid('Expected 1 to 128 positive finite magnitude levels');
+  return { port, sweep, magnitudeLevelsOhm: a.magnitudeLevelsOhm as number[] | undefined, reactanceLevelsOhm: a.reactanceLevelsOhm as number[] | undefined, includeQualityFactor: a.includeQualityFactor as boolean | undefined, includeMatchingMetrics: a.includeMatchingMetrics as boolean | undefined, includeAdmittance: a.includeAdmittance as boolean | undefined, includeSeriesEquivalent: a.includeSeriesEquivalent as boolean | undefined, includeParallelEquivalent: a.includeParallelEquivalent as boolean | undefined, spotFrequenciesHz: a.spotFrequenciesHz as number[] | undefined, referenceResistanceOhm: a.referenceResistanceOhm as number | undefined };
 }
 export function impedanceQualityFactor(resistanceOhm: number, reactanceOhm: number): number | null {
   const ratio = Math.abs(reactanceOhm) / resistanceOhm;
@@ -298,5 +301,27 @@ export function impedanceReport(s: ImpedanceSpectrum, selectors: ImpedanceSelect
     }
     return { reactanceOhm, frequencyHz };
   });
-  return { ...(reactanceCrossings === undefined ? {} : { reactanceCrossings }), port: selectors.port, points, summary: { min: extreme(min), max: extreme(max), resonanceHz }, ...(spots === undefined ? {} : { spots }) };
+  const magnitudeCrossings = selectors.magnitudeLevelsOhm?.map(magnitudeOhm => {
+    let frequencyHz: number | null = null;
+    for (let i = 0; i < points.length; i++) {
+      const current = points[i];
+      if (current.magnitudeOhm === magnitudeOhm) { frequencyHz = current.frequencyHz; break; }
+      if (i === 0) continue;
+      const previous = points[i - 1];
+      if ((previous.magnitudeOhm < magnitudeOhm && magnitudeOhm < current.magnitudeOhm) || (current.magnitudeOhm < magnitudeOhm && magnitudeOhm < previous.magnitudeOhm)) {
+        const a = Math.abs(magnitudeOhm - previous.magnitudeOhm);
+        const b = Math.abs(current.magnitudeOhm - magnitudeOhm);
+        // The values are nonnegative, so the bracket width cannot exceed MAX_VALUE.
+        const t = a / (a + b);
+        const f0 = previous.frequencyHz; const f1 = current.frequencyHz;
+        const interpolated = selectors.sweep?.variation === 'lin'
+          ? (1 - t) * f0 + t * f1
+          : Math.exp((1 - t) * Math.log(f0) + t * Math.log(f1));
+        frequencyHz = Number.isFinite(interpolated) ? interpolated : null;
+        break;
+      }
+    }
+    return { magnitudeOhm, frequencyHz };
+  });
+  return { ...(magnitudeCrossings === undefined ? {} : { magnitudeCrossings }), ...(reactanceCrossings === undefined ? {} : { reactanceCrossings }), port: selectors.port, points, summary: { min: extreme(min), max: extreme(max), resonanceHz }, ...(spots === undefined ? {} : { spots }) };
 }
