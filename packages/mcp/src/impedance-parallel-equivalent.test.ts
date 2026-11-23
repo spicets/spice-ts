@@ -61,12 +61,18 @@ describe('parallel equivalents contracts', () => {
     }
     for (const includeAdmittance of [false, true]) for (const includeSeriesEquivalent of [false, true]) {
       const rest = { ...args, includeAdmittance, includeSeriesEquivalent };
-      const original = (await executeTool('spice_impedance', rest)).structuredContent as unknown as { points: Record<string, unknown>[]; spots: unknown[] };
+      const original = (await executeTool('spice_impedance', rest)).structuredContent as unknown as { points: Record<string, unknown>[]; spots: Record<string, unknown>[] };
       const result = await executeTool('spice_impedance', { ...rest, includeParallelEquivalent: true });
       expect(result.isError).not.toBe(true);
       expect(validate(tool.outputSchema!, result.structuredContent)).toBe(true);
-      const enabled = result.structuredContent as unknown as { points: Record<string, unknown>[]; spots: unknown[] };
-      expect(enabled.spots).toEqual(original.spots);
+      const enabled = result.structuredContent as unknown as { points: Record<string, unknown>[]; spots: Record<string, unknown>[] };
+      enabled.spots.forEach((spot, i) => {
+        const { parallelCapacitanceF, parallelInductanceH, ...other } = spot;
+        const r = spot.resistanceOhm as number, x = spot.reactanceOhm as number;
+        expect(parallelCapacitanceF).toBeCloseTo((-x / (r * r + x * x)) / (2 * Math.PI * (spot.frequencyHz as number)), 15);
+        expect(parallelInductanceH).toBeNull();
+        expect(other).toEqual(original.spots[i]);
+      });
       enabled.points.forEach((p, i) => {
         const { parallelCapacitanceF, parallelInductanceH, ...other } = p;
         expect(Math.abs((parallelCapacitanceF as number) / 1e-6 - 1)).toBeLessThan(1e-6);
