@@ -707,7 +707,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   if (document.analyses.length > analysisLimit) throw resourceLimit('maxAnalyses', analysisLimit, document.analyses.length);
   const nativeAnalysis = document.analyses[0];
   if (document.analyses.length !== 1 || (nativeAnalysis?.type !== 'op' && nativeAnalysis?.type !== 'ac')) unsupported('analysis', 'Exactly one .op or .ac analysis is supported');
-  if (nativeAnalysis.type === 'ac' && (nativeAnalysis.variation === 'oct' || nativeAnalysis.measurements !== undefined)) unsupported('analysis', 'Only unmeasured linear or decade AC sweeps are supported');
+  if (nativeAnalysis.type === 'ac' && nativeAnalysis.measurements !== undefined) unsupported('analysis', 'Only unmeasured AC sweeps are supported');
   if (document.models.length || document.subcircuits.length || Object.keys(document).some(key =>
     !['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'].includes(key))) {
     unsupported('native-document', 'Only flat native circuits without additional directives are supported');
