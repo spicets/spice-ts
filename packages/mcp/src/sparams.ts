@@ -90,6 +90,7 @@ export interface SparamsArgs {
   includeGroupDelay?: boolean;
   includeReciprocity?: boolean;
   includeStability?: boolean;
+  includeGain?: boolean;
 }
 export const sparamsInputSchema = {
   type: 'object', additionalProperties: false, required: ['netlist'],
@@ -100,6 +101,7 @@ export const sparamsInputSchema = {
     includeGroupDelay: { type: 'boolean', description: 'Include backward sampled phase-secant group delay in seconds. Phase wrapping can alias delay; this is not a continuous or alias-free estimate. Explicit frequencies are separate one-point segments and produce null delays.' },
     includeReciprocity: { type: 'boolean', description: 'Include the absolute dimensionless complex difference |Sij - Sji| at each sample. It depends on reference normalization; unequal-reference matrices cannot generally be judged reciprocal from this metric. This is not a dB ratio, passivity test or categorical verdict.' },
     includeStability: { type: 'boolean', description: 'Include sampled two-port Rollett stability metrics for equal positive real references. Not a global stability guarantee.' },
+    includeGain: { type: 'boolean', description: 'Include sampled two-port MAG or potentially unstable MSG for equal positive real references. Not a global stability guarantee or a synthesis.' },
   },
 };
 const nullable = { type: ['number', 'null'] };
@@ -112,6 +114,11 @@ export const sparamsOutputSchema = {
       type: 'object', additionalProperties: false, required: ['frequencyHz', 'parameters'],
       properties: {
         frequencyHz: { type: 'number' },
+        gain: {
+          type: 'object', additionalProperties: false, required: ['kind', 'linear', 'db', 'reason'],
+          description: 'Sampled MAG or potentially unstable MSG, not a global stability guarantee.',
+          properties: { kind: { enum: ['MAG', 'MSG', null] }, linear: nullable, db: nullable, reason: { type: ['string', 'null'] } },
+        },
         stability: {
           type: 'object', additionalProperties: false, required: ['delta', 'deltaMagnitude', 'rollettK', 'reason'],
           description: 'Sampled two-port criterion only. Null K means undefined or nonrepresentable, not unstable.',
@@ -137,11 +144,12 @@ export function sparamsInvalid(message: string, path?: string): never {
 export function sparamsArgs(args: unknown): SparamsArgs {
   if (!args || typeof args !== 'object' || Array.isArray(args)) sparamsInvalid('Expected S-parameter arguments');
   const a = args as Record<string, unknown>;
-  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz', 'includeGroupDelay', 'includeReciprocity', 'includeStability'].includes(k))
+  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz', 'includeGroupDelay', 'includeReciprocity', 'includeStability', 'includeGain'].includes(k))
     || typeof a.netlist !== 'string' || !a.netlist.trim()
     || (a.includeGroupDelay !== undefined && typeof a.includeGroupDelay !== 'boolean')
     || (a.includeReciprocity !== undefined && typeof a.includeReciprocity !== 'boolean')
     || (a.includeStability !== undefined && typeof a.includeStability !== 'boolean')
+    || (a.includeGain !== undefined && typeof a.includeGain !== 'boolean')
     || (a.portPair !== undefined && (!Array.isArray(a.portPair) || a.portPair.length !== 2
       || !a.portPair.every(p => Number.isInteger(p) && p > 0)))
     || (a.frequenciesHz !== undefined && (!Array.isArray(a.frequenciesHz) || !a.frequenciesHz.length
@@ -232,9 +240,30 @@ function sampledStability(result: SParameterResult, index: number) {
     : { delta, deltaMagnitude, rollettK: null, reason: 'K is not representable as a finite number.' };
 }
 
+function sampledGain(result: SParameterResult, index: number) {
+  const stability = sampledStability(result, index);
+  const unavailable = (reason: string) => ({ kind: null, linear: null, db: null, reason });
+  const { rollettK: k, deltaMagnitude } = stability;
+  if (k === null || deltaMagnitude === null) return unavailable(stability.reason ?? 'Stability could not be determined reliably.');
+  if (k === 1) return unavailable('K equals 1, the stability boundary.');
+  if (k > 1 && deltaMagnitude >= 1) return unavailable('K exceeds 1 but |Delta| is not less than 1.');
+  const b = result.vectors.get('S_1_2')![index], c = result.vectors.get('S_2_1')![index];
+  const reverse = Math.hypot(b.real, b.imaginary), forward = Math.hypot(c.real, c.imaginary);
+  if (!Number.isFinite(reverse) || !Number.isFinite(forward) || reverse === 0 || forward === 0) return unavailable('Transmission magnitude is zero or not representable.');
+  const kind = k > 1 ? 'MAG' : 'MSG';
+  // The reciprocal form avoids overflow in K*K and K+sqrt(K*K-1).
+  const factor = k > 1 ? (1 / k) / (1 + Math.sqrt((1 - 1 / k) * (1 + 1 / k))) : 1;
+  let linear = (forward / reverse) * factor;
+  if (!Number.isFinite(linear) || linear === 0) {
+    linear = Math.exp(Math.log(forward) - Math.log(reverse) + Math.log(factor));
+  }
+  if (!Number.isFinite(linear) || linear === 0) return unavailable('Gain is not representable as a positive finite number.');
+  return { kind, linear, db: 10 * Math.log10(linear), reason: kind === 'MSG' ? 'Potentially unstable at this sample.' : null };
+}
+
 export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
   const { ports, referenceImpedances } = results[0];
-  if (args.includeStability) {
+  if (args.includeStability || args.includeGain) {
     for (const result of results) {
       if (result.ports.length !== 2 || result.referenceImpedances.length !== 2
         || !Number.isFinite(result.referenceImpedances[0]) || result.referenceImpedances[0] <= 0
@@ -256,6 +285,7 @@ export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
     points: results.flatMap(result => result.frequencies.map((frequencyHz, index) => ({
       frequencyHz,
       ...(args.includeStability ? { stability: sampledStability(result, index) } : {}),
+      ...(args.includeGain ? { gain: sampledGain(result, index) } : {}),
       parameters: Object.fromEntries(pairs.map(([i, j]) => {
         const vector = result.vectors.get(`S_${i}_${j}`)?.[index];
         if (!vector || !Number.isFinite(vector.real) || !Number.isFinite(vector.imaginary)) {
