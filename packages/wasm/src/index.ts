@@ -91,7 +91,8 @@ export interface SpiceEngineCapabilitiesV1 {
     abiVersion: 2;
     artifactSha256: string;
     artifactBytes: number;
-    inputFormats: readonly ['spice'];
+    /** Native input is bounded by the numeric backend's supported features and limits. */
+    inputFormats: readonly ['spice', 'spice-ts'];
     analyses: readonly ['op', 'dc', 'tran', 'ac'];
     devicesByAnalysis: {
       op: readonly ['R', 'C', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
@@ -202,7 +203,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
 
   const capabilities: SpiceEngineCapabilitiesV1 = Object.freeze({
     protocolVersions: ['1'],
-    nativeSchemaVersions: backend === 'spice-ts-js' ? ['1.0'] as const : [] as const,
+    nativeSchemaVersions: ['1.0'] as const,
     backends: [backend] as readonly BackendV1[],
     analyses: backend === 'spice-ts-js'
       ? ['op', 'dc', 'tran', 'ac'] as const
@@ -216,7 +217,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
         abiVersion: 2 as const,
         artifactSha256: manifest.numericWasm!.sha256,
         artifactBytes: manifest.numericWasm!.byteLength,
-        inputFormats: ['spice'] as const,
+        inputFormats: ['spice', 'spice-ts'] as const,
         analyses: ['op', 'dc', 'tran', 'ac'] as const,
         devicesByAnalysis: {
           op: ['R', 'C', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'] as const,
