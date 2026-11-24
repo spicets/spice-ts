@@ -27,6 +27,12 @@ describe('sampled transducer gain', () => {
     expect(value.reason).toBeNull();
     expect(value.linear! / 4e300).toBeCloseTo(1, 12);
   });
+  it('preserves finite gain when the denominator product overflows', () => {
+    // High-precision canonical formula: (0.19 * 0.19) / (0.9 * 17) ** 2.
+    const value = report(matrix([c(1e308), c(0), c(1e308), c(20)]), { source: c(0.9), load: c(0.9) }).points[0].transducerGain!;
+    expect(value.reason).toBeNull();
+    expect(value.linear!).toBeCloseTo(0.00015421419112307232, 15);
+  });
   it('applies mismatch before an otherwise overflowing gain square', () => {
     const source = 1 - Number.EPSILON / 2;
     const value = report(matrix([c(0), c(0), c(1e155), c(0)]), { source: c(source), load: c(0) }).points[0].transducerGain!;

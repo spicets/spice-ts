@@ -297,20 +297,33 @@ function sampledTransducerGain(result: SParameterResult, index: number, { source
   const feedback = factors[0].real === 0 && factors[0].imaginary === 0
     ? { real: 0, imaginary: 0 }
     : mul(mul(factors[0], factors[3]), mul(factors[1], factors[2]));
-  const denominator = sub(mul(sub(one, mul(s11, source)), sub(one, mul(s22, load))), feedback);
-  const magnitude = Math.hypot(denominator.real, denominator.imaginary);
+  const input = sub(one, mul(s11, source)), output = sub(one, mul(s22, load));
+  let denominator = sub(mul(input, output), feedback);
+  let magnitude = Math.hypot(denominator.real, denominator.imaginary);
+  let scale1 = 1, scale2 = 1;
+  if (!Number.isFinite(magnitude)) {
+    // Normalize both denominator factors before their product. Keep the
+    // scales separate: their product may itself exceed the number range.
+    const size = (v: Reflection) => Math.max(1, Math.abs(v.real), Math.abs(v.imaginary));
+    const divide = (v: Reflection, scale: number): Reflection => ({ real: v.real / scale, imaginary: v.imaginary / scale });
+    const inputScale = size(input), outputScale = size(output);
+    scale1 = Math.max(inputScale, outputScale);
+    scale2 = Math.min(inputScale, outputScale);
+    denominator = sub(mul(divide(input, inputScale), divide(output, outputScale)), divide(divide(feedback, scale1), scale2));
+    magnitude = Math.hypot(denominator.real, denominator.imaginary);
+  }
   if (!Number.isFinite(magnitude) || magnitude === 0) return unavailable();
   const forward = Math.hypot(s21.real, s21.imaginary);
   if (!Number.isFinite(forward)) return unavailable();
   if (forward === 0) return { linear: 0, reason: null };
   const factor = (1 - Math.hypot(source.real, source.imaginary) ** 2) * (1 - Math.hypot(load.real, load.imaginary) ** 2);
-  const ratio = forward / magnitude;
+  const ratio = ((forward / scale1) / scale2) / magnitude;
   let linear = ratio * ratio * factor;
   if (!Number.isFinite(linear) || linear === 0) {
-    const scaled = (forward * Math.sqrt(factor)) / magnitude;
+    const scaled = (((forward * Math.sqrt(factor)) / scale1) / scale2) / magnitude;
     linear = scaled * scaled;
     if (!Number.isFinite(linear) || linear === 0) {
-      linear = Math.exp(2 * (Math.log(forward) - Math.log(magnitude)) + Math.log(factor));
+      linear = Math.exp(2 * (Math.log(forward) - Math.log(scale1) - Math.log(scale2) - Math.log(magnitude)) + Math.log(factor));
     }
   }
   if (!Number.isFinite(linear) || linear === 0) return unavailable();
