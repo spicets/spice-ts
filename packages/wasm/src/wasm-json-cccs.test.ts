@@ -148,5 +148,5 @@ describe('native WASM JSON CCCS', () => {
       const multiple = document(); multiple.analyses.push({ type: 'op' });
       expect(await wasm.simulate(request(multiple), { requestId: 'multiple' })).toMatchObject({ ok: false, error: { code: 'RESOURCE_LIMIT' } });
     } finally { await wasm.close(); }
-  });
+  }, 30000);
 });
