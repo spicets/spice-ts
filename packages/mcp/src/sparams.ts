@@ -291,7 +291,13 @@ function sampledTransducerGain(result: SParameterResult, index: number, { source
   const sub = (a: Reflection, b: Reflection): Reflection => ({ real: a.real - b.real, imaginary: a.imaginary - b.imaginary });
   const [s11, s12, s21, s22] = ['S_1_1', 'S_1_2', 'S_2_1', 'S_2_2'].map(key => result.vectors.get(key)![index]);
   const one = { real: 1, imaginary: 0 };
-  const denominator = sub(mul(sub(one, mul(s11, source)), sub(one, mul(s22, load))), mul(mul(mul(s12, s21), source), load));
+  // Pair large and small factors before multiplying, so a finite bilateral
+  // feedback term does not overflow (or encounter Infinity * 0) prematurely.
+  const factors = [s12, s21, source, load].sort((a, b) => Math.max(Math.abs(a.real), Math.abs(a.imaginary)) - Math.max(Math.abs(b.real), Math.abs(b.imaginary)));
+  const feedback = factors[0].real === 0 && factors[0].imaginary === 0
+    ? { real: 0, imaginary: 0 }
+    : mul(mul(factors[0], factors[3]), mul(factors[1], factors[2]));
+  const denominator = sub(mul(sub(one, mul(s11, source)), sub(one, mul(s22, load))), feedback);
   const magnitude = Math.hypot(denominator.real, denominator.imaginary);
   if (!Number.isFinite(magnitude) || magnitude === 0) return unavailable();
   const forward = Math.hypot(s21.real, s21.imaginary);
@@ -299,7 +305,14 @@ function sampledTransducerGain(result: SParameterResult, index: number, { source
   if (forward === 0) return { linear: 0, reason: null };
   const factor = (1 - Math.hypot(source.real, source.imaginary) ** 2) * (1 - Math.hypot(load.real, load.imaginary) ** 2);
   const ratio = forward / magnitude;
-  const linear = ratio * ratio * factor;
+  let linear = ratio * ratio * factor;
+  if (!Number.isFinite(linear) || linear === 0) {
+    const scaled = (forward * Math.sqrt(factor)) / magnitude;
+    linear = scaled * scaled;
+    if (!Number.isFinite(linear) || linear === 0) {
+      linear = Math.exp(2 * (Math.log(forward) - Math.log(magnitude)) + Math.log(factor));
+    }
+  }
   if (!Number.isFinite(linear) || linear === 0) return unavailable();
   return { linear, reason: null };
 }

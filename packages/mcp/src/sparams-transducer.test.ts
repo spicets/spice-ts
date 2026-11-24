@@ -17,6 +17,22 @@ describe('sampled transducer gain', () => {
     const args = sparamsArgs({ netlist: 'x', transducerGain: matched });
     expect(sparamsReport([matrix([c(0), c(0.1), c(0.5), c(0)])], args).points[0]).toMatchObject({ transducerGain: { linear: 0.25, reason: null } });
   });
+  it('preserves finite gain when transmission products overflow before matched terminations', () => {
+    const value = report(matrix([c(0), c(1e200), c(1e150), c(0)]), matched).points[0].transducerGain!;
+    expect(value.reason).toBeNull();
+    expect(value.linear! / 1e300).toBeCloseTo(1, 12);
+  });
+  it('preserves finite bilateral products with tiny nonzero terminations', () => {
+    const value = report(matrix([c(0), c(1e200), c(1e150), c(0)]), { source: c(5e-201), load: c(1e-150) }).points[0].transducerGain!;
+    expect(value.reason).toBeNull();
+    expect(value.linear! / 4e300).toBeCloseTo(1, 12);
+  });
+  it('applies mismatch before an otherwise overflowing gain square', () => {
+    const source = 1 - Number.EPSILON / 2;
+    const value = report(matrix([c(0), c(0), c(1e155), c(0)]), { source: c(source), load: c(0) }).points[0].transducerGain!;
+    expect(value.reason).toBeNull();
+    expect(value.linear! / (1e155 * Math.sqrt(1 - source ** 2)) ** 2).toBeCloseTo(1, 12);
+  });
   // Independent Python complex arithmetic using the canonical formula.
   it.each([
     { reverse: c(0), expected: 1.762234739890222 },
