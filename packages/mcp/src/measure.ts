@@ -1,12 +1,12 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'pp', 'at', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'pulseWidth', 'period', 'frequency'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'pp', 'at', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'pulseWidth', 'period', 'frequency'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
   from?: number; to?: number; at?: number; value?: number;
   edge?: 'rising' | 'falling' | 'either'; occurrence?: number;
-  trigger?: Crossing; target?: Crossing;
+  trigger?: Crossing; target?: Crossing; referenceSignal?: string;
 };
 type MeasurementErrorCode = 'INVALID_MEASUREMENT' | 'UNKNOWN_SIGNAL' | 'UNKNOWN_ANALYSIS' | 'AMBIGUOUS_ANALYSIS' | 'UNKNOWN_STEP' | 'OUT_OF_RANGE' | 'NO_CROSSING' | 'NON_FINITE_RESULT';
 type MeasurementResult = { value: number; unit: string } | { error: { code: MeasurementErrorCode; message: string } };
@@ -30,9 +30,14 @@ export const measurementListSchema = {
     }, {
       if: { properties: { kind: { enum: ['pulseWidth', 'period', 'frequency'] } } },
       then: { required: ['value', 'edge'], properties: { edge: { enum: ['rising', 'falling'] } }, not: { required: ['at'] } },
+    }, {
+      if: { properties: { kind: { const: 'rmsError' } } },
+      then: { required: ['referenceSignal'], not: { anyOf: ['at', 'value', 'edge'].map(key => ({ required: [key] })) } },
+      else: { not: { required: ['referenceSignal'] } },
     }],
     properties: {
       kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
+      referenceSignal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
       analysis: { type: 'integer', minimum: 0 },
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
@@ -66,7 +71,8 @@ function valid(value: unknown): value is Measurement {
       const n = (m as unknown as Record<string, unknown>)[key];
       return n === undefined || (typeof n === 'number' && Number.isFinite(n));
     })
-    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'occurrence', 'trigger', 'target'].includes(key))
+    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'occurrence', 'trigger', 'target', 'referenceSignal'].includes(key))
+    && (m.kind === 'rmsError' ? typeof m.referenceSignal === 'string' && m.referenceSignal.length > 0 && m.referenceSignal.length <= 256 && m.at === undefined && m.value === undefined && m.edge === undefined : m.referenceSignal === undefined)
     && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
     && (m.kind !== 'duty' || (m.value !== undefined && m.at === undefined && m.edge === undefined))
     && (!['pulseWidth', 'period', 'frequency'].includes(m.kind) || (m.value !== undefined && m.at === undefined && (m.edge === 'rising' || m.edge === 'falling')))
@@ -193,16 +199,26 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (['integ', 'absInteg', 'duty', 'pulseWidth', 'period', 'frequency'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if (['integ', 'absInteg', 'duty', 'pulseWidth', 'period', 'frequency', 'rmsError'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
     if (!x.length || x.length !== y.length || ![...x, ...y].every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal has empty or non-finite data');
+    if (m.kind === 'rmsError') {
+      const reference = series(analysis, m.referenceSignal!);
+      if (!reference) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.referenceSignal} is unavailable`);
+      if (reference.unit !== data.unit) return error('INVALID_MEASUREMENT', 'Signals must have matching units');
+      if (reference.y.length !== x.length || !reference.y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Reference signal has empty, misaligned or non-finite data');
+      y = y.map((v, i) => v - reference.y[i]);
+      if (!y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal difference is non-finite');
+      if (x.some((v, i) => i > 0 && v <= x[i - 1])) return error('INVALID_MEASUREMENT', 'Transient axis must be strictly increasing');
+    }
     if (!['pulseWidth', 'period', 'frequency'].includes(m.kind) && x.length > 1 && x[0] > x[x.length - 1]) { x = [...x].reverse(); y = [...y].reverse(); }
     if (x.some((v, i) => i > 0 && v <= x[i - 1])) return error('INVALID_MEASUREMENT', 'Analysis axis must be strictly monotonic');
     const lo = m.from ?? x[0];
     const hi = m.to ?? x[x.length - 1];
     if (lo < x[0] || hi > x[x.length - 1] || lo > hi || (m.at !== undefined && (m.at < lo || m.at > hi))) return error('OUT_OF_RANGE', 'Measurement lies outside the analysis window');
+    if (m.kind === 'rmsError' && hi === lo) return error('INVALID_MEASUREMENT', 'RMS error requires a nonzero window');
     if (m.kind === 'pulseWidth' || m.kind === 'period' || m.kind === 'frequency') {
       const threshold = m.value!;
       let entry: number | undefined;
@@ -299,7 +315,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const max = samples.reduce((a, b) => Math.max(a, b));
       value = m.kind === 'min' ? min : m.kind === 'max' ? max : max - min;
     } else if (hi === lo) {
-      value = m.kind === 'integ' || m.kind === 'absInteg' ? 0 : m.kind === 'rms' ? Math.abs(samples[0]) : samples[0];
+      value = m.kind === 'integ' || m.kind === 'absInteg' ? 0 : (m.kind === 'rms' || m.kind === 'rmsError') ? Math.abs(samples[0]) : samples[0];
     } else {
       let integral = 0;
       for (let i = 1; i < points.length; i++) {
@@ -312,9 +328,9 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
             const fraction = (aa / scale) / (aa / scale + bb / scale);
             integral += width * (aa / 2 * fraction + bb / 2 * (1 - fraction));
           } else integral += width * (aa / 2 + bb / 2);
-        } else integral += width * (m.kind === 'rms' ? (a * a + a * b + b * b) / 3 : (a + b) / 2);
+        } else integral += width * ((m.kind === 'rms' || m.kind === 'rmsError') ? (a * a + a * b + b * b) / 3 : (a + b) / 2);
       }
-      value = m.kind === 'integ' || m.kind === 'absInteg' ? integral : m.kind === 'rms' ? Math.sqrt(integral / (hi - lo)) : integral / (hi - lo);
+      value = m.kind === 'integ' || m.kind === 'absInteg' ? integral : (m.kind === 'rms' || m.kind === 'rmsError') ? Math.sqrt(integral / (hi - lo)) : integral / (hi - lo);
     }
     if (m.kind === 'integ' || m.kind === 'absInteg') unit += '*s';
     return Number.isFinite(value) ? { value, unit } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
