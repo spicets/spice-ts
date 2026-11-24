@@ -757,19 +757,20 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const nets = new Set(document.circuit.nets.map(net => net.toLowerCase()));
   for (const component of components) {
     const type = component.type.toUpperCase();
-    if (!['R', 'C', 'L', 'I', 'V', 'E'].includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
-      unsupported('device', 'Only R, C, L, I, V and VCVS devices are supported');
+    if (!['R', 'C', 'L', 'I', 'V', 'E', 'G'].includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
+      unsupported('device', 'Only R, C, L, I, V, VCVS and VCCS devices are supported');
     }
-    if (type === 'E') {
+    if (type === 'E' || type === 'G') {
       const names = ['outP', 'outN', 'ctrlP', 'ctrlN'];
       const ports = component.ports;
       const namedCount = ports.filter(port => names.includes(port.name)).length;
       if (ports.length !== 4 || new Set(ports.map(port => port.name)).size !== 4 || (namedCount !== 0 && namedCount !== 4) ||
         ports.some(port => typeof port.net !== 'string' || !port.net || (!['0', 'gnd'].includes(port.net.toLowerCase()) && !nets.has(port.net.toLowerCase())))) {
-        throw numericError('INVALID_CIRCUIT', `${component.name} requires four valid VCVS ports`, 'validation');
+        throw numericError('INVALID_CIRCUIT', `${component.name} requires four valid ${type === 'E' ? 'VCVS' : 'VCCS'} ports`, 'validation');
       }
-      if (typeof component.params.gain !== 'number' || !Number.isFinite(component.params.gain)) {
-        throw numericError('INVALID_CIRCUIT', `${component.name} requires a finite numeric gain`, 'validation');
+      const key = type === 'E' ? 'gain' : 'gm';
+      if (typeof component.params[key] !== 'number' || !Number.isFinite(component.params[key])) {
+        throw numericError('INVALID_CIRCUIT', `${component.name} requires a finite numeric ${key}`, 'validation');
       }
     }
     if (type === 'C' || type === 'L') {
@@ -782,7 +783,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
         throw numericError('INVALID_CIRCUIT', `${component.name} references an unknown net`, 'validation');
       }
     }
-    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : ['dc', 'waveform'];
+    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : type === 'G' ? ['gm'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : ['dc', 'waveform'];
     if (Object.keys(component.params).some(key => !allowed.includes(key)) ||
       (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac')) ||
       (component.params.waveform !== 'ac' && (component.params.magnitude !== undefined || component.params.phase !== undefined))) {
