@@ -158,7 +158,7 @@ export function sparamsArgs(args: unknown): SparamsArgs {
   }
   return a as unknown as SparamsArgs;
 }
-function sampledStability(result: SParameterResult, index: number) {
+function sampledStability(result: SParameterResult, index: number, uncertainty?: { k: number }) {
   const [a, b, c, d] = ['S_1_1', 'S_1_2', 'S_2_1', 'S_2_2'].map(key => result.vectors.get(key)![index]);
   let real = (a.real * d.real - a.imaginary * d.imaginary) - (b.real * c.real - b.imaginary * c.imaginary);
   let imaginary = (a.real * d.imaginary + a.imaginary * d.real) - (b.real * c.imaginary + b.imaginary * c.real);
@@ -235,17 +235,24 @@ function sampledStability(result: SParameterResult, index: number) {
     // Avoid under/overflow in the denominator when K itself remains representable.
     k = numerator === 0 ? 0 : Math.sign(numerator) * Math.exp(Math.log(Math.abs(numerator)) + 2 * Math.log(scale) - Math.log(2) - Math.log(bMag) - Math.log(cMag));
   }
+  // Propagate the numerator's cancellation bound to K, with a further
+  // relative allowance for the transmission magnitudes and division. Only
+  // needed near one; elsewhere no boundary decision depends on this bound.
+  if (uncertainty && Math.abs(k - 1) < 0.5) {
+    uncertainty.k = 16 * Number.EPSILON * (errorScale / Math.abs(numerator) + 1) * Math.abs(k);
+  }
   return Number.isFinite(k) && (k !== 0 || numerator === 0)
     ? { delta, deltaMagnitude, rollettK: k, reason: null }
     : { delta, deltaMagnitude, rollettK: null, reason: 'K is not representable as a finite number.' };
 }
 
 function sampledGain(result: SParameterResult, index: number) {
-  const stability = sampledStability(result, index);
+  const uncertainty = { k: 0 };
+  const stability = sampledStability(result, index, uncertainty);
   const unavailable = (reason: string) => ({ kind: null, linear: null, db: null, reason });
   const { rollettK: k, deltaMagnitude } = stability;
   if (k === null || deltaMagnitude === null) return unavailable(stability.reason ?? 'Stability could not be determined reliably.');
-  if (k === 1) return unavailable('K equals 1, the stability boundary.');
+  if (Math.abs(k - 1) <= uncertainty.k) return unavailable('K is within numerical uncertainty of the stability boundary.');
   if (k > 1 && deltaMagnitude >= 1) return unavailable('K exceeds 1 but |Delta| is not less than 1.');
   const b = result.vectors.get('S_1_2')![index], c = result.vectors.get('S_2_1')![index];
   const reverse = Math.hypot(b.real, b.imaginary), forward = Math.hypot(c.real, c.imaginary);

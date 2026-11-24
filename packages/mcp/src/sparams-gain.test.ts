@@ -25,6 +25,7 @@ describe('sampled two-port gain', () => {
   });
   it.each([
     { values: [0, 1, 1, 0], reason: 'boundary' },
+    { values: [0.6, 0.4, 0.4, 0.6], reason: 'boundary' },
     { values: [0, 2, 2, 0], reason: 'Delta' },
     { values: [0.2, 0, 2, 0.3], reason: 'undefined' },
     { values: [1, 1e-10, 1e-10, 1], reason: 'reliably' },
@@ -33,6 +34,10 @@ describe('sampled two-port gain', () => {
     const result = gain(values);
     expect(result).toMatchObject({ kind: null, linear: null, db: null, reason: expect.stringContaining(reason) });
     expect(JSON.stringify(result)).not.toMatch(/NaN|Infinity/);
+  });
+  it('classifies samples clearly on either side of the stability boundary', () => {
+    expect(gain([0.6, 0.4 - 1e-8, 0.4 - 1e-8, 0.6]).kind).toBe('MAG');
+    expect(gain([0.6, 0.4 + 1e-8, 0.4 + 1e-8, 0.6]).kind).toBe('MSG');
   });
   it('rejects invalid options and incompatible references and vectors', () => {
     expect(() => sparamsArgs({ netlist: 'x', includeGain: 'true' })).toThrow();
