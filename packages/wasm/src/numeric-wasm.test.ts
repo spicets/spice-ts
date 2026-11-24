@@ -152,14 +152,14 @@ describe('bounded numeric WebAssembly backend', () => {
       expect(wasm.capabilities).toMatchObject({
         backends: ['spice-ts-wasm'],
         analyses: ['op', 'dc', 'tran', 'ac'],
-        nativeSchemaVersions: [],
+        nativeSchemaVersions: ['1.0'],
         engineBuildId: expect.stringMatching(/^spice-ts-wasm-[0-9a-f]{16}$/),
         numericWasm: {
           kernel: 'dense-gaussian-complex-f64-v2',
           abiVersion: 2,
           artifactSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
           artifactBytes: expect.any(Number),
-          inputFormats: ['spice'],
+          inputFormats: ['spice', 'spice-ts'],
           analyses: ['op', 'dc', 'tran', 'ac'],
           devicesByAnalysis: {
             op: ['R', 'C', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'],
