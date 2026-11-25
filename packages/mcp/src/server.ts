@@ -478,10 +478,11 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_dc_metrics',
-    description: 'Simulate a DC voltage transfer sweep and return gain, switching threshold, unity-gain points and noise margins. Expressions are v(node); input defaults to the swept voltage source. Undefined metrics include null and a reason.',
+    description: 'Simulate a DC voltage transfer sweep and return gain, switching threshold, unity-gain points and noise margins. Expressions are v(node); input defaults to the swept voltage source. Optional currentSignal adds bounded branch-current and local secant conductance spots. Undefined metrics include null and a reason.',
     inputSchema: {
       ...requestInputSchema,
       required: ['request', 'sweptSource', 'output'],
+      dependencies: { currentSignal: ['sweepPoints'] },
       properties: { ...requestInputSchema.properties, ...dcMetricsProperties },
     },
     outputSchema: dcMetricsOutputSchema,
