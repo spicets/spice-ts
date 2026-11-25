@@ -82,6 +82,9 @@ export function mapSparamsPorts(original: SimulationRequestV1, converted: Simula
   } } } };
 }
 
+type Reflection = { real: number; imaginary: number };
+type Terminations = { source: Reflection; load: Reflection };
+
 export interface SparamsArgs {
   netlist: string;
   /** One-based [output port, input port]. Omit to return the full matrix. */
@@ -91,6 +94,7 @@ export interface SparamsArgs {
   includeReciprocity?: boolean;
   includeStability?: boolean;
   includeGain?: boolean;
+  transducerGain?: Terminations;
 }
 export const sparamsInputSchema = {
   type: 'object', additionalProperties: false, required: ['netlist'],
@@ -101,6 +105,7 @@ export const sparamsInputSchema = {
     includeGroupDelay: { type: 'boolean', description: 'Include backward sampled phase-secant group delay in seconds. Phase wrapping can alias delay; this is not a continuous or alias-free estimate. Explicit frequencies are separate one-point segments and produce null delays.' },
     includeReciprocity: { type: 'boolean', description: 'Include the absolute dimensionless complex difference |Sij - Sji| at each sample. It depends on reference normalization; unequal-reference matrices cannot generally be judged reciprocal from this metric. This is not a dB ratio, passivity test or categorical verdict.' },
     includeStability: { type: 'boolean', description: 'Include sampled two-port Rollett stability metrics for equal positive real references. Not a global stability guarantee.' },
+    transducerGain: { type: 'object', additionalProperties: false, required: ['source', 'load'], properties: Object.fromEntries(['source', 'load'].map(key => [key, { type: 'object', additionalProperties: false, required: ['real', 'imaginary'], properties: { real: { type: 'number' }, imaginary: { type: 'number' } } }])), description: 'Sampled transducer power gain for passive source and load reflection coefficients (magnitude < 1), relative to equal real port references.' },
     includeGain: { type: 'boolean', description: 'Include sampled two-port MAG or potentially unstable MSG for equal positive real references. Not a global stability guarantee or a synthesis.' },
   },
 };
@@ -114,6 +119,7 @@ export const sparamsOutputSchema = {
       type: 'object', additionalProperties: false, required: ['frequencyHz', 'parameters'],
       properties: {
         frequencyHz: { type: 'number' },
+        transducerGain: { type: 'object', additionalProperties: false, required: ['linear', 'reason'], properties: { linear: nullable, reason: { type: ['string', 'null'] } }, description: 'Sampled transducer power gain, or null with reason if unavailable. Not a stability guarantee.' },
         gain: {
           type: 'object', additionalProperties: false, required: ['kind', 'linear', 'db', 'reason'],
           description: 'Sampled MAG or potentially unstable MSG, not a global stability guarantee.',
@@ -144,7 +150,7 @@ export function sparamsInvalid(message: string, path?: string): never {
 export function sparamsArgs(args: unknown): SparamsArgs {
   if (!args || typeof args !== 'object' || Array.isArray(args)) sparamsInvalid('Expected S-parameter arguments');
   const a = args as Record<string, unknown>;
-  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz', 'includeGroupDelay', 'includeReciprocity', 'includeStability', 'includeGain'].includes(k))
+  if (Object.keys(a).some(k => !['netlist', 'portPair', 'frequenciesHz', 'includeGroupDelay', 'includeReciprocity', 'includeStability', 'includeGain', 'transducerGain'].includes(k))
     || typeof a.netlist !== 'string' || !a.netlist.trim()
     || (a.includeGroupDelay !== undefined && typeof a.includeGroupDelay !== 'boolean')
     || (a.includeReciprocity !== undefined && typeof a.includeReciprocity !== 'boolean')
@@ -155,6 +161,17 @@ export function sparamsArgs(args: unknown): SparamsArgs {
     || (a.frequenciesHz !== undefined && (!Array.isArray(a.frequenciesHz) || !a.frequenciesHz.length
       || !a.frequenciesHz.every(f => typeof f === 'number' && Number.isFinite(f) && f > 0)))) {
     sparamsInvalid('Expected netlist, optional one-based portPair [output,input], and positive finite frequenciesHz');
+  }
+  if (a.transducerGain !== undefined) {
+    const t = a.transducerGain;
+    if (!t || typeof t !== 'object' || Array.isArray(t) || Object.keys(t).length !== 2
+      || !['source', 'load'].every(key => {
+        const c = (t as Record<string, unknown>)[key];
+        if (!c || typeof c !== 'object' || Array.isArray(c) || Object.keys(c).length !== 2) return false;
+        const { real, imaginary } = c as Record<string, unknown>;
+        return typeof real === 'number' && Number.isFinite(real) && typeof imaginary === 'number'
+          && Number.isFinite(imaginary) && Math.hypot(real, imaginary) < 1;
+      })) sparamsInvalid('Transducer gain requires passive finite complex source and load reflection coefficients');
   }
   return a as unknown as SparamsArgs;
 }
@@ -268,9 +285,92 @@ function sampledGain(result: SParameterResult, index: number) {
   return { kind, linear, db: 10 * Math.log10(linear), reason: kind === 'MSG' ? 'Potentially unstable at this sample.' : null };
 }
 
+function sampledTransducerGain(result: SParameterResult, index: number, { source, load }: Terminations) {
+  const unavailable = () => ({ linear: null, reason: 'Singular or nonrepresentable transducer gain at this sample.' });
+  let underflowed = false;
+  const multiply = (a: number, b: number) => {
+    const value = a * b;
+    if (a !== 0 && b !== 0 && Math.abs(value) < 2 ** -1022) underflowed = true;
+    return value;
+  };
+  const mul = (a: Reflection, b: Reflection): Reflection => ({ real: multiply(a.real, b.real) - multiply(a.imaginary, b.imaginary), imaginary: multiply(a.real, b.imaginary) + multiply(a.imaginary, b.real) });
+  const sub = (a: Reflection, b: Reflection): Reflection => ({ real: a.real - b.real, imaginary: a.imaginary - b.imaginary });
+  const [s11, s12, s21, s22] = ['S_1_1', 'S_1_2', 'S_2_1', 'S_2_2'].map(key => result.vectors.get(key)![index]);
+  const one = { real: 1, imaginary: 0 };
+  // Pair large and small factors before multiplying, so a finite bilateral
+  // feedback term does not overflow (or encounter Infinity * 0) prematurely.
+  const factors = [s12, s21, source, load].sort((a, b) => Math.max(Math.abs(a.real), Math.abs(a.imaginary)) - Math.max(Math.abs(b.real), Math.abs(b.imaginary)));
+  const feedback = factors[0].real === 0 && factors[0].imaginary === 0
+    ? { real: 0, imaginary: 0 }
+    : mul(mul(factors[0], factors[3]), mul(factors[1], factors[2]));
+  const input = sub(one, mul(s11, source)), output = sub(one, mul(s22, load));
+  const denominator = sub(mul(input, output), feedback);
+  const magnitude = Math.hypot(denominator.real, denominator.imaginary);
+  if (underflowed || !Number.isFinite(magnitude) || magnitude === 0) {
+    // Carry powers of two separately through every complex product, including
+    // the feedback itself; scaling only after it overflows loses its value.
+    type Scaled = { value: Reflection; exponent: number };
+    const normalize = (value: Reflection, exponent = 0): Scaled => {
+      const size = Math.max(Math.abs(value.real), Math.abs(value.imaginary));
+      if (size === 0) return { value, exponent: 0 };
+      const shift = Math.max(-1022, Math.min(1023, Math.floor(Math.log2(size))));
+      const divisor = 2 ** shift;
+      return { value: { real: value.real / divisor, imaginary: value.imaginary / divisor }, exponent: exponent + shift };
+    };
+    const product = (a: Scaled, b: Scaled) => normalize(mul(a.value, b.value), a.exponent + b.exponent);
+    const difference = (a: Scaled, b: Scaled): Scaled => {
+      // Zero has no meaningful exponent and must not erase a tiny nonzero term.
+      if (a.value.real === 0 && a.value.imaginary === 0) return { value: { real: -b.value.real, imaginary: -b.value.imaginary }, exponent: b.exponent };
+      if (b.value.real === 0 && b.value.imaginary === 0) return a;
+      const exponent = Math.max(a.exponent, b.exponent);
+      const x = 2 ** (a.exponent - exponent), y = 2 ** (b.exponent - exponent);
+      return normalize(sub({ real: a.value.real * x, imaginary: a.value.imaginary * x }, { real: b.value.real * y, imaginary: b.value.imaginary * y }), exponent);
+    };
+    const scaledOne = normalize(one);
+    // Keep real and imaginary terms separate until after subtracting from one:
+    // normalizing a complex number with a huge dynamic range can otherwise
+    // round away significant bits of a subnormal component before cancellation.
+    const oneMinusProduct = (a: Reflection, b: Reflection) => {
+      const scalar = (x: number) => normalize({ real: x, imaginary: 0 });
+      const term = (x: number, y: number) => product(scalar(x), scalar(y));
+      const negate = (x: Scaled): Scaled => ({ value: { real: -x.value.real, imaginary: -x.value.imaginary }, exponent: x.exponent });
+      const real = difference(difference(scaledOne, term(a.real, b.real)), negate(term(a.imaginary, b.imaginary)));
+      const imaginary = difference(negate(term(a.real, b.imaginary)), term(a.imaginary, b.real));
+      return difference(real, { value: { real: 0, imaginary: -imaginary.value.real }, exponent: imaginary.exponent });
+    };
+    const scaledInput = oneMinusProduct(s11, source);
+    const scaledOutput = oneMinusProduct(s22, load);
+    const scaledFeedback = factors.map(v => normalize(v)).reduce(product);
+    const scaledDenominator = difference(product(scaledInput, scaledOutput), scaledFeedback);
+    const norm = Math.hypot(scaledDenominator.value.real, scaledDenominator.value.imaginary);
+    const forward = Math.hypot(s21.real, s21.imaginary);
+    if (!Number.isFinite(forward) || norm === 0) return unavailable();
+    if (forward === 0) return { linear: 0, reason: null };
+    const factor = (1 - Math.hypot(source.real, source.imaginary) ** 2) * (1 - Math.hypot(load.real, load.imaginary) ** 2);
+    const linear = Math.exp(2 * (Math.log(forward) - scaledDenominator.exponent * Math.LN2 - Math.log(norm)) + Math.log(factor));
+    return Number.isFinite(linear) && linear !== 0 ? { linear, reason: null } : unavailable();
+  }
+  if (!Number.isFinite(magnitude) || magnitude === 0) return unavailable();
+  const forward = Math.hypot(s21.real, s21.imaginary);
+  if (!Number.isFinite(forward)) return unavailable();
+  if (forward === 0) return { linear: 0, reason: null };
+  const factor = (1 - Math.hypot(source.real, source.imaginary) ** 2) * (1 - Math.hypot(load.real, load.imaginary) ** 2);
+  const ratio = forward / magnitude;
+  let linear = ratio * ratio * factor;
+  if (!Number.isFinite(linear) || linear === 0) {
+    const scaled = (forward * Math.sqrt(factor)) / magnitude;
+    linear = scaled * scaled;
+    if (!Number.isFinite(linear) || linear === 0) {
+      linear = Math.exp(2 * (Math.log(forward) - Math.log(magnitude)) + Math.log(factor));
+    }
+  }
+  if (!Number.isFinite(linear) || linear === 0) return unavailable();
+  return { linear, reason: null };
+}
+
 export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
   const { ports, referenceImpedances } = results[0];
-  if (args.includeStability || args.includeGain) {
+  if (args.includeStability || args.includeGain || args.transducerGain) {
     for (const result of results) {
       if (result.ports.length !== 2 || result.referenceImpedances.length !== 2
         || !Number.isFinite(result.referenceImpedances[0]) || result.referenceImpedances[0] <= 0
@@ -293,6 +393,7 @@ export function sparamsReport(results: SParameterResult[], args: SparamsArgs) {
       frequencyHz,
       ...(args.includeStability ? { stability: sampledStability(result, index) } : {}),
       ...(args.includeGain ? { gain: sampledGain(result, index) } : {}),
+      ...(args.transducerGain ? { transducerGain: sampledTransducerGain(result, index, args.transducerGain) } : {}),
       parameters: Object.fromEntries(pairs.map(([i, j]) => {
         const vector = result.vectors.get(`S_${i}_${j}`)?.[index];
         if (!vector || !Number.isFinite(vector.real) || !Number.isFinite(vector.imaginary)) {
