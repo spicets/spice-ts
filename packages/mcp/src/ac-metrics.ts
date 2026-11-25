@@ -4,7 +4,8 @@ const metricNames = ['dcGainDb', 'f3dbHz', 'unityGainHz', 'phaseMarginDeg', 'gai
 type Metric = typeof metricNames[number];
 const reasonCodes = ['NON_FINITE_GAIN', 'NO_HALF_POWER_CROSSING', 'NO_UNITY_GAIN_CROSSING', 'NO_PHASE_CROSSING'] as const;
 type ReasonCode = typeof reasonCodes[number];
-export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number; includeBandpass?: boolean; includeComplexTransfer?: boolean; frequenciesHz?: number[]; gainCrossingsDb?: number[]; phaseCrossingsDeg?: number[] }
+type GainCrossingDirection = 'ascending' | 'descending' | 'either';
+export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number; includeBandpass?: boolean; includeComplexTransfer?: boolean; frequenciesHz?: number[]; gainCrossingsDb?: number[]; gainCrossingDirection?: GainCrossingDirection; phaseCrossingsDeg?: number[] }
 const bandpassNames = ['peakFrequencyHz', 'lowerHalfPowerHz', 'upperHalfPowerHz', 'bandwidthHz', 'qualityFactor'] as const;
 type BandpassMetric = typeof bandpassNames[number];
 type BandpassReason = 'NON_FINITE_GAIN' | 'NO_LOWER_HALF_POWER_CROSSING' | 'NO_UPPER_HALF_POWER_CROSSING' | 'NON_FINITE_BANDPASS';
@@ -14,7 +15,8 @@ export const acMetricsProperties = {
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
   frequenciesHz: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number', exclusiveMinimum: 0 }, description: 'Transfer spots in request order. Gain dB and unwrapped phase are interpolated linearly in log frequency; no extrapolation.' },
-  gainCrossingsDb: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested gain targets in dB; first descending crossings in sweep order, interpolated in log frequency without extrapolation.' },
+  gainCrossingsDb: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested gain targets in dB; first qualifying crossing in sweep order, interpolated in log frequency without extrapolation. Direction defaults to descending.' },
+  gainCrossingDirection: { type: 'string', enum: ['ascending', 'descending', 'either'], description: 'Direction for gainCrossingsDb only, default descending. First qualifying non-flat segment wins; exact-target endpoints count, flat target plateaus do not. Zero gain permits an exact finite endpoint but no interpolation through it.' },
   phaseCrossingsDeg: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested phase targets in degrees; first descending unwrapped phase crossings in sweep order, interpolated in log frequency without extrapolation. Zero magnitude breaks continuity; unwrapping restarts at principal phase.' },
   includeComplexTransfer: { type: 'boolean', description: 'Return up to 10000 sampled rectangular transfer values, without interpolation.' },
   includeBandpass: { type: 'boolean', description: 'Report sampled global peak and nearest half-power crossings, interpolating gain in dB linearly in log frequency. The first maximum wins ties; crossings are never extrapolated.' },
@@ -87,6 +89,12 @@ function validateGainCrossings(value: unknown): void {
   }
 }
 
+function validateGainCrossingDirection(value: unknown): void {
+  if (value !== undefined && value !== 'ascending' && value !== 'descending' && value !== 'either') {
+    invalid('Gain crossing direction must be ascending, descending or either', { reason: 'INVALID_GAIN_CROSSING_DIRECTION' });
+  }
+}
+
 function validatePhaseCrossings(value: unknown): void {
   if (value !== undefined && (!Array.isArray(value) || value.length < 1 || value.length > 32
     || Array.from(value).some(deg => typeof deg !== 'number' || !Number.isFinite(deg)))) {
@@ -99,11 +107,12 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
   const a = raw as Record<string, unknown>;
   validateFrequencies(a.frequenciesHz);
   validateGainCrossings(a.gainCrossingsDb);
+  validateGainCrossingDirection(a.gainCrossingDirection);
   validatePhaseCrossings(a.phaseCrossingsDeg);
   if (a.groupDelayAtHz !== undefined && (typeof a.groupDelayAtHz !== 'number' || !Number.isFinite(a.groupDelayAtHz) || a.groupDelayAtHz <= 0)) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
   }
-  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz', 'includeBandpass', 'includeComplexTransfer', 'frequenciesHz', 'gainCrossingsDb', 'phaseCrossingsDeg'].includes(key))
+  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz', 'includeBandpass', 'includeComplexTransfer', 'frequenciesHz', 'gainCrossingsDb', 'gainCrossingDirection', 'phaseCrossingsDeg'].includes(key))
     || (a.includeComplexTransfer !== undefined && typeof a.includeComplexTransfer !== 'boolean')
     || (a.includeBandpass !== undefined && typeof a.includeBandpass !== 'boolean')
     || typeof a.output !== 'string' || !a.output.length || a.output.length > 256
@@ -119,6 +128,7 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
 export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   validateFrequencies(args.frequenciesHz);
   validateGainCrossings(args.gainCrossingsDb);
+  validateGainCrossingDirection(args.gainCrossingDirection);
   validatePhaseCrossings(args.phaseCrossingsDeg);
   if (args.groupDelayAtHz !== undefined && (!Number.isFinite(args.groupDelayAtHz) || args.groupDelayAtHz <= 0)) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
@@ -218,15 +228,19 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     phase.push(angle);
   }
   type Crossing = { hz: number; index: number; fraction: number };
-  const crossing = (values: number[], target: number, allowZeroGainEndpoint = false): Crossing | undefined => {
+  const crossing = (values: number[], target: number, allowZeroGainEndpoint = false, direction: GainCrossingDirection = 'descending'): Crossing | undefined => {
     for (let i = 1; i < f.length; i++) {
-      // A finite left endpoint followed by zero gain is an exact descent,
-      // but intermediate dB levels cannot be interpolated through -Infinity.
-      if (allowZeroGainEndpoint && values[i - 1] === target && values[i] === -Infinity) {
+      // Zero gain can match the adjacent finite endpoint in the appropriate
+      // direction, but cannot support interpolation through -Infinity.
+      if (allowZeroGainEndpoint && direction !== 'ascending' && values[i - 1] === target && values[i] === -Infinity) {
         return { hz: f[i - 1], index: i, fraction: 0 };
       }
+      if (allowZeroGainEndpoint && direction !== 'descending' && values[i - 1] === -Infinity && values[i] === target) {
+        return { hz: f[i], index: i, fraction: 1 };
+      }
       if (!Number.isFinite(values[i - 1]) || !Number.isFinite(values[i])) continue;
-      if (values[i - 1] >= target && values[i] <= target && values[i - 1] > values[i]) {
+      if ((direction !== 'ascending' && values[i - 1] >= target && values[i] <= target && values[i - 1] > values[i])
+        || (direction !== 'descending' && values[i - 1] <= target && values[i] >= target && values[i - 1] < values[i])) {
         const fraction = (target - values[i - 1]) / (values[i] - values[i - 1]);
         return { hz: Math.exp(Math.log(f[i - 1]) + fraction * Math.log(f[i] / f[i - 1])), index: i, fraction };
       }
@@ -319,7 +333,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
       : gain;
   });
   const gainCrossings = args.gainCrossingsDb?.map(targetDb => {
-    const c = crossing(crossingDb!, targetDb, true);
+    const c = crossing(crossingDb!, targetDb, true, args.gainCrossingDirection);
     if (!c) return { targetDb, frequencyHz: null };
     // The frequency ratio can overflow even when both endpoints are finite.
     const hz = Number.isFinite(c.hz) ? c.hz : Math.exp((1 - c.fraction) * Math.log(f[c.index - 1]) + c.fraction * Math.log(f[c.index]));
