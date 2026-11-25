@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'pp', 'at', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'pulseWidth', 'period', 'frequency'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'pp', 'at', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'pulseWidth', 'period', 'frequency'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
@@ -31,7 +31,7 @@ export const measurementListSchema = {
       if: { properties: { kind: { enum: ['pulseWidth', 'period', 'frequency'] } } },
       then: { required: ['value', 'edge'], properties: { edge: { enum: ['rising', 'falling'] } }, not: { required: ['at'] } },
     }, {
-      if: { properties: { kind: { const: 'rmsError' } } },
+      if: { properties: { kind: { enum: ['rmsError', 'meanAbsoluteError'] } } },
       then: { required: ['referenceSignal'], not: { anyOf: ['at', 'value', 'edge'].map(key => ({ required: [key] })) } },
       else: { not: { required: ['referenceSignal'] } },
     }],
@@ -72,7 +72,7 @@ function valid(value: unknown): value is Measurement {
       return n === undefined || (typeof n === 'number' && Number.isFinite(n));
     })
     && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'occurrence', 'trigger', 'target', 'referenceSignal'].includes(key))
-    && (m.kind === 'rmsError' ? typeof m.referenceSignal === 'string' && m.referenceSignal.length > 0 && m.referenceSignal.length <= 256 && m.at === undefined && m.value === undefined && m.edge === undefined : m.referenceSignal === undefined)
+    && (['rmsError', 'meanAbsoluteError'].includes(m.kind) ? typeof m.referenceSignal === 'string' && m.referenceSignal.length > 0 && m.referenceSignal.length <= 256 && m.at === undefined && m.value === undefined && m.edge === undefined : m.referenceSignal === undefined)
     && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
     && (m.kind !== 'duty' || (m.value !== undefined && m.at === undefined && m.edge === undefined))
     && (!['pulseWidth', 'period', 'frequency'].includes(m.kind) || (m.value !== undefined && m.at === undefined && (m.edge === 'rising' || m.edge === 'falling')))
@@ -199,12 +199,12 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (['integ', 'absInteg', 'duty', 'pulseWidth', 'period', 'frequency', 'rmsError'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if (['integ', 'absInteg', 'duty', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
     if (!x.length || x.length !== y.length || ![...x, ...y].every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal has empty or non-finite data');
-    if (m.kind === 'rmsError') {
+    if (m.kind === 'rmsError' || m.kind === 'meanAbsoluteError') {
       const reference = series(analysis, m.referenceSignal!);
       if (!reference) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.referenceSignal} is unavailable`);
       if (reference.unit !== data.unit) return error('INVALID_MEASUREMENT', 'Signals must have matching units');
@@ -218,7 +218,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     const lo = m.from ?? x[0];
     const hi = m.to ?? x[x.length - 1];
     if (lo < x[0] || hi > x[x.length - 1] || lo > hi || (m.at !== undefined && (m.at < lo || m.at > hi))) return error('OUT_OF_RANGE', 'Measurement lies outside the analysis window');
-    if (m.kind === 'rmsError' && hi === lo) return error('INVALID_MEASUREMENT', 'RMS error requires a nonzero window');
+    if ((m.kind === 'rmsError' || m.kind === 'meanAbsoluteError') && hi === lo) return error('INVALID_MEASUREMENT', `${m.kind === 'rmsError' ? 'RMS error' : 'Mean absolute error'} requires a nonzero window`);
     if (m.kind === 'pulseWidth' || m.kind === 'period' || m.kind === 'frequency') {
       const threshold = m.value!;
       let entry: number | undefined;
@@ -321,7 +321,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       for (let i = 1; i < points.length; i++) {
         const a = samples[i - 1]; const b = samples[i];
         const width = points[i] - points[i - 1];
-        if (m.kind === 'absInteg') {
+        if (m.kind === 'absInteg' || m.kind === 'meanAbsoluteError') {
           const aa = Math.abs(a); const bb = Math.abs(b);
           if ((a < 0 && b > 0) || (a > 0 && b < 0)) {
             const scale = Math.max(aa, bb);
