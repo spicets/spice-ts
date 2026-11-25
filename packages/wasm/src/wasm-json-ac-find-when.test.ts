@@ -132,3 +132,31 @@ it('evaluates the crossing before output projection', async () => {
     expect(selected.data.analyses[0].voltagePhasors?.out).toBeUndefined();
   } finally { await engine.close(); }
 });
+
+
+it.each([
+  ['second', { fall: 2 }],
+  ['delayed', { fall: 1, td: 10000 }],
+] as const)('matches JS and text for %s occurrence', async (name, selector) => {
+  const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+  try {
+    const input = request(); if (input.input.format !== 'spice-ts') throw new Error('native required');
+    Object.assign(input.input.document.analyses[0]!, { measurements: [{ name, kind: 'find', vector: 'vm(out)', when: { vector: 'vdb(out)', value: -3, ...selector } }] });
+    const wasm = await engine.simulate(input, { requestId: name });
+    const js = await simulateProtocolV1(input);
+    const clause = name === 'second' ? 'fall=2' : 'fall=1 td=10000';
+    const text = await simulate(parseTitleless(`V1 in 0 AC 1\nR1 in out 1k\nC1 out 0 100n\n.ac dec 20 10 100000\n.meas ac ${name} find vm(out) when vdb(out)=-3 ${clause}`));
+    if (!wasm.ok || wasm.data.analyses[0]?.type !== 'ac' || js.analyses[0]?.type !== 'ac') throw new Error('AC required');
+    const a = wasm.data.analyses[0].measurements![0]!; const b = js.analyses[0].measurements![0]!;
+    if (name === 'second') {
+      expect(a).toMatchObject({ diagnostic: { code: 'MEASUREMENT_FAILED' } });
+      expect(b).toMatchObject({ diagnostic: { code: 'MEASUREMENT_FAILED' } });
+      expect(text.measurements![0]!.status).not.toBe('ok');
+    } else {
+      // Existing AC evaluator ignores td, unlike transient; preserve text/JS semantics.
+      if (!('value' in a) || !('value' in b)) throw new Error('crossing expected');
+      expect(Math.abs(a.value - b.value)).toBeLessThanOrEqual(1e-9);
+      expect(Math.abs(a.value - text.measurements![0]!.value!)).toBeLessThanOrEqual(1e-9);
+    }
+  } finally { await engine.close(); }
+});
