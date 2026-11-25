@@ -5,6 +5,7 @@ export interface FourierArgs {
   signal: string;
   fundamentalHz: number;
   harmonicCount?: number;
+  includeHarmonicSfdr?: boolean;
   analysis?: number;
   step?: number;
   windowStartS?: number;
@@ -14,6 +15,7 @@ interface FourierMetrics {
   unit: 'V' | 'A';
   thdPercent: number;
   harmonics: FourierResult['harmonics'];
+  harmonicSfdr?: { harmonic: number | null; dBc: number | null; reason: 'NO_NONFUNDAMENTAL_HARMONIC' | 'ZERO_SPUR' | 'NONREPRESENTABLE_RATIO' | null };
 }
 const codes = ['UNKNOWN_SIGNAL', 'NO_TRANSIENT', 'UNKNOWN_STEP', 'AMBIGUOUS_ANALYSIS', 'INSUFFICIENT_PERIOD', 'INVALID_DATA'] as const;
 type FourierError = { error: { code: typeof codes[number]; message: string } };
@@ -21,6 +23,7 @@ export const fourierProperties = {
   signal: { type: 'string', minLength: 1, maxLength: 256 },
   fundamentalHz: { type: 'number', exclusiveMinimum: 0 },
   harmonicCount: { type: 'integer', minimum: 1, maximum: 64, default: 9 },
+  includeHarmonicSfdr: { type: 'boolean', description: 'Include harmonic-limited SFDR, not broadband or noise-inclusive SFDR.' },
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
   windowStartS: { type: 'number', minimum: 0 },
@@ -31,6 +34,14 @@ export const fourierOutputSchemas = [
     type: 'object', required: ['dc', 'unit', 'thdPercent', 'harmonics'], additionalProperties: false,
     properties: {
       dc: { type: 'number' }, unit: { enum: ['V', 'A'] }, thdPercent: { type: 'number' },
+      harmonicSfdr: {
+        type: 'object', required: ['harmonic', 'dBc', 'reason'], additionalProperties: false,
+        description: 'Largest resolved nonfundamental harmonic by absolute magnitude; ties choose the lowest harmonic. dBc is 20 log10 of fundamental magnitude divided by spur magnitude, signed and phase-invariant, for voltage or current. Limited to requested harmonics, not broadband or noise-inclusive.',
+        properties: {
+          harmonic: { type: ['integer', 'null'] }, dBc: { type: ['number', 'null'] },
+          reason: { enum: [null, 'NO_NONFUNDAMENTAL_HARMONIC', 'ZERO_SPUR', 'NONREPRESENTABLE_RATIO'] },
+        },
+      },
       harmonics: { type: 'array', minItems: 1, maxItems: 64, items: {
         type: 'object', required: Object.keys(rowProperties), additionalProperties: false, properties: rowProperties,
       } },
@@ -52,10 +63,11 @@ export function fourierArgs(raw: unknown): FourierArgs {
     || typeof a.signal !== 'string' || !a.signal.length || a.signal.length > 256
     || typeof a.fundamentalHz !== 'number' || !Number.isFinite(a.fundamentalHz) || a.fundamentalHz <= 0
     || (a.harmonicCount !== undefined && (!Number.isInteger(a.harmonicCount) || (a.harmonicCount as number) < 1 || (a.harmonicCount as number) > 64))
+    || (a.includeHarmonicSfdr !== undefined && typeof a.includeHarmonicSfdr !== 'boolean')
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
     || (a.step !== undefined && (!Number.isSafeInteger(a.step) || (a.step as number) < 0))
     || (a.windowStartS !== undefined && (typeof a.windowStartS !== 'number' || !Number.isFinite(a.windowStartS) || a.windowStartS < 0))) {
-    throw { code: 'INVALID_REQUEST', message: 'Expected signal, positive finite fundamentalHz, harmonicCount 1 through 64, optional nonnegative integer analysis and step, and windowStartS', phase: 'validation', retryable: false, details: {} };
+    throw { code: 'INVALID_REQUEST', message: 'Expected signal, positive finite fundamentalHz, harmonicCount 1 through 64, optional boolean includeHarmonicSfdr, nonnegative integer analysis and step, and windowStartS', phase: 'validation', retryable: false, details: {} };
   }
   return a as unknown as FourierArgs;
 }
@@ -85,7 +97,20 @@ export function fourierMetrics(result: SimulationResultV1, args: FourierArgs): F
     const table = ngspiceFourier(args.signal, Float64Array.from(x), Float64Array.from(y), args.fundamentalHz, (args.harmonicCount ?? 9) + 1, 200, 1, 1);
     const harmonics = table.harmonics.slice(1);
     if (!Number.isFinite(table.thd) || table.harmonics.some(row => Object.values(row).some(v => !Number.isFinite(v)))) return error('INVALID_DATA', 'Fourier arithmetic is non-finite, or the fundamental is zero');
-    return { dc: table.harmonics[0].magnitude, unit: match![1].toLowerCase() === 'v' ? 'V' : 'A', thdPercent: table.thd, harmonics };
+    const metrics: FourierMetrics = { dc: table.harmonics[0].magnitude, unit: match![1].toLowerCase() === 'v' ? 'V' : 'A', thdPercent: table.thd, harmonics };
+    if (args.includeHarmonicSfdr) {
+      const spurs = harmonics.slice(1);
+      if (!spurs.length) metrics.harmonicSfdr = { harmonic: null, dBc: null, reason: 'NO_NONFUNDAMENTAL_HARMONIC' };
+      else {
+        const spur = spurs.reduce((best, row) => Math.abs(row.magnitude) > Math.abs(best.magnitude) ? row : best);
+        const magnitude = Math.abs(spur.magnitude);
+        const ratio = Math.abs(harmonics[0].magnitude) / magnitude;
+        if (magnitude === 0) metrics.harmonicSfdr = { harmonic: null, dBc: null, reason: 'ZERO_SPUR' };
+        else if (!Number.isFinite(ratio) || ratio === 0) metrics.harmonicSfdr = { harmonic: spur.harmonic, dBc: null, reason: 'NONREPRESENTABLE_RATIO' };
+        else metrics.harmonicSfdr = { harmonic: spur.harmonic, dBc: 20 * Math.log10(ratio), reason: null };
+      }
+    }
+    return metrics;
   } catch {
     return error('INVALID_DATA', 'Cannot interpolate the transient signal');
   }
