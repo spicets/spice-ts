@@ -101,10 +101,10 @@ it('rejects invalid measurements at validation and simulation boundaries', async
   } finally { await engine.close(); }
 });
 
-it('explicitly rejects unsupported aggregate and WHEN measurements', async () => {
+it('explicitly rejects unsupported aggregate measurements', async () => {
   const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
   try {
-    for (const entry of [{ name: 'avg', kind: 'avg', vector: 'vm(out)' }, { name: 'crossing', kind: 'find', vector: 'vm(out)', when: { vector: 'vm(out)', value: 0.5 } }]) {
+    for (const entry of [{ name: 'avg', kind: 'avg', vector: 'vm(out)' }]) {
       const input = request(); configure(input, [entry]);
       for (const execute of [engine.validate.bind(engine), engine.simulate.bind(engine)]) expect(await execute(input, { requestId: 'unsupported' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
     }

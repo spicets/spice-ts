@@ -687,8 +687,12 @@ function simulateAc(
       if (!plot) throw new Error('AC plot unavailable');
       const values = new Map<string, number>();
       ac.measurements = analysis.measurements.map((measurement, index) => {
-        if (measurement.kind !== 'find' || measurement.at === undefined) throw new Error('Unsupported measurement');
-        const card = measureCard(`.meas ac ${measurement.name} find ${measurement.vector} at=${measurement.at}`, index + 1, 0);
+        if (measurement.kind !== 'find') throw new Error('Unsupported measurement');
+        const when = measurement.when;
+        const clause = measurement.at !== undefined ? `at=${measurement.at}` : when
+          ? `when ${when.vector}=${when.value}${when.rise !== undefined ? ` rise=${when.rise}` : ''}${when.fall !== undefined ? ` fall=${when.fall}` : ''}${when.cross !== undefined ? ` cross=${when.cross}` : ''}${when.td !== undefined ? ` td=${when.td}` : ''}`
+          : '';
+        const card = measureCard(`.meas ac ${measurement.name} find ${measurement.vector} ${clause}`, index + 1, 0);
         const measured = evaluateMeasureCards([card], 'ac', plot, values)[0]!;
         return measured.status === 'ok' && measured.value !== undefined && Number.isFinite(measured.value)
           ? { name: measured.name, value: measured.value }
@@ -749,13 +753,23 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
       const value = entry as unknown as Record<string, unknown>;
       if (typeof value.name !== 'string' || !/^[a-z][a-z0-9_]*$/i.test(value.name) || names.has(value.name.toLowerCase())) invalid(`${path}/name`);
       names.add((value.name as string).toLowerCase());
-      if (value.kind !== 'find') unsupported('measurement', 'Only native AC FIND AT measurements are supported');
+      if (value.kind !== 'find') unsupported('measurement', 'Only native AC FIND measurements are supported');
       if (value.when !== undefined && value.at !== undefined) invalid(path);
-      if (value.when !== undefined) unsupported('measurement', 'Only native AC FIND AT measurements are supported');
-      for (const key of Object.keys(value)) if (!['name', 'kind', 'vector', 'at'].includes(key)) invalid(`${path}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+      for (const key of Object.keys(value)) if (!['name', 'kind', 'vector', 'at', 'when'].includes(key)) invalid(`${path}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`);
       if (typeof value.vector !== 'string' || !/^v(?:m|db|p)\([^\s(),]+\)$/i.test(value.vector)) invalid(`${path}/vector`);
-      if (value.at === undefined) invalid(path);
-      if (typeof value.at !== 'number' || !Number.isFinite(value.at) || value.at < 0) invalid(`${path}/at`);
+      if (value.at === undefined && value.when === undefined) invalid(path);
+      if (value.at !== undefined && (typeof value.at !== 'number' || !Number.isFinite(value.at) || value.at < 0)) invalid(`${path}/at`);
+      if (value.when !== undefined) {
+        const at = `${path}/when`;
+        if (!value.when || typeof value.when !== 'object' || Array.isArray(value.when)) invalid(at);
+        const when = value.when as Record<string, unknown>;
+        for (const key of Object.keys(when)) if (!['vector', 'value', 'rise', 'fall', 'cross', 'td'].includes(key)) invalid(`${at}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`);
+        if (typeof when.vector !== 'string' || !/^v(?:m|db|p)\([^\s(),]+\)$/i.test(when.vector)) invalid(`${at}/vector`);
+        if (typeof when.value !== 'number' || !Number.isFinite(when.value)) invalid(`${at}/value`);
+        if (['rise', 'fall', 'cross'].filter(key => when[key] !== undefined).length > 1) invalid(at);
+        for (const key of ['rise', 'fall', 'cross']) if (when[key] !== undefined && !(Number.isInteger(when[key]) && (when[key] as number) > 0) && when[key] !== 'last') invalid(`${at}/${key}`);
+        if (when.td !== undefined && (typeof when.td !== 'number' || !Number.isFinite(when.td))) invalid(`${at}/td`);
+      }
     }
   }
   if (document.models.length || document.subcircuits.length || Object.keys(document).some(key =>
