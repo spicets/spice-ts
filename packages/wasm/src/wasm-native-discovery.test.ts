@@ -98,10 +98,10 @@ describe('native WASM discovery', () => {
     } finally { await engine.close(); }
   });
 
-  it('rejects unsupported native output selection in validation, batch and stream', async () => {
+  it('rejects unsupported native AC output selection in validation, batch and stream', async () => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
-      const request = { ...selectedRequest(engine, divider), outputs: ['V(out)'] };
+      const request = { ...selectedRequest(engine, rc), outputs: ['V(out)'] };
       for (const execute of [engine.validate.bind(engine), engine.simulate.bind(engine)]) {
         expect(await execute(request, { requestId: 'unsupported' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'output-selection' } } });
       }
