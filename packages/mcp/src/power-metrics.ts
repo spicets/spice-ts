@@ -16,13 +16,14 @@ export interface PowerMetricsArgs {
   includeEnergyFlow?: boolean;
   includeReturnedPowerPeak?: boolean;
   includeCharge?: boolean;
+  includeChargeFlow?: boolean;
   includePowerRms?: boolean;
 }
 interface ElementProbe { name: string; positive: string; negative: string; branch: string }
 export interface PowerPlan { netlist: string; probes: ElementProbe[]; args: PowerMetricsArgs }
 export interface PowerReport {
   window: [number, number];
-  elements: { name: string; averagePowerW: number; energyJ: number; absorbedEnergyJ?: number; returnedEnergyJ?: number; chargeC?: number; averageCurrentA?: number; rmsCurrentA: number; rmsPowerW?: number; rmsAcCurrentA?: number; rmsAcVoltageV?: number; peakPowerW: number; peakTimeS: number; peakReturnedPowerW?: number; peakReturnedPowerTimeS?: number | null; peakAbsCurrentA?: number; currentCrestFactor?: number | null; voltageCrestFactor?: number | null; rmsVoltageV?: number; apparentPowerVA?: number; powerFactor?: number | null; powerFactorReason?: 'zero_apparent_power' }[];
+  elements: { name: string; averagePowerW: number; energyJ: number; absorbedEnergyJ?: number; returnedEnergyJ?: number; chargeC?: number; positiveChargeC?: number; negativeChargeC?: number; averageCurrentA?: number; rmsCurrentA: number; rmsPowerW?: number; rmsAcCurrentA?: number; rmsAcVoltageV?: number; peakPowerW: number; peakTimeS: number; peakReturnedPowerW?: number; peakReturnedPowerTimeS?: number | null; peakAbsCurrentA?: number; currentCrestFactor?: number | null; voltageCrestFactor?: number | null; rmsVoltageV?: number; apparentPowerVA?: number; powerFactor?: number | null; powerFactorReason?: 'zero_apparent_power' }[];
   efficiency: number | null;
   windowResults?: PowerReport[];
 }
@@ -41,6 +42,7 @@ export const powerMetricsProperties = {
   includeEnergyFlow: { type: 'boolean' },
   includeReturnedPowerPeak: { type: 'boolean' },
   includeCharge: { type: 'boolean' },
+  includeChargeFlow: { type: 'boolean' },
   includePowerRms: { type: 'boolean' },
 };
 const singlePowerReportSchema = {
@@ -50,7 +52,7 @@ const singlePowerReportSchema = {
     efficiency: { type: ['number', 'null'] },
     elements: { type: 'array', items: {
       type: 'object', required: ['name', 'averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'], additionalProperties: false,
-      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'absorbedEnergyJ', 'returnedEnergyJ', 'chargeC', 'averageCurrentA', 'rmsCurrentA', 'rmsPowerW', 'rmsAcCurrentA', 'rmsAcVoltageV', 'peakPowerW', 'peakTimeS', 'peakReturnedPowerW', 'peakAbsCurrentA', 'rmsVoltageV', 'apparentPowerVA'].map(k => [k, { type: 'number' }])), peakReturnedPowerTimeS: { type: ['number', 'null'] }, currentCrestFactor: { type: ['number', 'null'] }, voltageCrestFactor: { type: ['number', 'null'] }, powerFactor: { type: ['number', 'null'] }, powerFactorReason: { enum: ['zero_apparent_power'] } },
+      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'absorbedEnergyJ', 'returnedEnergyJ', 'chargeC', 'positiveChargeC', 'negativeChargeC', 'averageCurrentA', 'rmsCurrentA', 'rmsPowerW', 'rmsAcCurrentA', 'rmsAcVoltageV', 'peakPowerW', 'peakTimeS', 'peakReturnedPowerW', 'peakAbsCurrentA', 'rmsVoltageV', 'apparentPowerVA'].map(k => [k, { type: 'number' }])), peakReturnedPowerTimeS: { type: ['number', 'null'] }, currentCrestFactor: { type: ['number', 'null'] }, voltageCrestFactor: { type: ['number', 'null'] }, powerFactor: { type: ['number', 'null'] }, powerFactorReason: { enum: ['zero_apparent_power'] } },
     } },
   },
 };
@@ -89,6 +91,7 @@ export function powerMetricsArgs(raw: unknown): PowerMetricsArgs {
   if (a.includeReturnedPowerPeak !== undefined && typeof a.includeReturnedPowerPeak !== 'boolean') invalid('Expected includeReturnedPowerPeak to be a boolean');
   if (a.includePowerRms !== undefined && typeof a.includePowerRms !== 'boolean') invalid('Expected includePowerRms to be a boolean');
   if (a.includeCharge !== undefined && typeof a.includeCharge !== 'boolean') invalid('Expected includeCharge to be a boolean');
+  if (a.includeChargeFlow !== undefined && typeof a.includeChargeFlow !== 'boolean') invalid('Expected includeChargeFlow to be a boolean');
   if (a.window !== undefined && (!Array.isArray(a.window) || a.window.length !== 2
     || a.window.some(t => typeof t !== 'number' || !Number.isFinite(t) || t < 0)
     || a.window[0] >= a.window[1])) invalid('Expected window [tStart,tStop] with 0 <= tStart < tStop');
@@ -171,7 +174,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     const rippleVn = plan.args.includeVoltageRipple ? centered(vn) : vn;
     let energy = 0; let absorbedEnergyJ = 0; let returnedEnergyJ = 0; let rmsScale = 0; let rmsNormalized = 0; let voltageScale = 0; let voltageNormalized = 0; let peakPowerW = -Infinity; let peakTimeS = start;
     let powerScale = 0; let powerNormalized = 0;
-    let peakReturnedPowerW = 0; let peakReturnedPowerTimeS: number | null = null; let chargeC = 0;
+    let peakReturnedPowerW = 0; let peakReturnedPowerTimeS: number | null = null; let chargeC = 0; let positiveChargeC = 0; let negativeChargeC = 0;
     const rippleSegments: [number, number, number][] = [];
     const voltageRippleSegments: [number, number, number][] = [];
     for (let k = 1; k < times.length; k++) {
@@ -185,6 +188,17 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       if (plan.args.includeCurrentRipple) rippleSegments.push([il, ir, duration]);
       if (plan.args.includeVoltageRipple) voltageRippleSegments.push([at(rippleVp, left) - at(rippleVn, left), at(rippleVp, right) - at(rippleVn, right), duration]);
       if (plan.args.includeCharge) chargeC += duration * (il / 2 + ir / 2);
+      if (plan.args.includeChargeFlow) {
+        if ((il < 0 && ir > 0) || (il > 0 && ir < 0)) {
+          const scale = Math.max(Math.abs(il), Math.abs(ir));
+          const leftWeight = Math.abs(il) / scale; const rightWeight = Math.abs(ir) / scale;
+          const leftArea = duration * (leftWeight / (leftWeight + rightWeight)) * (Math.abs(il) / 2);
+          const rightArea = duration * (rightWeight / (leftWeight + rightWeight)) * (Math.abs(ir) / 2);
+          if (il > 0) { positiveChargeC += leftArea; negativeChargeC += rightArea; }
+          else { negativeChargeC += leftArea; positiveChargeC += rightArea; }
+        } else if (il >= 0 && ir >= 0) positiveChargeC += duration * (il / 2 + ir / 2);
+        else negativeChargeC += duration * (-il / 2 - ir / 2);
+      }
       const a = dv * di; const b = vl * di + il * dv; const c = vl * il;
       energy += duration * (c + b / 2 + a / 3);
       if (plan.args.includeEnergyFlow) {
@@ -293,6 +307,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       ...(plan.args.includeVoltageRipple ? { rmsAcVoltageV: rippleRms(voltageRippleSegments) } : {}),
       ...(plan.args.includeEnergyFlow ? { absorbedEnergyJ, returnedEnergyJ } : {}),
       ...(plan.args.includeCharge ? { chargeC, averageCurrentA: chargeC / (stop - start) } : {}),
+      ...(plan.args.includeChargeFlow ? { positiveChargeC, negativeChargeC } : {}),
       ...(plan.args.includeReturnedPowerPeak ? { peakReturnedPowerW, peakReturnedPowerTimeS } : {}),
       ...(plan.args.includeCurrentCrestFactor ? { peakAbsCurrentA: rmsScale, currentCrestFactor: rmsScale === 0 ? null : 1 / normalized } : {}),
       ...(plan.args.includeVoltageCrestFactor ? { voltageCrestFactor: voltageScale === 0 ? null : 1 / Math.min(1, voltageNormalized) } : {}),
