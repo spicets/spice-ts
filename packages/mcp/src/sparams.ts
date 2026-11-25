@@ -300,7 +300,7 @@ function sampledTransducerGain(result: SParameterResult, index: number, { source
   const input = sub(one, mul(s11, source)), output = sub(one, mul(s22, load));
   const denominator = sub(mul(input, output), feedback);
   const magnitude = Math.hypot(denominator.real, denominator.imaginary);
-  if (!Number.isFinite(magnitude)) {
+  if (!Number.isFinite(magnitude) || magnitude === 0) {
     // Carry powers of two separately through every complex product, including
     // the feedback itself; scaling only after it overflows loses its value.
     type Scaled = { value: Reflection; exponent: number };
@@ -313,6 +313,9 @@ function sampledTransducerGain(result: SParameterResult, index: number, { source
     };
     const product = (a: Scaled, b: Scaled) => normalize(mul(a.value, b.value), a.exponent + b.exponent);
     const difference = (a: Scaled, b: Scaled): Scaled => {
+      // Zero has no meaningful exponent and must not erase a tiny nonzero term.
+      if (a.value.real === 0 && a.value.imaginary === 0) return { value: { real: -b.value.real, imaginary: -b.value.imaginary }, exponent: b.exponent };
+      if (b.value.real === 0 && b.value.imaginary === 0) return a;
       const exponent = Math.max(a.exponent, b.exponent);
       const x = 2 ** (a.exponent - exponent), y = 2 ** (b.exponent - exponent);
       return normalize(sub({ real: a.value.real * x, imaginary: a.value.imaginary * x }, { real: b.value.real * y, imaginary: b.value.imaginary * y }), exponent);
