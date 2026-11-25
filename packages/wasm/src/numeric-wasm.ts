@@ -35,6 +35,7 @@ interface PreparedNumericBase {
 
 interface PreparedLinearOp extends PreparedNumericBase {
   analysis: 'op';
+  selection?: { nodes: Set<string>; branches: Set<string> };
 }
 
 interface SweepableSource {
@@ -203,12 +204,12 @@ function simulateDc(
 }
 
 function simulateOp(
-  { compiled, order }: PreparedLinearOp,
+  { compiled, order, selection }: PreparedLinearOp,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
   if (compiled.devices.some(device => ['D', 'Q', 'M', 'J', 'S', 'W'].includes(deviceType(device.name) ?? ''))) {
-    return opResult(compiled, solveNonlinearOp(compiled, order, request, exports), request);
+    return opResult(compiled, solveNonlinearOp(compiled, order, request, exports), request, selection);
   }
   const matrix = new Float64Array(order * order);
   const rhs = new Float64Array(order);
@@ -303,7 +304,7 @@ function simulateOp(
     throw numericError('INVALID_CIRCUIT', 'The bounded WebAssembly solver rejected non-finite numeric data', 'solve', { order, status });
   }
   const solution = new Float64Array(exports.memory.buffer, rhsPointer, order).slice();
-  return opResult(compiled, solution, request);
+  return opResult(compiled, solution, request, selection);
 }
 
 function solveNonlinearOp(
@@ -362,17 +363,17 @@ function solveNonlinearOp(
   });
 }
 
-function opResult(compiled: CompiledCircuit, solution: Float64Array, request: SimulationRequestV1): SimulationResultV1 {
+function opResult(compiled: CompiledCircuit, solution: Float64Array, request: SimulationRequestV1, selection?: PreparedLinearOp['selection']): SimulationResultV1 {
   const result: SimulationResultV1 = {
     status: 'complete',
     analyses: [{
       type: 'op',
       analysisIndex: 0,
-      voltagesV: Object.fromEntries(compiled.nodeNames.map((name, index) => [name, solution[index]! ])),
+      voltagesV: Object.fromEntries(compiled.nodeNames.map((name, index) => [name, solution[index]!] as const).filter(([name]) => !selection || selection.nodes.has(name))),
       currentsA: Object.fromEntries(compiled.branchNames.map((name, index) => [
         name,
         solution[compiled.nodeCount + index]!,
-      ])),
+      ] as const).filter(([name]) => !selection || selection.branches.has(name))),
     }],
   };
   enforceSerializedResultLimit(result, request);
@@ -721,7 +722,6 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const sourceBytes = new TextEncoder().encode(JSON.stringify(request.input)).byteLength;
   const sourceLimit = Math.min(NUMERIC_WASM_LIMITS.maxSourceBytes, request.options?.limits?.maxSourceBytes ?? Infinity);
   if (sourceBytes > sourceLimit) throw resourceLimit('maxSourceBytes', sourceLimit, sourceBytes);
-  if (request.outputs !== undefined) unsupported('output-selection', 'Native output selection is not supported by the WebAssembly backend');
   const components = document.circuit.components;
   const componentLimit = Math.min(NUMERIC_WASM_LIMITS.maxComponents, request.options?.limits?.maxComponents ?? Infinity);
   if (components.length > componentLimit) throw resourceLimit('maxComponents', componentLimit, components.length);
@@ -729,6 +729,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   if (document.analyses.length > analysisLimit) throw resourceLimit('maxAnalyses', analysisLimit, document.analyses.length);
   const nativeAnalysis = document.analyses[0];
   if (document.analyses.length !== 1 || (nativeAnalysis?.type !== 'op' && nativeAnalysis?.type !== 'ac')) unsupported('analysis', 'Exactly one .op or .ac analysis is supported');
+  if (nativeAnalysis.type === 'ac' && request.outputs !== undefined) unsupported('output-selection', 'Native AC output selection is not supported by the WebAssembly backend');
   if (nativeAnalysis.type === 'ac' && nativeAnalysis.measurements !== undefined) {
     const entries = nativeAnalysis.measurements;
     const root = '/input/document/analyses/0/measurements';
@@ -809,7 +810,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
     const paths = new Map(components.map((component, index) => [component.name.toUpperCase(), `/input/document/circuit/components/${index}`]));
     preflightTopology(compiled, name => paths.get(name.toUpperCase()) ?? `/compiled/devices/${name.replaceAll('~', '~0').replaceAll('/', '~1')}`);
   }
-  if (nativeAnalysis.type === 'op') return { analysis: 'op', compiled, order };
+  if (nativeAnalysis.type === 'op') return { analysis: 'op', compiled, order, selection: selectNativeOpOutputs(request.outputs, compiled) };
   const compiledAnalysis = compiled.analyses[0];
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
   const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
@@ -817,6 +818,23 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const pointLimit = Math.min(NUMERIC_WASM_LIMITS.maxAcPoints, request.options?.limits?.maxResultPoints ?? Infinity);
   if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
   return { analysis: 'ac', compiled, order, frequenciesHz: frequencyGrid(compiledAnalysis, reltol, 'ac') };
+}
+
+function selectNativeOpOutputs(outputs: SimulationRequestV1['outputs'], compiled: CompiledCircuit): PreparedLinearOp['selection'] {
+  if (outputs === undefined) return undefined;
+  const invalid = (path: string): never => { throw numericError('INVALID_REQUEST', `Invalid native field at ${path}`, 'validation', { path }); };
+  if (!Array.isArray(outputs) || outputs.length < 1 || outputs.length > 64) invalid('/outputs');
+  const selection = { nodes: new Set<string>(), branches: new Set<string>() };
+  for (const [index, output] of outputs.entries()) {
+    const match = typeof output === 'string' && output.length <= 512 && [...output].length <= 256 ? /^([vi])\(([^\s(),]+)\)(?![\s\S])/i.exec(output) : null;
+    if (!match) invalid(`/outputs/${index}`);
+    const voltage = match![1]!.toLowerCase() === 'v';
+    const names = voltage ? compiled.nodeNames : compiled.branchNames;
+    const name = names.find(candidate => candidate === match![2]) ?? names.find(candidate => candidate.toLowerCase() === match![2]!.toLowerCase());
+    if (name === undefined) invalid(`/outputs/${index}`);
+    (voltage ? selection.nodes : selection.branches).add(name!);
+  }
+  return selection;
 }
 
 function prepare(request: SimulationRequestV1): PreparedNumeric {
