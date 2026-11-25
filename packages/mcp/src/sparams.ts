@@ -287,7 +287,13 @@ function sampledGain(result: SParameterResult, index: number) {
 
 function sampledTransducerGain(result: SParameterResult, index: number, { source, load }: Terminations) {
   const unavailable = () => ({ linear: null, reason: 'Singular or nonrepresentable transducer gain at this sample.' });
-  const mul = (a: Reflection, b: Reflection): Reflection => ({ real: a.real * b.real - a.imaginary * b.imaginary, imaginary: a.real * b.imaginary + a.imaginary * b.real });
+  let underflowed = false;
+  const multiply = (a: number, b: number) => {
+    const value = a * b;
+    if (a !== 0 && b !== 0 && Math.abs(value) < 2 ** -1022) underflowed = true;
+    return value;
+  };
+  const mul = (a: Reflection, b: Reflection): Reflection => ({ real: multiply(a.real, b.real) - multiply(a.imaginary, b.imaginary), imaginary: multiply(a.real, b.imaginary) + multiply(a.imaginary, b.real) });
   const sub = (a: Reflection, b: Reflection): Reflection => ({ real: a.real - b.real, imaginary: a.imaginary - b.imaginary });
   const [s11, s12, s21, s22] = ['S_1_1', 'S_1_2', 'S_2_1', 'S_2_2'].map(key => result.vectors.get(key)![index]);
   const one = { real: 1, imaginary: 0 };
@@ -300,7 +306,7 @@ function sampledTransducerGain(result: SParameterResult, index: number, { source
   const input = sub(one, mul(s11, source)), output = sub(one, mul(s22, load));
   const denominator = sub(mul(input, output), feedback);
   const magnitude = Math.hypot(denominator.real, denominator.imaginary);
-  if (!Number.isFinite(magnitude) || magnitude === 0) {
+  if (underflowed || !Number.isFinite(magnitude) || magnitude === 0) {
     // Carry powers of two separately through every complex product, including
     // the feedback itself; scaling only after it overflows loses its value.
     type Scaled = { value: Reflection; exponent: number };
@@ -321,8 +327,19 @@ function sampledTransducerGain(result: SParameterResult, index: number, { source
       return normalize(sub({ real: a.value.real * x, imaginary: a.value.imaginary * x }, { real: b.value.real * y, imaginary: b.value.imaginary * y }), exponent);
     };
     const scaledOne = normalize(one);
-    const scaledInput = difference(scaledOne, product(normalize(s11), normalize(source)));
-    const scaledOutput = difference(scaledOne, product(normalize(s22), normalize(load)));
+    // Keep real and imaginary terms separate until after subtracting from one:
+    // normalizing a complex number with a huge dynamic range can otherwise
+    // round away significant bits of a subnormal component before cancellation.
+    const oneMinusProduct = (a: Reflection, b: Reflection) => {
+      const scalar = (x: number) => normalize({ real: x, imaginary: 0 });
+      const term = (x: number, y: number) => product(scalar(x), scalar(y));
+      const negate = (x: Scaled): Scaled => ({ value: { real: -x.value.real, imaginary: -x.value.imaginary }, exponent: x.exponent });
+      const real = difference(difference(scaledOne, term(a.real, b.real)), negate(term(a.imaginary, b.imaginary)));
+      const imaginary = difference(negate(term(a.real, b.imaginary)), term(a.imaginary, b.real));
+      return difference(real, { value: { real: 0, imaginary: -imaginary.value.real }, exponent: imaginary.exponent });
+    };
+    const scaledInput = oneMinusProduct(s11, source);
+    const scaledOutput = oneMinusProduct(s22, load);
     const scaledFeedback = factors.map(v => normalize(v)).reduce(product);
     const scaledDenominator = difference(product(scaledInput, scaledOutput), scaledFeedback);
     const norm = Math.hypot(scaledDenominator.value.real, scaledDenominator.value.imaginary);

@@ -32,6 +32,17 @@ describe('sampled transducer gain', () => {
     expect(value.reason).toBeNull();
     expect(value.linear! / 5.625e199).toBeCloseTo(1, 12);
   });
+  it('preserves gain when a denominator product is subnormal', () => {
+    const value = report(matrix([c(2, 4e-162), c(0), c(1e-200), c(2, 4e-162)]), { source: c(0.5), load: c(0.5) }).points[0].transducerGain!;
+    expect(value.reason).toBeNull();
+    expect(value.linear! / 3.515625e246).toBeCloseTo(1, 12);
+  });
+  it('preserves gain when an intermediate product is subnormal but the denominator is normal', () => {
+    const value = report(matrix([c(2, 4e-319), c(0), c(1e-169), c(-2e150)]), { source: c(0.5), load: c(0.5) }).points[0].transducerGain!;
+    expect(value.reason).toBeNull();
+    // Decimal oracle uses the exact binary64 inputs, not rounded decimal literals.
+    expect(value.linear! / 0.1406246572064248).toBeCloseTo(1, 12);
+  });
   it('preserves finite gain when the denominator product overflows', () => {
     // High-precision canonical formula: (0.19 * 0.19) / (0.9 * 17) ** 2.
     const value = report(matrix([c(1e308), c(0), c(1e308), c(20)]), { source: c(0.9), load: c(0.9) }).points[0].transducerGain!;
