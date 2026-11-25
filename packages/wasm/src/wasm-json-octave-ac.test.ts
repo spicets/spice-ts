@@ -118,7 +118,7 @@ describe('native WASM octave AC', () => {
         const unsupportedMeasure = doc();
         unsupportedMeasure.analyses[0] = { ...unsupportedMeasure.analyses[0]!, measurements: [{ name: 'sample', kind: 'avg', vector: 'vm(out)' }] } as typeof unsupportedMeasure.analyses[0];
         expect(await execute(request(unsupportedMeasure), { requestId: 'unsupported-measured' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
-        expect(await execute({ ...request(doc()), outputs: ['V(out)'] }, { requestId: 'outputs' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
+        expect(await execute({ ...request(doc()), outputs: ['V(out)'] }, { requestId: 'outputs' })).toMatchObject({ ok: true });
       }
     } finally { await wasm.close(); }
   });

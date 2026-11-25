@@ -56,6 +56,7 @@ interface PreparedLinearDc extends PreparedNumericBase {
 interface PreparedPassiveAc extends PreparedNumericBase {
   analysis: 'ac';
   frequenciesHz: number[];
+  selection?: PreparedLinearOp['selection'];
 }
 
 interface PreparedPassiveTran extends PreparedNumericBase {
@@ -564,7 +565,7 @@ function addGmin(matrix: Float64Array, nodeCount: number, order: number, gmin: n
 }
 
 function simulateAc(
-  { compiled, order, frequenciesHz }: PreparedPassiveAc,
+  { compiled, order, frequenciesHz, selection }: PreparedPassiveAc,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
 ): SimulationResultV1 {
@@ -695,6 +696,13 @@ function simulateAc(
       });
     }
   }
+  if (selection) {
+    const ac = result.analyses[0];
+    if (ac?.type === 'ac') {
+      ac.voltagePhasors = Object.fromEntries(Object.entries(voltagePhasors).filter(([name]) => selection.nodes.has(name)));
+      ac.currentPhasors = Object.fromEntries(Object.entries(currentPhasors).filter(([name]) => selection.branches.has(name)));
+    }
+  }
   enforceSerializedResultLimit(result, request);
   return result;
 }
@@ -729,7 +737,6 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   if (document.analyses.length > analysisLimit) throw resourceLimit('maxAnalyses', analysisLimit, document.analyses.length);
   const nativeAnalysis = document.analyses[0];
   if (document.analyses.length !== 1 || (nativeAnalysis?.type !== 'op' && nativeAnalysis?.type !== 'ac')) unsupported('analysis', 'Exactly one .op or .ac analysis is supported');
-  if (nativeAnalysis.type === 'ac' && request.outputs !== undefined) unsupported('output-selection', 'Native AC output selection is not supported by the WebAssembly backend');
   if (nativeAnalysis.type === 'ac' && nativeAnalysis.measurements !== undefined) {
     const entries = nativeAnalysis.measurements;
     const root = '/input/document/analyses/0/measurements';
@@ -817,7 +824,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const pointCount = frequencyPointCount(compiledAnalysis, reltol, 'ac');
   const pointLimit = Math.min(NUMERIC_WASM_LIMITS.maxAcPoints, request.options?.limits?.maxResultPoints ?? Infinity);
   if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
-  return { analysis: 'ac', compiled, order, frequenciesHz: frequencyGrid(compiledAnalysis, reltol, 'ac') };
+  return { analysis: 'ac', compiled, order, frequenciesHz: frequencyGrid(compiledAnalysis, reltol, 'ac'), selection: selectNativeOpOutputs(request.outputs, compiled) };
 }
 
 function selectNativeOpOutputs(outputs: SimulationRequestV1['outputs'], compiled: CompiledCircuit): PreparedLinearOp['selection'] {

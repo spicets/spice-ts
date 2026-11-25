@@ -98,16 +98,20 @@ describe('native WASM discovery', () => {
     } finally { await engine.close(); }
   });
 
-  it('rejects unsupported native AC output selection in validation, batch and stream', async () => {
+  it('executes discovered native AC output selection in validation, batch and stream', async () => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
       const request = { ...selectedRequest(engine, rc), outputs: ['V(out)'] };
-      for (const execute of [engine.validate.bind(engine), engine.simulate.bind(engine)]) {
-        expect(await execute(request, { requestId: 'unsupported' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'output-selection' } } });
-      }
+      expect(await engine.validate(request, { requestId: 'selected-validation' })).toMatchObject({ ok: true });
+      const result = await engine.simulate(request, { requestId: 'selected-batch' });
+      if (!result.ok) throw new Error(JSON.stringify(result.error));
+      const ac = result.data.analyses[0];
+      if (ac?.type !== 'ac') throw new Error('expected AC');
+      expect(Object.keys(ac.voltagePhasors)).toEqual(['out']);
+      expect(ac.currentPhasors).toEqual({});
       const reads = [];
-      for await (const read of engine.simulateStream(request, { requestId: 'unsupported-stream' })) reads.push(read);
-      expect(reads).toMatchObject([{ status: 'failed', terminal: { ok: false, error: { code: 'UNSUPPORTED_FEATURE', details: { feature: 'output-selection' } } } }]);
+      for await (const read of engine.simulateStream(request, { requestId: 'selected-stream' })) reads.push(read);
+      expect(reads.at(-1)).toMatchObject({ status: 'complete', terminal: { ok: true, data: result.data } });
     } finally { await engine.close(); }
   });
 });

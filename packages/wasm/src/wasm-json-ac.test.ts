@@ -75,7 +75,7 @@ describe('native WASM AC', () => {
       const multi = { ...base, analyses: [...base.analyses, { type: 'op' as const }] };
       const stepped = { ...base, componentSweep: { component: 'R1', values: [1000, 2000] } };
       for (const execute of [wasm.validate.bind(wasm), wasm.simulate.bind(wasm)]) {
-        const cases: [SimulationRequestV1, string][] = [[request(malformed), 'INVALID_CIRCUIT'], [request(device), 'UNSUPPORTED_FEATURE'], [request(multi), 'RESOURCE_LIMIT'], [request(stepped), 'UNSUPPORTED_FEATURE'], [{ ...request(base), options: { limits: { maxResultPoints: 2 } } }, 'RESOURCE_LIMIT'], [{ ...request(base), options: { limits: { maxComponents: 2 } } }, 'RESOURCE_LIMIT'], [{ ...request(base), options: { limits: { maxSourceBytes: 1 } } }, 'RESOURCE_LIMIT'], [{ ...request(base), outputs: ['V(out)'] }, 'UNSUPPORTED_FEATURE']];
+        const cases: [SimulationRequestV1, string][] = [[request(malformed), 'INVALID_CIRCUIT'], [request(device), 'UNSUPPORTED_FEATURE'], [request(multi), 'RESOURCE_LIMIT'], [request(stepped), 'UNSUPPORTED_FEATURE'], [{ ...request(base), options: { limits: { maxResultPoints: 2 } } }, 'RESOURCE_LIMIT'], [{ ...request(base), options: { limits: { maxComponents: 2 } } }, 'RESOURCE_LIMIT'], [{ ...request(base), options: { limits: { maxSourceBytes: 1 } } }, 'RESOURCE_LIMIT']];
         for (const [input, code] of cases) {
           const result = await execute(input, { requestId: 'error' });
           expect(result, JSON.stringify(result)).toMatchObject({ ok: false, error: { code } });
