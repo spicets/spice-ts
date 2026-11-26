@@ -62,21 +62,9 @@ export class TransmissionLine implements DeviceModel {
 
   readonly frequencyDependent = true;
 
-  /** AC baseline is the zero-delay travelling-wave system, not the DC regularization. */
+  /** Retain the regularized DC baseline for noise and pole-zero analyses. */
   stampSmallSignal(ctx: StampContext): void {
-    const [p1, n1, p2, n2] = this.nodes;
-    const b1 = ctx.numNodes + this.branch1;
-    const b2 = ctx.numNodes + this.branch2;
-    this.stampPortKcl(ctx, p1, n1, b1);
-    this.stampPortKcl(ctx, p2, n2, b2);
-    this.stampVoltage(ctx, b1, p1, n1, 1);
-    this.stampVoltage(ctx, b1, p2, n2, -1);
-    this.stampVoltage(ctx, b2, p2, n2, 1);
-    this.stampVoltage(ctx, b2, p1, n1, -1);
-    ctx.stampG(b1, b1, -this.impedance);
-    ctx.stampG(b2, b2, -this.impedance);
-    ctx.stampG(b1, b2, -this.impedance);
-    ctx.stampG(b2, b1, -this.impedance);
+    this.stamp(ctx);
   }
 
   /** Add the complex delay exp(-j omega TD), with C representing imag/omega. */
@@ -89,7 +77,8 @@ export class TransmissionLine implements DeviceModel {
     const imaginary = omega === 0 ? this.delay : Math.sin(angle) / omega;
     for (const [row, positive, negative, branch] of [[b1, p2, n2, b2], [b2, p1, n1, b1]]) {
       this.stampVoltage(ctx, row, positive, negative, real);
-      ctx.stampG(row, branch, real * this.impedance);
+      // Cancel the DC regularization before applying the exact AC delay.
+      ctx.stampG(row, branch, (real - (ctx.gmin ?? 1e-12)) * this.impedance);
       if (positive >= 0) ctx.stampC(row, positive, imaginary);
       if (negative >= 0) ctx.stampC(row, negative, -imaginary);
       ctx.stampC(row, branch, imaginary * this.impedance);
