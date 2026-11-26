@@ -1789,6 +1789,10 @@
           "type": "number",
           "exclusiveMinimum": -273.15
         },
+        "rshunt": {
+          "type": "number",
+          "exclusiveMinimum": 1e-30
+        },
         "backend": {
           "enum": [
             "spice-ts-js",

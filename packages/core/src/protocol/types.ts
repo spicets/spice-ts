@@ -93,6 +93,8 @@ export interface SimulationOptionsV1 {
   /** Circuit and model nominal temperatures in degrees Celsius. */
   temperature?: number;
   nominalTemperature?: number;
+  /** Node-to-ground resistance in ohms, above 1e-30 (JS backend only). */
+  rshunt?: number;
   backend?: 'spice-ts-js' | 'spice-ts-wasm' | 'ngspice-wasm';
   determinism?: 'strict' | 'relaxed';
   limits?: ResourceLimitsV1;
