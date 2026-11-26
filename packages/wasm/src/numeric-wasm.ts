@@ -790,9 +790,11 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
     if (request.options && Object.keys(request.options).some(key => key !== 'limits')) unsupported('native-transient-options', 'Only resource limits are supported');
   }
   const nets = new Set(document.circuit.nets.map(net => net.toLowerCase()));
+  // Keep the existing non-PWL native transient device boundary unchanged.
+  const hasPwlSource = components.some(component => ['I', 'V'].includes(component.type.toUpperCase()) && component.params.waveform === 'pwl');
   for (const component of components) {
     const type = component.type.toUpperCase();
-    if (!(nativeAnalysis.type === 'tran' ? ['R', 'C', 'I', 'V'] : ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H']).includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
+    if (!(nativeAnalysis.type === 'tran' ? ['R', 'C', ...(hasPwlSource ? ['L'] : []), 'I', 'V'] : ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H']).includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
       unsupported('device', 'Only R, C, L, I, V, VCVS, VCCS, CCCS and CCVS devices are supported');
     }
     if (type === 'E' || type === 'G' || type === 'F' || type === 'H') {
@@ -824,9 +826,9 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
         throw numericError('INVALID_CIRCUIT', `${component.name} references an unknown net`, 'validation');
       }
     }
-    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : type === 'F' || type === 'H' ? ['gain', 'controlSource'] : type === 'G' ? ['gm'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : nativeAnalysis.type === 'tran' ? ['dc', 'waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period', 'offset', 'amplitude', 'frequency', 'damping', 'phase'] : ['dc', 'waveform'];
+    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : type === 'F' || type === 'H' ? ['gain', 'controlSource'] : type === 'G' ? ['gm'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : nativeAnalysis.type === 'tran' ? ['dc', 'waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period', 'offset', 'amplitude', 'frequency', 'damping', 'phase', 'points', 'repeat'] : ['dc', 'waveform'];
     if (Object.keys(component.params).some(key => !allowed.includes(key)) ||
-      (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac') && !(nativeAnalysis.type === 'tran' && (component.params.waveform === 'pulse' || component.params.waveform === 'sin'))) ||
+      (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac') && !(nativeAnalysis.type === 'tran' && (component.params.waveform === 'pulse' || component.params.waveform === 'sin' || component.params.waveform === 'pwl'))) ||
       (component.params.waveform !== 'ac' && component.params.magnitude !== undefined) ||
       (component.params.waveform !== 'ac' && !(nativeAnalysis.type === 'tran' && component.params.waveform === 'sin') && component.params.phase !== undefined)) {
       unsupported('device-parameters', 'Only numeric passive values and DC sources are supported');
@@ -834,7 +836,33 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
     if (nativeAnalysis.type === 'tran' && (type === 'I' || type === 'V')) {
       const pulseFields = ['v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period'];
       const sinFields = ['offset', 'amplitude', 'frequency', 'delay', 'damping', 'phase'];
-      if (component.params.waveform === 'sin') {
+      if (component.params.waveform === 'pwl') {
+        if (component.ports.length !== 2 || new Set(component.ports.map(port => port.name)).size !== 2 || component.ports.some(port => typeof port.net !== 'string' || !port.net ||
+          (!['0', 'gnd'].includes(port.net.toLowerCase()) && !nets.has(port.net.toLowerCase())))) {
+          throw numericError('INVALID_CIRCUIT', `${component.name} requires two valid source ports`, 'validation');
+        }
+        if (component.params.delay !== undefined || component.params.repeat !== undefined || typeof component.params.points === 'string') {
+          unsupported('pwl-options', 'PWL string points, delay and repeat are not supported');
+        }
+        if (['dc', ...pulseFields, ...sinFields].some(key => component.params[key] !== undefined)) {
+          unsupported('device-parameters', 'PWL parameters cannot be mixed with other waveforms');
+        }
+        const points = component.params.points;
+        if (!Array.isArray(points) || points.length === 0 || points.length > 1024) {
+          throw numericError('INVALID_CIRCUIT', `${component.name} requires 1 to 1024 PWL points`, 'validation');
+        }
+        let previous = 0;
+        for (const point of points) {
+          if (!point || typeof point !== 'object' || Array.isArray(point) || Object.keys(point).some(key => key !== 'time' && key !== 'value') ||
+            typeof point.time !== 'number' || !Number.isFinite(point.time) || point.time < previous ||
+            typeof point.value !== 'number' || !Number.isFinite(point.value)) {
+            throw numericError('INVALID_CIRCUIT', `${component.name} requires finite PWL points in nondecreasing nonnegative time order`, 'validation');
+          }
+          previous = point.time;
+        }
+      } else if (component.params.points !== undefined || component.params.repeat !== undefined) {
+        unsupported('device-parameters', 'PWL parameters require a PWL source');
+      } else if (component.params.waveform === 'sin') {
         if (component.ports.length !== 2 || new Set(component.ports.map(port => port.name)).size !== 2 || component.ports.some(port => typeof port.net !== 'string' || !port.net ||
           (!['0', 'gnd'].includes(port.net.toLowerCase()) && !nets.has(port.net.toLowerCase())))) {
           throw numericError('INVALID_CIRCUIT', `${component.name} requires two valid source ports`, 'validation');
