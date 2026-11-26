@@ -1,10 +1,10 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'pp', 'at', 'slope', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'pulseWidth', 'period', 'frequency'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'pp', 'at', 'slope', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
-  from?: number; to?: number; at?: number; value?: number;
+  from?: number; to?: number; at?: number; value?: number; lower?: number; upper?: number;
   edge?: 'rising' | 'falling' | 'either'; occurrence?: number;
   trigger?: Crossing; target?: Crossing; referenceSignal?: string;
 };
@@ -28,6 +28,10 @@ export const measurementListSchema = {
       if: { properties: { kind: { const: 'duty' } } },
       then: { required: ['value'], not: { anyOf: ['at', 'edge', 'occurrence', 'trigger', 'target'].map(key => ({ required: [key] })) } },
     }, {
+      if: { properties: { kind: { const: 'timeInBand' } } },
+      then: { required: ['lower', 'upper'], not: { anyOf: ['at', 'value', 'edge', 'occurrence', 'trigger', 'target', 'referenceSignal'].map(key => ({ required: [key] })) } },
+      else: { not: { anyOf: ['lower', 'upper'].map(key => ({ required: [key] })) } },
+    }, {
       if: { properties: { kind: { enum: ['pulseWidth', 'period', 'frequency'] } } },
       then: { required: ['value', 'edge'], properties: { edge: { enum: ['rising', 'falling'] } }, not: { required: ['at'] } },
     }, {
@@ -44,6 +48,8 @@ export const measurementListSchema = {
       analysis: { type: 'integer', minimum: 0 },
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
+      lower: { type: 'number', description: 'Inclusive lower band limit for timeInBand. Integrates the piecewise-linear transient trace within from/to in seconds; no extrapolation. Equal limits count only flat intervals.' },
+      upper: { type: 'number', description: 'Inclusive upper band limit for timeInBand, greater than or equal to lower.' },
       edge: { enum: ['rising', 'falling', 'either'], description: 'For pulseWidth, rising selects high pulses and falling selects low pulses. Period and frequency use consecutive crossings of the selected direction. A crossing is first contact with the threshold, including the start of a plateau.' },
       occurrence: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER, description: 'One-based crossing, complete pulse, or consecutive-crossing pair within from/to; defaults to 1.' },
       ...Object.fromEntries(['trigger', 'target'].map(key => [key, {
@@ -70,14 +76,15 @@ function valid(value: unknown): value is Measurement {
   return kinds.includes(m.kind) && (m.kind === 'delay' ? crossingValid(m.trigger) && crossingValid(m.target) && m.signal === undefined : typeof m.signal === 'string' && m.signal.length > 0 && m.signal.length <= 256 && m.trigger === undefined && m.target === undefined)
     && Number.isInteger(m.analysis) && m.analysis >= 0
     && (m.step === undefined || (Number.isInteger(m.step) && m.step >= 0))
-    && ['from', 'to', 'at', 'value'].every(key => {
+    && ['from', 'to', 'at', 'value', 'lower', 'upper'].every(key => {
       const n = (m as unknown as Record<string, unknown>)[key];
       return n === undefined || (typeof n === 'number' && Number.isFinite(n));
     })
-    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'edge', 'occurrence', 'trigger', 'target', 'referenceSignal'].includes(key))
+    && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'lower', 'upper', 'edge', 'occurrence', 'trigger', 'target', 'referenceSignal'].includes(key))
     && (['rmsError', 'meanAbsoluteError'].includes(m.kind) ? typeof m.referenceSignal === 'string' && m.referenceSignal.length > 0 && m.referenceSignal.length <= 256 && m.at === undefined && m.value === undefined && m.edge === undefined : m.referenceSignal === undefined)
     && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
     && (m.kind !== 'duty' || (m.value !== undefined && m.at === undefined && m.edge === undefined))
+    && (m.kind === 'timeInBand' ? m.lower !== undefined && m.upper !== undefined && m.lower <= m.upper && m.at === undefined && m.value === undefined && m.edge === undefined : m.lower === undefined && m.upper === undefined)
     && (!['pulseWidth', 'period', 'frequency'].includes(m.kind) || (m.value !== undefined && m.at === undefined && (m.edge === 'rising' || m.edge === 'falling')))
     && (m.occurrence === undefined || (['cross', 'when', 'pulseWidth', 'period', 'frequency'].includes(m.kind) && Number.isSafeInteger(m.occurrence) && m.occurrence > 0))
     && (m.edge === undefined || ['rising', 'falling', 'either'].includes(m.edge))
@@ -203,7 +210,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (['integ', 'absInteg', 'duty', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'slope'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if (['integ', 'absInteg', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'slope'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
@@ -312,7 +319,26 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     const samples = points.map(interpolate);
     let value: number;
     let unit = data.unit;
-    if (m.kind === 'duty') {
+    if (m.kind === 'timeInBand') {
+      let duration = 0;
+      for (let i = 1; i < points.length; i++) {
+        const low = Math.min(samples[i - 1], samples[i]);
+        const high = Math.max(samples[i - 1], samples[i]);
+        const width = points[i] - points[i - 1];
+        if (low === high) {
+          if (low >= m.lower! && low <= m.upper!) duration += width;
+        } else {
+          const start = Math.max(low, m.lower!); const end = Math.min(high, m.upper!);
+          if (end > start) {
+            const range = high - low;
+            const fraction = Number.isFinite(range) ? (end - start) / range : (end / 2 - start / 2) / (high / 2 - low / 2);
+            duration += width * fraction;
+          }
+        }
+      }
+      value = Math.min(hi - lo, Math.max(0, duration));
+      unit = 's';
+    } else if (m.kind === 'duty') {
       if (hi === lo) return error('OUT_OF_RANGE', 'Duty requires a nonzero window');
       let duration = 0;
       for (let i = 1; i < points.length; i++) {
