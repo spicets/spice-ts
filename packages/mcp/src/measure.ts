@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'pp', 'at', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'pulseWidth', 'period', 'frequency'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'pp', 'at', 'slope', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'pulseWidth', 'period', 'frequency'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
@@ -34,9 +34,12 @@ export const measurementListSchema = {
       if: { properties: { kind: { enum: ['rmsError', 'meanAbsoluteError'] } } },
       then: { required: ['referenceSignal'], not: { anyOf: ['at', 'value', 'edge'].map(key => ({ required: [key] })) } },
       else: { not: { required: ['referenceSignal'] } },
+    }, {
+      if: { properties: { kind: { const: 'slope' } } },
+      then: { required: ['at'], not: { anyOf: ['value', 'edge', 'occurrence', 'trigger', 'target', 'referenceSignal'].map(key => ({ required: [key] })) } },
     }],
     properties: {
-      kind: { enum: kinds }, signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
+      kind: { enum: kinds, description: 'slope returns the transient piecewise-linear segment slope at time at, using the right segment at an interior knot and the left segment at the final endpoint.' }, signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
       referenceSignal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
       analysis: { type: 'integer', minimum: 0 },
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
@@ -80,6 +83,7 @@ function valid(value: unknown): value is Measurement {
     && (m.edge === undefined || ['rising', 'falling', 'either'].includes(m.edge))
     && (m.from === undefined || m.to === undefined || m.from <= m.to)
     && (m.kind !== 'at' || m.at !== undefined)
+    && (m.kind !== 'slope' || (m.at !== undefined && m.value === undefined && m.edge === undefined))
     && (!['cross', 'when'].includes(m.kind) || m.value !== undefined);
 }
 
@@ -199,7 +203,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (['integ', 'absInteg', 'duty', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if (['integ', 'absInteg', 'duty', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'slope'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
@@ -218,6 +222,22 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     const lo = m.from ?? x[0];
     const hi = m.to ?? x[x.length - 1];
     if (lo < x[0] || hi > x[x.length - 1] || lo > hi || (m.at !== undefined && (m.at < lo || m.at > hi))) return error('OUT_OF_RANGE', 'Measurement lies outside the analysis window');
+    if (m.kind === 'slope') {
+      if (x.length < 2) return error('INVALID_MEASUREMENT', 'Slope requires at least two samples');
+      let left = 0; let right = x.length - 1;
+      while (left < right) {
+        const middle = (left + right + 1) >>> 1;
+        if (x[middle] <= m.at!) left = middle;
+        else right = middle - 1;
+      }
+      const i = Math.min(left, x.length - 2);
+      const delta = y[i + 1] - y[i];
+      const width = x[i + 1] - x[i];
+      const value = delta / width;
+      return Number.isFinite(delta) && Number.isFinite(width) && Number.isFinite(value)
+        ? { value, unit: `${data.unit}/s` }
+        : error('NON_FINITE_RESULT', 'Slope is non-finite');
+    }
     if ((m.kind === 'rmsError' || m.kind === 'meanAbsoluteError') && hi === lo) return error('INVALID_MEASUREMENT', `${m.kind === 'rmsError' ? 'RMS error' : 'Mean absolute error'} requires a nonzero window`);
     if (m.kind === 'pulseWidth' || m.kind === 'period' || m.kind === 'frequency') {
       const threshold = m.value!;
