@@ -60,6 +60,31 @@ export class TransmissionLine implements DeviceModel {
     this.branches = [branch1, branch2];
   }
 
+  readonly frequencyDependent = true;
+
+  /** Retain the regularized DC baseline for noise and pole-zero analyses. */
+  stampSmallSignal(ctx: StampContext): void {
+    this.stamp(ctx);
+  }
+
+  /** Add the complex delay exp(-j omega TD), with C representing imag/omega. */
+  stampFrequencyConductance(ctx: StampContext, omega: number): void {
+    const [p1, n1, p2, n2] = this.nodes;
+    const b1 = ctx.numNodes + this.branch1;
+    const b2 = ctx.numNodes + this.branch2;
+    const angle = omega * this.delay;
+    const real = 2 * Math.sin(angle / 2) ** 2;
+    const imaginary = omega === 0 ? this.delay : Math.sin(angle) / omega;
+    for (const [row, positive, negative, branch] of [[b1, p2, n2, b2], [b2, p1, n1, b1]]) {
+      this.stampVoltage(ctx, row, positive, negative, real);
+      // Cancel the DC regularization before applying the exact AC delay.
+      ctx.stampG(row, branch, (real - (ctx.gmin ?? 1e-12)) * this.impedance);
+      if (positive >= 0) ctx.stampC(row, positive, imaginary);
+      if (negative >= 0) ctx.stampC(row, negative, -imaginary);
+      ctx.stampC(row, branch, imaginary * this.impedance);
+    }
+  }
+
   stamp(ctx: StampContext): void {
     const [p1, n1, p2, n2] = this.nodes;
     const b1 = ctx.numNodes + this.branch1;
