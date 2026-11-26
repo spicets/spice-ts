@@ -1254,6 +1254,14 @@ function sourceWaveform(params: JsonObject): Partial<SourceWaveform> & { dc?: nu
     case 'ac': return { type: 'ac', dc: optionalNumber(params, 'dc'), magnitude: optionalNumber(params, 'magnitude') ?? 1, phase: optionalNumber(params, 'phase') ?? 0 };
     case 'sin': return { type: 'sin', offset: numberParam(params, 'offset'), amplitude: numberParam(params, 'amplitude'), frequency: numberParam(params, 'frequency'), delay: optionalNumber(params, 'delay'), damping: optionalNumber(params, 'damping'), phase: optionalNumber(params, 'phase') };
     case 'pulse': return { type: 'pulse', v1: numberParam(params, 'v1'), v2: numberParam(params, 'v2'), delay: numberParam(params, 'delay'), rise: numberParam(params, 'rise'), fall: numberParam(params, 'fall'), width: numberParam(params, 'width'), period: numberParam(params, 'period') };
+    case 'exp': {
+      const fields = ['v1', 'v2', 'td1', 'tau1', 'td2', 'tau2'] as const;
+      for (const field of fields) {
+        const value = optionalNumber(params, field);
+        if (value !== undefined && !Number.isFinite(value)) throw new InvalidCircuitError(`Native EXP parameter '${field}' must be finite`);
+      }
+      return { type: 'exp', dc: optionalNumber(params, 'dc'), v1: numberParam(params, 'v1'), v2: numberParam(params, 'v2'), td1: optionalNumber(params, 'td1'), tau1: optionalNumber(params, 'tau1'), td2: optionalNumber(params, 'td2'), tau2: optionalNumber(params, 'tau2') };
+    }
     case 'pwl': {
       const points = params.points;
       const delay = optionalNumber(params, 'delay');
