@@ -222,7 +222,14 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       if (reference.unit !== data.unit) return error('INVALID_MEASUREMENT', 'Signals must have matching units');
       if (reference.y.length !== x.length || !reference.y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Reference signal has empty, misaligned or non-finite data');
       referenceY = reference.y;
-      y = y.map((v, i) => v - reference.y[i]);
+      const differences = y.map((v, i) => v - reference.y[i]);
+      if (m.kind === 'relativeRmsError' && !differences.every(Number.isFinite)) {
+        // A common factor cancels in the ratio and prevents subtraction overflow.
+        y = y.map((v, i) => v / 2 - reference.y[i] / 2);
+        referenceY = reference.y.map(v => v / 2);
+      } else {
+        y = differences;
+      }
       if (!y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal difference is non-finite');
       if (x.some((v, i) => i > 0 && v <= x[i - 1])) return error('INVALID_MEASUREMENT', 'Transient axis must be strictly increasing');
     }

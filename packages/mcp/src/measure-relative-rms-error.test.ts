@@ -36,6 +36,11 @@ describe('relative RMS tracking error', () => {
     else throw new Error('Expected a value');
   });
 
+  it('handles opposite signed signals near the finite limit', () => {
+    const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1], voltagesV: { out: [-1e308, -1e308], ref: [1e308, 1e308] }, currentsA: {} }] };
+    expect(measureResult(input, [spec]).measurements[0]).toEqual({ value: 2, unit: '1' });
+  });
+
   it('selects the requested step and rejects zero reference, zero duration and unknown signals', () => {
     const a = transient.analyses[0];
     const input = { ...transient, analyses: [0, 1].map(index => ({ ...a, step: { index, parameter: 'r', value: index } })) };
