@@ -236,8 +236,11 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
     if (![mean, rms, peakToPeak].every(Number.isFinite)) return error('INVALID_DATA', 'Signal statistics arithmetic is not finite');
     metrics.signalStatistics = { mean, rms, peakToPeak, unit: metrics.unit };
     if (args.includeStandardDeviation) {
-      // Center at a sample before scaling, preserving ripple on a large DC offset.
-      const centered = peakToPeak === 0 ? y.map(() => 0) : y.map(value => (value - y[0]) / peakToPeak);
+      // Anchor near the time-weighted mean, not a potentially brief extreme.
+      // Subtract before scaling to preserve small ripple on a large DC offset.
+      let anchor = y[0];
+      for (const value of y) if (Math.abs(value - mean) < Math.abs(anchor - mean)) anchor = value;
+      const centered = peakToPeak === 0 ? y.map(() => 0) : y.map(value => (value - anchor) / peakToPeak);
       let center = 0;
       for (let i = 1; i < x.length; i++) {
         const weight = (x[i] - x[i - 1]) / duration;

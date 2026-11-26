@@ -31,11 +31,20 @@ describe('transient population standard deviation', () => {
     expect(actual / Math.abs(amplitude)).toBeCloseTo(1 / Math.sqrt(12), 12);
   });
 
+  it('preserves later variation after a short extreme initial transient', () => {
+    // The spike contributes 1/300 to E[x²]; the later ramp and hold
+    // contribute 2/3. The mean is 3/4, so variance is 43/400.
+    const data = make([0, 1e-34, 0.5, 1], [1e16, 0, 1, 1]);
+    close(deviation(tranMetrics(data, options)), Math.sqrt(43) / 20);
+  });
+
   it('preserves representable ripple under a large translation', () => {
     const time = [0, 1, 2, 4]; const values = [0, 128, 256, 256];
     const plain = deviation(tranMetrics(make(time, values), options));
     const shifted = deviation(tranMetrics(make(time, values.map(v => v + 1e16)), options));
-    close(shifted, plain);
+    // A two-second ramp and two-second hold have variance 5/48 of amplitude².
+    close(plain, 256 * Math.sqrt(5 / 48));
+    close(shifted, 256 * Math.sqrt(5 / 48));
   });
 
   it('supports voltage, differential voltage and current selectors', async () => {
