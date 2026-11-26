@@ -151,14 +151,14 @@ it('matches fixed-step text WASM for every node and source current', async () =>
   } finally { await engine.close(); }
 });
 
-it('rejects extra transient options, inductors and hierarchy', async () => {
+it('rejects extra transient options and hierarchy while accepting inductors', async () => {
   const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
   try {
     const extra = { ...structuredClone(request), options: { reltol: 0.001 } };
     expect(await engine.simulate(extra, { requestId: 'extra' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
     const input = structuredClone(request); if (input.input.format !== 'spice-ts') throw new Error('native');
     input.input.document.circuit.components.push(component('L', 'L1', ['out', '0'], { inductance: 0.001 }));
-    expect(await engine.simulate(input, { requestId: 'inductor' })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
+    expect(await engine.simulate(input, { requestId: 'inductor' })).toMatchObject({ ok: true, metadata: { backend: 'spice-ts-wasm' } });
     input.input.document.circuit.components.pop();
     Object.assign(input.input.document.circuit, { initialConditions: { out: 1 } });
     const excluded = await engine.simulate(input, { requestId: 'directive' });
