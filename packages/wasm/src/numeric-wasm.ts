@@ -826,9 +826,9 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
         throw numericError('INVALID_CIRCUIT', `${component.name} references an unknown net`, 'validation');
       }
     }
-    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : type === 'F' || type === 'H' ? ['gain', 'controlSource'] : type === 'G' ? ['gm'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : nativeAnalysis.type === 'tran' ? ['dc', 'waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period', 'offset', 'amplitude', 'frequency', 'damping', 'phase', 'points', 'repeat'] : ['dc', 'waveform'];
+    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : type === 'F' || type === 'H' ? ['gain', 'controlSource'] : type === 'G' ? ['gm'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : nativeAnalysis.type === 'tran' ? ['dc', 'waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period', 'offset', 'amplitude', 'frequency', 'damping', 'phase', 'points', 'repeat', 'td1', 'tau1', 'td2', 'tau2'] : ['dc', 'waveform'];
     if (Object.keys(component.params).some(key => !allowed.includes(key)) ||
-      (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac') && !(nativeAnalysis.type === 'tran' && (component.params.waveform === 'pulse' || component.params.waveform === 'sin' || component.params.waveform === 'pwl'))) ||
+      (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac') && !(nativeAnalysis.type === 'tran' && (component.params.waveform === 'pulse' || component.params.waveform === 'sin' || component.params.waveform === 'pwl' || component.params.waveform === 'exp'))) ||
       (component.params.waveform !== 'ac' && component.params.magnitude !== undefined) ||
       (component.params.waveform !== 'ac' && !(nativeAnalysis.type === 'tran' && component.params.waveform === 'sin') && component.params.phase !== undefined)) {
       unsupported('device-parameters', 'Only numeric passive values and DC sources are supported');
@@ -836,7 +836,22 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
     if (nativeAnalysis.type === 'tran' && (type === 'I' || type === 'V')) {
       const pulseFields = ['v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period'];
       const sinFields = ['offset', 'amplitude', 'frequency', 'delay', 'damping', 'phase'];
-      if (component.params.waveform === 'pwl') {
+      const expFields = ['v1', 'v2', 'td1', 'tau1', 'td2', 'tau2'];
+      if (component.params.waveform === 'exp') {
+        if (component.ports.length !== 2 || new Set(component.ports.map(port => port.name)).size !== 2 || component.ports.some(port => typeof port.net !== 'string' || !port.net ||
+          (!['0', 'gnd'].includes(port.net.toLowerCase()) && !nets.has(port.net.toLowerCase())))) {
+          throw numericError('INVALID_CIRCUIT', `${component.name} requires two valid source ports`, 'validation');
+        }
+        if (['dc', 'points', 'repeat', ...pulseFields.filter(key => key !== 'v1' && key !== 'v2'), ...sinFields].some(key => component.params[key] !== undefined)) {
+          unsupported('device-parameters', 'EXP parameters cannot be mixed with other waveforms');
+        }
+        if (expFields.some((key, index) => (index < 2 || component.params[key] !== undefined) &&
+          (typeof component.params[key] !== 'number' || !Number.isFinite(component.params[key])))) {
+          throw numericError('INVALID_CIRCUIT', `${component.name} requires finite EXP parameters`, 'validation');
+        }
+      } else if (expFields.slice(2).some(key => component.params[key] !== undefined)) {
+        unsupported('device-parameters', 'EXP parameters require an EXP source');
+      } else if (component.params.waveform === 'pwl') {
         if (component.ports.length !== 2 || new Set(component.ports.map(port => port.name)).size !== 2 || component.ports.some(port => typeof port.net !== 'string' || !port.net ||
           (!['0', 'gnd'].includes(port.net.toLowerCase()) && !nets.has(port.net.toLowerCase())))) {
           throw numericError('INVALID_CIRCUIT', `${component.name} requires two valid source ports`, 'validation');
