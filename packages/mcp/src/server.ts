@@ -276,7 +276,8 @@ export const MCP_TOOLS = Object.freeze([
   {
     name: 'spice_impedance',
     description: 'Measure differential port impedance versus frequency with a 1 A AC current injected from negative to positive. Suppress AC excitation of all other independent sources, preserve DC bias and dependent sources. Accept a protocol request (SPICE or circuit-json), port, optional sweep override and SPICE params. Return ohms, degrees, sampled extrema and interpolated phase-zero resonance estimates.',
-    inputSchema: { ...requestInputSchema, required: ['request', 'port'], properties: { ...requestInputSchema.properties, ...impedanceProperties } },
+    inputSchema: { ...requestInputSchema, required: ['request', 'port'], properties: { ...requestInputSchema.properties, ...impedanceProperties },
+      dependencies: { magnitudeCrossingOccurrence: ['magnitudeLevelsOhm'] } },
     outputSchema: { type: 'object', oneOf: [impedanceOutputSchema, toolFailureOutputSchema, impedanceFailureSchema], $defs: commonSchemaV1.$defs },
   },
   {

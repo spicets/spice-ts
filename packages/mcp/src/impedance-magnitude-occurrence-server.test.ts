@@ -21,6 +21,10 @@ describe('magnitude occurrence MCP protocol', () => {
       const args = { request, port, magnitudeLevelsOhm: [20], magnitudeCrossingOccurrence: 2 };
       const validateInput = new AjvJsonSchemaValidator().getValidator(tool.inputSchema);
       expect(validateInput(args).valid).toBe(true);
+      expect(validateInput({ request, port }).valid).toBe(true);
+      expect(validateInput({ request, port, magnitudeLevelsOhm: [20] }).valid).toBe(true);
+      expect(validateInput({ request, port, magnitudeCrossingOccurrence: 1 }).valid).toBe(false);
+      expect(validateInput({ ...args, magnitudeLevelsOhm: [] }).valid).toBe(false);
       expect(validateInput({ ...args, magnitudeCrossingOccurrence: 129 }).valid).toBe(false);
       const response = await client.callTool({ name: tool.name, arguments: args });
       expect(response.isError, JSON.stringify(response.structuredContent)).not.toBe(true);
