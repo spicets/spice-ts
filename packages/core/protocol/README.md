@@ -12,6 +12,14 @@ Result hashes cover only canonical `SimulationResultV1`. Partial hashes cover ca
 
 Committed schemas are in `schemas/`; the exported `protocolSchemasV1` registry contains the same documents. Shared positive and negative conformance fixtures are in `fixtures/`. Structural constraints live in JSON Schema; cross-field rules (case-insensitive uniqueness, sorted record keys, series lengths, stream point ordering/discriminators, and canonical number diagnostics) are checked by `checkConformanceV1`.
 
+## Simulation options
+
+`options.rshunt` sets an explicit node-to-ground shunt resistance in ohms on
+`spice-ts-js`. It must be finite and greater than `1e-30`. Omitting it leaves
+existing circuit options unchanged. It overrides a SPICE-text `.options rshunt`
+when both are supplied. Other protocol backends reject this option. This is a
+physical shunt, not the junction `gmin` convergence option.
+
 ## Output selection
 
 An optional top-level `outputs` array selects result vectors, for example

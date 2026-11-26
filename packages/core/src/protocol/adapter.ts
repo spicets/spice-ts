@@ -111,7 +111,7 @@ export async function operatingPointReportProtocolV1(request: SimulationRequestV
   enforceInputLimits(request, guard);
   // Preserve OP report semantics: SPICE analysis/control commands are ignored.
   const input = request.input.format === 'spice'
-    ? applyProtocolTemperatures(await parseTitlelessAsync(request.input.source), request.options)
+    ? applyProtocolCircuitOptions(await parseTitlelessAsync(request.input.source), request.options)
     : await requestCircuit(request, guard);
   return operatingPointReport(input, coreOptions(request.options));
 }
@@ -234,10 +234,10 @@ export async function simulateProtocolV1(
     for (const run of runs) {
       let runCircuit = circuit;
       if (run && nativeSweep && request.input.format === 'spice-ts') {
-        runCircuit = applyProtocolTemperatures(circuitFromDocument(steppedComponentDocument(request.input.document, run.value), guard), request.options);
+        runCircuit = applyProtocolCircuitOptions(circuitFromDocument(steppedComponentDocument(request.input.document, run.value), guard), request.options);
       }
       if (run && sourceSweep && request.input.format === 'spice-ts') {
-        runCircuit = applyProtocolTemperatures(circuitFromDocument(steppedSourceDocument(request.input.document, run.value), guard), request.options);
+        runCircuit = applyProtocolCircuitOptions(circuitFromDocument(steppedSourceDocument(request.input.document, run.value), guard), request.options);
       }
       const compiled = runCircuit.compile(guard);
       const result = await simulate(runCircuit, options, guard);
@@ -309,7 +309,7 @@ function steppedComponentDocument(document: SpiceTsCircuitDocumentV1, value: num
 function outputSelectionCircuit(request: SimulationRequestV1, compiled: CompiledCircuit, guard: ProtocolExecutionGuard): CompiledCircuit {
   if (request.outputs === undefined || request.input.format !== 'spice-ts' || !request.input.document.componentSweep || !['tran', 'ac', 'dc'].includes(request.input.document.analyses[0]?.type ?? '')) return compiled;
   const document = steppedComponentDocument(request.input.document, request.input.document.componentSweep.values[0]!);
-  return applyProtocolTemperatures(circuitFromDocument(document, guard), request.options).compile(guard);
+  return applyProtocolCircuitOptions(circuitFromDocument(document, guard), request.options).compile(guard);
 }
 
 function validateOutputSelection(request: SimulationRequestV1, compiled: CompiledCircuit): OutputSelection | undefined {
@@ -458,12 +458,18 @@ function jsonPointerSegment(value: string): string {
   return value.replaceAll('~', '~0').replaceAll('/', '~1');
 }
 
-function applyProtocolTemperatures(circuit: Circuit, options?: SimulationOptionsV1): Circuit {
+function applyProtocolCircuitOptions(circuit: Circuit, options?: SimulationOptionsV1): Circuit {
   for (const field of ['temperature', 'nominalTemperature'] as const) {
     const value = options?.[field];
     if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value <= -273.15)) {
       throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', message: `${field} must be a finite Celsius value above absolute zero`, phase: 'validation', retryable: false, details: { path: `/options/${field}` } });
     }
+  }
+  if (options?.rshunt !== undefined) {
+    if (typeof options.rshunt !== 'number' || !Number.isFinite(options.rshunt) || options.rshunt <= 1e-30 || (options.backend !== undefined && options.backend !== 'spice-ts-js')) {
+      throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', message: 'rshunt requires a finite resistance above 1e-30 ohm and the spice-ts-js backend', phase: 'validation', retryable: false, details: { path: '/options/rshunt' } });
+    }
+    circuit.setSimulationOptions({ rshunt: options.rshunt });
   }
   if (options?.temperature !== undefined) circuit.setTemperature(options.temperature);
   if (options?.nominalTemperature !== undefined) circuit.setNominalTemperature(options.nominalTemperature);
@@ -485,11 +491,11 @@ async function requestCircuit(
       // Interpreted ngspice control scripts run an open-ended analysis sequence
       // that the protocol's per-analysis limits and result envelope cannot bound.
       if (circuit.controlScript) throw new UnsupportedProtocolAnalysisError('.control script');
-      return applyProtocolTemperatures(circuit, request.options);
+      return applyProtocolCircuitOptions(circuit, request.options);
     }
     case 'spice-ts':
       if (request.input.document.temperatureSweep !== undefined && request.options?.temperature !== undefined) invalidNativeField('/options/temperature');
-      return applyProtocolTemperatures(circuitFromDocument(request.input.document, guard), request.options);
+      return applyProtocolCircuitOptions(circuitFromDocument(request.input.document, guard), request.options);
     case 'circuit-json':
       throw new InvalidCircuitError('circuit-json conversion is owned by @spice-ts/circuit-json and is unavailable in core');
   }
@@ -638,6 +644,7 @@ function coreOptions(options?: SimulationOptionsV1): SimulationOptions {
     integrationMethod: options?.integrationMethod,
     trtol: options?.trtol,
     gmin: options?.gmin,
+    rshunt: options?.rshunt,
   };
 }
 
