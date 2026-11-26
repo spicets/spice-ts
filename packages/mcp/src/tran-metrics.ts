@@ -2,6 +2,7 @@ import type { SimulationResultV1 } from '@spice-ts/core/protocol';
 
 export interface TranMetricsArgs {
   signal: string;
+  referenceSignal?: string;
   analysis?: number;
   step?: number;
   initialValue?: number;
@@ -17,6 +18,7 @@ export interface TranMetrics {
   maxRiseSlewPerS: number; maxFallSlewPerS: number; slewUnit: 'V/s' | 'A/s';
   overshootPercent: number; undershootPercent: number;
   settlingTimeS: number; peakValue: number; peakTimeS: number;
+  correlation?: { referenceSignal: string; covariance: number; covarianceUnit: string; coefficient: number | null };
   signalStatistics?: { mean: number; rms: number; peakToPeak: number; unit: 'V' | 'A' };
 }
 const codes = ['NOT_TRANSIENT', 'UNKNOWN_STEP', 'SIGNAL_NOT_FOUND', 'NO_TRANSITION', 'NOT_SETTLED', 'INVALID_DATA'] as const;
@@ -24,6 +26,7 @@ type MetricsError = { error: { code: typeof codes[number]; message: string } };
 const metricNames = ['initialValue', 'finalValue', 'riseTimeS', 'fallTimeS', 'overshootPercent', 'undershootPercent', 'settlingTimeS', 'peakValue', 'peakTimeS', 'maxRiseSlewPerS', 'maxFallSlewPerS'] as const;
 export const tranMetricsProperties = {
   signal: { type: 'string', minLength: 1, maxLength: 256 },
+  referenceSignal: { type: 'string', minLength: 1, maxLength: 256 },
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
   includeSignalStatistics: { type: 'boolean', default: false },
@@ -39,6 +42,10 @@ export const tranMetricsOutputSchemas = [
       ...Object.fromEntries(metricNames.map(key => [key, { type: key === 'riseTimeS' || key === 'fallTimeS' ? ['number', 'null'] : 'number' }])),
       unit: { enum: ['V', 'A'] },
       slewUnit: { enum: ['V/s', 'A/s'] },
+      correlation: {
+        type: 'object', required: ['referenceSignal', 'covariance', 'covarianceUnit', 'coefficient'], additionalProperties: false,
+        properties: { referenceSignal: { type: 'string' }, covariance: { type: 'number' }, covarianceUnit: { enum: ['V*V', 'V*A', 'A*V', 'A*A'] }, coefficient: { type: ['number', 'null'], minimum: -1, maximum: 1 } },
+      },
       signalStatistics: {
         type: 'object', required: ['mean', 'rms', 'peakToPeak', 'unit'], additionalProperties: false,
         properties: { mean: { type: 'number' }, rms: { type: 'number' }, peakToPeak: { type: 'number' }, unit: { enum: ['V', 'A'] } },
@@ -59,6 +66,7 @@ export function tranMetricsArgs(raw: unknown): TranMetricsArgs {
   if (!a || typeof a !== 'object' || Array.isArray(a)
     || Object.keys(a).some(key => !['request', ...Object.keys(tranMetricsProperties)].includes(key))
     || typeof a.signal !== 'string' || !a.signal.length || a.signal.length > 256
+    || (a.referenceSignal !== undefined && (typeof a.referenceSignal !== 'string' || !a.referenceSignal.length || a.referenceSignal.length > 256))
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
     || (a.step !== undefined && (!Number.isInteger(a.step) || (a.step as number) < 0))
     || (a.includeSignalStatistics !== undefined && typeof a.includeSignalStatistics !== 'boolean')
@@ -109,6 +117,32 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
   if (!y) return error('SIGNAL_NOT_FOUND', 'Expected an existing v(node) or i(branch) signal');
   if (x.length < 2 || y.length !== x.length || y.some(v => !Number.isFinite(v))
     || x.some((v, i) => !Number.isFinite(v) || (i > 0 && v <= x[i - 1]))) return error('INVALID_DATA', 'Expected finite aligned samples and strictly increasing times');
+  let reference: number[] | undefined;
+  const referenceMatch = args.referenceSignal === undefined ? null : /^([vi])\(([^()]+)\)$/i.exec(args.referenceSignal);
+  if (args.referenceSignal !== undefined) {
+    if (referenceMatch) {
+      const source = referenceMatch[1].toLowerCase() === 'v' ? a.voltagesV : a.currentsA;
+      const referenceKey = Object.keys(source).find(name => name.toLowerCase() === referenceMatch[2].toLowerCase());
+      reference = referenceKey === undefined ? undefined : source[referenceKey];
+      if (!reference && referenceMatch[1].toLowerCase() === 'v') {
+        const terminals = referenceMatch[2].split(',').map(name => name.trim());
+        if (terminals.length === 2 && terminals.every(Boolean)) {
+          const node = (name: string) => {
+            if (/^(0|gnd)$/i.test(name)) return x.map(() => 0);
+            const found = Object.keys(a.voltagesV).find(key => key.toLowerCase() === name.toLowerCase());
+            return found === undefined ? undefined : a.voltagesV[found];
+          };
+          const left = node(terminals[0]); const right = node(terminals[1]);
+          if (left && right) {
+            if (left.length !== x.length || right.length !== x.length || !left.every(Number.isFinite) || !right.every(Number.isFinite)) return error('INVALID_DATA', 'Expected finite aligned reference samples');
+            reference = left.map((value, i) => value - right[i]);
+          }
+        }
+      }
+    }
+    if (!reference) return error('SIGNAL_NOT_FOUND', 'Expected an existing reference v(node) or i(branch) signal');
+    if (reference.length !== x.length || !Array.from(reference).every(Number.isFinite)) return error('INVALID_DATA', 'Expected finite aligned reference samples');
+  }
   if (args.timeRangeS) {
     const [start, end] = args.timeRangeS;
     if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end || start < x[0] || end > x[x.length - 1]) {
@@ -120,11 +154,19 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
       const fraction = (time - x[i - 1]) / (x[i] - x[i - 1]);
       return y![i - 1] + fraction * (y![i] - y![i - 1]);
     };
+    const sampleReference = (time: number) => {
+      const i = x.findIndex(t => t >= time);
+      if (x[i] === time) return reference![i];
+      const fraction = (time - x[i - 1]) / (x[i] - x[i - 1]);
+      return reference![i - 1] + fraction * (reference![i] - reference![i - 1]);
+    };
+    const clippedReference = reference ? [sampleReference(start)] : undefined;
     const clippedX = [start]; const clippedY = [sampleAt(start)];
     for (let i = 0; i < x.length; i++) {
-      if (x[i] > start && x[i] < end) { clippedX.push(x[i]); clippedY.push(y[i]); }
+      if (x[i] > start && x[i] < end) { clippedX.push(x[i]); clippedY.push(y[i]); if (clippedReference) clippedReference.push(reference![i]); }
     }
     clippedX.push(end); clippedY.push(sampleAt(end));
+    if (clippedReference) { clippedReference.push(sampleReference(end)); reference = clippedReference; }
     x = clippedX; y = clippedY;
   }
   const initialValue = args.initialValue ?? y[0]; const finalValue = args.finalValue ?? y[y.length - 1];
@@ -189,6 +231,43 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
     const peakToPeak = max - min;
     if (![mean, rms, peakToPeak].every(Number.isFinite)) return error('INVALID_DATA', 'Signal statistics arithmetic is not finite');
     metrics.signalStatistics = { mean, rms, peakToPeak, unit: metrics.unit };
+  }
+  if (reference) {
+    const duration = x[x.length - 1] - x[0];
+    // Center before scaling to retain small variations on a large DC offset.
+    // If subtraction overflows, scale first instead.
+    const normalize = (values: number[]) => {
+      let scale = 0;
+      for (const value of values) scale = Math.max(scale, Math.abs(value - values[0]));
+      if (Number.isFinite(scale)) return { scale, values: values.map(value => scale === 0 ? 0 : (value - values[0]) / scale) };
+      scale = 0;
+      for (const value of values) scale = Math.max(scale, Math.abs(value));
+      return { scale, values: values.map(value => value / scale - values[0] / scale) };
+    };
+    const ny = normalize(y); const nr = normalize(reference);
+    const scaleY = ny.scale; const scaleR = nr.scale;
+    const ys = ny.values; const rs = nr.values;
+    let meanY = 0; let meanR = 0;
+    for (let i = 1; i < x.length; i++) {
+      const weight = (x[i] - x[i - 1]) / duration;
+      meanY += weight * (ys[i - 1] / 2 + ys[i] / 2);
+      meanR += weight * (rs[i - 1] / 2 + rs[i] / 2);
+    }
+    let cov = 0; let varY = 0; let varR = 0;
+    for (let i = 1; i < x.length; i++) {
+      const weight = (x[i] - x[i - 1]) / duration;
+      const y0 = ys[i - 1] - meanY; const y1 = ys[i] - meanY;
+      const r0 = rs[i - 1] - meanR; const r1 = rs[i] - meanR;
+      cov += weight * ((y0 * r0 + y1 * r1) / 3 + (y0 * r1 + y1 * r0) / 6);
+      varY += weight * (y0 * y0 + y0 * y1 + y1 * y1) / 3;
+      varR += weight * (r0 * r0 + r0 * r1 + r1 * r1) / 3;
+    }
+    const constant = y.every(value => value === y[0]) || reference.every(value => value === reference![0]);
+    const covariance = constant ? 0 : (cov * Math.max(scaleY, scaleR)) * Math.min(scaleY, scaleR);
+    const rawCoefficient = constant ? null : cov / Math.sqrt(varY) / Math.sqrt(varR);
+    if (!Number.isFinite(covariance) || (rawCoefficient !== null && !Number.isFinite(rawCoefficient))) return error('INVALID_DATA', 'Correlation arithmetic is not finite');
+    const coefficient = rawCoefficient === null ? null : Math.max(-1, Math.min(1, rawCoefficient));
+    metrics.correlation = { referenceSignal: args.referenceSignal!, covariance, covarianceUnit: `${metrics.unit}*${referenceMatch![1].toLowerCase() === 'v' ? 'V' : 'A'}`, coefficient };
   }
   return metrics;
 }
