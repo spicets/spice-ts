@@ -66,6 +66,7 @@ interface PreparedPassiveTran extends PreparedNumericBase {
   hierarchical: boolean;
   transient: Extract<CompiledCircuit['analyses'][number], { type: 'tran' }>;
   normalizedSource: string;
+  nativeCircuit?: Circuit;
 }
 
 type PreparedNumeric = PreparedLinearOp | PreparedLinearDc | PreparedPassiveAc | PreparedPassiveTran;
@@ -442,14 +443,13 @@ function simulateTransient(
 
 /** Shared adaptive driver and device models; every DC/Newton solve stays in WASM. */
 async function simulateAdaptiveTransient(
-  { compiled, transient, normalizedSource }: PreparedPassiveTran,
+  { compiled, transient, normalizedSource, nativeCircuit }: PreparedPassiveTran,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
   maxPoints: number,
 ): Promise<SimulationResultV1> {
   const options = request.options;
-  if (request.input.format !== 'spice') unsupported('input-format', 'SPICE text is required');
-  const sim = await createTransientSim(parseTitleless(normalizedSource), {
+  const sim = await createTransientSim(nativeCircuit ?? parseTitleless(normalizedSource), {
     abstol: options?.abstol, vntol: options?.vntol, reltol: options?.reltol,
     maxIterations: options?.maxIterations, maxTransientIterations: options?.maxTransientIterations,
     gmin: options?.gmin, trtol: options?.trtol, maxTimestep: options?.maxTimestep,
@@ -729,7 +729,7 @@ function polar(real: number, imaginary: number): { magnitude: number; phaseDegre
   };
 }
 
-function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> }): PreparedLinearOp | PreparedPassiveAc {
+function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<SimulationRequestV1['input'], { format: 'spice-ts' }> }): PreparedLinearOp | PreparedPassiveAc | PreparedPassiveTran {
   const document = request.input.document;
   const sourceBytes = new TextEncoder().encode(JSON.stringify(request.input)).byteLength;
   const sourceLimit = Math.min(NUMERIC_WASM_LIMITS.maxSourceBytes, request.options?.limits?.maxSourceBytes ?? Infinity);
@@ -740,7 +740,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const analysisLimit = Math.min(1, request.options?.limits?.maxAnalyses ?? Infinity);
   if (document.analyses.length > analysisLimit) throw resourceLimit('maxAnalyses', analysisLimit, document.analyses.length);
   const nativeAnalysis = document.analyses[0];
-  if (document.analyses.length !== 1 || (nativeAnalysis?.type !== 'op' && nativeAnalysis?.type !== 'ac')) unsupported('analysis', 'Exactly one .op or .ac analysis is supported');
+  if (document.analyses.length !== 1 || (nativeAnalysis?.type !== 'op' && nativeAnalysis?.type !== 'ac' && nativeAnalysis?.type !== 'tran')) unsupported('analysis', 'Exactly one .op, .ac or .tran analysis is supported');
   if (nativeAnalysis.type === 'ac' && nativeAnalysis.measurements !== undefined) {
     const entries = nativeAnalysis.measurements;
     const root = '/input/document/analyses/0/measurements';
@@ -776,10 +776,23 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
     !['format', 'schemaVersion', 'circuit', 'analyses', 'models', 'subcircuits'].includes(key))) {
     unsupported('native-document', 'Only flat native circuits without additional directives are supported');
   }
+  if (nativeAnalysis.type === 'tran') {
+    if (Object.keys(nativeAnalysis).some(key => !['type', 'timestep', 'stopTime', 'startTime', 'maxTimestep'].includes(key)) || request.outputs !== undefined ||
+      Object.keys(document.circuit).some(key => !['nets', 'components'].includes(key)) ||
+      components.some(component => Object.keys(component).some(key => !['type', 'name', 'id', 'ports', 'params'].includes(key)))) {
+      unsupported('native-transient-feature', 'Native transient directives and output selection are not supported');
+    }
+    const { timestep, stopTime, startTime = 0, maxTimestep } = nativeAnalysis;
+    if (![timestep, stopTime, startTime].every(Number.isFinite) || timestep <= 0 || stopTime <= 0 || startTime < 0 || startTime >= stopTime ||
+      (maxTimestep !== undefined && (!Number.isFinite(maxTimestep) || maxTimestep <= 0))) {
+      throw numericError('INVALID_CIRCUIT', 'Invalid transient controls', 'validation');
+    }
+    if (request.options && Object.keys(request.options).some(key => key !== 'limits')) unsupported('native-transient-options', 'Only resource limits are supported');
+  }
   const nets = new Set(document.circuit.nets.map(net => net.toLowerCase()));
   for (const component of components) {
     const type = component.type.toUpperCase();
-    if (!['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H'].includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
+    if (!(nativeAnalysis.type === 'tran' ? ['R', 'C', 'I', 'V'] : ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H']).includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
       unsupported('device', 'Only R, C, L, I, V, VCVS, VCCS, CCCS and CCVS devices are supported');
     }
     if (type === 'E' || type === 'G' || type === 'F' || type === 'H') {
@@ -811,18 +824,29 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
         throw numericError('INVALID_CIRCUIT', `${component.name} references an unknown net`, 'validation');
       }
     }
-    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : type === 'F' || type === 'H' ? ['gain', 'controlSource'] : type === 'G' ? ['gm'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : ['dc', 'waveform'];
+    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : type === 'F' || type === 'H' ? ['gain', 'controlSource'] : type === 'G' ? ['gm'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : nativeAnalysis.type === 'tran' ? ['dc', 'waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period'] : ['dc', 'waveform'];
     if (Object.keys(component.params).some(key => !allowed.includes(key)) ||
-      (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac')) ||
+      (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac') && !(nativeAnalysis.type === 'tran' && component.params.waveform === 'pulse')) ||
       (component.params.waveform !== 'ac' && (component.params.magnitude !== undefined || component.params.phase !== undefined))) {
       unsupported('device-parameters', 'Only numeric passive values and DC sources are supported');
+    }
+    if (nativeAnalysis.type === 'tran' && (type === 'I' || type === 'V')) {
+      const pulseFields = ['v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period'];
+      if (component.params.waveform === 'pulse') {
+        if (component.params.dc !== undefined || pulseFields.some(key => typeof component.params[key] !== 'number' || !Number.isFinite(component.params[key]))) {
+          throw numericError('INVALID_CIRCUIT', `${component.name} requires finite pulse parameters`, 'validation');
+        }
+      } else if (pulseFields.some(key => component.params[key] !== undefined)) {
+        unsupported('device-parameters', 'Pulse parameters require a pulse source');
+      }
     }
     if ((type === 'I' || type === 'V') && ['dc', 'magnitude', 'phase'].some(key => component.params[key] !== undefined && (typeof component.params[key] !== 'number' || !Number.isFinite(component.params[key])))) {
       throw numericError('INVALID_CIRCUIT', `${component.name} requires finite numeric source parameters`, 'validation');
     }
   }
   // Reuse core's native schema/compiler semantics, but perform the solve in WASM.
-  const compiled = circuitFromDocument(document).compile();
+  const nativeCircuit = circuitFromDocument(document);
+  const compiled = nativeCircuit.compile();
   if (compiled.devices.length > componentLimit) throw resourceLimit('maxComponents', componentLimit, compiled.devices.length);
   const order = compiled.nodeCount + compiled.branchCount;
   if (order < 1) throw numericError('INVALID_CIRCUIT', 'The circuit has no numeric unknowns', 'compile');
@@ -833,6 +857,10 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   }
   if (nativeAnalysis.type === 'op') return { analysis: 'op', compiled, order, selection: selectNativeOpOutputs(request.outputs, compiled) };
   const compiledAnalysis = compiled.analyses[0];
+  if (nativeAnalysis.type === 'tran') {
+    if (compiledAnalysis?.type !== 'tran') unsupported('analysis', 'Exactly one .tran analysis is supported');
+    return { analysis: 'tran', compiled, order, transient: compiledAnalysis, fourierCircuit: nativeCircuit, nativeCircuit, measurements: [], normalizedSource: '', hierarchical: false };
+  }
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
   const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
   const pointCount = frequencyPointCount(compiledAnalysis, reltol, 'ac');
