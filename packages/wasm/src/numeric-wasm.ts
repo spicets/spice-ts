@@ -790,11 +790,9 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
     if (request.options && Object.keys(request.options).some(key => key !== 'limits')) unsupported('native-transient-options', 'Only resource limits are supported');
   }
   const nets = new Set(document.circuit.nets.map(net => net.toLowerCase()));
-  // Keep the existing non-PWL native transient device boundary unchanged.
-  const hasPwlSource = components.some(component => ['I', 'V'].includes(component.type.toUpperCase()) && component.params.waveform === 'pwl');
   for (const component of components) {
     const type = component.type.toUpperCase();
-    if (!(nativeAnalysis.type === 'tran' ? ['R', 'C', ...(hasPwlSource ? ['L'] : []), 'I', 'V'] : ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H']).includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
+    if (!(nativeAnalysis.type === 'tran' ? ['R', 'C', 'L', 'I', 'V'] : ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H']).includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
       unsupported('device', 'Only R, C, L, I, V, VCVS, VCCS, CCCS and CCVS devices are supported');
     }
     if (type === 'E' || type === 'G' || type === 'F' || type === 'H') {
