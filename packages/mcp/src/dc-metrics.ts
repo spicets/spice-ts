@@ -1,14 +1,15 @@
 import type { SimulationResultV1, SpiceApiErrorV1 } from '@spice-ts/core/protocol';
 
 type CrossingDirection = 'either' | 'rising' | 'falling';
-type DcMetricsInput = { sweptSource: string; output: string; input?: string; analysis?: number; step?: number; sweepPoints?: number[]; currentSignal?: string; includeSpotGain?: boolean; includeSpotResistance?: boolean; outputLevelsV?: number[]; crossingDirection?: CrossingDirection; crossingOccurrence?: number };
+type DcMetricsInput = { sweptSource: string; output: string; input?: string; analysis?: number; step?: number; sweepPoints?: number[]; currentSignal?: string; currentLevelsA?: number[]; includeSpotGain?: boolean; includeSpotResistance?: boolean; outputLevelsV?: number[]; crossingDirection?: CrossingDirection; crossingOccurrence?: number };
 type DcSpot = { sweepPoint: number; inputValue: number | null; outputValue: number | null; outOfRange: boolean; gain?: number | null; gainReason?: string };
 type CurrentSpot = { sweepPoint: number; currentA: number | null; conductanceS: number | null; outOfRange: boolean; conductanceReason?: string };
+type CurrentLevelCrossing = { currentLevelA: number; sweepPoint: number | null };
 type LevelCrossing = { outputLevelV: number; sweepPoint: number | null };
 type Metric = { value: number | null; unit: string; reason?: string };
 type GainMetric = Metric & { input?: number; sweepPoint?: number };
 type DcMetrics = Record<'switchingThreshold' | 'voh' | 'vol' | 'vil' | 'vih' | 'nmL' | 'nmH', Metric> & {
-  gainMax: GainMetric; monotonic: boolean; spots?: DcSpot[]; currentSpots?: CurrentSpot[]; levelCrossings?: LevelCrossing[];
+  gainMax: GainMetric; monotonic: boolean; spots?: DcSpot[]; currentSpots?: CurrentSpot[]; currentLevelCrossings?: CurrentLevelCrossing[]; levelCrossings?: LevelCrossing[];
 };
 
 type ResistanceSpot = { sweepPoint: number; outputValue: number | null; outOfRange: boolean; resistance: Metric };
@@ -21,12 +22,13 @@ export const dcMetricsProperties = {
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
   sweepPoints: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Swept-source coordinates in request order; linearly interpolated without extrapolation.' },
-  currentSignal: { type: 'string', maxLength: 256, pattern: '^[iI]\\([^\\s(),]+\\)$', description: 'Branch current i(name) in amperes. Requires sweepPoints and a voltage-source sweep. Returns signed local current/voltage secants in siemens, not analytic derivatives; exact knots select the next interval in increasing voltage order. No extrapolation.' },
+  currentLevelsA: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Signed branch current levels in amperes. Requires currentSignal and an independent voltage-source DC sweep; returns interpolated source coordinates in volts without extrapolation.' },
+  currentSignal: { type: 'string', maxLength: 256, pattern: '^[iI]\\([^\\s(),]+\\)$', description: 'Branch current i(name) in amperes. Requires sweepPoints or currentLevelsA and an independent voltage-source sweep. Returns signed local current/voltage secants in siemens, not analytic derivatives; exact knots select the next interval in increasing voltage order. No extrapolation.' },
   includeSpotGain: { type: 'boolean', description: 'Add V/V local piecewise-linear secant gain, not an analytic derivative. Exact knots use the following interval in sweep traversal, except the final knot uses the preceding interval. Requires sweepPoints. Out-of-range, zero-input-delta and nonrepresentable gains are null with gainReason.' },
   includeSpotResistance: { type: 'boolean', description: 'Return resistanceSpots for an independent current-source sweep. Resistance is a local piecewise-linear dV(output)/dI secant in ohms, not an analytic derivative; I is the signed source value from positive to negative terminal. Requires sweepPoints and excludes input, includeSpotGain, outputLevelsV, crossingDirection and crossingOccurrence. Exact knots use the following traversal interval except the last; outside-range and nonrepresentable values are null with a reason. No extrapolation.' },
   outputLevelsV: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Output voltage levels in request order; select a crossing in sweep traversal (default first), without extrapolation.' },
-  crossingOccurrence: { type: 'integer', minimum: 1, maximum: 128, description: 'Select the 1-based qualifying crossing independently for each output level (default 1). Requires outputLevelsV. Traversal order applies. An initial level match counts only for either; otherwise a crossing is counted on entry to a level, including a plateau, not on departure. Flat segments do not cross, and a shared sample knot is counted once.' },
-  crossingDirection: { type: 'string', enum: ['either', 'rising', 'falling'], description: 'Direction of output crossing in sweep traversal. Requires outputLevelsV; defaults to either.' },
+  crossingOccurrence: { type: 'integer', minimum: 1, maximum: 128, description: 'Select the 1-based qualifying crossing independently for each requested voltage or current level (default 1). Requires outputLevelsV or currentLevelsA. Traversal order applies. An initial level match counts only for either; otherwise a crossing is counted on entry to a level, including a plateau, not on departure. Flat segments do not cross, and a shared sample knot is counted once.' },
+  crossingDirection: { type: 'string', enum: ['either', 'rising', 'falling'], description: 'Direction of voltage or current crossing in sweep traversal. Requires outputLevelsV or currentLevelsA; defaults to either.' },
   output: { type: 'string', minLength: 1, maxLength: 256, pattern: voltagePattern, description: 'Voltage expression v(node) or v(positive,negative).' },
   input: { type: 'string', minLength: 1, maxLength: 256, pattern: voltagePattern, description: 'Voltage expression v(node) or v(positive,negative); defaults to the voltage sweep.' },
 };
@@ -44,6 +46,7 @@ export const dcMetricsOutputSchema = {
     resistanceSpots: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['sweepPoint', 'outputValue', 'outOfRange', 'resistance'], properties: { sweepPoint: { type: 'number' }, outputValue: { type: ['number', 'null'] }, outOfRange: { type: 'boolean' }, resistance: metricSchema } } },
     monotonic: { type: 'boolean' },
     spots: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['sweepPoint', 'inputValue', 'outputValue', 'outOfRange'], properties: { sweepPoint: { type: 'number' }, inputValue: { type: ['number', 'null'] }, outputValue: { type: ['number', 'null'] }, outOfRange: { type: 'boolean' }, gain: { type: ['number', 'null'] }, gainReason: { type: 'string' } } } },
+    currentLevelCrossings: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['currentLevelA', 'sweepPoint'], properties: { currentLevelA: { type: 'number' }, sweepPoint: { type: ['number', 'null'] } } } },
     levelCrossings: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['outputLevelV', 'sweepPoint'], properties: { outputLevelV: { type: 'number' }, sweepPoint: { type: ['number', 'null'] } } } },
   },
 };
@@ -56,12 +59,13 @@ export function dcMetricsInput(args: unknown): DcMetricsInput {
   const fields = args as Record<string, unknown>;
   if (Object.keys(fields).some(key => !['request', ...Object.keys(dcMetricsProperties)].includes(key))) invalid('Unknown DC metric argument');
   if (fields.sweepPoints !== undefined && (!Array.isArray(fields.sweepPoints) || fields.sweepPoints.length < 1 || fields.sweepPoints.length > 128 || Array.from(fields.sweepPoints).some(v => typeof v !== 'number' || !Number.isFinite(v)))) invalid('Invalid sweepPoints');
-  if (fields.currentSignal !== undefined && (typeof fields.currentSignal !== 'string' || fields.currentSignal.length > 256 || !/^[iI]\([^\s(),]+\)$/.test(fields.currentSignal) || fields.sweepPoints === undefined || fields.includeSpotResistance === true)) invalid('currentSignal requires i(branch), sweepPoints and a voltage sweep');
+  if (fields.currentSignal !== undefined && (typeof fields.currentSignal !== 'string' || fields.currentSignal.length > 256 || !/^[iI]\([^\s(),]+\)$/.test(fields.currentSignal) || (fields.sweepPoints === undefined && fields.currentLevelsA === undefined) || fields.includeSpotResistance === true)) invalid('currentSignal requires i(branch), sweepPoints or currentLevelsA, and a voltage sweep');
   if (fields.includeSpotGain !== undefined && (typeof fields.includeSpotGain !== 'boolean' || (fields.includeSpotGain && fields.sweepPoints === undefined))) invalid('includeSpotGain must be boolean and requires sweepPoints when true');
   if (fields.includeSpotResistance !== undefined && (typeof fields.includeSpotResistance !== 'boolean' || (fields.includeSpotResistance && (fields.sweepPoints === undefined || fields.includeSpotGain === true || fields.input !== undefined || fields.outputLevelsV !== undefined || fields.crossingDirection !== undefined || fields.crossingOccurrence !== undefined)))) invalid('includeSpotResistance requires sweepPoints and is incompatible with voltage transfer options');
+  if (fields.currentLevelsA !== undefined && (!Array.isArray(fields.currentLevelsA) || fields.currentLevelsA.length < 1 || fields.currentLevelsA.length > 128 || Array.from(fields.currentLevelsA).some(v => typeof v !== 'number' || !Number.isFinite(v)) || fields.currentSignal === undefined)) invalid('Invalid currentLevelsA or missing currentSignal');
   if (fields.outputLevelsV !== undefined && (!Array.isArray(fields.outputLevelsV) || fields.outputLevelsV.length < 1 || fields.outputLevelsV.length > 128 || Array.from(fields.outputLevelsV).some(v => typeof v !== 'number' || !Number.isFinite(v)))) invalid('Invalid outputLevelsV');
-  if (fields.crossingDirection !== undefined && (fields.outputLevelsV === undefined || !['either', 'rising', 'falling'].includes(fields.crossingDirection as string))) invalid('Invalid crossingDirection');
-  if (fields.crossingOccurrence !== undefined && (fields.outputLevelsV === undefined || !Number.isInteger(fields.crossingOccurrence) || (fields.crossingOccurrence as number) < 1 || (fields.crossingOccurrence as number) > 128)) invalid('Invalid crossingOccurrence');
+  if (fields.crossingDirection !== undefined && ((fields.outputLevelsV === undefined && fields.currentLevelsA === undefined) || !['either', 'rising', 'falling'].includes(fields.crossingDirection as string))) invalid('Invalid crossingDirection');
+  if (fields.crossingOccurrence !== undefined && ((fields.outputLevelsV === undefined && fields.currentLevelsA === undefined) || !Number.isInteger(fields.crossingOccurrence) || (fields.crossingOccurrence as number) < 1 || (fields.crossingOccurrence as number) > 128)) invalid('Invalid crossingOccurrence');
   for (const key of ['analysis', 'step']) {
     if (fields[key] !== undefined && (!Number.isInteger(fields[key]) || (fields[key] as number) < 0)) invalid(`Invalid ${key}`);
   }
@@ -71,7 +75,7 @@ export function dcMetricsInput(args: unknown): DcMetricsInput {
   for (const signal of [fields.output, fields.input].filter(v => v !== undefined)) {
     if (!new RegExp(voltagePattern).test(signal as string)) invalid('DC transfer expressions must be v(node) or v(positive,negative)');
   }
-  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined, analysis: fields.analysis as number | undefined, step: fields.step as number | undefined, sweepPoints: fields.sweepPoints as number[] | undefined, currentSignal: fields.currentSignal as string | undefined, includeSpotGain: fields.includeSpotGain as boolean | undefined, includeSpotResistance: fields.includeSpotResistance as boolean | undefined, outputLevelsV: fields.outputLevelsV as number[] | undefined, crossingDirection: fields.crossingDirection as CrossingDirection | undefined, crossingOccurrence: fields.crossingOccurrence as number | undefined };
+  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined, analysis: fields.analysis as number | undefined, step: fields.step as number | undefined, sweepPoints: fields.sweepPoints as number[] | undefined, currentSignal: fields.currentSignal as string | undefined, currentLevelsA: fields.currentLevelsA as number[] | undefined, includeSpotGain: fields.includeSpotGain as boolean | undefined, includeSpotResistance: fields.includeSpotResistance as boolean | undefined, outputLevelsV: fields.outputLevelsV as number[] | undefined, crossingDirection: fields.crossingDirection as CrossingDirection | undefined, crossingOccurrence: fields.crossingOccurrence as number | undefined };
 }
 const metric = (value: number | null, reason?: string, unit = 'V'): Metric => {
   if (value !== null && !Number.isFinite(value)) return { value: null, unit, reason: 'Non-finite metric' };
@@ -133,18 +137,20 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     }) };
   }
   let currentSpots: CurrentSpot[] | undefined;
+  let currentValues: number[] | undefined;
   if (input.currentSignal !== undefined) {
     if (a.axis.unit !== 'V' || !/^v/i.test(input.sweptSource)) invalid('Current spots require an independent voltage-source sweep');
     const name = input.currentSignal.slice(2, -1).toLowerCase();
     const key = Object.keys(a.currentsA).find(key => key.toLowerCase() === name);
     if (key === undefined) invalid(`Unknown current signal: ${input.currentSignal}`);
     let current = a.currentsA[key];
+    currentValues = current;
     if (sweep.length < 2 || current.length !== sweep.length || ![...sweep, ...current].every(Number.isFinite)) invalid('DC metrics require at least two finite aligned samples');
     const direction = Math.sign(sweep[1] - sweep[0]);
     if (!direction || sweep.some((v, i) => i > 0 && Math.sign(v - sweep[i - 1]) !== direction)) invalid('Sweep coordinates must be strictly monotonic');
     const axis = direction < 0 ? [...sweep].reverse() : sweep;
     if (direction < 0) current = [...current].reverse();
-    currentSpots = input.sweepPoints!.map(sweepPoint => {
+    currentSpots = input.sweepPoints?.map(sweepPoint => {
       if (sweepPoint < axis[0] || sweepPoint > axis[axis.length - 1]) return { sweepPoint, currentA: null, conductanceS: null, outOfRange: true, conductanceReason: 'Outside sweep range' };
       let end = 1;
       while (end < axis.length - 1 && sweepPoint >= axis[end]) end++;
@@ -164,18 +170,18 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
   let y = voltage(input.output);
   if (!input.input && a.axis.unit !== 'V') invalid('A current sweep requires an explicit voltage input expression');
   if (x.length < 2 || y.length !== x.length || sweep.length !== x.length || ![...x, ...y, ...sweep].every(Number.isFinite)) invalid('DC metrics require at least two finite aligned samples');
-  const levelCrossings = input.outputLevelsV?.map(outputLevelV => {
+  const crossing = (values: number[], target: number): number | null => {
     const occurrence = input.crossingOccurrence ?? 1;
-    let count = (input.crossingDirection === undefined || input.crossingDirection === 'either') && y[0] === outputLevelV ? 1 : 0;
+    let count = (input.crossingDirection === undefined || input.crossingDirection === 'either') && values[0] === target ? 1 : 0;
     let sweepPoint: number | null = count === occurrence ? sweep[0] : null;
-    for (let i = 1; sweepPoint === null && i < y.length; i++) {
-      const prev = y[i - 1]; const next = y[i];
-      if ((input.crossingDirection !== 'falling' && prev < outputLevelV && next >= outputLevelV) || (input.crossingDirection !== 'rising' && prev > outputLevelV && next <= outputLevelV)) {
+    for (let i = 1; sweepPoint === null && i < values.length; i++) {
+      const prev = values[i - 1]; const next = values[i];
+      if ((input.crossingDirection !== 'falling' && prev < target && next >= target) || (input.crossingDirection !== 'rising' && prev > target && next <= target)) {
         if (++count !== occurrence) continue;
         const delta = next - prev;
         // Halving before subtraction avoids overflow for opposite-sign extremes.
-        const fraction = Number.isFinite(delta) ? (outputLevelV - prev) / delta
-          : (outputLevelV / 2 - prev / 2) / (next / 2 - prev / 2);
+        const fraction = Number.isFinite(delta) ? (target - prev) / delta
+          : (target / 2 - prev / 2) / (next / 2 - prev / 2);
         const start = sweep[i - 1]; const end = sweep[i];
         // A weighted sum avoids overflowing the difference between opposite signs.
         sweepPoint = Math.sign(start) !== Math.sign(end)
@@ -183,8 +189,11 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
           : start + (end - start) * fraction;
       }
     }
-    return { outputLevelV, sweepPoint };
-  });
+    return sweepPoint;
+  };
+  const levelCrossings = input.outputLevelsV?.map(outputLevelV => ({ outputLevelV, sweepPoint: crossing(y, outputLevelV) }));
+  const currentLevelCrossings = input.currentLevelsA?.map(currentLevelA => ({ currentLevelA, sweepPoint: crossing(currentValues!, currentLevelA) }));
+
   const direction = input.includeSpotGain ? (x.slice(1).map((v, i) => Math.sign(v - x[i])).find(d => d !== 0) ?? 1) : Math.sign(x[1] - x[0]);
   if (!direction || x.some((v, i) => i > 0 && Math.sign(v - x[i - 1]) !== direction && (!input.includeSpotGain || v !== x[i - 1]))) invalid('Input voltage must be strictly monotonic');
   const reversed = direction < 0;
@@ -265,6 +274,7 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     monotonic: !(rising && falling),
     ...(spots === undefined ? {} : { spots }),
     ...(currentSpots === undefined ? {} : { currentSpots }),
+    ...(currentLevelCrossings === undefined ? {} : { currentLevelCrossings }),
     ...(levelCrossings === undefined ? {} : { levelCrossings }),
   };
   // Do not expose non-finite legacy transfer intermediates with the new option.

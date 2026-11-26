@@ -482,7 +482,7 @@ export const MCP_TOOLS = Object.freeze([
     inputSchema: {
       ...requestInputSchema,
       required: ['request', 'sweptSource', 'output'],
-      dependencies: { currentSignal: ['sweepPoints'] },
+      dependencies: { currentSignal: { anyOf: [{ required: ['sweepPoints'] }, { required: ['currentLevelsA'] }] }, currentLevelsA: ['currentSignal'] },
       properties: { ...requestInputSchema.properties, ...dcMetricsProperties },
     },
     outputSchema: dcMetricsOutputSchema,
