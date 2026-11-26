@@ -331,8 +331,15 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
           const start = Math.max(low, m.lower!); const end = Math.min(high, m.upper!);
           if (end > start) {
             const range = high - low;
-            const fraction = Number.isFinite(range) ? (end - start) / range : (end / 2 - start / 2) / (high / 2 - low / 2);
-            duration += width * fraction;
+            const span = end - start;
+            const denominator = Number.isFinite(range) ? range : high / 2 - low / 2;
+            const scaledWidth = Number.isFinite(range) ? width : width / 2;
+            const ratio = scaledWidth / denominator;
+            // Divide the duration first when possible, so a tiny band fraction
+            // does not underflow before it can be multiplied by the duration.
+            duration += scaledWidth > 1 && Number.isFinite(ratio) && Number.isFinite(span)
+              ? span * ratio
+              : width * (Number.isFinite(range) ? span / range : (end / 2 - start / 2) / denominator);
           }
         }
       }

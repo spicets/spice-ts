@@ -18,6 +18,13 @@ describe('transient time in band', () => {
     expect(measureResult(flat, specs).measurements).toEqual([1, 1, 3, 0].map(value => ({ value, unit: 's' })));
   });
 
+  it('preserves representable durations when the band fraction underflows', () => {
+    const extreme = { ...trace, analyses: [{ ...trace.analyses[0], timeS: [0, 1e100], voltagesV: { out: [0, 1e308] }, currentsA: {} }] };
+    const result = measureResult(extreme, [{ ...band, lower: 0, upper: 1e-100 }]).measurements[0];
+    expect(result).toHaveProperty('unit', 's');
+    expect((result as { value: number }).value / 1e-308).toBeCloseTo(1, 12);
+  });
+
   it('handles large finite values without overflowing interpolation', () => {
     const extreme = { ...trace, analyses: [{ ...trace.analyses[0], timeS: [0, 1], voltagesV: { out: [-1e308, 1e308] }, currentsA: {} }] };
     expect(measureResult(extreme, [{ ...band, lower: -5e307, upper: 5e307 }, { ...band, lower: -5e307, upper: 5e307, from: 0.25, to: 0.75 }]).measurements).toEqual([0.5, 0.5].map(value => ({ value, unit: 's' })));
