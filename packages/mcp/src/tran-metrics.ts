@@ -11,6 +11,7 @@ export interface TranMetricsArgs {
   riseTimePercent?: [number, number];
   timeRangeS?: [number, number];
   includeSignalStatistics?: boolean;
+  includeStandardDeviation?: boolean;
 }
 export interface TranMetrics {
   initialValue: number; finalValue: number; unit: 'V' | 'A';
@@ -19,7 +20,7 @@ export interface TranMetrics {
   overshootPercent: number; undershootPercent: number;
   settlingTimeS: number; peakValue: number; peakTimeS: number;
   correlation?: { referenceSignal: string; covariance: number; covarianceUnit: string; coefficient: number | null };
-  signalStatistics?: { mean: number; rms: number; peakToPeak: number; unit: 'V' | 'A' };
+  signalStatistics?: { mean: number; rms: number; peakToPeak: number; unit: 'V' | 'A'; standardDeviation?: number };
 }
 const codes = ['NOT_TRANSIENT', 'UNKNOWN_STEP', 'SIGNAL_NOT_FOUND', 'NO_TRANSITION', 'NOT_SETTLED', 'INVALID_DATA'] as const;
 type MetricsError = { error: { code: typeof codes[number]; message: string } };
@@ -30,6 +31,7 @@ export const tranMetricsProperties = {
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
   includeSignalStatistics: { type: 'boolean', default: false },
+  includeStandardDeviation: { type: 'boolean', default: false, description: 'Include time-weighted population standard deviation; requires includeSignalStatistics.' },
   timeRangeS: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2, description: 'Increasing simulation-time bounds in seconds, within the selected trace.' },
   initialValue: { type: 'number' }, finalValue: { type: 'number' },
   settlingBandPercent: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 100, default: 2 },
@@ -48,7 +50,7 @@ export const tranMetricsOutputSchemas = [
       },
       signalStatistics: {
         type: 'object', required: ['mean', 'rms', 'peakToPeak', 'unit'], additionalProperties: false,
-        properties: { mean: { type: 'number' }, rms: { type: 'number' }, peakToPeak: { type: 'number' }, unit: { enum: ['V', 'A'] } },
+        properties: { mean: { type: 'number' }, rms: { type: 'number' }, peakToPeak: { type: 'number' }, unit: { enum: ['V', 'A'] }, standardDeviation: { type: 'number', minimum: 0 } },
       },
     },
   },
@@ -70,6 +72,8 @@ export function tranMetricsArgs(raw: unknown): TranMetricsArgs {
     || (a.analysis !== undefined && (!Number.isInteger(a.analysis) || (a.analysis as number) < 0))
     || (a.step !== undefined && (!Number.isInteger(a.step) || (a.step as number) < 0))
     || (a.includeSignalStatistics !== undefined && typeof a.includeSignalStatistics !== 'boolean')
+    || (a.includeStandardDeviation !== undefined && typeof a.includeStandardDeviation !== 'boolean')
+    || (a.includeStandardDeviation === true && a.includeSignalStatistics !== true)
     || ['initialValue', 'finalValue', 'settlingBandPercent'].some(key => a[key] !== undefined && (typeof a[key] !== 'number' || !Number.isFinite(a[key])))
     || (a.timeRangeS !== undefined && (!Array.isArray(a.timeRangeS) || a.timeRangeS.length !== 2
       || Array.from(a.timeRangeS).some(value => typeof value !== 'number' || !Number.isFinite(value))
@@ -231,6 +235,24 @@ export function tranMetrics(result: SimulationResultV1, args: TranMetricsArgs): 
     const peakToPeak = max - min;
     if (![mean, rms, peakToPeak].every(Number.isFinite)) return error('INVALID_DATA', 'Signal statistics arithmetic is not finite');
     metrics.signalStatistics = { mean, rms, peakToPeak, unit: metrics.unit };
+    if (args.includeStandardDeviation) {
+      // Center at a sample before scaling, preserving ripple on a large DC offset.
+      const centered = peakToPeak === 0 ? y.map(() => 0) : y.map(value => (value - y[0]) / peakToPeak);
+      let center = 0;
+      for (let i = 1; i < x.length; i++) {
+        const weight = (x[i] - x[i - 1]) / duration;
+        center += weight * (centered[i - 1] / 2 + centered[i] / 2);
+      }
+      let deviation = 0;
+      for (let i = 1; i < x.length; i++) {
+        const rootWeight = Math.sqrt(x[i] - x[i - 1]) / Math.sqrt(duration);
+        const left = centered[i - 1] - center; const right = centered[i] - center;
+        deviation = Math.hypot(deviation, rootWeight * (left / 2 + right / 2), rootWeight * ((left - right) / Math.sqrt(12)));
+      }
+      const standardDeviation = deviation * peakToPeak;
+      if (!Number.isFinite(standardDeviation)) return error('INVALID_DATA', 'Standard deviation arithmetic is not finite');
+      metrics.signalStatistics.standardDeviation = standardDeviation;
+    }
   }
   if (reference) {
     const duration = x[x.length - 1] - x[0];
