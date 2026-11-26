@@ -53,9 +53,16 @@ describe('input-referred noise centroid', () => {
     expect(selected.integratedOutputNoiseVrms).toBeGreaterThan(0);
     expect(selected).toMatchObject({ inputNoiseCentroidHz: null, inputNoiseCentroidReason: 'zero integrated input noise', bandResults: [{ inputNoiseCentroidHz: null, inputNoiseCentroidReason: 'zero integrated input noise' }] });
   });
-  it('reports nonrepresentable normalized power rather than a bogus centroid', () => {
+  it('retains a narrow triangle within an extremely wide band', () => {
     const s = new NoiseResult([1e-100, 2e-100, 3e-100, 1e308], 'out', 'V1', [0, 0, 0, 0], [0, 1, 0, 0], undefined, undefined);
-    expect(noiseMetrics(s, { includeInputNoiseCentroid: true })).toMatchObject({ inputNoiseCentroidHz: null, inputNoiseCentroidReason: 'nonrepresentable centroid' });
+    const result = noiseMetrics(s, { includeInputNoiseCentroid: true });
+    expect(result.inputNoiseCentroidHz).not.toBeNull();
+    expect(Math.abs(result.inputNoiseCentroidHz! / 2e-100 - 1)).toBeLessThan(1e-12);
+  });
+  it('retains a weak wide-interval contribution to the first moment', () => {
+    const s = new NoiseResult([1, 2, 3, 1e200], 'out', 'V1', [0, 0, 0, 0], [0, 1e100, 0, 1e-100], undefined, undefined);
+    const result = noiseMetrics(s, { includeInputNoiseCentroid: true });
+    expect(Math.abs(result.inputNoiseCentroidHz! / (7 / 3) - 1)).toBeLessThan(1e-12);
   });
   it.each([null, 'true', 1, [], {}, undefined])('rejects nonboolean selector %s', async value => {
     const result = await executeTool('spice_noise_metrics', { netlist, includeInputNoiseCentroid: value });

@@ -227,9 +227,49 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
       if (f[i - 1] < selectedBand[1] && f[i] > selectedBand[0]) scale = Math.max(scale, densities[i - 1], densities[i]);
     }
     if (scale === 0) return { value: null, reason: 'zero' };
+    // Extreme ranges can underflow normalized widths or squared densities even
+    // when their contribution to the first moment is significant. Integrate
+    // each nonnegative linear-PSD basis in log space in that case.
+    const span = selectedBand[1] - selectedBand[0];
+    const extreme = f.some((hz, i) => {
+      if (i === 0 || f[i - 1] >= selectedBand[1] || hz <= selectedBand[0]) return false;
+      const width = (Math.min(hz, selectedBand[1]) - Math.max(f[i - 1], selectedBand[0])) / span;
+      return width < 2 ** -1022 || [densities[i - 1], densities[i]].some(d =>
+        d > 0 && width * (d / scale) ** 2 < 2 ** -1022);
+    });
+    if (extreme) {
+      let logArea = -Infinity; let logMoment = -Infinity;
+      const add = (x: number, y: number) => {
+        if (x === -Infinity) return y;
+        if (y === -Infinity) return x;
+        const max = Math.max(x, y);
+        return max + Math.log1p(Math.exp(Math.min(x, y) - max));
+      };
+      for (let i = 1; i < f.length; i++) {
+        const left = Math.max(selectedBand[0], f[i - 1]); const right = Math.min(selectedBand[1], f[i]);
+        if (right <= left) continue;
+        const rootSpan = Math.sqrt(f[i] - f[i - 1]);
+        const width = right - left;
+        for (const [density, d1, d2] of [
+          [densities[i - 1], f[i] - left, f[i] - right],
+          [densities[i], left - f[i - 1], right - f[i - 1]],
+        ]) {
+          if (density === 0 || (d1 === 0 && d2 === 0)) continue;
+          const rootWeight = Math.hypot(Math.sqrt(d1) / rootSpan, Math.sqrt(d2) / rootSpan) / Math.SQRT2;
+          const maxDistance = Math.max(d1, d2);
+          const a = d1 / maxDistance; const b = d2 / maxDistance;
+          const basisMean = left + width * ((a + 2 * b) / (3 * (a + b)));
+          const area = 2 * Math.log(density) + Math.log(width) + 2 * Math.log(rootWeight);
+          logArea = add(logArea, area);
+          logMoment = add(logMoment, area + Math.log(basisMean));
+        }
+      }
+      const value = Math.exp(logMoment - logArea);
+      if (!Number.isFinite(value) || value === 0) return { value: null, reason: 'nonrepresentable centroid' };
+      return { value };
+    }
     // Normalize density and frequency before integrating to avoid squaring physical units.
     let total = 0; let mean = 0;
-    const span = selectedBand[1] - selectedBand[0];
     for (let i = 1; i < f.length; i++) {
       const left = Math.max(selectedBand[0], f[i - 1]); const right = Math.min(selectedBand[1], f[i]);
       if (right <= left) continue;
