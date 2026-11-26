@@ -36,6 +36,17 @@ describe('native rshunt', () => {
     expect(overridden.voltagesV.out).toBeCloseTo(1 / 3, 9);
     expect(original.voltagesV.out).toBeCloseTo(0.4, 9);
   });
+  it.each(['', '.options rshunt=2k\n'])('preserves protocol rshunt through TEMPER recompilation with text options %j', async prefix => {
+    const temperDeck = 'V1 in 0 1\nR1 in out {1000+temper}\nR2 out 0 1k\n.step TEMP LIST 27 50\n.op';
+    const actual = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice', source: `${prefix}${temperDeck}` }, options: { rshunt: 1000 } });
+    const reference = await simulateProtocolV1({ apiVersion: '1', input: { format: 'spice', source: `.options rshunt=1k\n${temperDeck}` } });
+    expect(actual.analyses).toEqual(reference.analyses);
+    expect(actual.analyses).toHaveLength(2);
+    for (const [index, analysis] of actual.analyses.entries()) {
+      if (analysis.type !== 'op') throw new Error('expected OP');
+      expect(analysis.voltagesV.out).toBeCloseTo([0.3274394237066142, 0.3225806451612903][index]!, 9);
+    }
+  });
   it('matches SPICE text for a linear DC sweep', async () => {
     const sweep = { type: 'dc' as const, source: 'V1', start: 0, stop: 2, step: 1 };
     const request: SimulationRequestV1 = { apiVersion: '1', input: { format: 'spice-ts', document: { ...document, analyses: [sweep] } }, options: { rshunt: 1000 } };

@@ -469,7 +469,14 @@ function applyProtocolCircuitOptions(circuit: Circuit, options?: SimulationOptio
     if (typeof options.rshunt !== 'number' || !Number.isFinite(options.rshunt) || options.rshunt <= 1e-30 || (options.backend !== undefined && options.backend !== 'spice-ts-js')) {
       throw new ProtocolExecutionError({ code: 'INVALID_REQUEST', message: 'rshunt requires a finite resistance above 1e-30 ohm and the spice-ts-js backend', phase: 'validation', retryable: false, details: { path: '/options/rshunt' } });
     }
-    circuit.setSimulationOptions({ rshunt: options.rshunt });
+    const rshunt = options.rshunt;
+    circuit.setSimulationOptions({ rshunt });
+    const reparseAtTemperature = circuit.reparseAtTemperature;
+    if (reparseAtTemperature) circuit.reparseAtTemperature = celsius => {
+      const evaluated = reparseAtTemperature(celsius);
+      evaluated.setSimulationOptions({ rshunt });
+      return evaluated;
+    };
   }
   if (options?.temperature !== undefined) circuit.setTemperature(options.temperature);
   if (options?.nominalTemperature !== undefined) circuit.setNominalTemperature(options.nominalTemperature);
