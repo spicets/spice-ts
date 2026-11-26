@@ -824,15 +824,31 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
         throw numericError('INVALID_CIRCUIT', `${component.name} references an unknown net`, 'validation');
       }
     }
-    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : type === 'F' || type === 'H' ? ['gain', 'controlSource'] : type === 'G' ? ['gm'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : nativeAnalysis.type === 'tran' ? ['dc', 'waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period'] : ['dc', 'waveform'];
+    const allowed = type === 'R' ? ['resistance'] : type === 'C' ? ['capacitance'] : type === 'L' ? ['inductance'] : type === 'E' ? ['gain'] : type === 'F' || type === 'H' ? ['gain', 'controlSource'] : type === 'G' ? ['gm'] : nativeAnalysis.type === 'ac' ? ['dc', 'waveform', 'magnitude', 'phase'] : nativeAnalysis.type === 'tran' ? ['dc', 'waveform', 'v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period', 'offset', 'amplitude', 'frequency', 'damping', 'phase'] : ['dc', 'waveform'];
     if (Object.keys(component.params).some(key => !allowed.includes(key)) ||
-      (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac') && !(nativeAnalysis.type === 'tran' && component.params.waveform === 'pulse')) ||
-      (component.params.waveform !== 'ac' && (component.params.magnitude !== undefined || component.params.phase !== undefined))) {
+      (component.params.waveform !== undefined && component.params.waveform !== 'dc' && !(nativeAnalysis.type === 'ac' && component.params.waveform === 'ac') && !(nativeAnalysis.type === 'tran' && (component.params.waveform === 'pulse' || component.params.waveform === 'sin'))) ||
+      (component.params.waveform !== 'ac' && component.params.magnitude !== undefined) ||
+      (component.params.waveform !== 'ac' && !(nativeAnalysis.type === 'tran' && component.params.waveform === 'sin') && component.params.phase !== undefined)) {
       unsupported('device-parameters', 'Only numeric passive values and DC sources are supported');
     }
     if (nativeAnalysis.type === 'tran' && (type === 'I' || type === 'V')) {
       const pulseFields = ['v1', 'v2', 'delay', 'rise', 'fall', 'width', 'period'];
-      if (component.params.waveform === 'pulse') {
+      const sinFields = ['offset', 'amplitude', 'frequency', 'delay', 'damping', 'phase'];
+      if (component.params.waveform === 'sin') {
+        if (component.ports.length !== 2 || new Set(component.ports.map(port => port.name)).size !== 2 || component.ports.some(port => typeof port.net !== 'string' || !port.net ||
+          (!['0', 'gnd'].includes(port.net.toLowerCase()) && !nets.has(port.net.toLowerCase())))) {
+          throw numericError('INVALID_CIRCUIT', `${component.name} requires two valid source ports`, 'validation');
+        }
+        if (component.params.dc !== undefined || pulseFields.filter(key => key !== 'delay').some(key => component.params[key] !== undefined)) {
+          unsupported('device-parameters', 'SIN parameters cannot be mixed with other waveforms');
+        }
+        if (sinFields.some((key, index) => (index < 3 || component.params[key] !== undefined) &&
+          (typeof component.params[key] !== 'number' || !Number.isFinite(component.params[key])))) {
+          throw numericError('INVALID_CIRCUIT', `${component.name} requires finite SIN parameters`, 'validation');
+        }
+      } else if (sinFields.filter(key => key !== 'delay').some(key => component.params[key] !== undefined)) {
+        unsupported('device-parameters', 'SIN parameters require a SIN source');
+      } else if (component.params.waveform === 'pulse') {
         if (component.params.dc !== undefined || pulseFields.some(key => typeof component.params[key] !== 'number' || !Number.isFinite(component.params[key]))) {
           throw numericError('INVALID_CIRCUIT', `${component.name} requires finite pulse parameters`, 'validation');
         }
