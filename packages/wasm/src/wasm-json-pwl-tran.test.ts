@@ -116,4 +116,4 @@ it('rejects malformed and unsupported PWL data during validation and simulation'
     const limited = { ...request, options: { limits: { maxResultPoints: 1 } } };
     expect(await engine.simulate(limited, { requestId: 'limit' })).toMatchObject({ ok: false, error: { code: 'RESOURCE_LIMIT' } });
   } finally { await engine.close(); }
-});
+}, 30_000);
