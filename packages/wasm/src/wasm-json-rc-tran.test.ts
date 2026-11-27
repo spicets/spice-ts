@@ -110,7 +110,11 @@ it('enforces resource limits and rejects excluded features', async () => {
       expect(result, JSON.stringify(result)).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
     }
     const selected = await engine.simulate({ ...structuredClone(request), outputs: ['v(out)'] }, { requestId: 'selected' });
-    expect(selected).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
+    if (!selected.ok || selected.data.analyses[0]?.type !== 'tran') throw new Error(JSON.stringify(selected));
+    expect(Object.keys(selected.data.analyses[0].voltagesV)).toEqual(['out']);
+    expect(Object.keys(selected.data.analyses[0].currentsA)).toEqual([]);
+    const unknown = await engine.simulate({ ...structuredClone(request), outputs: ['v(missing)'] }, { requestId: 'unknown' });
+    expect(unknown).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST', phase: 'validation' } });
   } finally { await engine.close(); }
 });
 
