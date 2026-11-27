@@ -222,15 +222,10 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       if (reference.unit !== data.unit) return error('INVALID_MEASUREMENT', 'Signals must have matching units');
       if (reference.y.length !== x.length || !reference.y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Reference signal has empty, misaligned or non-finite data');
       referenceY = reference.y;
-      const differences = y.map((v, i) => v - reference.y[i]);
-      if (m.kind === 'relativeRmsError' && !differences.every(Number.isFinite)) {
-        // A common factor cancels in the ratio and prevents subtraction overflow.
-        y = y.map((v, i) => v / 2 - reference.y[i] / 2);
-        referenceY = reference.y.map(v => v / 2);
-      } else {
-        y = differences;
+      if (m.kind !== 'relativeRmsError') {
+        y = y.map((v, i) => v - reference.y[i]);
+        if (!y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal difference is non-finite');
       }
-      if (!y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal difference is non-finite');
       if (x.some((v, i) => i > 0 && v <= x[i - 1])) return error('INVALID_MEASUREMENT', 'Transient axis must be strictly increasing');
     }
     if (!['pulseWidth', 'period', 'frequency'].includes(m.kind) && x.length > 1 && x[0] > x[x.length - 1]) { x = [...x].reverse(); y = [...y].reverse(); }
@@ -330,10 +325,13 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     let unit = data.unit;
     if (m.kind === 'relativeRmsError') {
       const referenceSamples = points.map(point => interpolate(point, referenceY!));
+      let errors = samples.map((v, i) => v - referenceSamples[i]);
+      const halfErrors = !errors.every(Number.isFinite);
+      if (halfErrors) errors = samples.map((v, i) => v / 2 - referenceSamples[i] / 2);
       const scale = (values: number[]) => values.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
       const referenceScale = scale(referenceSamples);
       if (referenceScale === 0) return error('INVALID_MEASUREMENT', 'Reference RMS must be nonzero');
-      const errorScale = scale(samples);
+      const errorScale = scale(errors);
       if (errorScale === 0) return { value: 0, unit: '1' };
       const normalizedIntegral = (values: number[], magnitude: number) => {
         let sum = 0;
@@ -343,7 +341,21 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         }
         return sum;
       };
-      const ratio = (errorScale / referenceScale) * Math.sqrt(normalizedIntegral(samples, errorScale) / normalizedIntegral(referenceSamples, referenceScale));
+      // Combine mantissas and binary exponents separately so neither an
+      // intermediate scale ratio nor a tiny integral factor loses the result.
+      const factors = [errorScale, Math.sqrt(normalizedIntegral(errors, errorScale)), referenceScale, Math.sqrt(normalizedIntegral(referenceSamples, referenceScale))];
+      let mantissa = halfErrors ? 2 : 1; let exponent = 0;
+      for (let i = 0; i < factors.length; i++) {
+        const e = Math.min(1023, Math.floor(Math.log2(factors[i])));
+        const m = factors[i] / 2 ** e;
+        if (i < 2) { mantissa *= m; exponent += e; }
+        else { mantissa /= m; exponent -= e; }
+      }
+      while (mantissa >= 2) { mantissa /= 2; exponent++; }
+      while (mantissa < 1) { mantissa *= 2; exponent--; }
+      const ratio = exponent > 1023 ? (mantissa * 2 ** 1023) * 2 ** (exponent - 1023)
+        : exponent < -1022 ? (mantissa * 2 ** -1022) * 2 ** (exponent + 1022)
+        : mantissa * 2 ** exponent;
       return Number.isFinite(ratio) ? { value: ratio, unit: '1' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
     if (m.kind === 'timeInBand') {

@@ -36,6 +36,25 @@ describe('relative RMS tracking error', () => {
     else throw new Error('Expected a value');
   });
 
+  it('keeps a finite ratio when the scale ratio alone overflows', () => {
+    const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1e-20, 1], voltagesV: { out: [1e308, 0, 0], ref: [1e-10, 1e-10, 1e-10] }, currentsA: {} }] };
+    const result = measureResult(input, [spec]).measurements[0];
+    if (!('value' in result)) throw new Error(JSON.stringify(result));
+    expect(result.value / 5.773502691896257e307).toBeCloseTo(1, 14);
+  });
+
+  it('preserves a representable ratio when the scale ratio alone underflows', () => {
+    const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1e-20, 1], voltagesV: { out: [1e10, 1e-310, 1e-310], ref: [1e10, 0, 0] }, currentsA: {} }] };
+    const result = measureResult(input, [spec]).measurements[0];
+    if (!('value' in result)) throw new Error(JSON.stringify(result));
+    expect(result.value / 1.7320508075689e-310).toBeCloseTo(1, 12);
+  });
+
+  it('ignores overflowing differences outside the window without losing subnormal reference values', () => {
+    const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1, 2], voltagesV: { out: [-1e308, 1e-323, 1e-323], ref: [1e308, 5e-324, 5e-324] }, currentsA: {} }] };
+    expect(measureResult(input, [{ ...spec, from: 1, to: 2 }]).measurements[0]).toEqual({ value: 1, unit: '1' });
+  });
+
   it('handles opposite signed signals near the finite limit', () => {
     const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1], voltagesV: { out: [-1e308, -1e308], ref: [1e308, 1e308] }, currentsA: {} }] };
     expect(measureResult(input, [spec]).measurements[0]).toEqual({ value: 2, unit: '1' });
