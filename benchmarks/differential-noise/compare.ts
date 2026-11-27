@@ -42,6 +42,7 @@ async function main(): Promise<void> {
     };
     assertMatchedFrequencies(actual.frequencies, reference.frequencies);
     const unsupported = await verifyUnsupportedForms();
+    const diode = await compareDiode(workspace);
 
     const report = JSON.stringify({
       fixture: 'benchmarks/differential-noise/differential-divider.cir',
@@ -80,14 +81,15 @@ async function main(): Promise<void> {
         integratedInput: metrics([actual.integratedInput], [reference.integratedInput]),
       },
       unsupported,
+      diode,
       exclusions: [
         'Current-valued noise outputs remain unsupported; current-source input referral is covered by benchmarks/current-source-noise (#314).',
-        'Differential output with diode, BJT, JFET, MOS1, BSIM3, or broader noisy device forms remains unsupported.',
+        'Differential output with BJT, JFET, MOS1, BSIM3, or broader noisy device forms remains unsupported; diodes with RS > 0 remain unsupported.',
         'Stepped noise remains unsupported; resistor noise follows circuit temperature.',
       ],
       losses: [
         'Every non-zero residual is retained in errors; no tolerance or circuit value is tuned per engine.',
-        'The bounded differential form covers resistor noise only.',
+        'The bounded differential form covers resistor and ideal-diode noise only.',
         'Runtime values are not directly comparable because ngspice includes process startup.',
       ],
       redReceipt: 'Remediation RED: focused noise test 1 failed, 47 passed; the reviewer NJF deck unexpectedly returned 7 points and outputNoiseDensity[0]=5.028812192176008e-9.',
@@ -106,6 +108,43 @@ async function main(): Promise<void> {
   }
 }
 
+async function compareDiode(workspace: string): Promise<object> {
+  // This is the exact original MIT deck documented in diode-differential-noise.md.
+  const deck = `* MIT original differential diode noise #2212
+V1 in 0 DC 1 AC 1
+R1 in outp 1k
+R2 outn 0 1k
+D1 outp outn DMOD
+.model DMOD D(IS=1e-14 N=1 KF=1e-10 AF=1)
+.noise v(outp,outn) V1 dec 3 100 10k
+.end
+`;
+  const path = join(workspace, 'diode.cir');
+  const raw = join(workspace, 'diode.raw');
+  writeFileSync(path, deck);
+  execFileSync('ngspice', ['-b', '-r', raw, path], { encoding: 'utf8', timeout: 30_000 });
+  const reference = readNoiseRaw(raw);
+  const result = await simulate(deck);
+  if (!result.noise) throw new Error('spice-ts returned no diode noise result');
+  assertMatchedFrequencies(result.noise.frequencies, reference.frequencies);
+  const normalizedMetrics = (actual: number[], expected: number[]): object => ({
+    ...metrics(actual, expected),
+    normalizedMaximumError: Math.max(...actual.map((value, index) => Math.abs(value - expected[index])))
+      / Math.max(1e-12, ...expected.map(Math.abs)),
+  });
+  return {
+    sha256: createHash('sha256').update(deck).digest('hex'),
+    identicalNetlistForBothEngines: true,
+    matchedPointCount: reference.frequencies.length,
+    errors: {
+      outputDensity: normalizedMetrics(result.noise.outputNoiseDensity, reference.output),
+      inputDensity: normalizedMetrics(result.noise.inputNoiseDensity, reference.input),
+      integratedOutput: normalizedMetrics([required(result.noise.integratedOutputNoise, 'integrated output noise')], [reference.integratedOutput]),
+      integratedInput: normalizedMetrics([required(result.noise.integratedInputNoise, 'integrated input noise')], [reference.integratedInput]),
+    },
+  };
+}
+
 async function verifyUnsupportedForms(): Promise<Array<{ form: string; status: string; error: string }>> {
   const cases = [
     {
@@ -119,10 +158,6 @@ async function verifyUnsupportedForms(): Promise<Array<{ form: string; status: s
       expected: /\.step cannot be combined with \.noise/,
     },
     ...[
-      {
-        kind: 'diode',
-        body: 'D1 outp outn DMOD\n.model DMOD D(IS=1e-14)',
-      },
       {
         kind: 'BJT',
         body: 'Q1 outp in outn QMOD\n.model QMOD NPN (LEVEL=1 IS=1e-14 BF=100)',

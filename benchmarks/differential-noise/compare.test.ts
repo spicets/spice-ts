@@ -30,5 +30,15 @@ describe('differential-noise compare.ts smoke', () => {
     }
     assert.ok(report.unsupported.length > 0);
     for (const entry of report.unsupported) assert.equal(entry.status, 'explicitly rejected');
+    assert.ok(!report.unsupported.some((entry: { form: string }) => entry.form === 'differential diode noise'));
+    for (const form of ['BJT', 'MOS1', 'JFET', 'BSIM3']) {
+      assert.ok(report.unsupported.some((entry: { form: string }) => entry.form === `differential ${form} noise`));
+    }
+    assert.equal(report.diode.identicalNetlistForBothEngines, true);
+    assert.equal(report.diode.sha256, 'af7403a45b6e408d0af26123931e28e5d6fc78bec5848656d796ca47c11faa0d');
+    assert.ok(report.diode.matchedPointCount > 0);
+    for (const key of ['outputDensity', 'inputDensity', 'integratedOutput', 'integratedInput']) {
+      assert.ok(report.diode.errors[key].normalizedMaximumError < 0.01, key);
+    }
   });
 });
