@@ -512,6 +512,16 @@ is RMS in `inputUnit` (`V` for voltage-source input, `A` for current-source inpu
 Integration squares the density samples to PSD, clips segments to `bandHz`
 with linear PSD interpolation, sums trapezoids in linear frequency, then takes
 the square root. This differs from core's native noise integration method.
+
+Set `includeInputNoiseCrest: true` to return `inputNoiseSpectralCrest` for the
+primary band and each `bandsHz` selection. It is peak input-referred PSD divided
+by mean input PSD (integrated input power divided by band width in linear Hz).
+The peak uses the sampled, piecewise-linear PSD including clipped edges, not an
+inferred analog resonance or waveform crest factor. Zero integrated input noise
+returns null with `inputNoiseSpectralCrestReason: "zero integrated input noise"`;
+a nonrepresentable ratio returns null with reason `"nonrepresentable crest"`.
+The flag defaults to false and does not change output-noise crest measurements.
+
 Each `spots` entry contains `frequencyHz`, `outputNoiseVPerSqrtHz`,
 `inputNoisePerSqrtHz`, and `outOfRange`. Densities interpolate linearly against
 log frequency, including zero density; spots outside the sweep return null
