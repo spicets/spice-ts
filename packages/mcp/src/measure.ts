@@ -374,38 +374,103 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     let unit = data.unit;
     if (m.kind === 'timeCentroid') {
       if (hi === lo) return error('INVALID_MEASUREMENT', 'Time centroid requires a nonzero window');
+      {
+        const scale = samples.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0);
+        if (scale === 0) return error('INVALID_MEASUREMENT', 'Time centroid requires nonzero absolute area');
+        // Zero-only edge segments contribute no area. Exclude them from the
+        // time normalization so a short pulse is not scaled by an unrelated
+        // (possibly enormous) zero-padded portion of the window.
+        const first = samples.findIndex(sample => sample !== 0);
+        let last = samples.length - 1;
+        while (samples[last] === 0) last--;
+        const origin = points[Math.max(0, first - 1)];
+        const limit = points[Math.min(points.length - 1, last + 1)];
+        const wide = !Number.isFinite(limit - origin);
+        const span = wide ? limit / 2 - origin / 2 : limit - origin;
+        if (!Number.isFinite(scale)) return error('NON_FINITE_RESULT', 'Measurement is non-finite');
+        let area = 0; let moment = 0; let underflow = false;
+        const add = (start: number, width: number, a: number, b: number) => {
+          const weight = width * (a + b) / 2;
+          if (weight === 0) { underflow = true; return; }
+          area += weight;
+          const center = start + width * (a + 2 * b) / (3 * (a + b));
+          const contribution = weight * center;
+          if (contribution === 0 && (start !== 0 || width !== 0)) underflow = true;
+          moment += contribution;
+        };
+        for (let i = Math.max(1, first); i <= Math.min(points.length - 1, last + 1); i++) {
+          const start = (wide ? points[i - 1] / 2 - origin / 2 : points[i - 1] - origin) / span;
+          const width = (wide ? points[i] / 2 - points[i - 1] / 2 : points[i] - points[i - 1]) / span;
+          const a = samples[i - 1] / scale; const b = samples[i] / scale;
+          if ((width === 0 && points[i] !== points[i - 1]) ||
+              (a === 0 && samples[i - 1] !== 0) || (b === 0 && samples[i] !== 0)) underflow = true;
+          if ((a < 0 && b > 0) || (a > 0 && b < 0)) {
+            const fraction = Math.abs(a) / (Math.abs(a) + Math.abs(b));
+            add(start, width * fraction, Math.abs(a), 0);
+            add(start + width * fraction, width * (1 - fraction), 0, Math.abs(b));
+          } else if (a !== 0 || b !== 0) add(start, width, Math.abs(a), Math.abs(b));
+        }
+        const fraction = moment / area;
+        value = wide ? origin * (1 - fraction) + limit * fraction : origin + span * fraction;
+        if (!underflow && Number.isFinite(value)) return { value, unit: 's' };
+      }
       const scale = samples.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0);
       if (scale === 0) return error('INVALID_MEASUREMENT', 'Time centroid requires nonzero absolute area');
-      // Zero-only edge segments contribute no area. Exclude them from the
-      // time normalization so a short pulse is not scaled by an unrelated
-      // (possibly enormous) zero-padded portion of the window.
+      if (!Number.isFinite(scale)) return error('NON_FINITE_RESULT', 'Measurement is non-finite');
       const first = samples.findIndex(sample => sample !== 0);
       let last = samples.length - 1;
       while (samples[last] === 0) last--;
       const origin = points[Math.max(0, first - 1)];
       const limit = points[Math.min(points.length - 1, last + 1)];
       const wide = !Number.isFinite(limit - origin);
-      const span = wide ? limit / 2 - origin / 2 : limit - origin;
-      if (!Number.isFinite(scale)) return error('NON_FINITE_RESULT', 'Measurement is non-finite');
-      let area = 0; let moment = 0;
-      const add = (start: number, width: number, a: number, b: number) => {
-        const weight = width * (a + b) / 2;
-        if (weight === 0) return;
-        area += weight;
-        moment += weight * (start + width * (a + 2 * b) / (3 * (a + b)));
+      // Accumulate positive integrals as binary mantissa/exponent pairs. In
+      // particular, do not divide a small segment by the whole window before
+      // multiplying its area by its distance from the origin.
+      type Sum = { mantissa: number; exponent: number };
+      const area: Sum = { mantissa: 0, exponent: 0 };
+      const moment: Sum = { mantissa: 0, exponent: 0 };
+      const addProduct = (sum: Sum, factors: number[]) => {
+        let mantissa = 1; let exponent = 0;
+        for (const factor of factors) {
+          if (factor === 0) return;
+          const e = Math.max(-1022, Math.min(1023, Math.floor(Math.log2(factor))));
+          mantissa *= factor / 2 ** e;
+          exponent += e;
+        }
+        if (sum.mantissa === 0) { sum.mantissa = mantissa; sum.exponent = exponent; return; }
+        if (exponent > sum.exponent) {
+          sum.mantissa *= 2 ** (sum.exponent - exponent);
+          sum.exponent = exponent;
+        }
+        sum.mantissa += mantissa * 2 ** (exponent - sum.exponent);
+      };
+      const add = (start: number, width: number, magnitude: number, a: number, b: number) => {
+        const shape = (a + b) / 2;
+        const center = (a + 2 * b) / (3 * (a + b));
+        addProduct(area, [width, magnitude, shape]);
+        addProduct(moment, [width, magnitude, shape, start]);
+        addProduct(moment, [width, magnitude, shape, width, center]);
       };
       for (let i = Math.max(1, first); i <= Math.min(points.length - 1, last + 1); i++) {
-        const start = (wide ? points[i - 1] / 2 - origin / 2 : points[i - 1] - origin) / span;
-        const width = (wide ? points[i] / 2 - points[i - 1] / 2 : points[i] - points[i - 1]) / span;
-        const a = samples[i - 1] / scale; const b = samples[i] / scale;
+        const start = wide ? points[i - 1] / 2 - origin / 2 : points[i - 1] - origin;
+        const width = wide ? points[i] / 2 - points[i - 1] / 2 : points[i] - points[i - 1];
+        const magnitude = Math.max(Math.abs(samples[i - 1]), Math.abs(samples[i]));
+        if (magnitude === 0) continue;
+        const a = samples[i - 1] / magnitude; const b = samples[i] / magnitude;
         if ((a < 0 && b > 0) || (a > 0 && b < 0)) {
           const fraction = Math.abs(a) / (Math.abs(a) + Math.abs(b));
-          add(start, width * fraction, Math.abs(a), 0);
-          add(start + width * fraction, width * (1 - fraction), 0, Math.abs(b));
-        } else if (a !== 0 || b !== 0) add(start, width, Math.abs(a), Math.abs(b));
+          add(start, width * fraction, magnitude, Math.abs(a), 0);
+          add(start + width * fraction, width * (1 - fraction), magnitude, 0, Math.abs(b));
+        } else add(start, width, magnitude, Math.abs(a), Math.abs(b));
       }
-      const fraction = moment / area;
-      value = wide ? origin * (1 - fraction) + limit * fraction : origin + span * fraction;
+      let mantissa = moment.mantissa / area.mantissa;
+      let exponent = moment.exponent - area.exponent;
+      while (mantissa >= 2) { mantissa /= 2; exponent++; }
+      while (mantissa > 0 && mantissa < 1) { mantissa *= 2; exponent--; }
+      const offset = exponent > 1023 ? (mantissa * 2 ** 1023) * 2 ** (exponent - 1023)
+        : exponent < -1022 ? (mantissa * 2 ** -1022) * 2 ** (exponent + 1022)
+        : mantissa * 2 ** exponent;
+      value = wide ? (origin / 2 + offset) * 2 : origin + offset;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     } else if (m.kind === 'relativeRmsError') {
       const referenceSamples = points.map(point => interpolate(point, referenceY!));

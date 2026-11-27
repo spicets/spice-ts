@@ -45,6 +45,12 @@ describe('timeCentroid', () => {
     }
   });
 
+  it('preserves the first moment of widely separated sparse support', () => {
+    const result = measureResult(trace([0, 1, 1e308, 1.0000000000000002e308], [1, 0, 0, 5e-324]), [item]).measurements[0];
+    expect(result).toHaveProperty('unit', 's');
+    if ('value' in result) expect(result.value / 9.860761315262649e276).toBeCloseTo(1, 13);
+  });
+
   it('handles a finite centroid across an overflowing time span', () => {
     expect(measureResult(trace([-1e308, 1e308], [1, 1]), [item]).measurements[0]).toEqual({ value: 0, unit: 's' });
     const result = measureResult(trace([-1e308, 1e308], [0, 1]), [{ ...item, from: 0 }]).measurements[0];
