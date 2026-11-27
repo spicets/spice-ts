@@ -789,7 +789,16 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
       if (model.params.LEVEL === 2) {
         for (const [analysisIndex, analysis] of document.analyses.entries()) {
           const analysisPath = `/input/document/analyses/${analysisIndex}`;
-          if (!['op', 'dc'].includes(analysis.type)) invalidNativeField(`${analysisPath}/type`);
+          if (!['op', 'dc', 'ac'].includes(analysis.type)) invalidNativeField(`${analysisPath}/type`);
+          if (analysis.type === 'ac') {
+            if (!['lin', 'dec', 'oct'].includes(analysis.variation)) invalidNativeField(`${analysisPath}/variation`);
+            for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
+              const value = analysis[field];
+              if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+                || field === 'points' && !Number.isInteger(value)) invalidNativeField(`${analysisPath}/${field}`);
+            }
+            if (analysis.stopFreq < analysis.startFreq) invalidNativeField(`${analysisPath}/stopFreq`);
+          }
           if (analysis.type === 'dc') {
             const sources: [unknown, string][] = [[analysis.source, `${analysisPath}/source`]];
             if (analysis.secondary) sources.push([analysis.secondary.source, `${analysisPath}/secondary/source`]);
