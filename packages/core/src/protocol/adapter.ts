@@ -767,7 +767,10 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
       if (typeof k !== 'number' || !Number.isFinite(k) || k < -1 || k > 1) invalidNativeField(`${path}/params/coupling`);
       if (!Array.isArray(document.analyses) || document.analyses.length === 0) invalidNativeField('/input/document/analyses');
       for (const [analysisIndex, analysis] of document.analyses.entries()) {
-        if (analysis.type !== 'ac') invalidNativeField(`/input/document/analyses/${analysisIndex}/type`);
+        // Reject malformed transient directives before the solver can run with unbounded times.
+        if (analysis.type !== 'ac' && (analysis.type !== 'tran'
+          || !Number.isFinite(analysis.timestep) || analysis.timestep <= 0
+          || !Number.isFinite(analysis.stopTime) || analysis.stopTime <= 0)) invalidNativeField(`/input/document/analyses/${analysisIndex}/type`);
       }
       if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
       if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
