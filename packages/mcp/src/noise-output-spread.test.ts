@@ -26,6 +26,10 @@ describe('output noise spectral spread', () => {
     const r = spread([1, 2, 4], [scale, scale, scale], [1, 4]);
     expect(r.outputNoiseSpreadHz).toBeCloseTo(3 / Math.sqrt(12), 12);
   });
+  it('retains finite spread across a near-maximum frequency range', () => {
+    const result = spread([1, 1e308], [1e-155, 1e-155], [1, 1e308]);
+    expect(result.outputNoiseSpreadHz! / (1e308 / Math.sqrt(12))).toBeCloseTo(1, 12);
+  });
   it('retains narrow high-frequency spread', () => {
     const a = 1e15; const r = spread([a, a + 1, a + 4], [1, 1, 1], [a, a + 4]);
     expect(r.outputNoiseSpreadHz).toBeCloseTo(4 / Math.sqrt(12), 12);

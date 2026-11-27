@@ -326,7 +326,7 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
         const rootWeight = Math.hypot(Math.sqrt(d1) / rootSpan, Math.sqrt(d2) / rootSpan) / Math.SQRT2;
         const maxDistance = Math.max(d1, d2); const a = d1 / maxDistance; const b = d2 / maxDistance;
         const ratio = b / (a + b);
-        const segmentMean = (left - selectedBand[0]) + width * (1 + ratio) / 3;
+        const segmentMean = (left - selectedBand[0]) + width * ((1 + ratio) / 3);
         const segmentDeviation = width * Math.sqrt(1 / 18 + ratio * (1 - ratio) / 9);
         const segmentLogWeight = 2 * Math.log(density) + Math.log(width) + 2 * Math.log(rootWeight);
         if (logWeight === -Infinity) {
