@@ -104,6 +104,27 @@ describe('native level-2 JFET transient', () => {
     expect(await executeProtocolV1(request)).toMatchObject({ ok: false, error });
   });
 
+  it.each(['V', 'I'])('rejects invalid nested %s source parameters on both paths', async sourceType => {
+    for (const [params, suffix] of [
+      [{ waveform: 'pulse', v1: Infinity, v2: 0, delay: 0, rise: 1e-5, fall: 1e-5, width: 1e-4, period: 4e-4 }, 'v1'],
+      [{ waveform: 'pwl', points: [{ time: Infinity, value: 0 }] }, 'points/0/time'],
+      [{ waveform: 'pwl', points: [{ time: 0, value: NaN }] }, 'points/0/value'],
+      [{ waveform: 'pwl', points: '0:0,1:Infinity' }, 'points'],
+    ] as [SpiceTsCircuitDocumentV1['circuit']['components'][number]['params'], string][]) {
+      const [request] = requests('NJF');
+      if (request.input.format !== 'spice-ts') throw new Error('native required');
+      const doc = request.input.document;
+      const source = doc.circuit.components[2]!;
+      source.type = sourceType;
+      source.params = params;
+      doc.subcircuits.push({ name: 'S', ports: ['g'], components: [source] });
+      doc.circuit.components[2] = { type: 'X', id: 'X1', name: 'X1', ports: [{ name: 'g', net: 'g' }], params: {}, subcircuit: 'S' };
+      const error = { code: 'INVALID_REQUEST', phase: 'validation', details: { path: `/input/document/subcircuits/0/components/0/params/${suffix}` } };
+      await expect(simulateProtocolV1(request)).rejects.toMatchObject({ apiError: error });
+      expect(await executeProtocolV1(request)).toMatchObject({ ok: false, error });
+    }
+  });
+
   it('rejects nonfinite PWL string points with a field path', async () => {
     const [request] = requests('NJF');
     if (request.input.format !== 'spice-ts') throw new Error('native required');
