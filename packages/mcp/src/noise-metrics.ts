@@ -1,8 +1,9 @@
 import type { NoiseResult } from '@spice-ts/core';
 
-export interface NoiseMetricsArgs { includeInputNoiseCentroid?: boolean; includeOutputNoiseCentroid?: boolean; includeInputNoisePeak?: boolean; includeOutputNoisePeak?: boolean; includeOutputNoiseBandFractions?: boolean; includeInputNoiseBandFractions?: boolean; bandHz?: [number, number]; bandsHz?: [number, number][]; spotFrequenciesHz?: number[]; signalRms?: number; outputSignalRms?: number; outputNoisePercentiles?: number[]; inputNoisePercentiles?: number[]; outputNoiseBandwidthAtHz?: number; inputNoiseBandwidthAtHz?: number }
+export interface NoiseMetricsArgs { includeOutputNoiseSpread?: boolean; includeInputNoiseCentroid?: boolean; includeOutputNoiseCentroid?: boolean; includeInputNoisePeak?: boolean; includeOutputNoisePeak?: boolean; includeOutputNoiseBandFractions?: boolean; includeInputNoiseBandFractions?: boolean; bandHz?: [number, number]; bandsHz?: [number, number][]; spotFrequenciesHz?: number[]; signalRms?: number; outputSignalRms?: number; outputNoisePercentiles?: number[]; inputNoisePercentiles?: number[]; outputNoiseBandwidthAtHz?: number; inputNoiseBandwidthAtHz?: number }
 const positive = { type: 'number', exclusiveMinimum: 0 };
 export const noiseMetricsProperties = {
+  includeOutputNoiseSpread: { type: 'boolean', description: 'Include the output PSD weighted frequency standard deviation in Hz for each sampled band, not an analog bandwidth.' },
   includeInputNoiseCentroid: { type: 'boolean', description: 'Include the input-referred PSD centroid in Hz for each band, with no extrapolation.' },
   includeOutputNoiseCentroid: { type: 'boolean', description: 'Include the output-noise PSD centroid for each band, with no extrapolation.' },
   includeInputNoiseBandFractions: { type: 'boolean', description: 'Include each bandsHz input-noise power fraction of the primary bandHz. Requires bandsHz wholly within the primary band. Overlapping bands are non-additive.' },
@@ -27,6 +28,10 @@ const bandwidthProperties = {
   outputEquivalentNoiseBandwidthHz: { type: ['number', 'null'], minimum: 0, description: 'Integrated output noise power divided by output PSD at the reference, in Hz.' },
   outputEquivalentNoiseBandwidthReason: { enum: ['zero reference density', 'nonrepresentable bandwidth'] },
 };
+const spreadProperties = {
+  outputNoiseSpreadHz: { type: ['number', 'null'], minimum: 0, description: 'Output PSD weighted frequency standard deviation in linear Hz; null for zero integrated output noise.' },
+  outputNoiseSpreadReason: { const: 'zero integrated output noise' },
+};
 const centroidProperties = {
   inputNoiseCentroidHz: { type: ['number', 'null'], minimum: 0, description: 'Input-referred PSD weighted mean frequency in Hz (not input amplitude units); null when noise is zero or the centroid cannot be represented.' },
   inputNoiseCentroidReason: { enum: ['zero integrated input noise', 'nonrepresentable centroid'] },
@@ -40,6 +45,7 @@ export const noiseMetricsOutputSchema = {
   properties: {
     ...bandwidthProperties,
     ...centroidProperties,
+    ...spreadProperties,
     inputNoisePeak: { type: 'object', additionalProperties: false, required: ['frequencyHz', 'inputNoisePerSqrtHz'], description: 'Input-referred sampled/piecewise-linear-PSD peak in the primary band.', properties: { frequencyHz: positive, inputNoisePerSqrtHz: { type: 'number', minimum: 0 } } },
     outputNoisePeak: { type: 'object', additionalProperties: false, required: ['frequencyHz', 'outputNoiseVPerSqrtHz'], description: 'Sampled/piecewise-linear-PSD peak in the primary band, not an inferred analog resonance.', properties: { frequencyHz: positive, outputNoiseVPerSqrtHz: { type: 'number', minimum: 0 } } },
     bandHz: noiseMetricsProperties.bandHz,
@@ -47,7 +53,7 @@ export const noiseMetricsOutputSchema = {
       type: 'array', minItems: 1, maxItems: 16, items: {
         type: 'object', additionalProperties: false,
         required: ['bandHz', 'integratedOutputNoiseVrms', 'integratedInputNoiseRms', 'inputUnit'],
-        properties: { ...bandwidthProperties, ...centroidProperties, bandHz: noiseMetricsProperties.bandHz, integratedOutputNoiseVrms: { type: 'number', minimum: 0 }, integratedInputNoiseRms: { type: 'number', minimum: 0 }, inputUnit: { enum: ['V', 'A'] }, outputNoisePowerFraction: { type: ['number', 'null'], minimum: 0, description: 'Dimensionless share of primary-band output-noise power, not a percentage or RMS ratio.' }, outputNoisePowerFractionReason: { const: 'zero integrated output noise' }, inputNoisePowerFraction: { type: ['number', 'null'], minimum: 0, description: 'Dimensionless share of primary-band input-noise power, not a percentage or RMS ratio. Null for zero integrated input noise.' }, inputNoisePowerFractionReason: { const: 'zero integrated input noise' } },
+        properties: { ...bandwidthProperties, ...centroidProperties, ...spreadProperties, bandHz: noiseMetricsProperties.bandHz, integratedOutputNoiseVrms: { type: 'number', minimum: 0 }, integratedInputNoiseRms: { type: 'number', minimum: 0 }, inputUnit: { enum: ['V', 'A'] }, outputNoisePowerFraction: { type: ['number', 'null'], minimum: 0, description: 'Dimensionless share of primary-band output-noise power, not a percentage or RMS ratio.' }, outputNoisePowerFractionReason: { const: 'zero integrated output noise' }, inputNoisePowerFraction: { type: ['number', 'null'], minimum: 0, description: 'Dimensionless share of primary-band input-noise power, not a percentage or RMS ratio. Null for zero integrated input noise.' }, inputNoisePowerFractionReason: { const: 'zero integrated input noise' } },
       },
     },
     integratedOutputNoiseVrms: { type: 'number', minimum: 0 },
@@ -89,7 +95,8 @@ export function noiseMetricsArgs(raw: unknown): NoiseMetricsArgs {
   const a = raw as Record<string, unknown>;
   const hz = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
   if (('request' in a) === ('netlist' in a) || ('netlist' in a && typeof a.netlist !== 'string')) invalid('Expected exactly one netlist or protocol-v1 request');
-  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'bandsHz', 'spotFrequenciesHz', 'signalRms', 'outputSignalRms', 'outputNoisePercentiles', 'inputNoisePercentiles', 'outputNoiseBandwidthAtHz', 'inputNoiseBandwidthAtHz', 'includeOutputNoisePeak', 'includeInputNoisePeak', 'includeOutputNoiseBandFractions', 'includeInputNoiseBandFractions', 'includeOutputNoiseCentroid', 'includeInputNoiseCentroid'].includes(k))
+  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'bandsHz', 'spotFrequenciesHz', 'signalRms', 'outputSignalRms', 'outputNoisePercentiles', 'inputNoisePercentiles', 'outputNoiseBandwidthAtHz', 'inputNoiseBandwidthAtHz', 'includeOutputNoisePeak', 'includeInputNoisePeak', 'includeOutputNoiseBandFractions', 'includeInputNoiseBandFractions', 'includeOutputNoiseCentroid', 'includeInputNoiseCentroid', 'includeOutputNoiseSpread'].includes(k))
+    || ('includeOutputNoiseSpread' in a && typeof a.includeOutputNoiseSpread !== 'boolean')
     || ('includeInputNoiseCentroid' in a && typeof a.includeInputNoiseCentroid !== 'boolean')
     || ('includeOutputNoiseCentroid' in a && typeof a.includeOutputNoiseCentroid !== 'boolean')
     || ('includeInputNoiseBandFractions' in a && typeof a.includeInputNoiseBandFractions !== 'boolean')
@@ -297,6 +304,34 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
       ...(referred === undefined ? {} : { inputNoiseCentroidHz: referred.value, ...(referred.reason ? { inputNoiseCentroidReason: referred.reason === 'zero' ? 'zero integrated input noise' : referred.reason } : {}) }),
     };
   };
+  const spread = (selectedBand: number[]) => {
+    if (!args.includeOutputNoiseSpread) return {};
+    let scale = 0;
+    for (let i = 1; i < f.length; i++) {
+      if (f[i - 1] < selectedBand[1] && f[i] > selectedBand[0]) scale = Math.max(scale, out[i - 1], out[i]);
+    }
+    if (scale === 0) return { outputNoiseSpreadHz: null, outputNoiseSpreadReason: 'zero integrated output noise' };
+    const span = selectedBand[1] - selectedBand[0];
+    let weight = 0; let mean = 0; let variance = 0;
+    for (let i = 1; i < f.length; i++) {
+      const left = Math.max(selectedBand[0], f[i - 1]); const right = Math.min(selectedBand[1], f[i]);
+      if (right <= left) continue;
+      const p = (out[i - 1] / scale) ** 2; const q = (out[i] / scale) ** 2;
+      const at = (hz: number) => { const t = (hz - f[i - 1]) / (f[i] - f[i - 1]); return p * (1 - t) + q * t; };
+      const a = at(left); const b = at(right); const width = (right - left) / span;
+      const segmentWeight = width * (a + b) / 2;
+      if (segmentWeight === 0) continue;
+      const ratio = b / (a + b);
+      const segmentMean = (left - selectedBand[0]) / span + width * (1 + ratio) / 3;
+      // A linear PSD is a mixture of two triangular densities, each with variance 1/18.
+      const segmentVariance = width * width * (1 / 18 + ratio * (1 - ratio) / 9);
+      const next = weight + segmentWeight; const fraction = segmentWeight / next;
+      const delta = segmentMean - mean;
+      variance = variance * (1 - fraction) + fraction * segmentVariance + fraction * (1 - fraction) * delta * delta;
+      mean += fraction * delta; weight = next;
+    }
+    return { outputNoiseSpreadHz: span * Math.sqrt(variance) };
+  };
   const bandResults = args.bandsHz?.map(bandHz => {
     const integratedOutputNoiseVrms = integrate(out, bandHz); const integratedInputNoiseRms = integrate(input, bandHz);
     if (![integratedOutputNoiseVrms, integratedInputNoiseRms].every(Number.isFinite)) invalid('Noise integration overflow');
@@ -308,7 +343,7 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
       : integratedPrimaryInputNoiseRms === 0 ? { inputNoisePowerFraction: null, inputNoisePowerFractionReason: 'zero integrated input noise' }
         : { inputNoisePowerFraction: (integratedInputNoiseRms / integratedPrimaryInputNoiseRms) ** 2 };
     return { bandHz, integratedOutputNoiseVrms, integratedInputNoiseRms, inputUnit, ...bandwidth(integratedOutputNoiseVrms, bandHz), ...inputBandwidth(integratedInputNoiseRms, bandHz),
-      ...fraction, ...inputFraction, ...centroid(bandHz) };
+      ...fraction, ...inputFraction, ...centroid(bandHz), ...spread(bandHz) };
   });
   const calculatePercentiles = (densities: number[], rms: number, requested: number[] | undefined, reason: string) => {
     const percentileScale = densities.every((density, i) => density <= 2 ** -512 ||
@@ -378,7 +413,7 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
   };
   const percentiles = calculatePercentiles(out, integratedOutputNoiseVrms, args.outputNoisePercentiles, 'zero integrated output noise');
   const inputPercentiles = calculatePercentiles(input, integratedInputNoiseRms, args.inputNoisePercentiles, 'zero integrated input noise');
-  return { bandHz: band, integratedOutputNoiseVrms, integratedInputNoiseRms, inputUnit, spots, method, ...centroid(band), ...bandwidth(integratedOutputNoiseVrms, band), ...inputBandwidth(integratedInputNoiseRms, band),
+  return { bandHz: band, integratedOutputNoiseVrms, integratedInputNoiseRms, inputUnit, spots, method, ...centroid(band), ...spread(band), ...bandwidth(integratedOutputNoiseVrms, band), ...inputBandwidth(integratedInputNoiseRms, band),
     ...(outputPeak === undefined ? {} : { outputNoisePeak: { frequencyHz: outputPeak.frequencyHz, outputNoiseVPerSqrtHz: outputPeak.density } }),
     ...(inputPeak === undefined ? {} : { inputNoisePeak: { frequencyHz: inputPeak.frequencyHz, inputNoisePerSqrtHz: inputPeak.density } }),
     ...(bandResults === undefined ? {} : { bandResults }),
