@@ -18,6 +18,7 @@ import type {
   TransientResultV1,
 } from './types.js';
 import { Circuit, type CompiledCircuit } from '../circuit.js';
+import type { JFETInstanceParams } from '../parser/jfet-parser.js';
 import { VoltageSource } from '../devices/voltage-source.js';
 import { CurrentSource } from '../devices/current-source.js';
 import { Resistor } from '../devices/resistor.js';
@@ -735,11 +736,38 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
   for (const [index, subcircuit] of document.subcircuits.entries()) {
     for (const [componentIndex, component] of subcircuit.components.entries()) {
       validateResistorCoefficients(component, `/input/document/subcircuits/${index}/components/${componentIndex}`);
+      if (component.type.toUpperCase() === 'J') invalidNativeField(`/input/document/subcircuits/${index}/components/${componentIndex}/type`);
     }
     circuit.addSubcircuit(coreSubcircuit(subcircuit));
   }
   for (const [index, component] of document.circuit.components.entries()) {
     validateResistorCoefficients(component, `/input/document/circuit/components/${index}`);
+    if (component.type.toUpperCase() === 'J') {
+      const path = `/input/document/circuit/components/${index}`;
+      for (const key of Object.keys(component)) {
+        if (!['type', 'id', 'name', 'ports', 'params', 'model'].includes(key)) invalidNativeField(`${path}/${key}`);
+      }
+      if (!component.params || typeof component.params !== 'object' || Array.isArray(component.params)) invalidNativeField(`${path}/params`);
+      const modelName = component.model ?? component.params?.modelName;
+      if (typeof modelName !== 'string' || !/^\S+$/.test(modelName)) invalidNativeField(`${path}/model`);
+      const model = document.models.find(candidate => candidate.name.toUpperCase() === modelName.toUpperCase());
+      if (!model || !['NJF', 'PJF'].includes(model.type.toUpperCase()) || (model.params.LEVEL !== undefined && model.params.LEVEL !== 1)) invalidNativeField(`${path}/model`);
+      if (!Array.isArray(component.ports) || component.ports.length !== 3) invalidNativeField(`${path}/ports`);
+      const names = component.ports.map(port => port?.name);
+      const namedPorts = ['drain', 'gate', 'source'];
+      if (!(namedPorts.every(name => names.filter(value => value === name).length === 1)
+        || ['0', '1', '2'].every(name => names.filter(value => value === name).length === 1))
+        || component.ports.some(port => typeof port.net !== 'string' || !/^\S+$/.test(port.net)
+          || Object.keys(port).some(key => key !== 'name' && key !== 'net'))) invalidNativeField(`${path}/ports`);
+      for (const [field, value] of Object.entries(component.params)) {
+        if (field === 'modelName') {
+          if (typeof value !== 'string' || !/^\S+$/.test(value) || (component.model !== undefined && component.model.toUpperCase() !== value.toUpperCase())) invalidNativeField(`${path}/params/${field}`);
+        } else if (field === 'OFF') {
+          if (typeof value !== 'boolean') invalidNativeField(`${path}/params/${field}`);
+        } else if (!['AREA', 'M', 'ICVDS', 'ICVGS'].includes(field) || typeof value !== 'number'
+          || !Number.isFinite(value) || (['AREA', 'M'].includes(field) && value <= 0)) invalidNativeField(`${path}/params/${field}`);
+      }
+    }
     if (component.type.toUpperCase() === 'V') {
       for (const field of ['portnum', 'z0']) {
         const value = component.params[field];
@@ -984,6 +1012,14 @@ function addComponent(circuit: Circuit, component: CircuitComponentV1): void {
     case 'I': circuit.addCurrentSource(component.name, named('p', 0), named('n', 1), waveform(p), optionalNumber(p, 'm')); break;
     case 'D': circuit.addDiode(component.name, named('anode', 0), named('cathode', 1), model); break;
     case 'Q': circuit.addBJT(component.name, named('collector', 0), named('base', 1), named('emitter', 2), required(model, 'model')); break;
+    case 'J': {
+      const params: JFETInstanceParams = {};
+      for (const key of ['AREA', 'M', 'ICVDS', 'ICVGS'] as const) if (p[key] !== undefined) params[key] = p[key] as number;
+      if (p.OFF !== undefined) params.OFF = p.OFF as boolean;
+      const port = (name: string, index: string): string => component.ports.find(item => item.name === name || item.name === index)!.net;
+      circuit.addJFET(component.name, port('drain', '0'), port('gate', '1'), port('source', '2'), required(model, 'model'), params);
+      break;
+    }
     case 'M': circuit.addMOSFET(component.name, named('drain', 0), named('gate', 1), named('source', 2), required(model, 'model'), numberParamsExcept(p, ['modelName', 'channelType']), component.ports.find(port => port.name === 'bulk')?.net); break;
     case 'E': circuit.addVCVS(component.name, named('outP', 2), named('outN', 3), named('ctrlP', 0), named('ctrlN', 1), numberParam(p, 'gain')); break;
     case 'G': circuit.addVCCS(component.name, named('outP', 2), named('outN', 3), named('ctrlP', 0), named('ctrlN', 1), numberParam(p, 'gm')); break;
