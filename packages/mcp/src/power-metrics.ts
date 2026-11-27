@@ -185,7 +185,13 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       const left = Math.max(start, times[k - 1]); const right = Math.min(stop, times[k]);
       if (right <= left) continue;
       // Clip the linear input waveforms before integrating their quadratic products.
-      const at = (values: number[], t: number) => values[k - 1] + (values[k] - values[k - 1]) * ((t - times[k - 1]) / (times[k] - times[k - 1]));
+      const at = (values: number[], t: number) => {
+        if (t === times[k - 1]) return values[k - 1];
+        if (t === times[k]) return values[k];
+        if (values[k - 1] === values[k]) return values[k];
+        const duration = times[k] - times[k - 1];
+        return values[k - 1] * ((times[k] - t) / duration) + values[k] * ((t - times[k - 1]) / duration);
+      };
       const vl = at(vp, left) - at(vn, left); const vr = at(vp, right) - at(vn, right);
       const il = at(current, left); const ir = at(current, right);
       if (plan.args.includeCurrentExtrema) {

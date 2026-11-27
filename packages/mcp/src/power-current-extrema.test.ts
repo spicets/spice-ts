@@ -17,6 +17,17 @@ function synthetic(timeS: number[], current: number[], options: Record<string, u
 }
 
 describe('signed current extrema', () => {
+  it('preserves tiny accepted and clipped currents without artificial zero extrema', () => {
+    const end = 1 - Number.EPSILON;
+    const report = synthetic([0, 1, 2], [1, 1e-17, 1e-17], {
+      includeCurrentExtrema: true, windows: [[0, end], [0, 1], [1, 2]],
+    });
+    expect(report.elements[0]).toMatchObject(extrema(1e-17, 1, 1, 0));
+    expect(report.windowResults![0].elements[0]).toMatchObject(extrema((1 - end) + end * 1e-17, end, 1, 0));
+    expect(report.windowResults![1].elements[0]).toMatchObject(extrema(1e-17, 1, 1, 0));
+    expect(report.windowResults![2].elements[0]).toMatchObject(extrema(1e-17, 1, 1e-17, 1));
+  });
+
   it('finds analytic extrema on clipped nonuniform linear segments', () => {
     const report = synthetic([0, 1, 3], [-2, 4, 0], { window: [0.5, 2], includeCurrentExtrema: true });
     expect(report.elements[0]).toMatchObject(extrema(1, 0.5, 4, 1));
