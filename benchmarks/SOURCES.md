@@ -1,5 +1,12 @@
 # Benchmark sources
 
+## Differential ideal-diode noise (#2212)
+
+The inline decks in `packages/core/src/analysis/noise-diode-differential.test.ts`
+are original project-authored MIT material. No third-party netlists are copied.
+Byte hashes, ngspice-47 measurements, losses and reproduction instructions are
+in `benchmarks/diode-differential-noise.md`.
+
 ## HFET1 temperature (#1876)
 
 Inline `temperatureDeck` in `packages/core/src/devices/hfet1-temperature-1876.test.ts`

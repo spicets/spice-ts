@@ -105,14 +105,6 @@ describe('.noise analysis', () => {
   });
 
   it.each([
-    ['diode', `
-      V1 in 0 DC 1 AC 1
-      R1 in outp 1k
-      R2 outn 0 1k
-      D1 outp outn DMOD
-      .model DMOD D(IS=1e-14)
-      .noise v(outp,outn) V1 dec 3 100 10k
-    `],
     ['BJT', `
       V1 in 0 DC 1 AC 1
       R1 in outp 1k
