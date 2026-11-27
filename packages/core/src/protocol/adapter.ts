@@ -736,12 +736,43 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
   for (const [index, subcircuit] of document.subcircuits.entries()) {
     for (const [componentIndex, component] of subcircuit.components.entries()) {
       validateResistorCoefficients(component, `/input/document/subcircuits/${index}/components/${componentIndex}`);
-      if (component.type.toUpperCase() === 'J') invalidNativeField(`/input/document/subcircuits/${index}/components/${componentIndex}/type`);
+      if (['J', 'K'].includes(component.type.toUpperCase())) invalidNativeField(`/input/document/subcircuits/${index}/components/${componentIndex}/type`);
     }
     circuit.addSubcircuit(coreSubcircuit(subcircuit));
   }
   for (const [index, component] of document.circuit.components.entries()) {
     validateResistorCoefficients(component, `/input/document/circuit/components/${index}`);
+    if (component.type.toUpperCase() === 'K') {
+      const path = `/input/document/circuit/components/${index}`;
+      for (const key of Object.keys(component)) {
+        if (!['type', 'id', 'name', 'ports', 'params'].includes(key)) invalidNativeField(`${path}/${jsonPointerSegment(key)}`);
+      }
+      for (const field of ['id', 'name'] as const) {
+        if (typeof component[field] !== 'string' || !/^\S+$/.test(component[field])) invalidNativeField(`${path}/${field}`);
+        if (document.circuit.components.filter(other => typeof other[field] === 'string' && other[field].toUpperCase() === component[field].toUpperCase()).length !== 1) invalidNativeField(`${path}/${field}`);
+      }
+      if (!Array.isArray(component.ports) || component.ports.length !== 0) invalidNativeField(`${path}/ports`);
+      if (!component.params || typeof component.params !== 'object' || Array.isArray(component.params)) invalidNativeField(`${path}/params`);
+      for (const key of Object.keys(component.params)) {
+        if (!['inductorA', 'inductorB', 'coupling'].includes(key)) invalidNativeField(`${path}/params/${jsonPointerSegment(key)}`);
+      }
+      for (const field of ['inductorA', 'inductorB'] as const) {
+        const ref = component.params[field];
+        if (typeof ref !== 'string' || !/^\S+$/.test(ref)) invalidNativeField(`${path}/params/${field}`);
+        const matches = document.circuit.components.filter(other => typeof other.name === 'string' && other.name.toUpperCase() === ref.toUpperCase());
+        if (matches.length !== 1 || matches[0]!.type.toUpperCase() !== 'L') invalidNativeField(`${path}/params/${field}`);
+      }
+      if ((component.params.inductorA as string).toUpperCase() === (component.params.inductorB as string).toUpperCase()) invalidNativeField(`${path}/params/inductorB`);
+      const k = component.params.coupling;
+      if (typeof k !== 'number' || !Number.isFinite(k) || k < -1 || k > 1) invalidNativeField(`${path}/params/coupling`);
+      if (!Array.isArray(document.analyses) || document.analyses.length === 0) invalidNativeField('/input/document/analyses');
+      for (const [analysisIndex, analysis] of document.analyses.entries()) {
+        if (analysis.type !== 'ac') invalidNativeField(`/input/document/analyses/${analysisIndex}/type`);
+      }
+      if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
+      if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
+      continue;
+    }
     if (component.type.toUpperCase() === 'J') {
       const path = `/input/document/circuit/components/${index}`;
       for (const key of Object.keys(component)) {
@@ -776,6 +807,11 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
       }
     }
     addComponent(circuit, component);
+  }
+  for (const component of document.circuit.components) {
+    if (component.type.toUpperCase() !== 'K') continue;
+    const resolve = (field: 'inductorA' | 'inductorB') => document.circuit.components.find(other => other.name.toUpperCase() === (component.params[field] as string).toUpperCase())!.name;
+    circuit.addInductorCoupling(component.name, resolve('inductorA'), resolve('inductorB'), component.params.coupling as number);
   }
   let stateNodes: Set<string> | undefined;
   for (const field of ['initialConditions', 'nodesets'] as const) {
