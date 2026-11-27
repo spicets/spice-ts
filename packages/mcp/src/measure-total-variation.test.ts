@@ -72,6 +72,11 @@ describe('transient total variation', () => {
     if ('value' in result) expect(result.value / 1e-100).toBeCloseTo(1, 14);
   });
 
+  it('retains a representable subnormal clipped change when both ratios underflow', () => {
+    const result = measureResult(trace([0, 1e308], [0, 2]), [{ ...item, from: 0, to: 2e-16 }]).measurements[0];
+    expect(result).toEqual({ value: Number.MIN_VALUE, unit: 'V' });
+  });
+
   it('avoids intermediate overflow when clipping large values and times', () => {
     const result = measureResult(trace([-1e308, 1e308], [-1e308, 1e308]), [{ ...item, from: -5e307, to: 5e307 }]).measurements[0];
     expect(result).toHaveProperty('value');

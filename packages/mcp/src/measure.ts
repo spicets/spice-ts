@@ -310,6 +310,11 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         const clippedWidth = end - start;
         if (fraction < 2 ** -1022 && slope >= 2 ** -1022 && Number.isFinite(slope) && Number.isFinite(clippedWidth)) {
           value += slope * clippedWidth;
+        } else if (fraction < 2 ** -1022 && Number.isFinite(width) && Number.isFinite(delta) && Number.isFinite(clippedWidth)) {
+          // Keep the fraction normal until after multiplication, avoiding early
+          // rounding of both the fraction and the subnormal slope.
+          const scale = 2 ** -512;
+          value += (clippedWidth / (width * scale)) * Math.abs(delta) * scale;
         } else {
           // Scale the original segment change before adding any DC offset.
           value += Number.isFinite(delta) ? Math.abs(delta) * fraction
