@@ -32,6 +32,19 @@ describe('timeCentroid', () => {
     }
   });
 
+  it('preserves a short pulse in a much larger zero-padded window', () => {
+    const cases: [number[], number[], number][] = [
+      [[0, 1, 1e308], [1, 0, 0], 1 / 3],
+      [[-1e308, 0, 1, 2, 1e308], [0, 0, 1, 0, 0], 1],
+      [[-1e308, 0, 1], [0, 0, 1], 2 / 3],
+    ];
+    for (const [times, values, expected] of cases) {
+      const result = measureResult(trace(times, values), [item]).measurements[0];
+      expect(result).toHaveProperty('unit', 's');
+      if ('value' in result) expect(result.value).toBeCloseTo(expected, 15);
+    }
+  });
+
   it('handles a finite centroid across an overflowing time span', () => {
     expect(measureResult(trace([-1e308, 1e308], [1, 1]), [item]).measurements[0]).toEqual({ value: 0, unit: 's' });
     const result = measureResult(trace([-1e308, 1e308], [0, 1]), [{ ...item, from: 0 }]).measurements[0];

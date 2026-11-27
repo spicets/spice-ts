@@ -376,8 +376,16 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       if (hi === lo) return error('INVALID_MEASUREMENT', 'Time centroid requires a nonzero window');
       const scale = samples.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0);
       if (scale === 0) return error('INVALID_MEASUREMENT', 'Time centroid requires nonzero absolute area');
-      const wide = !Number.isFinite(hi - lo);
-      const span = wide ? hi / 2 - lo / 2 : hi - lo;
+      // Zero-only edge segments contribute no area. Exclude them from the
+      // time normalization so a short pulse is not scaled by an unrelated
+      // (possibly enormous) zero-padded portion of the window.
+      const first = samples.findIndex(sample => sample !== 0);
+      let last = samples.length - 1;
+      while (samples[last] === 0) last--;
+      const origin = points[Math.max(0, first - 1)];
+      const limit = points[Math.min(points.length - 1, last + 1)];
+      const wide = !Number.isFinite(limit - origin);
+      const span = wide ? limit / 2 - origin / 2 : limit - origin;
       if (!Number.isFinite(scale)) return error('NON_FINITE_RESULT', 'Measurement is non-finite');
       let area = 0; let moment = 0;
       const add = (start: number, width: number, a: number, b: number) => {
@@ -386,8 +394,8 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         area += weight;
         moment += weight * (start + width * (a + 2 * b) / (3 * (a + b)));
       };
-      for (let i = 1; i < points.length; i++) {
-        const start = (wide ? points[i - 1] / 2 - lo / 2 : points[i - 1] - lo) / span;
+      for (let i = Math.max(1, first); i <= Math.min(points.length - 1, last + 1); i++) {
+        const start = (wide ? points[i - 1] / 2 - origin / 2 : points[i - 1] - origin) / span;
         const width = (wide ? points[i] / 2 - points[i - 1] / 2 : points[i] - points[i - 1]) / span;
         const a = samples[i - 1] / scale; const b = samples[i] / scale;
         if ((a < 0 && b > 0) || (a > 0 && b < 0)) {
@@ -397,7 +405,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         } else if (a !== 0 || b !== 0) add(start, width, Math.abs(a), Math.abs(b));
       }
       const fraction = moment / area;
-      value = wide ? lo * (1 - fraction) + hi * fraction : lo + span * fraction;
+      value = wide ? origin * (1 - fraction) + limit * fraction : origin + span * fraction;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     } else if (m.kind === 'relativeRmsError') {
       const referenceSamples = points.map(point => interpolate(point, referenceY!));
