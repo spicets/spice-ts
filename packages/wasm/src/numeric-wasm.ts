@@ -61,6 +61,7 @@ interface PreparedPassiveAc extends PreparedNumericBase {
 
 interface PreparedPassiveTran extends PreparedNumericBase {
   analysis: 'tran';
+  selection?: PreparedLinearOp['selection'];
   fourierCircuit: Circuit;
   measurements: WasmMeasurement[];
   hierarchical: boolean;
@@ -114,7 +115,7 @@ export async function simulateLinearOpWasmV1(
       }
       return result;
     }
-    const result = simulateTransient(prepared, request, exports);
+    const result = simulateTransient(prepared, request, exports, maxPoints);
     const transientResult = result.analyses[0];
     if (transientResult?.type === 'tran') {
       addFourier(transientResult, prepared.fourierCircuit);
@@ -383,9 +384,10 @@ function opResult(compiled: CompiledCircuit, solution: Float64Array, request: Si
 }
 
 function simulateTransient(
-  { compiled, order, transient }: PreparedPassiveTran,
+  { compiled, order, transient, selection }: PreparedPassiveTran,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
+  maxPoints: number,
 ): SimulationResultV1 {
   const pointCount = transientPointCount(transient.stopTime, transient.timestep);
   const pointLimit = Math.min(
@@ -393,6 +395,7 @@ function simulateTransient(
     request.options?.limits?.maxResultPoints ?? Infinity,
   );
   if (pointCount > pointLimit) throw resourceLimit('maxResultPoints', pointLimit, pointCount);
+  if (pointCount > maxPoints) throw resourceLimit('maxPoints', maxPoints, pointCount);
 
   for (const device of compiled.devices) device.setTransientTimestep?.(transient.timestep);
   const gmin = request.options?.gmin ?? 0;
@@ -402,11 +405,11 @@ function simulateTransient(
   let previousRhs = initial.rhs;
   let previousTime = 0;
   const timeS = [0];
-  const voltagesV = Object.fromEntries(compiled.nodeNames.map((name, index) => [name, [solution[index]!]]));
+  const voltagesV = Object.fromEntries(compiled.nodeNames.map((name, index) => [name, [solution[index]!] as number[]] as const).filter(([name]) => !selection || selection.nodes.has(name)));
   const currentsA = Object.fromEntries(compiled.branchNames.map((name, index) => [
     name,
-    [solution[compiled.nodeCount + index]!],
-  ]));
+    [solution[compiled.nodeCount + index]!] as number[],
+  ] as const).filter(([name]) => !selection || selection.branches.has(name)));
 
   for (let point = 1; point < pointCount; point++) {
     const time = Math.min(point * transient.timestep, transient.stopTime);
@@ -429,8 +432,8 @@ function simulateTransient(
     previousRhs = stamped.rhs;
     previousTime = time;
     timeS.push(time);
-    compiled.nodeNames.forEach((name, index) => voltagesV[name]!.push(solution[index]!));
-    compiled.branchNames.forEach((name, index) => currentsA[name]!.push(solution[compiled.nodeCount + index]!));
+    compiled.nodeNames.forEach((name, index) => voltagesV[name]?.push(solution[index]!));
+    compiled.branchNames.forEach((name, index) => currentsA[name]?.push(solution[compiled.nodeCount + index]!));
   }
 
   const result: SimulationResultV1 = {
@@ -443,7 +446,7 @@ function simulateTransient(
 
 /** Shared adaptive driver and device models; every DC/Newton solve stays in WASM. */
 async function simulateAdaptiveTransient(
-  { compiled, transient, normalizedSource, nativeCircuit }: PreparedPassiveTran,
+  { compiled, transient, normalizedSource, nativeCircuit, selection }: PreparedPassiveTran,
   request: SimulationRequestV1,
   exports: NumericWasmExports,
   maxPoints: number,
@@ -474,8 +477,8 @@ async function simulateAdaptiveTransient(
     },
   });
   const timeS: number[] = [];
-  const voltagesV = Object.fromEntries(compiled.nodeNames.map(name => [name, [] as number[]]));
-  const currentsA = Object.fromEntries(compiled.branchNames.map(name => [name, [] as number[]]));
+  const voltagesV = Object.fromEntries(compiled.nodeNames.filter(name => !selection || selection.nodes.has(name)).map(name => [name, [] as number[]]));
+  const currentsA = Object.fromEntries(compiled.branchNames.filter(name => !selection || selection.branches.has(name)).map(name => [name, [] as number[]]));
   const resultLimit = options?.limits?.maxResultPoints ?? Infinity;
   const append = (step: TransientStep): void => {
     if (step.time < (transient.startTime ?? 0)) return;
@@ -483,8 +486,8 @@ async function simulateAdaptiveTransient(
     if (observed > resultLimit) throw resourceLimit('maxResultPoints', resultLimit, observed);
     if (observed > maxPoints) throw resourceLimit('maxPoints', maxPoints, observed);
     timeS.push(step.time);
-    for (const [name, value] of step.voltages) voltagesV[name]!.push(value);
-    for (const [name, value] of step.currents) currentsA[name]!.push(value);
+    for (const [name, value] of step.voltages) voltagesV[name]?.push(value);
+    for (const [name, value] of step.currents) currentsA[name]?.push(value);
   };
   try {
     // UIC's t=0 state is an IC seed, not a solved output point (#856).
@@ -777,10 +780,10 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
     unsupported('native-document', 'Only flat native circuits without additional directives are supported');
   }
   if (nativeAnalysis.type === 'tran') {
-    if (Object.keys(nativeAnalysis).some(key => !['type', 'timestep', 'stopTime', 'startTime', 'maxTimestep'].includes(key)) || request.outputs !== undefined ||
+    if (Object.keys(nativeAnalysis).some(key => !['type', 'timestep', 'stopTime', 'startTime', 'maxTimestep'].includes(key)) ||
       Object.keys(document.circuit).some(key => !['nets', 'components'].includes(key)) ||
       components.some(component => Object.keys(component).some(key => !['type', 'name', 'id', 'ports', 'params'].includes(key)))) {
-      unsupported('native-transient-feature', 'Native transient directives and output selection are not supported');
+      unsupported('native-transient-feature', 'Native transient directives are not supported');
     }
     const { timestep, stopTime, startTime = 0, maxTimestep } = nativeAnalysis;
     if (![timestep, stopTime, startTime].every(Number.isFinite) || timestep <= 0 || stopTime <= 0 || startTime < 0 || startTime >= stopTime ||
@@ -931,7 +934,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const compiledAnalysis = compiled.analyses[0];
   if (nativeAnalysis.type === 'tran') {
     if (compiledAnalysis?.type !== 'tran') unsupported('analysis', 'Exactly one .tran analysis is supported');
-    return { analysis: 'tran', compiled, order, transient: compiledAnalysis, fourierCircuit: nativeCircuit, nativeCircuit, measurements: [], normalizedSource: '', hierarchical: false };
+    return { analysis: 'tran', compiled, order, transient: compiledAnalysis, selection: selectNativeOpOutputs(request.outputs, compiled), fourierCircuit: nativeCircuit, nativeCircuit, measurements: [], normalizedSource: '', hierarchical: false };
   }
   if (compiledAnalysis?.type !== 'ac') unsupported('analysis', 'Exactly one .ac analysis is supported');
   const reltol = request.options?.reltol ?? DEFAULT_RELTOL;
