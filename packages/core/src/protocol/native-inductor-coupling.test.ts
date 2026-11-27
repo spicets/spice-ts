@@ -33,7 +33,7 @@ function compare(label: string, actual: Complex[], expected: Complex[]) {
 }
 
 describe('native inductor coupling', () => {
-  it.each([0, 0.8, -0.8])('matches SPICE and analytic transformer at k=%s', async k => {
+  it.each([0, 0.8, -0.8, 1, -1])('matches SPICE and analytic transformer at k=%s', async k => {
     const doc = document(k);
     doc.circuit.components[5]!.params.inductorA = 'l1';
     doc.circuit.components[5]!.params.inductorB = 'l2';
@@ -56,9 +56,7 @@ describe('native inductor coupling', () => {
     console.info(`analytic k=${k} f=${a.frequencyHz[0]} expected=${JSON.stringify(expected)} actual=${JSON.stringify(actual)}`);
     expect(Math.hypot(actual.re - expected.re, actual.im - expected.im)).toBeLessThan(1e-9);
   });
-  it.each([-1, 1])('accepts the signed coupling boundary %s', async k => {
-    expect((await simulateProtocolV1(native(document(k)))).analyses[0]?.type).toBe('ac');
-  });
+
   it.each([
     ['missing reference', '/params/inductorA', (d: SpiceTsCircuitDocumentV1) => { delete d.circuit.components[5]!.params.inductorA; }],
     ['non-L reference', '/params/inductorA', (d: SpiceTsCircuitDocumentV1) => { d.circuit.components[5]!.params.inductorA = 'R1'; }],
