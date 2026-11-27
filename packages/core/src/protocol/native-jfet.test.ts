@@ -61,7 +61,7 @@ describe('native level-1 JFET', () => {
   it.each([
     ['missing model', (d: SpiceTsCircuitDocumentV1) => { delete d.circuit.components[3]!.model; }],
     ['unknown model', (d: SpiceTsCircuitDocumentV1) => { d.circuit.components[3]!.model = 'missing'; }],
-    ['level 2', (d: SpiceTsCircuitDocumentV1) => { d.models[0]!.params.LEVEL = 2; }],
+    ['level 3', (d: SpiceTsCircuitDocumentV1) => { d.models[0]!.params.LEVEL = 3; }],
     ['wrong model type', (d: SpiceTsCircuitDocumentV1) => { d.models[0]!.type = 'NPN'; }],
     ['missing port', (d: SpiceTsCircuitDocumentV1) => { d.circuit.components[3]!.ports.pop(); }],
     ['duplicate port', (d: SpiceTsCircuitDocumentV1) => { d.circuit.components[3]!.ports[0]!.name = 'drain'; }],

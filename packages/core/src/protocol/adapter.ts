@@ -785,7 +785,22 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
       const modelName = component.model ?? component.params?.modelName;
       if (typeof modelName !== 'string' || !/^\S+$/.test(modelName)) invalidNativeField(`${path}/model`);
       const model = document.models.find(candidate => candidate.name.toUpperCase() === modelName.toUpperCase());
-      if (!model || !['NJF', 'PJF'].includes(model.type.toUpperCase()) || (model.params.LEVEL !== undefined && model.params.LEVEL !== 1)) invalidNativeField(`${path}/model`);
+      if (!model || !['NJF', 'PJF'].includes(model.type.toUpperCase()) || (model.params.LEVEL !== undefined && ![1, 2].includes(model.params.LEVEL as number))) invalidNativeField(`${path}/model`);
+      if (model.params.LEVEL === 2) {
+        for (const [analysisIndex, analysis] of document.analyses.entries()) {
+          const analysisPath = `/input/document/analyses/${analysisIndex}`;
+          if (!['op', 'dc'].includes(analysis.type)) invalidNativeField(`${analysisPath}/type`);
+          if (analysis.type === 'dc') {
+            const sources: [unknown, string][] = [[analysis.source, `${analysisPath}/source`]];
+            if (analysis.secondary) sources.push([analysis.secondary.source, `${analysisPath}/secondary/source`]);
+            for (const [source, sourcePath] of sources) {
+              if (typeof source !== 'string' || !document.circuit.components.some(item => ['V', 'I'].includes(item.type.toUpperCase()) && item.name.toUpperCase() === source.toUpperCase())) invalidNativeField(sourcePath);
+            }
+          }
+        }
+        if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
+        if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');
+      }
       if (!Array.isArray(component.ports) || component.ports.length !== 3) invalidNativeField(`${path}/ports`);
       const names = component.ports.map(port => port?.name);
       const namedPorts = ['drain', 'gate', 'source'];
