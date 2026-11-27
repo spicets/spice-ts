@@ -529,7 +529,9 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       for (let i = 1; i < points.length; i++) {
         const low = Math.min(samples[i - 1], samples[i]);
         const high = Math.max(samples[i - 1], samples[i]);
-        const width = points[i] - points[i - 1];
+        const fullWidth = points[i] - points[i - 1];
+        const wide = !Number.isFinite(fullWidth);
+        const width = wide ? points[i] / 2 - points[i - 1] / 2 : fullWidth;
         let segment = 0;
         if (low === high) {
           if (low >= m.lower! && low <= m.upper!) segment = width;
@@ -548,6 +550,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
               : width * (Number.isFinite(range) ? span / range : (end / 2 - start / 2) / denominator);
           }
         }
+        if (wide) segment *= 2;
         // An out-of-band shared sample implies a positive-duration excursion
         // between visits; an on-boundary sample keeps the visit continuous.
         if (m.kind === 'longestTimeInBand' && (samples[i - 1] < m.lower! || samples[i - 1] > m.upper!)) duration = 0;

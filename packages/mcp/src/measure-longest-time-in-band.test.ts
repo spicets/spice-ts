@@ -12,6 +12,14 @@ describe('longest transient time in band', () => {
       { value: 2, unit: 's' }, { value: 3.5, unit: 's' },
     ]);
   });
+  it('measures a finite visit even when the full time span overflows', () => {
+    const wide = { ...trace, analyses: [{ ...trace.analyses[0], timeS: [-1e308, 1e308], voltagesV: { out: [0, 2] } }] };
+    const result = measureResult(wide, [band, { ...band, kind: 'timeInBand' }, { ...band, lower: 0, upper: 2 }]).measurements;
+    expect(result[0]).toEqual({ value: 1e308, unit: 's' });
+    expect(result[1]).toEqual({ value: 1e308, unit: 's' });
+    expect(result[2]).toMatchObject({ error: { code: 'NON_FINITE_RESULT' } });
+  });
+
   it('handles clipping, irregular grids, direction changes and boundary contacts', () => {
     const irregular = { ...trace, analyses: [{ ...trace.analyses[0], timeS: [0, 2, 3, 7, 8], voltagesV: { out: [0, 1, 0.5, 1, 0] } }] };
     const specs = [band, { ...band, from: 1.5, to: 7.5 }, { ...band, from: 3, to: 3 }, { ...band, lower: -1, upper: 2 }, { ...band, lower: 3, upper: 4 }];
