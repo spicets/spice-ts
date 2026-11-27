@@ -65,7 +65,7 @@ export function assertNoiseDevicesSupported(compiled: CompiledCircuit): void {
         throw new InvalidCircuitError(`.noise requires finite resistor KF >= 0, AF, EF and positive noise geometry and M for '${device.name}'`);
       }
     }
-    if (hasDifferentialOutput && isSemiconductorNoiseDevice(device)) {
+    if (hasDifferentialOutput && isSemiconductorNoiseDevice(device) && !(device instanceof Diode)) {
       throw new InvalidCircuitError(
         '.noise differential voltage output only supports resistor noise',
       );
@@ -182,7 +182,8 @@ export function solveNoise(
   const outputReferenceIndex = analysis.outputReferenceNode === undefined
     ? -1
     : findNodeIndex(compiled, analysis.outputReferenceNode);
-  if (analysis.outputReferenceNode !== undefined && devices.some(isSemiconductorNoiseDevice)) {
+  if (analysis.outputReferenceNode !== undefined
+    && devices.some(device => isSemiconductorNoiseDevice(device) && !(device instanceof Diode))) {
     throw new InvalidCircuitError(
       '.noise differential voltage output only supports resistor noise',
     );
