@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'pp', 'at', 'slope', 'cross', 'when', 'crossingCount', 'integ', 'absInteg', 'delay', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'pp', 'at', 'slope', 'cross', 'when', 'crossingCount', 'integ', 'absInteg', 'timeCentroid', 'delay', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
@@ -45,11 +45,11 @@ export const measurementListSchema = {
       if: { properties: { kind: { const: 'slope' } } },
       then: { required: ['at'], not: { anyOf: ['value', 'edge', 'occurrence', 'trigger', 'target', 'referenceSignal'].map(key => ({ required: [key] })) } },
     }, {
-      if: { properties: { kind: { const: 'totalVariation' } } },
+      if: { properties: { kind: { enum: ['totalVariation', 'timeCentroid'] } } },
       then: { not: { anyOf: ['at', 'value', 'edge'].map(key => ({ required: [key] })) } },
     }],
     properties: {
-      kind: { enum: kinds, description: 'slope returns the transient piecewise-linear segment slope at time at, using the right segment at an interior knot and the left segment at the final endpoint. maxAbsoluteError returns the maximum absolute difference from referenceSignal over the nonzero transient window, including interpolated boundaries, in the signal unit. totalVariation sums absolute successive changes of the transient waveform within the window, including interpolated boundaries, in the signal unit.' }, signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
+      kind: { enum: kinds, description: 'timeCentroid returns the absolute time in seconds weighted by |signal| over the transient window. slope returns the transient piecewise-linear segment slope at time at, using the right segment at an interior knot and the left segment at the final endpoint. maxAbsoluteError returns the maximum absolute difference from referenceSignal over the nonzero transient window, including interpolated boundaries, in the signal unit. totalVariation sums absolute successive changes of the transient waveform within the window, including interpolated boundaries, in the signal unit.' }, signal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
       referenceSignal: { type: 'string', minLength: 1, maxLength: 256, description: signalDescription },
       analysis: { type: 'integer', minimum: 0 },
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
@@ -97,7 +97,7 @@ function valid(value: unknown): value is Measurement {
     && (m.from === undefined || m.to === undefined || m.from <= m.to)
     && (m.kind !== 'at' || m.at !== undefined)
     && (m.kind !== 'slope' || (m.at !== undefined && m.value === undefined && m.edge === undefined))
-    && (m.kind !== 'totalVariation' || (m.at === undefined && m.value === undefined && m.edge === undefined))
+    && (!['totalVariation', 'timeCentroid'].includes(m.kind) || (m.at === undefined && m.value === undefined && m.edge === undefined))
     && (!['cross', 'when', 'crossingCount'].includes(m.kind) || m.value !== undefined)
     && (m.kind !== 'crossingCount' || m.at === undefined);
 }
@@ -218,7 +218,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (['integ', 'absInteg', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'slope', 'crossingCount'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if (['integ', 'absInteg', 'timeCentroid', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'slope', 'crossingCount'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
@@ -340,7 +340,9 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const i = left;
       if (i === 0 || x[i] === at) return values[i];
       const width = x[i] - x[i - 1];
-      const fraction = (at - x[i - 1]) / width;
+      const fraction = m.kind === 'timeCentroid' && !Number.isFinite(width)
+        ? (at / 2 - x[i - 1] / 2) / (x[i] / 2 - x[i - 1] / 2)
+        : (at - x[i - 1]) / width;
       const delta = values[i] - values[i - 1];
       return Number.isFinite(delta)
         ? values[i - 1] + delta * fraction
@@ -370,7 +372,34 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
     const samples = points.map(point => interpolate(point));
     let value: number;
     let unit = data.unit;
-    if (m.kind === 'relativeRmsError') {
+    if (m.kind === 'timeCentroid') {
+      if (hi === lo) return error('INVALID_MEASUREMENT', 'Time centroid requires a nonzero window');
+      const scale = samples.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0);
+      if (scale === 0) return error('INVALID_MEASUREMENT', 'Time centroid requires nonzero absolute area');
+      const wide = !Number.isFinite(hi - lo);
+      const span = wide ? hi / 2 - lo / 2 : hi - lo;
+      if (!Number.isFinite(scale)) return error('NON_FINITE_RESULT', 'Measurement is non-finite');
+      let area = 0; let moment = 0;
+      const add = (start: number, width: number, a: number, b: number) => {
+        const weight = width * (a + b) / 2;
+        if (weight === 0) return;
+        area += weight;
+        moment += weight * (start + width * (a + 2 * b) / (3 * (a + b)));
+      };
+      for (let i = 1; i < points.length; i++) {
+        const start = (wide ? points[i - 1] / 2 - lo / 2 : points[i - 1] - lo) / span;
+        const width = (wide ? points[i] / 2 - points[i - 1] / 2 : points[i] - points[i - 1]) / span;
+        const a = samples[i - 1] / scale; const b = samples[i] / scale;
+        if ((a < 0 && b > 0) || (a > 0 && b < 0)) {
+          const fraction = Math.abs(a) / (Math.abs(a) + Math.abs(b));
+          add(start, width * fraction, Math.abs(a), 0);
+          add(start + width * fraction, width * (1 - fraction), 0, Math.abs(b));
+        } else if (a !== 0 || b !== 0) add(start, width, Math.abs(a), Math.abs(b));
+      }
+      const fraction = moment / area;
+      value = wide ? lo * (1 - fraction) + hi * fraction : lo + span * fraction;
+      return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
+    } else if (m.kind === 'relativeRmsError') {
       const referenceSamples = points.map(point => interpolate(point, referenceY!));
       let errors = samples.map((v, i) => v - referenceSamples[i]);
       const halfErrors = !errors.every(Number.isFinite);
