@@ -53,6 +53,13 @@ describe('transient total variation', () => {
     }
   });
 
+  it('preserves clipped changes smaller than the DC offset spacing', () => {
+    const result = measureResult(trace([0, 1], [1e16, 1e16 + 2]), [{ ...item, from: 0, to: 0.25 }]).measurements[0];
+    expect(result).toEqual({ value: 0.5, unit: 'V' });
+    expect(measureResult(trace([0, 1, 2], [1e16, 1e16 + 2, 1e16]), [{ ...item, from: 0.25, to: 1.75 }]).measurements[0])
+      .toEqual({ value: 3, unit: 'V' });
+  });
+
   it('avoids intermediate overflow when clipping large values and times', () => {
     const result = measureResult(trace([-1e308, 1e308], [-1e308, 1e308]), [{ ...item, from: -5e307, to: 5e307 }]).measurements[0];
     expect(result).toHaveProperty('value');

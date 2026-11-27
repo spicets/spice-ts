@@ -292,6 +292,21 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       }
       return error('NO_CROSSING', m.kind === 'pulseWidth' ? 'No complete pulse in the selected window' : 'No complete period in the selected window');
     }
+    if (m.kind === 'totalVariation') {
+      let value = 0;
+      for (let i = 1; i < x.length; i++) {
+        const start = Math.max(lo, x[i - 1]); const end = Math.min(hi, x[i]);
+        if (end <= start) continue;
+        const width = x[i] - x[i - 1];
+        const fraction = Number.isFinite(width) ? (end - start) / width
+          : (end / 2 - start / 2) / (x[i] / 2 - x[i - 1] / 2);
+        const delta = y[i] - y[i - 1];
+        // Scale the original segment change before adding any DC offset.
+        value += Number.isFinite(delta) ? Math.abs(delta) * fraction
+          : Math.abs(y[i] / 2 - y[i - 1] / 2) * fraction * 2;
+      }
+      return Number.isFinite(value) ? { value, unit: data.unit } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
+    }
     const interpolate = (at: number, values = y): number => {
       let left = 0; let right = x.length - 1;
       while (left < right) {
@@ -302,9 +317,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const i = left;
       if (i === 0 || x[i] === at) return values[i];
       const width = x[i] - x[i - 1];
-      const fraction = m.kind === 'totalVariation' && !Number.isFinite(width)
-        ? (at / 2 - x[i - 1] / 2) / (x[i] / 2 - x[i - 1] / 2)
-        : (at - x[i - 1]) / width;
+      const fraction = (at - x[i - 1]) / width;
       const delta = values[i] - values[i - 1];
       return Number.isFinite(delta)
         ? values[i - 1] + delta * fraction
@@ -413,9 +426,6 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       }
       value = Math.min(1, Math.max(0, duration / (hi - lo)));
       unit = '1';
-    } else if (m.kind === 'totalVariation') {
-      value = 0;
-      for (let i = 1; i < samples.length; i++) value += Math.abs(samples[i] - samples[i - 1]);
     } else if (m.kind === 'maxAbsoluteError') {
       value = samples.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0);
     } else if (m.kind === 'min' || m.kind === 'max' || m.kind === 'pp') {
