@@ -311,26 +311,39 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
       if (f[i - 1] < selectedBand[1] && f[i] > selectedBand[0]) scale = Math.max(scale, out[i - 1], out[i]);
     }
     if (scale === 0) return { outputNoiseSpreadHz: null, outputNoiseSpreadReason: 'zero integrated output noise' };
-    const span = selectedBand[1] - selectedBand[0];
-    let weight = 0; let mean = 0; let variance = 0;
+    // Accumulate endpoint basis functions separately in log-power space. A tiny
+    // power fraction can still have a representable frequency-weighted spread.
+    let logWeight = -Infinity; let mean = 0; let deviation = 0;
     for (let i = 1; i < f.length; i++) {
       const left = Math.max(selectedBand[0], f[i - 1]); const right = Math.min(selectedBand[1], f[i]);
       if (right <= left) continue;
-      const p = (out[i - 1] / scale) ** 2; const q = (out[i] / scale) ** 2;
-      const at = (hz: number) => { const t = (hz - f[i - 1]) / (f[i] - f[i - 1]); return p * (1 - t) + q * t; };
-      const a = at(left); const b = at(right); const width = (right - left) / span;
-      const segmentWeight = width * (a + b) / 2;
-      if (segmentWeight === 0) continue;
-      const ratio = b / (a + b);
-      const segmentMean = (left - selectedBand[0]) / span + width * (1 + ratio) / 3;
-      // A linear PSD is a mixture of two triangular densities, each with variance 1/18.
-      const segmentVariance = width * width * (1 / 18 + ratio * (1 - ratio) / 9);
-      const next = weight + segmentWeight; const fraction = segmentWeight / next;
-      const delta = segmentMean - mean;
-      variance = variance * (1 - fraction) + fraction * segmentVariance + fraction * (1 - fraction) * delta * delta;
-      mean += fraction * delta; weight = next;
+      const width = right - left; const rootSpan = Math.sqrt(f[i] - f[i - 1]);
+      for (const [density, d1, d2] of [
+        [out[i - 1], f[i] - left, f[i] - right],
+        [out[i], left - f[i - 1], right - f[i - 1]],
+      ]) {
+        if (density === 0 || (d1 === 0 && d2 === 0)) continue;
+        const rootWeight = Math.hypot(Math.sqrt(d1) / rootSpan, Math.sqrt(d2) / rootSpan) / Math.SQRT2;
+        const maxDistance = Math.max(d1, d2); const a = d1 / maxDistance; const b = d2 / maxDistance;
+        const ratio = b / (a + b);
+        const segmentMean = (left - selectedBand[0]) + width * (1 + ratio) / 3;
+        const segmentDeviation = width * Math.sqrt(1 / 18 + ratio * (1 - ratio) / 9);
+        const segmentLogWeight = 2 * Math.log(density) + Math.log(width) + 2 * Math.log(rootWeight);
+        if (logWeight === -Infinity) {
+          logWeight = segmentLogWeight; mean = segmentMean; deviation = segmentDeviation;
+          continue;
+        }
+        const maxLog = Math.max(logWeight, segmentLogWeight);
+        const nextLog = maxLog + Math.log1p(Math.exp(Math.min(logWeight, segmentLogWeight) - maxLog));
+        const rootRetained = Math.exp((logWeight - nextLog) / 2);
+        const rootIncoming = Math.exp((segmentLogWeight - nextLog) / 2);
+        const delta = segmentMean - mean;
+        deviation = Math.hypot(deviation * rootRetained, segmentDeviation * rootIncoming, delta * rootRetained * rootIncoming);
+        mean = rootIncoming > rootRetained ? segmentMean - delta * rootRetained * rootRetained : mean + delta * rootIncoming * rootIncoming;
+        logWeight = nextLog;
+      }
     }
-    return { outputNoiseSpreadHz: span * Math.sqrt(variance) };
+    return { outputNoiseSpreadHz: deviation };
   };
   const bandResults = args.bandsHz?.map(bandHz => {
     const integratedOutputNoiseVrms = integrate(out, bandHz); const integratedInputNoiseRms = integrate(input, bandHz);

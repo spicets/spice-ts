@@ -30,6 +30,18 @@ describe('output noise spectral spread', () => {
     const a = 1e15; const r = spread([a, a + 1, a + 4], [1, 1, 1], [a, a + 4]);
     expect(r.outputNoiseSpreadHz).toBeCloseTo(4 / Math.sqrt(12), 12);
   });
+  it('retains a weak distant PSD tail in the second moment', () => {
+    const result = spread([1, 2, 3, 1e150], [1, 1, 1e-200, 1e-200], [1, 1e150]);
+    expect(result.outputNoiseSpreadHz! / 4.714045207910317e24).toBeCloseTo(1, 12);
+  });
+  it('retains finite spread when a zero-power tail extends the band', () => {
+    const result = spread([1, 2, 3, 1e200], [1, 1, 0, 0], [1, 1e200]);
+    expect(result.outputNoiseSpreadHz).toBeCloseTo(Math.sqrt(37 / 162), 12);
+  });
+  it('retains an earlier weak lobe when the later lobe dominates power', () => {
+    const result = spread([1, 2, 3, 1e9, 1e9 + 1, 1e9 + 2], [1e-9, 1e-9, 0, 0, 1, 1], [1, 1e9 + 2]);
+    expect(result.outputNoiseSpreadHz).toBeCloseTo(1.1083298519020788, 8);
+  });
   it('reports zero power explicitly', () => {
     const r = spread([1, 2, 4], [0, 0, 0], [1, 4], [[1, 2]]);
     expect(r).toMatchObject({ outputNoiseSpreadHz: null, outputNoiseSpreadReason: 'zero integrated output noise', bandResults: [{ outputNoiseSpreadHz: null, outputNoiseSpreadReason: 'zero integrated output noise' }] });
