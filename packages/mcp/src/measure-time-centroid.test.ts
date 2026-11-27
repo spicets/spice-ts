@@ -51,6 +51,18 @@ describe('timeCentroid', () => {
     if ('value' in result) expect(result.value / 9.860761315262649e276).toBeCloseTo(1, 13);
   });
 
+  it('preserves clipped amplitudes when the interpolation fraction underflows', () => {
+    const result = measureResult(trace([0, 1e308], [0, 1e308]), [{ ...item, from: 1e-100, to: 2e-100 }]).measurements[0];
+    expect(result).toHaveProperty('unit', 's');
+    if ('value' in result) expect(result.value / 1e-100).toBeCloseTo(14 / 9, 14);
+  });
+
+  it('preserves subnormal first moment contributions', () => {
+    const result = measureResult(trace([0, 1, 2 ** 535], [1, 0, 6 * Number.MIN_VALUE]), [item]).measurements[0];
+    expect(result).toHaveProperty('unit', 's');
+    if ('value' in result) expect(result.value).toBeCloseTo(7 / 12, 14);
+  });
+
   it('handles a finite centroid across an overflowing time span', () => {
     expect(measureResult(trace([-1e308, 1e308], [1, 1]), [item]).measurements[0]).toEqual({ value: 0, unit: 's' });
     const result = measureResult(trace([-1e308, 1e308], [0, 1]), [{ ...item, from: 0 }]).measurements[0];

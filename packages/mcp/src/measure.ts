@@ -344,6 +344,19 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         ? (at / 2 - x[i - 1] / 2) / (x[i] / 2 - x[i - 1] / 2)
         : (at - x[i - 1]) / width;
       const delta = values[i] - values[i - 1];
+      if (m.kind === 'timeCentroid' && fraction < 2 ** -1022 && Number.isFinite(delta)) {
+        const distance = at - x[i - 1];
+        const slope = delta / width;
+        if (Number.isFinite(distance) && Number.isFinite(slope) && Math.abs(slope) >= 2 ** -1022) {
+          return values[i - 1] + slope * distance;
+        }
+        if (Number.isFinite(distance)) {
+          const scale = 2 ** -512;
+          const scaledWidth = Number.isFinite(width) ? width * scale
+            : (x[i] / 2 - x[i - 1] / 2) * (2 * scale);
+          return values[i - 1] + (distance / scaledWidth) * delta * scale;
+        }
+      }
       return Number.isFinite(delta)
         ? values[i - 1] + delta * fraction
         : values[i - 1] * (1 - fraction) + values[i] * fraction;
@@ -395,7 +408,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
           area += weight;
           const center = start + width * (a + 2 * b) / (3 * (a + b));
           const contribution = weight * center;
-          if (contribution === 0 && (start !== 0 || width !== 0)) underflow = true;
+          if (contribution < 2 ** -1022 && (start !== 0 || width !== 0)) underflow = true;
           moment += contribution;
         };
         for (let i = Math.max(1, first); i <= Math.min(points.length - 1, last + 1); i++) {
