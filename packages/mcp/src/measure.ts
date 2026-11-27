@@ -301,13 +301,14 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         const fraction = Number.isFinite(width) ? (end - start) / width
           : (end / 2 - start / 2) / (x[i] / 2 - x[i - 1] / 2);
         const delta = y[i] - y[i - 1];
-        // A tiny fraction can underflow even when the clipped change is representable.
-        // In that case, multiply by the slope instead, provided it is representable.
+        // A subnormal fraction can lose precision even when the clipped change is
+        // representable. Prefer the slope only if it retains normal precision; a
+        // subnormal slope can be less accurate than a normal fraction.
         const slope = Number.isFinite(width) && Number.isFinite(delta)
           ? Math.abs(delta) / width
           : Math.abs(y[i] / 2 - y[i - 1] / 2) / (x[i] / 2 - x[i - 1] / 2);
         const clippedWidth = end - start;
-        if (fraction < 1e-200 && slope > 0 && Number.isFinite(slope) && Number.isFinite(clippedWidth)) {
+        if (fraction < 2 ** -1022 && slope >= 2 ** -1022 && Number.isFinite(slope) && Number.isFinite(clippedWidth)) {
           value += slope * clippedWidth;
         } else {
           // Scale the original segment change before adding any DC offset.

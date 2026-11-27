@@ -60,6 +60,12 @@ describe('transient total variation', () => {
       .toEqual({ value: 3, unit: 'V' });
   });
 
+  it('preserves precision when the slope is subnormal but the fraction is normal', () => {
+    const result = measureResult(trace([0, 1e308], [0, 3e-16]), [{ ...item, from: 0, to: 1e100 }]).measurements[0];
+    expect(result).toHaveProperty('unit', 'V');
+    expect(Math.abs((result as { value: number }).value / 3e-224 - 1)).toBeLessThan(1e-12);
+  });
+
   it('preserves representable variation when the clipped fraction underflows', () => {
     const result = measureResult(trace([0, 1e308], [0, 1e308]), [{ ...item, from: 0, to: 1e-100 }]).measurements[0];
     expect(result).toHaveProperty('value');
