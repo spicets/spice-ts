@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'pp', 'at', 'slope', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'pp', 'at', 'slope', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
@@ -35,7 +35,7 @@ export const measurementListSchema = {
       if: { properties: { kind: { enum: ['pulseWidth', 'period', 'frequency'] } } },
       then: { required: ['value', 'edge'], properties: { edge: { enum: ['rising', 'falling'] } }, not: { required: ['at'] } },
     }, {
-      if: { properties: { kind: { enum: ['rmsError', 'meanAbsoluteError'] } } },
+      if: { properties: { kind: { enum: ['rmsError', 'meanAbsoluteError', 'relativeRmsError'] } } },
       then: { required: ['referenceSignal'], not: { anyOf: ['at', 'value', 'edge'].map(key => ({ required: [key] })) } },
       else: { not: { required: ['referenceSignal'] } },
     }, {
@@ -81,7 +81,7 @@ function valid(value: unknown): value is Measurement {
       return n === undefined || (typeof n === 'number' && Number.isFinite(n));
     })
     && Object.keys(m).every(key => ['kind', 'signal', 'analysis', 'step', 'from', 'to', 'at', 'value', 'lower', 'upper', 'edge', 'occurrence', 'trigger', 'target', 'referenceSignal'].includes(key))
-    && (['rmsError', 'meanAbsoluteError'].includes(m.kind) ? typeof m.referenceSignal === 'string' && m.referenceSignal.length > 0 && m.referenceSignal.length <= 256 && m.at === undefined && m.value === undefined && m.edge === undefined : m.referenceSignal === undefined)
+    && (['rmsError', 'meanAbsoluteError', 'relativeRmsError'].includes(m.kind) ? typeof m.referenceSignal === 'string' && m.referenceSignal.length > 0 && m.referenceSignal.length <= 256 && m.at === undefined && m.value === undefined && m.edge === undefined : m.referenceSignal === undefined)
     && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
     && (m.kind !== 'duty' || (m.value !== undefined && m.at === undefined && m.edge === undefined))
     && (m.kind === 'timeInBand' ? m.lower !== undefined && m.upper !== undefined && m.lower <= m.upper && m.at === undefined && m.value === undefined && m.edge === undefined : m.lower === undefined && m.upper === undefined)
@@ -210,18 +210,22 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (['integ', 'absInteg', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'slope'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if (['integ', 'absInteg', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'slope'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
     if (!x.length || x.length !== y.length || ![...x, ...y].every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal has empty or non-finite data');
-    if (m.kind === 'rmsError' || m.kind === 'meanAbsoluteError') {
+    let referenceY: number[] | undefined;
+    if (m.kind === 'rmsError' || m.kind === 'meanAbsoluteError' || m.kind === 'relativeRmsError') {
       const reference = series(analysis, m.referenceSignal!);
       if (!reference) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.referenceSignal} is unavailable`);
       if (reference.unit !== data.unit) return error('INVALID_MEASUREMENT', 'Signals must have matching units');
       if (reference.y.length !== x.length || !reference.y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Reference signal has empty, misaligned or non-finite data');
-      y = y.map((v, i) => v - reference.y[i]);
-      if (!y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal difference is non-finite');
+      referenceY = reference.y;
+      if (m.kind !== 'relativeRmsError') {
+        y = y.map((v, i) => v - reference.y[i]);
+        if (!y.every(Number.isFinite)) return error('NON_FINITE_RESULT', 'Signal difference is non-finite');
+      }
       if (x.some((v, i) => i > 0 && v <= x[i - 1])) return error('INVALID_MEASUREMENT', 'Transient axis must be strictly increasing');
     }
     if (!['pulseWidth', 'period', 'frequency'].includes(m.kind) && x.length > 1 && x[0] > x[x.length - 1]) { x = [...x].reverse(); y = [...y].reverse(); }
@@ -245,7 +249,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         ? { value, unit: `${data.unit}/s` }
         : error('NON_FINITE_RESULT', 'Slope is non-finite');
     }
-    if ((m.kind === 'rmsError' || m.kind === 'meanAbsoluteError') && hi === lo) return error('INVALID_MEASUREMENT', `${m.kind === 'rmsError' ? 'RMS error' : 'Mean absolute error'} requires a nonzero window`);
+    if ((m.kind === 'rmsError' || m.kind === 'meanAbsoluteError' || m.kind === 'relativeRmsError') && hi === lo) return error('INVALID_MEASUREMENT', `${m.kind === 'rmsError' ? 'RMS error' : m.kind === 'relativeRmsError' ? 'Relative RMS error' : 'Mean absolute error'} requires a nonzero window`);
     if (m.kind === 'pulseWidth' || m.kind === 'period' || m.kind === 'frequency') {
       const threshold = m.value!;
       let entry: number | undefined;
@@ -284,7 +288,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       }
       return error('NO_CROSSING', m.kind === 'pulseWidth' ? 'No complete pulse in the selected window' : 'No complete period in the selected window');
     }
-    const interpolate = (at: number): number => {
+    const interpolate = (at: number, values = y): number => {
       let left = 0; let right = x.length - 1;
       while (left < right) {
         const middle = (left + right) >>> 1;
@@ -292,12 +296,12 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         else right = middle;
       }
       const i = left;
-      if (i === 0 || x[i] === at) return y[i];
+      if (i === 0 || x[i] === at) return values[i];
       const fraction = (at - x[i - 1]) / (x[i] - x[i - 1]);
-      const delta = y[i] - y[i - 1];
+      const delta = values[i] - values[i - 1];
       return Number.isFinite(delta)
-        ? y[i - 1] + delta * fraction
-        : y[i - 1] * (1 - fraction) + y[i] * fraction;
+        ? values[i - 1] + delta * fraction
+        : values[i - 1] * (1 - fraction) + values[i] * fraction;
     };
     if (m.kind === 'at') return { value: interpolate(m.at!), unit: data.unit };
     if (m.kind === 'cross' || m.kind === 'when') {
@@ -316,9 +320,48 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       return error('NO_CROSSING', 'No crossing in the selected window');
     }
     const points = [lo, ...x.filter(v => v > lo && v < hi), ...(hi > lo ? [hi] : [])];
-    const samples = points.map(interpolate);
+    const samples = points.map(point => interpolate(point));
     let value: number;
     let unit = data.unit;
+    if (m.kind === 'relativeRmsError') {
+      const referenceSamples = points.map(point => interpolate(point, referenceY!));
+      let errors = samples.map((v, i) => v - referenceSamples[i]);
+      const halfErrors = !errors.every(Number.isFinite);
+      if (halfErrors) errors = samples.map((v, i) => v / 2 - referenceSamples[i] / 2);
+      const scale = (values: number[]) => values.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
+      const referenceScale = scale(referenceSamples);
+      if (referenceScale === 0) return error('INVALID_MEASUREMENT', 'Reference RMS must be nonzero');
+      const errorScale = scale(errors);
+      if (errorScale === 0) return { value: 0, unit: '1' };
+      const normalizedRms = (values: number[], magnitude: number) => {
+        let rms = 0;
+        for (let i = 1; i < points.length; i++) {
+          const a = values[i - 1] / magnitude; const b = values[i] / magnitude;
+          // Accumulate square roots of the segment integrals, so a tiny
+          // duration or squared amplitude cannot disappear before the root.
+          const segmentRms = Math.hypot(a / 2 + b / 2, (a / 2 - b / 2) / Math.sqrt(3));
+          const weight = Math.sqrt(points[i] - points[i - 1]) / Math.sqrt(hi - lo);
+          rms = Math.hypot(rms, weight * segmentRms);
+        }
+        return rms;
+      };
+      // Combine mantissas and binary exponents separately so neither an
+      // intermediate scale ratio nor a tiny integral factor loses the result.
+      const factors = [errorScale, normalizedRms(errors, errorScale), referenceScale, normalizedRms(referenceSamples, referenceScale)];
+      let mantissa = halfErrors ? 2 : 1; let exponent = 0;
+      for (let i = 0; i < factors.length; i++) {
+        const e = Math.min(1023, Math.floor(Math.log2(factors[i])));
+        const m = factors[i] / 2 ** e;
+        if (i < 2) { mantissa *= m; exponent += e; }
+        else { mantissa /= m; exponent -= e; }
+      }
+      while (mantissa >= 2) { mantissa /= 2; exponent++; }
+      while (mantissa < 1) { mantissa *= 2; exponent--; }
+      const ratio = exponent > 1023 ? (mantissa * 2 ** 1023) * 2 ** (exponent - 1023)
+        : exponent < -1022 ? (mantissa * 2 ** -1022) * 2 ** (exponent + 1022)
+        : mantissa * 2 ** exponent;
+      return Number.isFinite(ratio) ? { value: ratio, unit: '1' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
+    }
     if (m.kind === 'timeInBand') {
       let duration = 0;
       for (let i = 1; i < points.length; i++) {
