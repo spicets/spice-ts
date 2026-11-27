@@ -333,17 +333,21 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       if (referenceScale === 0) return error('INVALID_MEASUREMENT', 'Reference RMS must be nonzero');
       const errorScale = scale(errors);
       if (errorScale === 0) return { value: 0, unit: '1' };
-      const normalizedIntegral = (values: number[], magnitude: number) => {
-        let sum = 0;
+      const normalizedRms = (values: number[], magnitude: number) => {
+        let rms = 0;
         for (let i = 1; i < points.length; i++) {
           const a = values[i - 1] / magnitude; const b = values[i] / magnitude;
-          sum += ((points[i] - points[i - 1]) / (hi - lo)) * (a * a + a * b + b * b) / 3;
+          // Accumulate square roots of the segment integrals, so a tiny
+          // duration or squared amplitude cannot disappear before the root.
+          const segmentRms = Math.hypot(a / 2 + b / 2, (a / 2 - b / 2) / Math.sqrt(3));
+          const weight = Math.sqrt(points[i] - points[i - 1]) / Math.sqrt(hi - lo);
+          rms = Math.hypot(rms, weight * segmentRms);
         }
-        return sum;
+        return rms;
       };
       // Combine mantissas and binary exponents separately so neither an
       // intermediate scale ratio nor a tiny integral factor loses the result.
-      const factors = [errorScale, Math.sqrt(normalizedIntegral(errors, errorScale)), referenceScale, Math.sqrt(normalizedIntegral(referenceSamples, referenceScale))];
+      const factors = [errorScale, normalizedRms(errors, errorScale), referenceScale, normalizedRms(referenceSamples, referenceScale)];
       let mantissa = halfErrors ? 2 : 1; let exponent = 0;
       for (let i = 0; i < factors.length; i++) {
         const e = Math.min(1023, Math.floor(Math.log2(factors[i])));
