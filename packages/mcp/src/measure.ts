@@ -301,9 +301,19 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         const fraction = Number.isFinite(width) ? (end - start) / width
           : (end / 2 - start / 2) / (x[i] / 2 - x[i - 1] / 2);
         const delta = y[i] - y[i - 1];
-        // Scale the original segment change before adding any DC offset.
-        value += Number.isFinite(delta) ? Math.abs(delta) * fraction
-          : Math.abs(y[i] / 2 - y[i - 1] / 2) * fraction * 2;
+        // A tiny fraction can underflow even when the clipped change is representable.
+        // In that case, multiply by the slope instead, provided it is representable.
+        const slope = Number.isFinite(width) && Number.isFinite(delta)
+          ? Math.abs(delta) / width
+          : Math.abs(y[i] / 2 - y[i - 1] / 2) / (x[i] / 2 - x[i - 1] / 2);
+        const clippedWidth = end - start;
+        if (fraction < 1e-200 && slope > 0 && Number.isFinite(slope) && Number.isFinite(clippedWidth)) {
+          value += slope * clippedWidth;
+        } else {
+          // Scale the original segment change before adding any DC offset.
+          value += Number.isFinite(delta) ? Math.abs(delta) * fraction
+            : Math.abs(y[i] / 2 - y[i - 1] / 2) * fraction * 2;
+        }
       }
       return Number.isFinite(value) ? { value, unit: data.unit } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
