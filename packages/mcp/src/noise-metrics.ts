@@ -341,7 +341,17 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
         const rootRetained = Math.exp((logWeight - nextLog) / 2);
         const rootIncoming = Math.exp((segmentLogWeight - nextLog) / 2);
         const delta = segmentMean - mean;
-        deviation = Math.hypot(deviation * rootRetained, segmentDeviation * rootIncoming, delta * rootRetained * rootIncoming);
+        // A normalized root weight can underflow even when its product with
+        // a large frequency distance is representable.
+        const weighted = (distance: number, logFactor: number) => {
+          if (distance === 0) return 0;
+          return logFactor < -300
+            ? Math.exp(Math.log(Math.abs(distance)) + logFactor)
+            : Math.abs(distance) * Math.exp(logFactor);
+        };
+        const retainedLog = (logWeight - nextLog) / 2;
+        const incomingLog = (segmentLogWeight - nextLog) / 2;
+        deviation = Math.hypot(weighted(deviation, retainedLog), weighted(segmentDeviation, incomingLog), weighted(delta, retainedLog + incomingLog));
         mean = rootIncoming > rootRetained ? segmentMean - delta * rootRetained * rootRetained : mean + delta * rootIncoming * rootIncoming;
         logWeight = nextLog;
       }

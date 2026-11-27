@@ -11,6 +11,19 @@ const spread = (frequencies: number[], density: number[], bandHz: [number, numbe
   noiseMetrics(new NoiseResult(frequencies, 'out', 'V1', density, density, undefined, undefined), { bandHz, bandsHz, includeOutputNoiseSpread: true }) as { outputNoiseSpreadHz: number | null; outputNoiseSpreadReason?: string; bandResults?: { outputNoiseSpreadHz: number | null; outputNoiseSpreadReason?: string }[] };
 
 describe('output noise spectral spread', () => {
+  it('retains an extremely weak distant endpoint contribution', () => {
+    const f = [1e-200, 2e-200, 3e-200, 1e308];
+    const density = [1e308, 1e308, 1e-300, 1e-300];
+    const zero = [0, 0, 0, 0];
+    const expected = 4.714045207910317e-47;
+    for (const channel of ['input', 'output'] as const) {
+      const result = noiseMetrics(new NoiseResult(f, 'out', 'V1', channel === 'output' ? density : zero, channel === 'input' ? density : zero, undefined, undefined), {
+        bandHz: [f[0], f[3]], includeInputNoiseSpread: true, includeOutputNoiseSpread: true,
+      });
+      const actual = channel === 'input' ? result.inputNoiseSpreadHz : result.outputNoiseSpreadHz;
+      expect(actual! / expected).toBeCloseTo(1, 10);
+    }
+  });
   it('integrates a flat PSD over clipped irregular bands', () => {
     const r = spread([2, 7, 19, 40], [1, 1, 1, 1], [4, 31], [[6, 12], [11, 29]]);
     expect(r.outputNoiseSpreadHz).toBeCloseTo(27 / Math.sqrt(12), 12);
