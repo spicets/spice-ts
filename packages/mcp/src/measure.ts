@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'pp', 'at', 'slope', 'cross', 'when', 'crossingCount', 'integ', 'absInteg', 'timeCentroid', 'delay', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'pp', 'at', 'slope', 'cross', 'when', 'crossingCount', 'integ', 'absInteg', 'timeCentroid', 'delay', 'duty', 'timeInBand', 'longestTimeInBand', 'pulseWidth', 'period', 'frequency'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
@@ -31,7 +31,7 @@ export const measurementListSchema = {
       if: { properties: { kind: { const: 'duty' } } },
       then: { required: ['value'], not: { anyOf: ['at', 'edge', 'occurrence', 'trigger', 'target'].map(key => ({ required: [key] })) } },
     }, {
-      if: { properties: { kind: { const: 'timeInBand' } } },
+      if: { properties: { kind: { enum: ['timeInBand', 'longestTimeInBand'] } } },
       then: { required: ['lower', 'upper'], not: { anyOf: ['at', 'value', 'edge', 'occurrence', 'trigger', 'target', 'referenceSignal'].map(key => ({ required: [key] })) } },
       else: { not: { anyOf: ['lower', 'upper'].map(key => ({ required: [key] })) } },
     }, {
@@ -54,8 +54,8 @@ export const measurementListSchema = {
       analysis: { type: 'integer', minimum: 0 },
       step: { type: 'integer', minimum: 0, description: 'Zero-based step.index from SimulationResultV1; use 0 for an unstepped analysis.' },
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
-      lower: { type: 'number', description: 'Inclusive lower band limit for timeInBand. Integrates the piecewise-linear transient trace within from/to in seconds; no extrapolation. Equal limits count only flat intervals.' },
-      upper: { type: 'number', description: 'Inclusive upper band limit for timeInBand, greater than or equal to lower.' },
+      lower: { type: 'number', description: 'Inclusive lower band limit. timeInBand sums visits; longestTimeInBand returns the longest uninterrupted visit. Both use piecewise-linear transient traces within from/to in seconds, without extrapolation. Equal limits count only flat intervals.' },
+      upper: { type: 'number', description: 'Inclusive upper band limit for timeInBand and longestTimeInBand, greater than or equal to lower.' },
       edge: { enum: ['rising', 'falling', 'either'], description: 'For crossingCount, defaults to either and counts threshold contacts in the inclusive window, with unit 1. A plateau counts at first contact; an initial plateau counts a falling departure at its end. Constant threshold has no contacts. For pulseWidth, rising selects high pulses and falling selects low pulses. Period and frequency use consecutive crossings of the selected direction.' },
       occurrence: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER, description: 'One-based crossing, complete pulse, or consecutive-crossing pair within from/to; defaults to 1.' },
       ...Object.fromEntries(['trigger', 'target'].map(key => [key, {
@@ -90,7 +90,7 @@ function valid(value: unknown): value is Measurement {
     && (['rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError'].includes(m.kind) ? typeof m.referenceSignal === 'string' && m.referenceSignal.length > 0 && m.referenceSignal.length <= 256 && m.at === undefined && m.value === undefined && m.edge === undefined : m.referenceSignal === undefined)
     && (m.kind !== 'delay' || (m.at === undefined && m.value === undefined && m.edge === undefined))
     && (m.kind !== 'duty' || (m.value !== undefined && m.at === undefined && m.edge === undefined))
-    && (m.kind === 'timeInBand' ? m.lower !== undefined && m.upper !== undefined && m.lower <= m.upper && m.at === undefined && m.value === undefined && m.edge === undefined : m.lower === undefined && m.upper === undefined)
+    && (['timeInBand', 'longestTimeInBand'].includes(m.kind) ? m.lower !== undefined && m.upper !== undefined && m.lower <= m.upper && m.at === undefined && m.value === undefined && m.edge === undefined : m.lower === undefined && m.upper === undefined)
     && (!['pulseWidth', 'period', 'frequency'].includes(m.kind) || (m.value !== undefined && m.at === undefined && (m.edge === 'rising' || m.edge === 'falling')))
     && (m.occurrence === undefined || (['cross', 'when', 'pulseWidth', 'period', 'frequency'].includes(m.kind) && Number.isSafeInteger(m.occurrence) && m.occurrence > 0))
     && (m.edge === undefined || ['rising', 'falling', 'either'].includes(m.edge))
@@ -218,7 +218,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (['integ', 'absInteg', 'timeCentroid', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'slope', 'crossingCount'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if (['integ', 'absInteg', 'timeCentroid', 'duty', 'timeInBand', 'longestTimeInBand', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'slope', 'crossingCount'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
@@ -524,14 +524,15 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         : mantissa * 2 ** exponent;
       return Number.isFinite(ratio) ? { value: ratio, unit: '1' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (m.kind === 'timeInBand') {
-      let duration = 0;
+    if (m.kind === 'timeInBand' || m.kind === 'longestTimeInBand') {
+      let duration = 0; let longest = 0;
       for (let i = 1; i < points.length; i++) {
         const low = Math.min(samples[i - 1], samples[i]);
         const high = Math.max(samples[i - 1], samples[i]);
         const width = points[i] - points[i - 1];
+        let segment = 0;
         if (low === high) {
-          if (low >= m.lower! && low <= m.upper!) duration += width;
+          if (low >= m.lower! && low <= m.upper!) segment = width;
         } else {
           const start = Math.max(low, m.lower!); const end = Math.min(high, m.upper!);
           if (end > start) {
@@ -542,13 +543,18 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
             const ratio = scaledWidth / denominator;
             // Divide the duration first when possible, so a tiny band fraction
             // does not underflow before it can be multiplied by the duration.
-            duration += scaledWidth > 1 && Number.isFinite(ratio) && Number.isFinite(span)
+            segment = scaledWidth > 1 && Number.isFinite(ratio) && Number.isFinite(span)
               ? span * ratio
               : width * (Number.isFinite(range) ? span / range : (end / 2 - start / 2) / denominator);
           }
         }
+        // An out-of-band shared sample implies a positive-duration excursion
+        // between visits; an on-boundary sample keeps the visit continuous.
+        if (m.kind === 'longestTimeInBand' && (samples[i - 1] < m.lower! || samples[i - 1] > m.upper!)) duration = 0;
+        duration += segment;
+        longest = Math.max(longest, duration);
       }
-      value = Math.min(hi - lo, Math.max(0, duration));
+      value = Math.min(hi - lo, Math.max(0, m.kind === 'timeInBand' ? duration : longest));
       unit = 's';
     } else if (m.kind === 'duty') {
       if (hi === lo) return error('OUT_OF_RANGE', 'Duty requires a nonzero window');
