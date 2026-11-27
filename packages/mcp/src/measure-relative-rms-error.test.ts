@@ -36,6 +36,13 @@ describe('relative RMS tracking error', () => {
     else throw new Error('Expected a value');
   });
 
+  it('preserves the RMS of a pulse occupying a subnormal time interval', () => {
+    const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, Number.MIN_VALUE, 1], voltagesV: { out: [1e308, 1, 1], ref: [1, 1, 1] }, currentsA: {} }] };
+    const result = measureResult(input, [spec]).measurements[0];
+    if (!('value' in result)) throw new Error(JSON.stringify(result));
+    expect(result.value / 1.2833103623588054e146).toBeCloseTo(1, 14);
+  });
+
   it('keeps a finite ratio when the scale ratio alone overflows', () => {
     const input = { status: 'complete' as const, analyses: [{ type: 'tran' as const, analysisIndex: 0, timeS: [0, 1e-20, 1], voltagesV: { out: [1e308, 0, 0], ref: [1e-10, 1e-10, 1e-10] }, currentsA: {} }] };
     const result = measureResult(input, [spec]).measurements[0];
