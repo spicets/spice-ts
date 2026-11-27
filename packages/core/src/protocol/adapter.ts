@@ -964,6 +964,10 @@ function addAnalysis(circuit: Circuit, analysis: NativeAnalysisV1): void {
 
 function addComponent(circuit: Circuit, component: CircuitComponentV1): void {
   const p = component.params;
+  if ((component.type.toUpperCase() === 'V' || component.type.toUpperCase() === 'I') && p.waveform === 'sffm'
+    && (!Array.isArray(component.ports) || component.ports.length !== 2 || component.ports.some(port => !port || typeof port.net !== 'string' || port.net.trim() === ''))) {
+    throw new InvalidCircuitError(`Native SFFM source '${component.name}' requires two valid ports`);
+  }
   const nodes = component.ports.map(port => port.net);
   const named = (name: string, fallback: number): string => component.ports.find(port => port.name === name)?.net ?? nodes[fallback]!;
   const model = component.model ?? stringParam(p, 'modelName');
@@ -1254,6 +1258,14 @@ function sourceWaveform(params: JsonObject): Partial<SourceWaveform> & { dc?: nu
     case 'ac': return { type: 'ac', dc: optionalNumber(params, 'dc'), magnitude: optionalNumber(params, 'magnitude') ?? 1, phase: optionalNumber(params, 'phase') ?? 0 };
     case 'sin': return { type: 'sin', offset: numberParam(params, 'offset'), amplitude: numberParam(params, 'amplitude'), frequency: numberParam(params, 'frequency'), delay: optionalNumber(params, 'delay'), damping: optionalNumber(params, 'damping'), phase: optionalNumber(params, 'phase') };
     case 'pulse': return { type: 'pulse', v1: numberParam(params, 'v1'), v2: numberParam(params, 'v2'), delay: numberParam(params, 'delay'), rise: numberParam(params, 'rise'), fall: numberParam(params, 'fall'), width: numberParam(params, 'width'), period: numberParam(params, 'period') };
+    case 'sffm': {
+      const fields = ['offset', 'amplitude', 'carrierFrequency', 'modulationIndex', 'signalFrequency', 'delay', 'signalPhase', 'carrierPhase', 'dc'] as const;
+      for (const field of fields) {
+        const value = optionalNumber(params, field);
+        if (value !== undefined && !Number.isFinite(value)) throw new InvalidCircuitError(`Native SFFM parameter '${field}' must be finite`);
+      }
+      return { type: 'sffm', offset: numberParam(params, 'offset'), amplitude: numberParam(params, 'amplitude'), carrierFrequency: optionalNumber(params, 'carrierFrequency'), modulationIndex: optionalNumber(params, 'modulationIndex'), signalFrequency: optionalNumber(params, 'signalFrequency'), delay: optionalNumber(params, 'delay'), signalPhase: optionalNumber(params, 'signalPhase'), carrierPhase: optionalNumber(params, 'carrierPhase'), dc: optionalNumber(params, 'dc') };
+    }
     case 'exp': {
       const fields = ['v1', 'v2', 'td1', 'tau1', 'td2', 'tau2'] as const;
       for (const field of fields) {
