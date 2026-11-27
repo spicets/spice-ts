@@ -9,6 +9,7 @@ export interface PowerMetricsArgs {
   input?: string[];
   output?: string[];
   includeCurrentRipple?: boolean;
+  includeCurrentExtrema?: boolean;
   includeVoltageRipple?: boolean;
   includeCurrentCrestFactor?: boolean;
   includeVoltageCrestFactor?: boolean;
@@ -23,7 +24,7 @@ interface ElementProbe { name: string; positive: string; negative: string; branc
 export interface PowerPlan { netlist: string; probes: ElementProbe[]; args: PowerMetricsArgs }
 export interface PowerReport {
   window: [number, number];
-  elements: { name: string; averagePowerW: number; energyJ: number; absorbedEnergyJ?: number; returnedEnergyJ?: number; chargeC?: number; positiveChargeC?: number; negativeChargeC?: number; averageCurrentA?: number; rmsCurrentA: number; rmsPowerW?: number; rmsAcCurrentA?: number; rmsAcVoltageV?: number; peakPowerW: number; peakTimeS: number; peakReturnedPowerW?: number; peakReturnedPowerTimeS?: number | null; peakAbsCurrentA?: number; currentCrestFactor?: number | null; voltageCrestFactor?: number | null; rmsVoltageV?: number; apparentPowerVA?: number; powerFactor?: number | null; powerFactorReason?: 'zero_apparent_power' }[];
+  elements: { name: string; averagePowerW: number; energyJ: number; absorbedEnergyJ?: number; returnedEnergyJ?: number; chargeC?: number; positiveChargeC?: number; negativeChargeC?: number; averageCurrentA?: number; minimumCurrentA?: number; minimumCurrentTimeS?: number; maximumCurrentA?: number; maximumCurrentTimeS?: number; rmsCurrentA: number; rmsPowerW?: number; rmsAcCurrentA?: number; rmsAcVoltageV?: number; peakPowerW: number; peakTimeS: number; peakReturnedPowerW?: number; peakReturnedPowerTimeS?: number | null; peakAbsCurrentA?: number; currentCrestFactor?: number | null; voltageCrestFactor?: number | null; rmsVoltageV?: number; apparentPowerVA?: number; powerFactor?: number | null; powerFactorReason?: 'zero_apparent_power' }[];
   efficiency: number | null;
   windowResults?: PowerReport[];
 }
@@ -35,6 +36,7 @@ export const powerMetricsProperties = {
   window: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: 0 } },
   windows: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: 0 } } },
   includeCurrentRipple: { type: 'boolean' },
+  includeCurrentExtrema: { type: 'boolean' },
   includeVoltageRipple: { type: 'boolean' },
   includeCurrentCrestFactor: { type: 'boolean' },
   includeVoltageCrestFactor: { type: 'boolean' },
@@ -52,7 +54,7 @@ const singlePowerReportSchema = {
     efficiency: { type: ['number', 'null'] },
     elements: { type: 'array', items: {
       type: 'object', required: ['name', 'averagePowerW', 'energyJ', 'rmsCurrentA', 'peakPowerW', 'peakTimeS'], additionalProperties: false,
-      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'absorbedEnergyJ', 'returnedEnergyJ', 'chargeC', 'positiveChargeC', 'negativeChargeC', 'averageCurrentA', 'rmsCurrentA', 'rmsPowerW', 'rmsAcCurrentA', 'rmsAcVoltageV', 'peakPowerW', 'peakTimeS', 'peakReturnedPowerW', 'peakAbsCurrentA', 'rmsVoltageV', 'apparentPowerVA'].map(k => [k, { type: 'number' }])), peakReturnedPowerTimeS: { type: ['number', 'null'] }, currentCrestFactor: { type: ['number', 'null'] }, voltageCrestFactor: { type: ['number', 'null'] }, powerFactor: { type: ['number', 'null'] }, powerFactorReason: { enum: ['zero_apparent_power'] } },
+      properties: { name: { type: 'string' }, ...Object.fromEntries(['averagePowerW', 'energyJ', 'absorbedEnergyJ', 'returnedEnergyJ', 'chargeC', 'positiveChargeC', 'negativeChargeC', 'averageCurrentA', 'minimumCurrentA', 'minimumCurrentTimeS', 'maximumCurrentA', 'maximumCurrentTimeS', 'rmsCurrentA', 'rmsPowerW', 'rmsAcCurrentA', 'rmsAcVoltageV', 'peakPowerW', 'peakTimeS', 'peakReturnedPowerW', 'peakAbsCurrentA', 'rmsVoltageV', 'apparentPowerVA'].map(k => [k, { type: 'number' }])), peakReturnedPowerTimeS: { type: ['number', 'null'] }, currentCrestFactor: { type: ['number', 'null'] }, voltageCrestFactor: { type: ['number', 'null'] }, powerFactor: { type: ['number', 'null'] }, powerFactorReason: { enum: ['zero_apparent_power'] } },
     } },
   },
 };
@@ -84,6 +86,7 @@ export function powerMetricsArgs(raw: unknown): PowerMetricsArgs {
   if ((a.input === undefined) !== (a.output === undefined)) invalid('Provide both input and output designations');
   if (a.includeVoltageRipple !== undefined && typeof a.includeVoltageRipple !== 'boolean') invalid('Expected includeVoltageRipple to be a boolean');
   if (a.includeCurrentRipple !== undefined && typeof a.includeCurrentRipple !== 'boolean') invalid('Expected includeCurrentRipple to be a boolean');
+  if (a.includeCurrentExtrema !== undefined && typeof a.includeCurrentExtrema !== 'boolean') invalid('Expected includeCurrentExtrema to be a boolean');
   if (a.includeCurrentCrestFactor !== undefined && typeof a.includeCurrentCrestFactor !== 'boolean') invalid('Expected includeCurrentCrestFactor to be a boolean');
   if (a.includeVoltageCrestFactor !== undefined && typeof a.includeVoltageCrestFactor !== 'boolean') invalid('Expected includeVoltageCrestFactor to be a boolean');
   if (a.includePowerFactor !== undefined && typeof a.includePowerFactor !== 'boolean') invalid('Expected includePowerFactor to be a boolean');
@@ -174,6 +177,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
     const rippleVn = plan.args.includeVoltageRipple ? centered(vn) : vn;
     let energy = 0; let absorbedEnergyJ = 0; let returnedEnergyJ = 0; let rmsScale = 0; let rmsNormalized = 0; let voltageScale = 0; let voltageNormalized = 0; let peakPowerW = -Infinity; let peakTimeS = start;
     let powerScale = 0; let powerNormalized = 0;
+    let minimumCurrentA = Infinity; let minimumCurrentTimeS = start; let maximumCurrentA = -Infinity; let maximumCurrentTimeS = start;
     let peakReturnedPowerW = 0; let peakReturnedPowerTimeS: number | null = null; let chargeC = 0; let positiveChargeC = 0; let negativeChargeC = 0;
     const rippleSegments: [number, number, number][] = [];
     const voltageRippleSegments: [number, number, number][] = [];
@@ -181,9 +185,22 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       const left = Math.max(start, times[k - 1]); const right = Math.min(stop, times[k]);
       if (right <= left) continue;
       // Clip the linear input waveforms before integrating their quadratic products.
-      const at = (values: number[], t: number) => values[k - 1] + (values[k] - values[k - 1]) * ((t - times[k - 1]) / (times[k] - times[k - 1]));
+      const at = (values: number[], t: number) => {
+        if (t === times[k - 1]) return values[k - 1];
+        if (t === times[k]) return values[k];
+        if (values[k - 1] === values[k]) return values[k];
+        const duration = times[k] - times[k - 1];
+        return values[k - 1] * ((times[k] - t) / duration) + values[k] * ((t - times[k - 1]) / duration);
+      };
       const vl = at(vp, left) - at(vn, left); const vr = at(vp, right) - at(vn, right);
       const il = at(current, left); const ir = at(current, right);
+      if (plan.args.includeCurrentExtrema) {
+        // A linear segment reaches its extrema at its endpoints. Strict comparison preserves the earliest tie.
+        for (const [value, time] of [[il, left], [ir, right]]) {
+          if (value < minimumCurrentA) { minimumCurrentA = value; minimumCurrentTimeS = time; }
+          if (value > maximumCurrentA) { maximumCurrentA = value; maximumCurrentTimeS = time; }
+        }
+      }
       const dv = vr - vl; const di = ir - il; const duration = right - left;
       if (plan.args.includeCurrentRipple) rippleSegments.push([il, ir, duration]);
       if (plan.args.includeVoltageRipple) voltageRippleSegments.push([at(rippleVp, left) - at(rippleVn, left), at(rippleVp, right) - at(rippleVn, right), duration]);
@@ -302,6 +319,7 @@ export function powerMetrics(result: SimulationResultV1, plan: PowerPlan): Power
       return 0;
     };
     return { name: probe.name, averagePowerW: energy / (stop - start), energyJ: energy, rmsCurrentA: rmsScale * normalized, peakPowerW, peakTimeS,
+      ...(plan.args.includeCurrentExtrema ? { minimumCurrentA, minimumCurrentTimeS, maximumCurrentA, maximumCurrentTimeS } : {}),
       ...(plan.args.includePowerRms ? { rmsPowerW: powerScale * powerNormalized } : {}),
       ...(plan.args.includeCurrentRipple ? { rmsAcCurrentA: rippleRms(rippleSegments) } : {}),
       ...(plan.args.includeVoltageRipple ? { rmsAcVoltageV: rippleRms(voltageRippleSegments) } : {}),
