@@ -100,7 +100,8 @@ export async function simulateLinearOpWasmV1(
       || prepared.hierarchical || prepared.compiled.devices.some(device => {
       const waveform = (device as unknown as Partial<SweepableSource>).waveform;
       // Switches reuse core's Newton state-memory and timestep/breakpoint driver.
-      return ['D', 'Q', 'M', 'J', 'K', 'S', 'W'].includes(deviceType(device.name) ?? '')
+      return (prepared.nativeCircuit !== undefined && device instanceof VCVS)
+        || ['D', 'Q', 'M', 'J', 'K', 'S', 'W'].includes(deviceType(device.name) ?? '')
         || (['C', 'L'].includes(deviceType(device.name) ?? '')
           && (device as { ic?: number }).ic !== undefined)
         || waveform?.type === 'sin' || waveform?.type === 'pwl'
@@ -795,7 +796,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const nets = new Set(document.circuit.nets.map(net => net.toLowerCase()));
   for (const component of components) {
     const type = component.type.toUpperCase();
-    if (!(nativeAnalysis.type === 'tran' ? ['R', 'C', 'L', 'I', 'V'] : ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H']).includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
+    if (!(nativeAnalysis.type === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'E'] : ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H']).includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
       unsupported('device', 'Only R, C, L, I, V, VCVS, VCCS, CCCS and CCVS devices are supported');
     }
     if (type === 'E' || type === 'G' || type === 'F' || type === 'H') {
