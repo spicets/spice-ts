@@ -1,6 +1,6 @@
 import type { AnalysisResultV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 
-const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'pp', 'at', 'slope', 'cross', 'when', 'integ', 'absInteg', 'delay', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency'] as const;
+const kinds = ['min', 'max', 'avg', 'rms', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'pp', 'at', 'slope', 'cross', 'when', 'crossingCount', 'integ', 'absInteg', 'delay', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency'] as const;
 type Crossing = { signal: string; threshold: number; edge?: 'rising' | 'falling' | 'either'; occurrence?: number };
 type Measurement = {
   kind: typeof kinds[number]; signal: string; analysis: number; step?: number;
@@ -24,6 +24,9 @@ export const measurementListSchema = {
     }, {
       if: { properties: { kind: { enum: ['cross', 'when', 'pulseWidth', 'period', 'frequency'] } } },
       else: { not: { required: ['occurrence'] } },
+    }, {
+      if: { properties: { kind: { const: 'crossingCount' } } },
+      then: { required: ['value'], not: { required: ['at'] } },
     }, {
       if: { properties: { kind: { const: 'duty' } } },
       then: { required: ['value'], not: { anyOf: ['at', 'edge', 'occurrence', 'trigger', 'target'].map(key => ({ required: [key] })) } },
@@ -53,7 +56,7 @@ export const measurementListSchema = {
       ...Object.fromEntries(['from', 'to', 'at', 'value'].map(key => [key, { type: 'number' }])),
       lower: { type: 'number', description: 'Inclusive lower band limit for timeInBand. Integrates the piecewise-linear transient trace within from/to in seconds; no extrapolation. Equal limits count only flat intervals.' },
       upper: { type: 'number', description: 'Inclusive upper band limit for timeInBand, greater than or equal to lower.' },
-      edge: { enum: ['rising', 'falling', 'either'], description: 'For pulseWidth, rising selects high pulses and falling selects low pulses. Period and frequency use consecutive crossings of the selected direction. A crossing is first contact with the threshold, including the start of a plateau.' },
+      edge: { enum: ['rising', 'falling', 'either'], description: 'For crossingCount, defaults to either and counts threshold contacts in the inclusive window, with unit 1. A plateau counts at first contact; an initial plateau counts a falling departure at its end. Constant threshold has no contacts. For pulseWidth, rising selects high pulses and falling selects low pulses. Period and frequency use consecutive crossings of the selected direction.' },
       occurrence: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER, description: 'One-based crossing, complete pulse, or consecutive-crossing pair within from/to; defaults to 1.' },
       ...Object.fromEntries(['trigger', 'target'].map(key => [key, {
         type: 'object', description: 'Transient crossing; counted independently within from/to. Delay is target time minus trigger time, in seconds.', required: ['signal', 'threshold'], additionalProperties: false,
@@ -95,7 +98,8 @@ function valid(value: unknown): value is Measurement {
     && (m.kind !== 'at' || m.at !== undefined)
     && (m.kind !== 'slope' || (m.at !== undefined && m.value === undefined && m.edge === undefined))
     && (m.kind !== 'totalVariation' || (m.at === undefined && m.value === undefined && m.edge === undefined))
-    && (!['cross', 'when'].includes(m.kind) || m.value !== undefined);
+    && (!['cross', 'when', 'crossingCount'].includes(m.kind) || m.value !== undefined)
+    && (m.kind !== 'crossingCount' || m.at === undefined);
 }
 
 function series(a: AnalysisResultV1, signal: string): { x: number[]; y: number[]; unit: string; axisUnit: string } | undefined {
@@ -214,7 +218,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
       const value = target.value - trigger.value;
       return Number.isFinite(value) ? { value, unit: 's' } : error('NON_FINITE_RESULT', 'Measurement is non-finite');
     }
-    if (['integ', 'absInteg', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'slope'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
+    if (['integ', 'absInteg', 'duty', 'timeInBand', 'pulseWidth', 'period', 'frequency', 'rmsError', 'meanAbsoluteError', 'relativeRmsError', 'maxAbsoluteError', 'totalVariation', 'slope', 'crossingCount'].includes(m.kind) && analysis.type !== 'tran') return error('INVALID_MEASUREMENT', `${m.kind} requires a transient analysis`);
     const data = series(analysis, m.signal);
     if (!data) return error('UNKNOWN_SIGNAL', `Signal or projection ${m.signal} is unavailable`);
     let { x, y } = data;
@@ -343,7 +347,7 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         : values[i - 1] * (1 - fraction) + values[i] * fraction;
     };
     if (m.kind === 'at') return { value: interpolate(m.at!), unit: data.unit };
-    if (m.kind === 'cross' || m.kind === 'when') {
+    if (m.kind === 'cross' || m.kind === 'when' || m.kind === 'crossingCount') {
       if (!data.axisUnit) return error('INVALID_MEASUREMENT', 'Crossings require a swept analysis');
       const target = m.value!;
       let count = 0;
@@ -354,8 +358,12 @@ export function measureResult(result: SimulationResultV1, measurements: unknown[
         if (y[i] !== target) initialPlateau = false;
         if (!(m.edge === 'rising' ? rising : m.edge === 'falling' ? falling : rising || falling)) continue;
         const at = x[i - 1] + (x[i] - x[i - 1]) * ((target - y[i - 1]) / (y[i] - y[i - 1]));
-        if (at >= lo && at <= hi && ++count === (m.occurrence ?? 1)) return { value: at, unit: data.axisUnit };
+        if (at >= lo && at <= hi) {
+          count++;
+          if (m.kind !== 'crossingCount' && count === (m.occurrence ?? 1)) return { value: at, unit: data.axisUnit };
+        }
       }
+      if (m.kind === 'crossingCount') return { value: count, unit: '1' };
       return error('NO_CROSSING', 'No crossing in the selected window');
     }
     const points = [lo, ...x.filter(v => v > lo && v < hi), ...(hi > lo ? [hi] : [])];
