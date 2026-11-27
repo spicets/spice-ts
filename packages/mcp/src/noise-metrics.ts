@@ -1,8 +1,9 @@
 import type { NoiseResult } from '@spice-ts/core';
 
-export interface NoiseMetricsArgs { includeOutputNoiseSpread?: boolean; includeInputNoiseCentroid?: boolean; includeOutputNoiseCentroid?: boolean; includeInputNoisePeak?: boolean; includeOutputNoisePeak?: boolean; includeOutputNoiseBandFractions?: boolean; includeInputNoiseBandFractions?: boolean; bandHz?: [number, number]; bandsHz?: [number, number][]; spotFrequenciesHz?: number[]; signalRms?: number; outputSignalRms?: number; outputNoisePercentiles?: number[]; inputNoisePercentiles?: number[]; outputNoiseBandwidthAtHz?: number; inputNoiseBandwidthAtHz?: number }
+export interface NoiseMetricsArgs { includeInputNoiseSpread?: boolean; includeOutputNoiseSpread?: boolean; includeInputNoiseCentroid?: boolean; includeOutputNoiseCentroid?: boolean; includeInputNoisePeak?: boolean; includeOutputNoisePeak?: boolean; includeOutputNoiseBandFractions?: boolean; includeInputNoiseBandFractions?: boolean; bandHz?: [number, number]; bandsHz?: [number, number][]; spotFrequenciesHz?: number[]; signalRms?: number; outputSignalRms?: number; outputNoisePercentiles?: number[]; inputNoisePercentiles?: number[]; outputNoiseBandwidthAtHz?: number; inputNoiseBandwidthAtHz?: number }
 const positive = { type: 'number', exclusiveMinimum: 0 };
 export const noiseMetricsProperties = {
+  includeInputNoiseSpread: { type: 'boolean', description: 'Include the input-referred PSD weighted frequency standard deviation in Hz for each sampled band, not an analog bandwidth.' },
   includeOutputNoiseSpread: { type: 'boolean', description: 'Include the output PSD weighted frequency standard deviation in Hz for each sampled band, not an analog bandwidth.' },
   includeInputNoiseCentroid: { type: 'boolean', description: 'Include the input-referred PSD centroid in Hz for each band, with no extrapolation.' },
   includeOutputNoiseCentroid: { type: 'boolean', description: 'Include the output-noise PSD centroid for each band, with no extrapolation.' },
@@ -29,6 +30,8 @@ const bandwidthProperties = {
   outputEquivalentNoiseBandwidthReason: { enum: ['zero reference density', 'nonrepresentable bandwidth'] },
 };
 const spreadProperties = {
+  inputNoiseSpreadHz: { type: ['number', 'null'], minimum: 0, description: 'Input-referred PSD weighted frequency standard deviation in linear Hz; null for zero integrated input noise.' },
+  inputNoiseSpreadReason: { const: 'zero integrated input noise' },
   outputNoiseSpreadHz: { type: ['number', 'null'], minimum: 0, description: 'Output PSD weighted frequency standard deviation in linear Hz; null for zero integrated output noise.' },
   outputNoiseSpreadReason: { const: 'zero integrated output noise' },
 };
@@ -95,7 +98,8 @@ export function noiseMetricsArgs(raw: unknown): NoiseMetricsArgs {
   const a = raw as Record<string, unknown>;
   const hz = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
   if (('request' in a) === ('netlist' in a) || ('netlist' in a && typeof a.netlist !== 'string')) invalid('Expected exactly one netlist or protocol-v1 request');
-  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'bandsHz', 'spotFrequenciesHz', 'signalRms', 'outputSignalRms', 'outputNoisePercentiles', 'inputNoisePercentiles', 'outputNoiseBandwidthAtHz', 'inputNoiseBandwidthAtHz', 'includeOutputNoisePeak', 'includeInputNoisePeak', 'includeOutputNoiseBandFractions', 'includeInputNoiseBandFractions', 'includeOutputNoiseCentroid', 'includeInputNoiseCentroid', 'includeOutputNoiseSpread'].includes(k))
+  if (Object.keys(a).some(k => !['request', 'netlist', 'params', 'bandHz', 'bandsHz', 'spotFrequenciesHz', 'signalRms', 'outputSignalRms', 'outputNoisePercentiles', 'inputNoisePercentiles', 'outputNoiseBandwidthAtHz', 'inputNoiseBandwidthAtHz', 'includeOutputNoisePeak', 'includeInputNoisePeak', 'includeOutputNoiseBandFractions', 'includeInputNoiseBandFractions', 'includeOutputNoiseCentroid', 'includeInputNoiseCentroid', 'includeOutputNoiseSpread', 'includeInputNoiseSpread'].includes(k))
+    || ('includeInputNoiseSpread' in a && typeof a.includeInputNoiseSpread !== 'boolean')
     || ('includeOutputNoiseSpread' in a && typeof a.includeOutputNoiseSpread !== 'boolean')
     || ('includeInputNoiseCentroid' in a && typeof a.includeInputNoiseCentroid !== 'boolean')
     || ('includeOutputNoiseCentroid' in a && typeof a.includeOutputNoiseCentroid !== 'boolean')
@@ -304,13 +308,12 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
       ...(referred === undefined ? {} : { inputNoiseCentroidHz: referred.value, ...(referred.reason ? { inputNoiseCentroidReason: referred.reason === 'zero' ? 'zero integrated input noise' : referred.reason } : {}) }),
     };
   };
-  const spread = (selectedBand: number[]) => {
-    if (!args.includeOutputNoiseSpread) return {};
+  const spreadValue = (selectedBand: number[], densities: number[]) => {
     let scale = 0;
     for (let i = 1; i < f.length; i++) {
-      if (f[i - 1] < selectedBand[1] && f[i] > selectedBand[0]) scale = Math.max(scale, out[i - 1], out[i]);
+      if (f[i - 1] < selectedBand[1] && f[i] > selectedBand[0]) scale = Math.max(scale, densities[i - 1], densities[i]);
     }
-    if (scale === 0) return { outputNoiseSpreadHz: null, outputNoiseSpreadReason: 'zero integrated output noise' };
+    if (scale === 0) return null;
     // Accumulate endpoint basis functions separately in log-power space. A tiny
     // power fraction can still have a representable frequency-weighted spread.
     let logWeight = -Infinity; let mean = 0; let deviation = 0;
@@ -319,8 +322,8 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
       if (right <= left) continue;
       const width = right - left; const rootSpan = Math.sqrt(f[i] - f[i - 1]);
       for (const [density, d1, d2] of [
-        [out[i - 1], f[i] - left, f[i] - right],
-        [out[i], left - f[i - 1], right - f[i - 1]],
+        [densities[i - 1], f[i] - left, f[i] - right],
+        [densities[i], left - f[i - 1], right - f[i - 1]],
       ]) {
         if (density === 0 || (d1 === 0 && d2 === 0)) continue;
         const rootWeight = Math.hypot(Math.sqrt(d1) / rootSpan, Math.sqrt(d2) / rootSpan) / Math.SQRT2;
@@ -343,7 +346,15 @@ export function noiseMetrics(spectrum: NoiseResult, args: NoiseMetricsArgs) {
         logWeight = nextLog;
       }
     }
-    return { outputNoiseSpreadHz: deviation };
+    return deviation;
+  };
+  const spread = (selectedBand: number[]) => {
+    const output = args.includeOutputNoiseSpread ? spreadValue(selectedBand, out) : undefined;
+    const referred = args.includeInputNoiseSpread ? spreadValue(selectedBand, input) : undefined;
+    return {
+      ...(output === undefined ? {} : { outputNoiseSpreadHz: output, ...(output === null ? { outputNoiseSpreadReason: 'zero integrated output noise' } : {}) }),
+      ...(referred === undefined ? {} : { inputNoiseSpreadHz: referred, ...(referred === null ? { inputNoiseSpreadReason: 'zero integrated input noise' } : {}) }),
+    };
   };
   const bandResults = args.bandsHz?.map(bandHz => {
     const integratedOutputNoiseVrms = integrate(out, bandHz); const integratedInputNoiseRms = integrate(input, bandHz);
