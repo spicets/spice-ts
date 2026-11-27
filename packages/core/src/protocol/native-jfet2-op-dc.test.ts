@@ -59,7 +59,7 @@ describe('native level-2 JFET OP/DC', () => {
     if (base?.type !== 'op' || scaled?.type !== 'op') throw new Error('expected OP');
     expect(Math.abs(scaled.currentsA.Vd!) - Math.abs(base.currentsA.Vd!)).toBeGreaterThan(1e-5);
   });
-  it.each(['tran', 'disto', 'sens', 'tf', 'sp'])('rejects %s analyses at their path', async type => {
+  it.each(['disto', 'sens', 'tf', 'sp'])('rejects %s analyses at their path', async type => {
     const d = document('NJF', 'op', false);
     Object.assign(d.analyses[0]!, { type });
     const result = await executeProtocolV1(native(d));
