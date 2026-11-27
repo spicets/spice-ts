@@ -741,7 +741,14 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
     circuit.addSubcircuit(coreSubcircuit(subcircuit));
   }
   for (const [index, component] of document.circuit.components.entries()) {
-    validateResistorCoefficients(component, `/input/document/circuit/components/${index}`);
+    const componentPath = `/input/document/circuit/components/${index}`;
+    validateResistorCoefficients(component, componentPath);
+    if (['V', 'I'].includes(component.type.toUpperCase()) && component.params.waveform === 'ac') {
+      for (const field of ['dc', 'magnitude', 'phase']) {
+        const value = component.params[field];
+        if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) invalidNativeField(`${componentPath}/params/${field}`);
+      }
+    }
     if (component.type.toUpperCase() === 'K') {
       const path = `/input/document/circuit/components/${index}`;
       for (const key of Object.keys(component)) {

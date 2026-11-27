@@ -80,6 +80,21 @@ describe('native level-2 JFET AC', () => {
     expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST', phase: 'validation', details: { path: '/input/document/analyses/0/stopFreq' } } });
   });
 
+  it.each(['magnitude', 'phase', 'dc'])('directly rejects nonfinite AC source %s', async field => {
+    for (const sourceType of ['V', 'I']) for (const value of [Infinity, -Infinity, NaN]) {
+      const [request] = requests('NJF', 'lin', false);
+      if (request.input.format !== 'spice-ts') throw new Error('native');
+      request.input.document.circuit.components[2]!.type = sourceType;
+      request.input.document.circuit.components[2]!.params[field] = value;
+      await expect(simulateProtocolV1(request)).rejects.toMatchObject({
+        apiError: {
+          code: 'INVALID_REQUEST', phase: 'validation', retryable: false,
+          details: { path: `/input/document/circuit/components/2/params/${field}` },
+        },
+      });
+    }
+  });
+
   it.each(['magnitude', 'phase', 'dc'])('rejects nonfinite AC source %s', async field => {
     const [request] = requests('PJF', 'lin', false);
     if (request.input.format !== 'spice-ts') throw new Error('native');
