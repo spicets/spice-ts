@@ -16,6 +16,7 @@ if (process.env.SPICE_WASM_TEST_RESOURCES === '1') {
       workerCount: workers.size,
     }) + '\n');
   };
+  process.once('exit', code => report(`process-exit:${code}`, ''));
   beforeEach(context => { report('before', context.task.name); });
   afterEach(context => { report('after', context.task.name); });
   afterAll(() => { hook.disable(); });
