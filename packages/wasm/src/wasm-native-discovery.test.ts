@@ -34,6 +34,13 @@ function close(actual: number, expected: number): void {
 }
 
 describe('native WASM discovery', () => {
+  it('advertises native CCVS transient support', async () => {
+    const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
+    try {
+      expect(engine.capabilities.numericWasm?.devicesByAnalysis.tran).toContain('H');
+    } finally { await engine.close(); }
+  });
+
   it('advertises bounded native input without changing artifact identity or limits', async () => {
     const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
     try {
