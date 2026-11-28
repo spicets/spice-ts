@@ -1520,19 +1520,39 @@
           "then": {
             "properties": {
               "analyses": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "const": "op"
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "op"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
                     }
                   },
-                  "required": [
-                    "type"
-                  ]
-                }
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 1,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "ac"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
+                    }
+                  }
+                ]
               },
               "poleZeroAnalyses": {
                 "type": "array",

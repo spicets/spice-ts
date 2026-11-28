@@ -230,7 +230,8 @@ export async function simulateProtocolV1(
       ? request.input.document.componentSweep : undefined;
     // A fresh native circuit per step avoids continuation and device-state leaks.
     const sourceSweep = request.input.format === 'spice-ts' ? request.input.document.sourceSweep : undefined;
-    const sweep = nativeSweep ?? sourceSweep;
+    const temperatureSweep = request.input.format === 'spice-ts' && analysis.type === 'ac' ? request.input.document.temperatureSweep : undefined;
+    const sweep = nativeSweep ?? sourceSweep ?? temperatureSweep;
     const runs = sweep ? sweep.values.map((value, index) => ({ value, index })) : [undefined];
     for (const run of runs) {
       let runCircuit = circuit;
@@ -240,6 +241,10 @@ export async function simulateProtocolV1(
       if (run && sourceSweep && request.input.format === 'spice-ts') {
         runCircuit = applyProtocolCircuitOptions(circuitFromDocument(steppedSourceDocument(request.input.document, run.value), guard), request.options);
       }
+      if (run && temperatureSweep && request.input.format === 'spice-ts') {
+        const { temperatureSweep: _sweep, ...document } = request.input.document;
+        runCircuit = applyProtocolCircuitOptions(circuitFromDocument(document, guard), { ...request.options, temperature: run.value });
+      }
       const compiled = runCircuit.compile(guard);
       const result = await simulate(runCircuit, options, guard);
       for (const transient of result.steps ? result.steps.map(step => step.transient) : [result.transient]) {
@@ -247,7 +252,7 @@ export async function simulateProtocolV1(
       }
       const completedBefore = serialized.length;
       if (run && sweep) {
-        const parameter = sourceSweep && request.input.format === 'spice-ts' ? request.input.document.circuit.components.find(c => c.name.toUpperCase() === sourceSweep.source.toUpperCase())!.name : preflight.steps[0]!.param;
+        const parameter = temperatureSweep ? 'TEMP' : sourceSweep && request.input.format === 'spice-ts' ? request.input.document.circuit.components.find(c => c.name.toUpperCase() === sourceSweep.source.toUpperCase())!.name : preflight.steps[0]!.param;
         serialized.push(serializeOne(result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, runCircuit, { index: run.index, parameter, value: run.value }));
       } else {
         appendAnalysisResult(serialized, result, analysis, analysisIndex, compiled.nodeNames, compiled.branchNames, runCircuit);
@@ -719,7 +724,7 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
     }
     if (document.analyses.length === 0) invalidNativeField('/input/document/analyses');
     for (const [index, analysis] of document.analyses.entries()) {
-      if (analysis?.type !== 'op') invalidNativeField(`/input/document/analyses/${index}/type`);
+      if (analysis?.type !== 'op' && !(analysis?.type === 'ac' && document.analyses.length === 1)) invalidNativeField(`/input/document/analyses/${index}/type`);
     }
     if (document.noiseAnalyses?.length) invalidNativeField('/input/document/noiseAnalyses');
     if (document.poleZeroAnalyses?.length) invalidNativeField('/input/document/poleZeroAnalyses');

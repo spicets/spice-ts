@@ -84,7 +84,7 @@ export interface SpiceTsCircuitDocumentV1 {
   format: 'spice-ts';
   schemaVersion: '1.0';
   globalNodes?: string[];
-  /** One OP-only temperature list in degrees Celsius. */
+  /** Celsius list for OP analyses or exactly one AC analysis. */
   temperatureSweep?: { values: number[] };
   /** One OP-only component value list. */
   componentSweep?: { component: string; values: number[] };
