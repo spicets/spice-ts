@@ -2686,8 +2686,10 @@ export class Circuit {
             ekv.setTemperature(this._temperature ?? NOMINAL_TEMPERATURE_C);
             devices.push(ekv);
           } else if (level === 14 || level === 54) {
-            // Only the pinned bsim4/ (4.8.x) equations are ported, not bsim4v7/.
-            if (model.version !== undefined && !/^4\.8(?:[0-3]|\.[0-3])?$/.test(model.version)) {
+            // ngspice-47 selects bsim4/ and its 4.8.3 equations for any 4.8 prefix:
+            // https://github.com/imr/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/parser/inpdomod.c#L308
+            // https://github.com/imr/ngspice/blob/a80f6e3e95d51534905b1f23410a951802666656/src/spicelib/devices/bsim4/b4set.c#L208
+            if (model.version !== undefined && !model.version.startsWith('4.8')) {
               throw new UnsupportedModelVersionError(
                 desc.name, model.name, level, model.version, ['4.8', '4.8.0', '4.8.1', '4.8.2', '4.8.3'],
               );

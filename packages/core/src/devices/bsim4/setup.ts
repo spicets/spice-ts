@@ -105,9 +105,8 @@ export function setupBsim4Model(
     const parameter = key as Bsim4ModelParameter;
     if (given.has(parameter)) unsupported(raw, 'duplicate canonical parameter through alias');
     if (parameter === 'version') {
-      // b4set.c:204-218. 4.7/4.6 belong to DIFFERENT source families.
-      // Preserve the upstream broad 4.8 check for known 4.8 versions only.
-      if (typeof input !== 'string' || !/^4\.8(?:[0-3]|\.[0-3])?$/.test(input)) unsupported(raw, 'unported BSIM4 version family');
+      // b4set.c:204-218 accepts any 4.8 prefix; 4.7/4.6 use different families.
+      if (typeof input !== 'string' || !input.startsWith('4.8')) unsupported(raw, 'unported BSIM4 version family');
       values.version = input;
     } else {
       let value = numeric(raw, input);

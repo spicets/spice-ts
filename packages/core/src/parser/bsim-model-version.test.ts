@@ -79,6 +79,29 @@ describe('BSIM model cards with dotted VERSION= values (#503)', () => {
     }
   });
 
+  it.each([14, 54].flatMap(level => ['4.89', '4.8.4'].map(version => ({ level, version }))))(
+    'runs BSIM4 $level version $version like 4.8.3 in OP and AC', async ({ level, version }) => {
+      const deck = (v: string) => inverter(
+        `.model n1 nmos level=${level} version=${v}\n.model p1 pmos level=${level} version=${v}`,
+      ).replace('VIN in 0 DC 1.2', 'VIN in 0 DC 1.2 AC 1').replace('.op', '.op\n.ac dec 2 1k 1Meg');
+      const baseline = await simulate(deck('4.8.3'));
+      const actual = await simulate(deck(version));
+      expect(actual.dc!.voltage('out')).toBe(baseline.dc!.voltage('out'));
+      expect(actual.ac!.frequencies).toEqual(baseline.ac!.frequencies);
+      expect(actual.ac!.voltage('out')).toEqual(baseline.ac!.voltage('out'));
+      expect(actual.ac!.current('vdd')).toEqual(baseline.ac!.current('vdd'));
+    },
+  );
+
+  it.each([14, 54].flatMap(level => ['4.3', '4.5', '4.7', 'garbage', '4.08'].map(version => ({ level, version }))))(
+    'keeps BSIM4 $level version $version as a typed unsupported error', async ({ level, version }) => {
+      const netlist = inverter(`.model n1 nmos level=${level} version=${version}\n.model p1 pmos level=${level} version=${version}`);
+      await expect(simulate(netlist)).rejects.toMatchObject({
+        code: 'UNSUPPORTED_MODEL_VERSION', level, version, modelName: 'n1',
+      });
+    },
+  );
+
   it('preserves unsupported revisions through a netlist round trip', async () => {
     const netlist = inverter('.model n1 nmos level=8 version=3.1\n.model p1 pmos level=8 version=3.1');
     const serialized = parse(netlist).toNetlist();

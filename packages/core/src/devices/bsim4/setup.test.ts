@@ -49,7 +49,7 @@ describe('BSIM4 ordered ngspice47 setup', () => {
     expect(setupBsim4Model({}, { nominalTemperatureK: 310 }).values.tnom).toBe(310);
     expect(setupBsim4Model({ ndep: 1e20 }).values.ndep).toBe(1e20);
   });
-  it.each(['4.8', '4.8.0', '4.8.1', '4.8.2', '4.8.3', '4.80', '4.81', '4.82', '4.83'])('preserves upstream broad version check for %s', version => {
+  it.each(['4.8', '4.8.0', '4.8.1', '4.8.2', '4.8.3', '4.80', '4.81', '4.82', '4.83', '4.89', '4.8.4'])('preserves upstream broad version check for %s', version => {
     expect(setupBsim4Model({ version }).values.v48intversion).toBe(483);
   });
   it('copies caller data and makes values/given immutable', () => {
@@ -122,7 +122,7 @@ describe('BSIM4 fail-closed setup', () => {
     expect(() => setupBsim4Instance(model, {}, nodes)).not.toThrow();
     expect(() => setupBsim4Instance(model, { nrd: 0, nrs: 0 }, nodes)).not.toThrow();
   });
-  it.each(['4.7', '4.6.5', 'garbage', '4.89'])('rejects unsupported version %s', version => {
+  it.each(['4.7', '4.6.5', 'garbage', '4.3', '4.5'])('rejects unsupported version %s', version => {
     expect(() => setupBsim4Model({ version })).toThrow(UnsupportedModel);
   });
   it.each([0, 1, 13, 55])('rejects level %s', level => { expect(() => setupBsim4Model({ level })).toThrow(UnsupportedModel); });
