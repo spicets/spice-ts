@@ -732,10 +732,15 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
     }
     circuit.addGlobalNodes(document.globalNodes);
   }
+  const jfet2Transient = document.analyses.some(analysis => analysis.type === 'tran')
+    && document.circuit.components.some(component => component.type.toUpperCase() === 'J'
+      && document.models.some(model => model.params.LEVEL === 2 && ['NJF', 'PJF'].includes(model.type.toUpperCase())
+        && model.name.toUpperCase() === String(component.model ?? component.params?.modelName ?? '').toUpperCase()));
   for (const model of document.models) circuit.addModel(coreModel(model));
   for (const [index, subcircuit] of document.subcircuits.entries()) {
     for (const [componentIndex, component] of subcircuit.components.entries()) {
       validateResistorCoefficients(component, `/input/document/subcircuits/${index}/components/${componentIndex}`);
+      if (jfet2Transient) validateTransientSource(component, `/input/document/subcircuits/${index}/components/${componentIndex}`);
       if (['J', 'K'].includes(component.type.toUpperCase())) invalidNativeField(`/input/document/subcircuits/${index}/components/${componentIndex}/type`);
     }
     circuit.addSubcircuit(coreSubcircuit(subcircuit));
@@ -743,6 +748,7 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
   for (const [index, component] of document.circuit.components.entries()) {
     const componentPath = `/input/document/circuit/components/${index}`;
     validateResistorCoefficients(component, componentPath);
+    if (jfet2Transient) validateTransientSource(component, componentPath);
     if (['V', 'I'].includes(component.type.toUpperCase()) && component.params.waveform === 'ac') {
       for (const field of ['dc', 'magnitude', 'phase']) {
         const value = component.params[field];
@@ -796,7 +802,16 @@ export function circuitFromDocument(document: SpiceTsCircuitDocumentV1, guard?: 
       if (model.params.LEVEL === 2) {
         for (const [analysisIndex, analysis] of document.analyses.entries()) {
           const analysisPath = `/input/document/analyses/${analysisIndex}`;
-          if (!['op', 'dc', 'ac'].includes(analysis.type)) invalidNativeField(`${analysisPath}/type`);
+          if (!['op', 'dc', 'ac', 'tran'].includes(analysis.type)) invalidNativeField(`${analysisPath}/type`);
+          if (analysis.type === 'tran') {
+            for (const field of ['timestep', 'stopTime', 'maxTimestep'] as const) {
+              const value = analysis[field];
+              if ((field !== 'maxTimestep' || value !== undefined)
+                && (typeof value !== 'number' || !Number.isFinite(value) || value <= 0)) invalidNativeField(`${analysisPath}/${field}`);
+            }
+            if (analysis.startTime !== undefined && (typeof analysis.startTime !== 'number' || !Number.isFinite(analysis.startTime)
+              || analysis.startTime < 0 || analysis.startTime >= analysis.stopTime)) invalidNativeField(`${analysisPath}/startTime`);
+          }
           if (analysis.type === 'ac') {
             if (!['lin', 'dec', 'oct'].includes(analysis.variation)) invalidNativeField(`${analysisPath}/variation`);
             for (const field of ['points', 'startFreq', 'stopFreq'] as const) {
@@ -1022,6 +1037,27 @@ function coreSubcircuit(subcircuit: SubcircuitV1): { name: string; ports: string
       ...subcircuit.components.map(componentLine),
     ],
   };
+}
+
+function validateTransientSource(component: CircuitComponentV1, path: string): void {
+  if (['V', 'I'].includes(component.type.toUpperCase())) {
+    for (const [field, value] of Object.entries(component.params)) {
+      if (typeof value === 'number' && !Number.isFinite(value)) invalidNativeField(`${path}/params/${jsonPointerSegment(field)}`);
+    }
+    if (component.params.waveform === 'pwl' && Array.isArray(component.params.points)) {
+      for (const [pointIndex, point] of component.params.points.entries()) {
+        if (point && typeof point === 'object' && !Array.isArray(point)) {
+          for (const field of ['time', 'value'] as const) {
+            const value = point[field];
+            if (typeof value === 'number' && !Number.isFinite(value)) invalidNativeField(`${path}/params/points/${pointIndex}/${field}`);
+          }
+        }
+      }
+    }
+  }
+  if (['V', 'I'].includes(component.type.toUpperCase()) && component.params.waveform === 'pwl' && typeof component.params.points === 'string') {
+    try { parseIrPwlPoints(component.params.points); } catch { invalidNativeField(`${path}/params/points`); }
+  }
 }
 
 function validateResistorCoefficients(component: CircuitComponentV1, path: string): void {
