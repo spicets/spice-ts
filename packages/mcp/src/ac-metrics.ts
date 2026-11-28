@@ -5,7 +5,7 @@ type Metric = typeof metricNames[number];
 const reasonCodes = ['NON_FINITE_GAIN', 'NO_HALF_POWER_CROSSING', 'NO_UNITY_GAIN_CROSSING', 'NO_PHASE_CROSSING'] as const;
 type ReasonCode = typeof reasonCodes[number];
 type GainCrossingDirection = 'ascending' | 'descending' | 'either';
-export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number; groupDelayFrequenciesHz?: number[]; includeBandpass?: boolean; includeComplexTransfer?: boolean; frequenciesHz?: number[]; gainCrossingsDb?: number[]; gainCrossingDirection?: GainCrossingDirection; phaseCrossingsDeg?: number[]; phaseCrossingDirection?: GainCrossingDirection }
+export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number; groupDelayFrequenciesHz?: number[]; includeBandpass?: boolean; includeComplexTransfer?: boolean; frequenciesHz?: number[]; gainCrossingsDb?: number[]; gainCrossingDirection?: GainCrossingDirection; phaseCrossingsDeg?: number[]; phaseCrossingDirection?: GainCrossingDirection; phaseCrossingOccurrence?: number }
 const bandpassNames = ['peakFrequencyHz', 'lowerHalfPowerHz', 'upperHalfPowerHz', 'bandwidthHz', 'qualityFactor'] as const;
 type BandpassMetric = typeof bandpassNames[number];
 type BandpassReason = 'NON_FINITE_GAIN' | 'NO_LOWER_HALF_POWER_CROSSING' | 'NO_UPPER_HALF_POWER_CROSSING' | 'NON_FINITE_BANDPASS';
@@ -17,8 +17,9 @@ export const acMetricsProperties = {
   frequenciesHz: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number', exclusiveMinimum: 0 }, description: 'Transfer spots in request order. Gain dB and unwrapped phase are interpolated linearly in log frequency; no extrapolation.' },
   gainCrossingsDb: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested gain targets in dB; first qualifying crossing in sweep order, interpolated in log frequency without extrapolation. Direction defaults to descending.' },
   gainCrossingDirection: { type: 'string', enum: ['ascending', 'descending', 'either'], description: 'Direction for gainCrossingsDb only, default descending. First qualifying non-flat segment wins; exact-target endpoints count, flat target plateaus do not. Zero gain permits an exact finite endpoint but no interpolation through it.' },
-  phaseCrossingsDeg: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested phase targets in degrees; first qualifying unwrapped phase crossings in sweep order, interpolated in log frequency without extrapolation. Zero magnitude breaks continuity; unwrapping restarts at principal phase.' },
-  phaseCrossingDirection: { type: 'string', enum: ['ascending', 'descending', 'either'], description: 'Direction for phaseCrossingsDeg only, which is required. Default descending. First qualifying non-flat segment wins; exact endpoints count and flat plateaus do not.' },
+  phaseCrossingsDeg: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' }, description: 'Requested phase targets in degrees; qualifying unwrapped phase crossings in sweep order, interpolated in log frequency without extrapolation. Zero magnitude breaks continuity; unwrapping restarts at principal phase.' },
+  phaseCrossingOccurrence: { type: 'integer', minimum: 1, maximum: 1000, description: 'One-based qualifying phase crossing occurrence per target, default 1; requires phaseCrossingsDeg.' },
+  phaseCrossingDirection: { type: 'string', enum: ['ascending', 'descending', 'either'], description: 'Direction for phaseCrossingsDeg only, which is required. Default descending. Qualifying non-flat segments count; shared endpoints count once and flat plateaus do not.' },
   includeComplexTransfer: { type: 'boolean', description: 'Return up to 10000 sampled rectangular transfer values, without interpolation.' },
   includeBandpass: { type: 'boolean', description: 'Report sampled global peak and nearest half-power crossings, interpolating gain in dB linearly in log frequency. The first maximum wins ties; crossings are never extrapolated.' },
   groupDelayFrequenciesHz: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number', exclusiveMinimum: 0 }, description: 'Group delays in request order; sampled differences and linear-Hz interpolation, without extrapolation.' },
@@ -115,6 +116,12 @@ function validatePhaseCrossingDirection(value: unknown, targets: unknown): void 
   }
 }
 
+function validatePhaseCrossingOccurrence(value: unknown, targets: unknown): void {
+  if (value !== undefined && (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 1000 || targets === undefined)) {
+    invalid('Phase crossing occurrence requires phaseCrossingsDeg and must be an integer from 1 to 1000', { reason: 'INVALID_PHASE_CROSSING_OCCURRENCE' });
+  }
+}
+
 export function acMetricsArgs(raw: unknown): AcMetricsArgs {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) invalid('Expected AC metric selectors');
   const a = raw as Record<string, unknown>;
@@ -124,10 +131,11 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
   validateGainCrossingDirection(a.gainCrossingDirection);
   validatePhaseCrossings(a.phaseCrossingsDeg);
   validatePhaseCrossingDirection(a.phaseCrossingDirection, a.phaseCrossingsDeg);
+  validatePhaseCrossingOccurrence(a.phaseCrossingOccurrence, a.phaseCrossingsDeg);
   if (a.groupDelayAtHz !== undefined && (typeof a.groupDelayAtHz !== 'number' || !Number.isFinite(a.groupDelayAtHz) || a.groupDelayAtHz <= 0)) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
   }
-  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz', 'groupDelayFrequenciesHz', 'includeBandpass', 'includeComplexTransfer', 'frequenciesHz', 'gainCrossingsDb', 'gainCrossingDirection', 'phaseCrossingsDeg', 'phaseCrossingDirection'].includes(key))
+  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz', 'groupDelayFrequenciesHz', 'includeBandpass', 'includeComplexTransfer', 'frequenciesHz', 'gainCrossingsDb', 'gainCrossingDirection', 'phaseCrossingsDeg', 'phaseCrossingDirection', 'phaseCrossingOccurrence'].includes(key))
     || (a.includeComplexTransfer !== undefined && typeof a.includeComplexTransfer !== 'boolean')
     || (a.includeBandpass !== undefined && typeof a.includeBandpass !== 'boolean')
     || typeof a.output !== 'string' || !a.output.length || a.output.length > 256
@@ -147,6 +155,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   validateGainCrossingDirection(args.gainCrossingDirection);
   validatePhaseCrossings(args.phaseCrossingsDeg);
   validatePhaseCrossingDirection(args.phaseCrossingDirection, args.phaseCrossingsDeg);
+  validatePhaseCrossingOccurrence(args.phaseCrossingOccurrence, args.phaseCrossingsDeg);
   if (args.groupDelayAtHz !== undefined && (!Number.isFinite(args.groupDelayAtHz) || args.groupDelayAtHz <= 0)) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
   }
@@ -245,7 +254,8 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     phase.push(angle);
   }
   type Crossing = { hz: number; index: number; fraction: number };
-  const crossing = (values: number[], target: number, allowZeroGainEndpoint = false, direction: GainCrossingDirection = 'descending'): Crossing | undefined => {
+  const crossing = (values: number[], target: number, allowZeroGainEndpoint = false, direction: GainCrossingDirection = 'descending', occurrence = 1): Crossing | undefined => {
+    let count = 0; let lastEndpoint = -1;
     for (let i = 1; i < f.length; i++) {
       // Zero gain can match the adjacent finite endpoint in the appropriate
       // direction, but cannot support interpolation through -Infinity.
@@ -259,7 +269,10 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
       if ((direction !== 'ascending' && values[i - 1] >= target && values[i] <= target && values[i - 1] > values[i])
         || (direction !== 'descending' && values[i - 1] <= target && values[i] >= target && values[i - 1] < values[i])) {
         const fraction = (target - values[i - 1]) / (values[i] - values[i - 1]);
-        return { hz: Math.exp(Math.log(f[i - 1]) + fraction * Math.log(f[i] / f[i - 1])), index: i, fraction };
+        const endpoint = fraction === 0 ? i - 1 : fraction === 1 ? i : -1;
+        if (endpoint !== -1 && endpoint === lastEndpoint) continue;
+        lastEndpoint = endpoint;
+        if (++count === occurrence) return { hz: Math.exp(Math.log(f[i - 1]) + fraction * Math.log(f[i] / f[i - 1])), index: i, fraction };
       }
     }
     return undefined;
@@ -378,7 +391,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     return { targetDb, frequencyHz: hz };
   });
   const phaseCrossings = args.phaseCrossingsDeg?.map(targetDeg => {
-    const c = crossing(requestedPhase!, targetDeg, false, args.phaseCrossingDirection);
+    const c = crossing(requestedPhase!, targetDeg, false, args.phaseCrossingDirection, args.phaseCrossingOccurrence);
     if (!c) return { targetDeg, frequencyHz: null, reason: 'NO_PHASE_CROSSING' as const };
     const hz = Number.isFinite(c.hz) ? c.hz : Math.exp((1 - c.fraction) * Math.log(f[c.index - 1]) + c.fraction * Math.log(f[c.index]));
     return { targetDeg, frequencyHz: hz };
