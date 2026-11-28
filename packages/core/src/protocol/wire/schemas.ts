@@ -132,7 +132,7 @@ const nativeDocument: Schema = { ...object(['format', 'schemaVersion', 'circuit'
   noiseAnalyses: array(ref('noiseAnalysis')),
   initialConditions: numberRecord, nodesets: numberRecord,
 }), allOf: [{ if: { properties: { temperatureSweep: {} }, required: ['temperatureSweep'] }, then: { properties: {
-  analyses: { type: 'array', minItems: 1, items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } },
+  analyses: { anyOf: [{ type: 'array', minItems: 1, items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } }, { type: 'array', minItems: 1, maxItems: 1, items: { type: 'object', properties: { type: { const: 'ac' } }, required: ['type'] } }] },
   poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 },
 } } }, { if: { properties: { componentSweep: {} }, required: ['componentSweep'] }, then: { not: { properties: { temperatureSweep: {} }, required: ['temperatureSweep'] }, properties: { analyses: { type: 'array', minItems: 1, maxItems: 1, items: { type: 'object', properties: { type: { enum: ['op', 'tran', 'ac', 'dc'] } }, required: ['type'] } }, poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 } } } }, { if: { properties: { sourceSweep: {} }, required: ['sourceSweep'] }, then: { not: { anyOf: [{ required: ['temperatureSweep'] }, { required: ['componentSweep'] }] }, properties: { analyses: { type: 'array', minItems: 1, maxItems: 1, items: { type: 'object', properties: { type: { const: 'op' } }, required: ['type'] } }, poleZeroAnalyses: { type: 'array', maxItems: 0 }, noiseAnalyses: { type: 'array', maxItems: 0 } } } }] };
 const simulationInput: Schema = { oneOf: [
