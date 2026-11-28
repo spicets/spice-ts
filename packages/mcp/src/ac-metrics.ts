@@ -5,7 +5,7 @@ type Metric = typeof metricNames[number];
 const reasonCodes = ['NON_FINITE_GAIN', 'NO_HALF_POWER_CROSSING', 'NO_UNITY_GAIN_CROSSING', 'NO_PHASE_CROSSING'] as const;
 type ReasonCode = typeof reasonCodes[number];
 type GainCrossingDirection = 'ascending' | 'descending' | 'either';
-export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number; includeBandpass?: boolean; includeComplexTransfer?: boolean; frequenciesHz?: number[]; gainCrossingsDb?: number[]; gainCrossingDirection?: GainCrossingDirection; phaseCrossingsDeg?: number[]; phaseCrossingDirection?: GainCrossingDirection }
+export interface AcMetricsArgs { output: string; input?: string; analysis?: number; step?: number; groupDelayAtHz?: number; groupDelayFrequenciesHz?: number[]; includeBandpass?: boolean; includeComplexTransfer?: boolean; frequenciesHz?: number[]; gainCrossingsDb?: number[]; gainCrossingDirection?: GainCrossingDirection; phaseCrossingsDeg?: number[]; phaseCrossingDirection?: GainCrossingDirection }
 const bandpassNames = ['peakFrequencyHz', 'lowerHalfPowerHz', 'upperHalfPowerHz', 'bandwidthHz', 'qualityFactor'] as const;
 type BandpassMetric = typeof bandpassNames[number];
 type BandpassReason = 'NON_FINITE_GAIN' | 'NO_LOWER_HALF_POWER_CROSSING' | 'NO_UPPER_HALF_POWER_CROSSING' | 'NON_FINITE_BANDPASS';
@@ -21,6 +21,7 @@ export const acMetricsProperties = {
   phaseCrossingDirection: { type: 'string', enum: ['ascending', 'descending', 'either'], description: 'Direction for phaseCrossingsDeg only, which is required. Default descending. First qualifying non-flat segment wins; exact endpoints count and flat plateaus do not.' },
   includeComplexTransfer: { type: 'boolean', description: 'Return up to 10000 sampled rectangular transfer values, without interpolation.' },
   includeBandpass: { type: 'boolean', description: 'Report sampled global peak and nearest half-power crossings, interpolating gain in dB linearly in log frequency. The first maximum wins ties; crossings are never extrapolated.' },
+  groupDelayFrequenciesHz: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number', exclusiveMinimum: 0 }, description: 'Group delays in request order; sampled differences and linear-Hz interpolation, without extrapolation.' },
   groupDelayAtHz: { type: 'number', exclusiveMinimum: 0, description: 'Frequency in Hz for group delay. Sample delays use centered phase differences, or one-sided differences at endpoints; between samples delays are linearly interpolated in Hz. No extrapolation; adjacent phase changes must be below 180 degrees.' },
 };
 export const acMetricsOutputSchema = {
@@ -29,6 +30,11 @@ export const acMetricsOutputSchema = {
   properties: {
     ...Object.fromEntries(metricNames.map(key => [key, { type: ['number', 'null'] }])),
     groupDelaySeconds: { type: 'number' },
+    groupDelays: { type: 'array', minItems: 1, maxItems: 128, items: {
+      type: 'object', additionalProperties: false, required: ['frequencyHz', 'delaySeconds'],
+      properties: { frequencyHz: { type: 'number', exclusiveMinimum: 0 }, delaySeconds: { type: ['number', 'null'] }, reason: { type: 'string', enum: ['OUT_OF_RANGE', 'UNDEFINED_PHASE'] } },
+      allOf: [{ if: { properties: { delaySeconds: { type: 'null' } }, required: ['delaySeconds'] }, then: { required: ['reason'] }, else: { not: { required: ['reason'] } } }],
+    } },
     complexTransfer: { type: 'array', minItems: 1, maxItems: 10000, items: {
       type: 'object', additionalProperties: false, required: ['frequencyHz', 'real', 'imaginary'],
       properties: { frequencyHz: { type: 'number', exclusiveMinimum: 0 }, real: { type: 'number' }, imaginary: { type: 'number' } },
@@ -113,6 +119,7 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) invalid('Expected AC metric selectors');
   const a = raw as Record<string, unknown>;
   validateFrequencies(a.frequenciesHz);
+  validateFrequencies(a.groupDelayFrequenciesHz);
   validateGainCrossings(a.gainCrossingsDb);
   validateGainCrossingDirection(a.gainCrossingDirection);
   validatePhaseCrossings(a.phaseCrossingsDeg);
@@ -120,7 +127,7 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
   if (a.groupDelayAtHz !== undefined && (typeof a.groupDelayAtHz !== 'number' || !Number.isFinite(a.groupDelayAtHz) || a.groupDelayAtHz <= 0)) {
     invalid('Group delay frequency must be finite and positive', { reason: 'INVALID_GROUP_DELAY_FREQUENCY' });
   }
-  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz', 'includeBandpass', 'includeComplexTransfer', 'frequenciesHz', 'gainCrossingsDb', 'gainCrossingDirection', 'phaseCrossingsDeg', 'phaseCrossingDirection'].includes(key))
+  if (Object.keys(a).some(key => !['request', 'output', 'input', 'analysis', 'step', 'groupDelayAtHz', 'groupDelayFrequenciesHz', 'includeBandpass', 'includeComplexTransfer', 'frequenciesHz', 'gainCrossingsDb', 'gainCrossingDirection', 'phaseCrossingsDeg', 'phaseCrossingDirection'].includes(key))
     || (a.includeComplexTransfer !== undefined && typeof a.includeComplexTransfer !== 'boolean')
     || (a.includeBandpass !== undefined && typeof a.includeBandpass !== 'boolean')
     || typeof a.output !== 'string' || !a.output.length || a.output.length > 256
@@ -135,6 +142,7 @@ export function acMetricsArgs(raw: unknown): AcMetricsArgs {
 /** Reduce a single AC sweep; never extrapolate a crossing outside sampled frequencies. */
 export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
   validateFrequencies(args.frequenciesHz);
+  validateFrequencies(args.groupDelayFrequenciesHz);
   validateGainCrossings(args.gainCrossingsDb);
   validateGainCrossingDirection(args.gainCrossingDirection);
   validatePhaseCrossings(args.phaseCrossingsDeg);
@@ -315,6 +323,27 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     groupDelaySeconds = delayAt(left) + fraction * (delayAt(right) - delayAt(left));
     if (!Number.isFinite(groupDelaySeconds)) invalid('Group delay is not finite', { reason: 'UNDEFINED_TRANSFER' });
   }
+  const groupDelays = args.groupDelayFrequenciesHz?.map(frequencyHz => {
+    const unavailable = (reason: 'OUT_OF_RANGE' | 'UNDEFINED_PHASE') => ({ frequencyHz, delaySeconds: null, reason });
+    if (frequencyHz < f[0] || frequencyHz > f[f.length - 1]) return unavailable('OUT_OF_RANGE');
+    if (f.length < 2) return unavailable('UNDEFINED_PHASE');
+    const right = f.findIndex(hz => hz >= frequencyHz);
+    // At an exact knot only that sample's stencil is needed.
+    const left = f[right] === frequencyHz ? right : right - 1;
+    const sampleDelay = (i: number): number | undefined => {
+      const lo = Math.max(0, i - 1); const hi = Math.min(f.length - 1, i + 1);
+      for (let j = lo; j <= hi; j++) {
+        if (out[j].magnitude === 0 || (j > lo && Math.abs(phase[j] - phase[j - 1]) >= 180)) return undefined;
+      }
+      const value = -(phase[hi] - phase[lo]) / 360 / (f[hi] - f[lo]);
+      return Number.isFinite(value) ? value : undefined;
+    };
+    const a = sampleDelay(left); const b = left === right ? a : sampleDelay(right);
+    if (a === undefined || b === undefined) return unavailable('UNDEFINED_PHASE');
+    const fraction = left === right ? 0 : (frequencyHz - f[left]) / (f[right] - f[left]);
+    const value = a + fraction * (b - a);
+    return Number.isFinite(value) ? { frequencyHz, delaySeconds: value } : unavailable('UNDEFINED_PHASE');
+  });
   const spots = args.frequenciesHz?.map(frequencyHz => {
     const undefinedSpot = (reason: 'OUT_OF_RANGE' | 'UNDEFINED_VALUE') => ({
       frequencyHz, gainDb: null, phaseDeg: null, reasons: { gainDb: reason, phaseDeg: reason },
@@ -365,6 +394,7 @@ export function acMetrics(result: SimulationResultV1, args: AcMetricsArgs) {
     referenceFrequencyHz: f[0], reasons,
     ...(complexTransfer === undefined ? {} : { complexTransfer }),
     ...(groupDelaySeconds === undefined ? {} : { groupDelaySeconds }),
+    ...(groupDelays === undefined ? {} : { groupDelays }),
     ...(bandpass === undefined ? {} : { bandpass }),
     ...(spots === undefined ? {} : { spots }),
     ...(gainCrossings === undefined ? {} : { gainCrossings }),
