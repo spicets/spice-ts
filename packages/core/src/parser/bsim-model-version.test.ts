@@ -93,6 +93,15 @@ describe('BSIM model cards with dotted VERSION= values (#503)', () => {
     },
   );
 
+  it.each([14, 54].flatMap(level => ['4.3', '4.5', '4.7', 'garbage', '4.08'].map(version => ({ level, version }))))(
+    'keeps BSIM4 $level version $version as a typed unsupported error', async ({ level, version }) => {
+      const netlist = inverter(`.model n1 nmos level=${level} version=${version}\n.model p1 pmos level=${level} version=${version}`);
+      await expect(simulate(netlist)).rejects.toMatchObject({
+        code: 'UNSUPPORTED_MODEL_VERSION', level, version, modelName: 'n1',
+      });
+    },
+  );
+
   it('preserves unsupported revisions through a netlist round trip', async () => {
     const netlist = inverter('.model n1 nmos level=8 version=3.1\n.model p1 pmos level=8 version=3.1');
     const serialized = parse(netlist).toNetlist();
