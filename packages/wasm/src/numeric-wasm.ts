@@ -796,7 +796,7 @@ function prepareNativeOp(request: SimulationRequestV1 & { input: Extract<Simulat
   const nets = new Set(document.circuit.nets.map(net => net.toLowerCase()));
   for (const component of components) {
     const type = component.type.toUpperCase();
-    if (!(nativeAnalysis.type === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'E', 'G'] : ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H']).includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
+    if (!(nativeAnalysis.type === 'tran' ? ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F'] : ['R', 'C', 'L', 'I', 'V', 'E', 'G', 'F', 'H']).includes(type) || component.model !== undefined || component.subcircuit !== undefined) {
       unsupported('device', 'Only R, C, L, I, V, VCVS, VCCS, CCCS and CCVS devices are supported');
     }
     if (type === 'E' || type === 'G' || type === 'F' || type === 'H') {

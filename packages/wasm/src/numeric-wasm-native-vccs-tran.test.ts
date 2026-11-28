@@ -82,7 +82,7 @@ it.each([0.001, -0.001, 0])('matches the resistive DC analytic control at gm=%s 
 it('rejects malformed G and unsupported transient combinations with structured errors', async () => {
   const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
   try {
-    for (const variant of ['missing-port', 'extra-port', 'duplicate-port', 'mixed-port', 'missing-net', 'empty-net', 'missing-gm', 'nan', 'infinity', 'extra-param', 'model', 'F', 'H'] as const) {
+    for (const variant of ['missing-port', 'extra-port', 'duplicate-port', 'mixed-port', 'missing-net', 'empty-net', 'missing-gm', 'nan', 'infinity', 'extra-param', 'model', 'H'] as const) {
       const input = request();
       if (input.input.format !== 'spice-ts') throw new Error('native required');
       const g = input.input.document.circuit.components[2]!;
@@ -98,7 +98,7 @@ it('rejects malformed G and unsupported transient combinations with structured e
       else if (variant === 'extra-param') g.params.extra = 1;
       else if (variant === 'model') g.model = 'unknown';
       else g.type = variant;
-      const code = ['nan', 'infinity'].includes(variant) ? 'INVALID_REQUEST' : ['extra-param', 'model', 'F', 'H'].includes(variant) ? 'UNSUPPORTED_FEATURE' : 'INVALID_CIRCUIT';
+      const code = ['nan', 'infinity'].includes(variant) ? 'INVALID_REQUEST' : ['extra-param', 'model', 'H'].includes(variant) ? 'UNSUPPORTED_FEATURE' : 'INVALID_CIRCUIT';
       for (const execute of [engine.validate.bind(engine), engine.simulate.bind(engine)]) {
         const result = await execute(input, { requestId: variant });
         expect(result, `${variant}: ${JSON.stringify(result)}`).toMatchObject({ ok: false, error: { code, phase: 'validation' } });
