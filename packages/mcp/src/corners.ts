@@ -11,14 +11,35 @@ type Corner = { name: string; params?: Record<string, number>; temp?: number; co
 type CornerResult = { name: string; status: 'complete'; value: number; unit: string }
   | { name: string; status: 'failed'; error: unknown };
 type CornerSummary = { min: { name: string; value: number }; max: { name: string; value: number }; spread: number; unit: string };
-type NamedMeasurementResult = { id: string } & ({ value: number; unit: string } | { error: unknown });
+type Limits = { min?: number; max?: number };
+type NamedMeasurement = { id: string; measurement: unknown; limits?: Limits };
+type NamedMeasurementResult = { id: string } & ({ value: number; unit: string; withinLimits?: boolean } | { error: unknown });
 type MultiCornerResult = { name: string; status: 'complete'; measurements: NamedMeasurementResult[] } | { name: string; status: 'failed'; error: unknown };
 export type CornersResult = { corners: CornerResult[]; summary: CornerSummary | null };
 export type MultiCornersResult = { corners: MultiCornerResult[]; summaries: { id: string; summary: CornerSummary | null }[] };
 
+const pointSchema = { type: 'object', required: ['name', 'value'], additionalProperties: false, properties: { name: { type: 'string' }, value: { type: 'number' } } };
+const summarySchema = { anyOf: [{ type: 'null' }, { type: 'object', required: ['min', 'max', 'spread', 'unit'], additionalProperties: false, properties: { min: pointSchema, max: pointSchema, spread: { type: 'number' }, unit: { type: 'string' } } }] };
+const cornerErrorSchema = { anyOf: [{ $ref: '#/$defs/apiError' }, { type: 'object', required: ['code', 'message'], additionalProperties: false, properties: { code: { type: 'string' }, message: { type: 'string' } } }] };
+const failedCornerSchema = { type: 'object', required: ['name', 'status', 'error'], additionalProperties: false, properties: { name: { type: 'string' }, status: { const: 'failed' }, error: cornerErrorSchema } };
+const namedResultSchema = { oneOf: [
+  { type: 'object', required: ['id', 'value', 'unit'], additionalProperties: false, properties: { id: { type: 'string' }, value: { type: 'number' }, unit: { type: 'string' }, withinLimits: { type: 'boolean', description: 'Inclusive comparison against requested bounds, in the returned unit.' } } },
+  { type: 'object', required: ['id', 'error'], additionalProperties: false, properties: { id: { type: 'string' }, error: cornerErrorSchema } },
+] };
+export const cornersOutputSchemas = [
+  { type: 'object', required: ['corners', 'summary'], additionalProperties: false, properties: {
+    corners: { type: 'array', items: { oneOf: [failedCornerSchema, { type: 'object', required: ['name', 'status', 'value', 'unit'], additionalProperties: false, properties: { name: { type: 'string' }, status: { const: 'complete' }, value: { type: 'number' }, unit: { type: 'string' } } }] } }, summary: summarySchema,
+  } },
+  { type: 'object', required: ['corners', 'summaries'], additionalProperties: false, properties: {
+    corners: { type: 'array', items: { oneOf: [failedCornerSchema, { type: 'object', required: ['name', 'status', 'measurements'], additionalProperties: false, properties: { name: { type: 'string' }, status: { const: 'complete' }, measurements: { type: 'array', items: namedResultSchema } } }] } },
+    summaries: { type: 'array', items: { type: 'object', required: ['id', 'summary'], additionalProperties: false, properties: { id: { type: 'string' }, summary: summarySchema } } },
+  } },
+];
+
 const namedMeasurementsSchema = { type: 'array', minItems: 1, maxItems: 16, items: {
   type: 'object', required: ['id', 'measurement'], additionalProperties: false, properties: {
     id: { type: 'string', minLength: 1, maxLength: 128, pattern: '.*\\S.*' }, measurement: measurementListSchema.items,
+    limits: { type: 'object', minProperties: 1, additionalProperties: false, description: 'Inclusive finite bounds in the returned measurement unit; min must not exceed max.', properties: { min: { type: 'number' }, max: { type: 'number' } } },
   },
 } };
 const validateNamedMeasurements = new AjvJsonSchemaValidator().getValidator(namedMeasurementsSchema);
@@ -52,7 +73,12 @@ export async function runCorners(
   if (multi === Object.hasOwn(args, 'measurement')) invalid('Expected exactly one of measurement or measurements');
   if (!multi && !record(args.measurement)) invalid('Expected one measurement');
   if (multi && !validateNamedMeasurements(args.measurements).valid) invalid('Invalid named measurements');
-  const named = multi ? args.measurements as { id: string; measurement: unknown }[] : [];
+  const named = multi ? args.measurements as NamedMeasurement[] : [];
+  if (named.some(({ limits }) => limits && (
+    (limits.min !== undefined && !Number.isFinite(limits.min)) ||
+    (limits.max !== undefined && !Number.isFinite(limits.max)) ||
+    (limits.min !== undefined && limits.max !== undefined && limits.min > limits.max)
+  ))) invalid('Invalid measurement limits');
   if (new Set(named.map(m => m.id)).size !== named.length) invalid('Duplicate measurement id');
   if (!Array.isArray(args.corners) || !args.corners.length) invalid('corners must be a nonempty list');
   if (args.corners.length > MAX_CORNERS) throw {
@@ -154,7 +180,8 @@ export async function runCorners(
             if (value.value > summary.max.value) summary.max = point;
             summary.spread = summary.max.value - summary.min.value;
           }
-          return { id, value: value.value, unit: value.unit };
+          const limits = named[i].limits;
+          return { id, value: value.value, unit: value.unit, ...(limits ? { withinLimits: (limits.min === undefined || value.value >= limits.min) && (limits.max === undefined || value.value <= limits.max) } : {}) };
         });
         multiResult.corners.push({ name: corner.name, status: 'complete', measurements: results });
         checkingLimits = true;
