@@ -1,5 +1,13 @@
 # @spice-ts/ui
 
+## 0.3.2
+
+### Patch Changes
+
+- e0f45ac: Support BSIM4 IGBMOD=1 gate-to-body accumulation and inversion tunneling in DC/OP, with native analytic derivatives and ngspice-47 oracle sweeps.
+
+  Allow the UI peer dependency to consume the next compatible core minor without a peer-only UI major release.
+
 ## 0.3.1
 
 ### Patch Changes
