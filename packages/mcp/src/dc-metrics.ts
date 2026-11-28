@@ -1,15 +1,16 @@
 import type { SimulationResultV1, SpiceApiErrorV1 } from '@spice-ts/core/protocol';
 
 type CrossingDirection = 'either' | 'rising' | 'falling';
-type DcMetricsInput = { sweptSource: string; output: string; input?: string; analysis?: number; step?: number; sweepPoints?: number[]; currentSignal?: string; currentLevelsA?: number[]; includeSpotGain?: boolean; includeSpotResistance?: boolean; outputLevelsV?: number[]; crossingDirection?: CrossingDirection; crossingOccurrence?: number };
+type DcMetricsInput = { sweptSource: string; output: string; input?: string; analysis?: number; step?: number; sweepPoints?: number[]; currentSignal?: string; includeCurrentExtrema?: boolean; currentLevelsA?: number[]; includeSpotGain?: boolean; includeSpotResistance?: boolean; outputLevelsV?: number[]; crossingDirection?: CrossingDirection; crossingOccurrence?: number };
 type DcSpot = { sweepPoint: number; inputValue: number | null; outputValue: number | null; outOfRange: boolean; gain?: number | null; gainReason?: string };
 type CurrentSpot = { sweepPoint: number; currentA: number | null; conductanceS: number | null; outOfRange: boolean; conductanceReason?: string };
+type CurrentExtrema = { min: { currentA: number; sweepPoint: number }; max: { currentA: number; sweepPoint: number } };
 type CurrentLevelCrossing = { currentLevelA: number; sweepPoint: number | null };
 type LevelCrossing = { outputLevelV: number; sweepPoint: number | null };
 type Metric = { value: number | null; unit: string; reason?: string };
 type GainMetric = Metric & { input?: number; sweepPoint?: number };
 type DcMetrics = Record<'switchingThreshold' | 'voh' | 'vol' | 'vil' | 'vih' | 'nmL' | 'nmH', Metric> & {
-  gainMax: GainMetric; monotonic: boolean; spots?: DcSpot[]; currentSpots?: CurrentSpot[]; currentLevelCrossings?: CurrentLevelCrossing[]; levelCrossings?: LevelCrossing[];
+  gainMax: GainMetric; monotonic: boolean; spots?: DcSpot[]; currentSpots?: CurrentSpot[]; currentExtrema?: CurrentExtrema; currentLevelCrossings?: CurrentLevelCrossing[]; levelCrossings?: LevelCrossing[];
 };
 
 type ResistanceSpot = { sweepPoint: number; outputValue: number | null; outOfRange: boolean; resistance: Metric };
@@ -22,8 +23,9 @@ export const dcMetricsProperties = {
   analysis: { type: 'integer', minimum: 0 },
   step: { type: 'integer', minimum: 0 },
   sweepPoints: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Swept-source coordinates in request order; linearly interpolated without extrapolation.' },
+  includeCurrentExtrema: { type: 'boolean', description: 'Return signed sampled minimum and maximum branch currents and sweep coordinates; ties use the first traversal sample. Requires currentSignal and a voltage-source sweep.' },
   currentLevelsA: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Signed branch current levels in amperes. Requires currentSignal and an independent voltage-source DC sweep; returns interpolated source coordinates in volts without extrapolation.' },
-  currentSignal: { type: 'string', maxLength: 256, pattern: '^[iI]\\([^\\s(),]+\\)$', description: 'Branch current i(name) in amperes. Requires sweepPoints or currentLevelsA and an independent voltage-source sweep. Returns signed local current/voltage secants in siemens, not analytic derivatives; exact knots select the next interval in increasing voltage order. No extrapolation.' },
+  currentSignal: { type: 'string', maxLength: 256, pattern: '^[iI]\\([^\\s(),]+\\)$', description: 'Branch current i(name) in amperes. Requires sweepPoints, currentLevelsA, or includeCurrentExtrema and an independent voltage-source sweep. Returns signed local current/voltage secants in siemens, not analytic derivatives; exact knots select the next interval in increasing voltage order. No extrapolation.' },
   includeSpotGain: { type: 'boolean', description: 'Add V/V local piecewise-linear secant gain, not an analytic derivative. Exact knots use the following interval in sweep traversal, except the final knot uses the preceding interval. Requires sweepPoints. Out-of-range, zero-input-delta and nonrepresentable gains are null with gainReason.' },
   includeSpotResistance: { type: 'boolean', description: 'Return resistanceSpots for an independent current-source sweep. Resistance is a local piecewise-linear dV(output)/dI secant in ohms, not an analytic derivative; I is the signed source value from positive to negative terminal. Requires sweepPoints and excludes input, includeSpotGain, outputLevelsV, crossingDirection and crossingOccurrence. Exact knots use the following traversal interval except the last; outside-range and nonrepresentable values are null with a reason. No extrapolation.' },
   outputLevelsV: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'number' }, description: 'Output voltage levels in request order; select a crossing in sweep traversal (default first), without extrapolation.' },
@@ -42,6 +44,7 @@ export const dcMetricsOutputSchema = {
   properties: {
     ...Object.fromEntries(['switchingThreshold', 'voh', 'vol', 'vil', 'vih', 'nmL', 'nmH'].map(key => [key, metricSchema])),
     gainMax: { ...metricSchema, properties: { ...metricSchema.properties, input: { type: 'number' }, sweepPoint: { type: 'number' } } },
+    currentExtrema: { type: 'object', additionalProperties: false, required: ['min', 'max'], properties: Object.fromEntries(['min', 'max'].map(key => [key, { type: 'object', additionalProperties: false, required: ['currentA', 'sweepPoint'], properties: { currentA: { type: 'number' }, sweepPoint: { type: 'number' } } }])) },
     currentSpots: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['sweepPoint', 'currentA', 'conductanceS', 'outOfRange'], properties: { sweepPoint: { type: 'number' }, currentA: { type: ['number', 'null'] }, conductanceS: { type: ['number', 'null'] }, outOfRange: { type: 'boolean' }, conductanceReason: { type: 'string' } } } },
     resistanceSpots: { type: 'array', minItems: 1, maxItems: 128, items: { type: 'object', additionalProperties: false, required: ['sweepPoint', 'outputValue', 'outOfRange', 'resistance'], properties: { sweepPoint: { type: 'number' }, outputValue: { type: ['number', 'null'] }, outOfRange: { type: 'boolean' }, resistance: metricSchema } } },
     monotonic: { type: 'boolean' },
@@ -59,7 +62,8 @@ export function dcMetricsInput(args: unknown): DcMetricsInput {
   const fields = args as Record<string, unknown>;
   if (Object.keys(fields).some(key => !['request', ...Object.keys(dcMetricsProperties)].includes(key))) invalid('Unknown DC metric argument');
   if (fields.sweepPoints !== undefined && (!Array.isArray(fields.sweepPoints) || fields.sweepPoints.length < 1 || fields.sweepPoints.length > 128 || Array.from(fields.sweepPoints).some(v => typeof v !== 'number' || !Number.isFinite(v)))) invalid('Invalid sweepPoints');
-  if (fields.currentSignal !== undefined && (typeof fields.currentSignal !== 'string' || fields.currentSignal.length > 256 || !/^[iI]\([^\s(),]+\)$/.test(fields.currentSignal) || (fields.sweepPoints === undefined && fields.currentLevelsA === undefined) || fields.includeSpotResistance === true)) invalid('currentSignal requires i(branch), sweepPoints or currentLevelsA, and a voltage sweep');
+  if (fields.currentSignal !== undefined && (typeof fields.currentSignal !== 'string' || fields.currentSignal.length > 256 || !/^[iI]\([^\s(),]+\)$/.test(fields.currentSignal) || (fields.sweepPoints === undefined && fields.currentLevelsA === undefined && fields.includeCurrentExtrema !== true) || fields.includeSpotResistance === true)) invalid('currentSignal requires i(branch), sweepPoints or currentLevelsA, and a voltage sweep');
+  if (fields.includeCurrentExtrema !== undefined && (typeof fields.includeCurrentExtrema !== 'boolean' || (fields.includeCurrentExtrema && fields.currentSignal === undefined))) invalid('includeCurrentExtrema must be boolean and requires currentSignal when true');
   if (fields.includeSpotGain !== undefined && (typeof fields.includeSpotGain !== 'boolean' || (fields.includeSpotGain && fields.sweepPoints === undefined))) invalid('includeSpotGain must be boolean and requires sweepPoints when true');
   if (fields.includeSpotResistance !== undefined && (typeof fields.includeSpotResistance !== 'boolean' || (fields.includeSpotResistance && (fields.sweepPoints === undefined || fields.includeSpotGain === true || fields.input !== undefined || fields.outputLevelsV !== undefined || fields.crossingDirection !== undefined || fields.crossingOccurrence !== undefined)))) invalid('includeSpotResistance requires sweepPoints and is incompatible with voltage transfer options');
   if (fields.currentLevelsA !== undefined && (!Array.isArray(fields.currentLevelsA) || fields.currentLevelsA.length < 1 || fields.currentLevelsA.length > 128 || Array.from(fields.currentLevelsA).some(v => typeof v !== 'number' || !Number.isFinite(v)) || fields.currentSignal === undefined)) invalid('Invalid currentLevelsA or missing currentSignal');
@@ -75,7 +79,7 @@ export function dcMetricsInput(args: unknown): DcMetricsInput {
   for (const signal of [fields.output, fields.input].filter(v => v !== undefined)) {
     if (!new RegExp(voltagePattern).test(signal as string)) invalid('DC transfer expressions must be v(node) or v(positive,negative)');
   }
-  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined, analysis: fields.analysis as number | undefined, step: fields.step as number | undefined, sweepPoints: fields.sweepPoints as number[] | undefined, currentSignal: fields.currentSignal as string | undefined, currentLevelsA: fields.currentLevelsA as number[] | undefined, includeSpotGain: fields.includeSpotGain as boolean | undefined, includeSpotResistance: fields.includeSpotResistance as boolean | undefined, outputLevelsV: fields.outputLevelsV as number[] | undefined, crossingDirection: fields.crossingDirection as CrossingDirection | undefined, crossingOccurrence: fields.crossingOccurrence as number | undefined };
+  return { sweptSource: fields.sweptSource as string, output: fields.output as string, input: fields.input as string | undefined, analysis: fields.analysis as number | undefined, step: fields.step as number | undefined, sweepPoints: fields.sweepPoints as number[] | undefined, currentSignal: fields.currentSignal as string | undefined, includeCurrentExtrema: fields.includeCurrentExtrema as boolean | undefined, currentLevelsA: fields.currentLevelsA as number[] | undefined, includeSpotGain: fields.includeSpotGain as boolean | undefined, includeSpotResistance: fields.includeSpotResistance as boolean | undefined, outputLevelsV: fields.outputLevelsV as number[] | undefined, crossingDirection: fields.crossingDirection as CrossingDirection | undefined, crossingOccurrence: fields.crossingOccurrence as number | undefined };
 }
 const metric = (value: number | null, reason?: string, unit = 'V'): Metric => {
   if (value !== null && !Number.isFinite(value)) return { value: null, unit, reason: 'Non-finite metric' };
@@ -138,6 +142,7 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
   }
   let currentSpots: CurrentSpot[] | undefined;
   let currentValues: number[] | undefined;
+  let currentExtrema: CurrentExtrema | undefined;
   if (input.currentSignal !== undefined) {
     if (a.axis.unit !== 'V' || !/^v/i.test(input.sweptSource)) invalid('Current spots require an independent voltage-source sweep');
     const name = input.currentSignal.slice(2, -1).toLowerCase();
@@ -146,6 +151,14 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     let current = a.currentsA[key];
     currentValues = current;
     if (sweep.length < 2 || current.length !== sweep.length || ![...sweep, ...current].every(Number.isFinite)) invalid('DC metrics require at least two finite aligned samples');
+    if (input.includeCurrentExtrema) {
+      let min = 0; let max = 0;
+      for (let i = 1; i < current.length; i++) {
+        if (current[i] < current[min]) min = i;
+        if (current[i] > current[max]) max = i;
+      }
+      currentExtrema = { min: { currentA: current[min], sweepPoint: sweep[min] }, max: { currentA: current[max], sweepPoint: sweep[max] } };
+    }
     const direction = Math.sign(sweep[1] - sweep[0]);
     if (!direction || sweep.some((v, i) => i > 0 && Math.sign(v - sweep[i - 1]) !== direction)) invalid('Sweep coordinates must be strictly monotonic');
     const axis = direction < 0 ? [...sweep].reverse() : sweep;
@@ -274,6 +287,7 @@ export function dcMetricsResult(result: SimulationResultV1, input: DcMetricsInpu
     monotonic: !(rising && falling),
     ...(spots === undefined ? {} : { spots }),
     ...(currentSpots === undefined ? {} : { currentSpots }),
+    ...(currentExtrema === undefined ? {} : { currentExtrema }),
     ...(currentLevelCrossings === undefined ? {} : { currentLevelCrossings }),
     ...(levelCrossings === undefined ? {} : { levelCrossings }),
   };

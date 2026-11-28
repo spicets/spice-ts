@@ -485,10 +485,11 @@ export const MCP_TOOLS = Object.freeze([
     inputSchema: {
       ...requestInputSchema,
       required: ['request', 'sweptSource', 'output'],
-      dependencies: { currentSignal: { anyOf: [{ required: ['sweepPoints'] }, { required: ['currentLevelsA'] }] }, currentLevelsA: ['currentSignal'] },
+      dependencies: { currentSignal: { anyOf: [{ required: ['sweepPoints'] }, { required: ['currentLevelsA'] }, { required: ['includeCurrentExtrema'], properties: { includeCurrentExtrema: { const: true } } }] }, currentLevelsA: ['currentSignal'] },
+      allOf: [{ if: { required: ['includeCurrentExtrema'], properties: { includeCurrentExtrema: { const: true } } }, then: { required: ['currentSignal'] } }],
       properties: { ...requestInputSchema.properties, ...dcMetricsProperties },
     },
-    outputSchema: dcMetricsOutputSchema,
+    outputSchema: { type: 'object', oneOf: [dcMetricsOutputSchema, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
   {
     name: 'spice_op_report',
