@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
 import type { SimulationRequestV1, SimulationResultV1 } from '@spice-ts/core/protocol';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +45,14 @@ describe('stdio transport', () => {
       properties: { corners: { maxItems: 64 }, measurement: { type: 'object' }, measurements: { type: 'array', maxItems: 16 } },
       oneOf: [{ required: ['measurement'], not: { required: ['measurements'] } }, { required: ['measurements'], not: { required: ['measurement'] } }],
     });
+    const cornersTool = listed.tools.find(tool => tool.name === 'spice_corners')!;
+    expect(cornersTool.inputSchema).toMatchObject({ properties: { measurements: { items: { properties: { limits: { type: 'object', minProperties: 1, properties: { min: { type: 'number' }, max: { type: 'number' } } } } } } } });
+    expect(cornersTool.outputSchema).toBeDefined();
+    const cornerArgs = { request: { apiVersion: '1', input: { format: 'spice', source: 'V1 in 0 5\nR1 in out 1k\nR2 out 0 1k\n.op\n.end' } }, corners: [{ name: 'nominal' }], measurements: [{ id: 'out', measurement: { kind: 'max', signal: 'v(out)', analysis: 0 }, limits: { min: 2.25, max: 2.75 } }] };
+    expect(new AjvJsonSchemaValidator().getValidator(cornersTool.inputSchema)(cornerArgs).valid).toBe(true);
+    const cornerResponse = await client.callTool({ name: 'spice_corners', arguments: cornerArgs });
+    expect(cornerResponse).toMatchObject({ structuredContent: { corners: [{ name: 'nominal', measurements: [{ id: 'out', value: 2.5, unit: 'V', withinLimits: true }] }] } });
+    expect(new AjvJsonSchemaValidator().getValidator(cornersTool.outputSchema!)(cornerResponse.structuredContent).valid).toBe(true);
     expect(await client.callTool({ name: 'spice_impedance', arguments: {
       request: { apiVersion: '1', input: { format: 'spice', source: 'R1 in 0 1k\n.ac lin 1 100 100' } },
       port: { positive: 'in', negative: '0' },

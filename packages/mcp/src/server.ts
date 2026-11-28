@@ -28,7 +28,7 @@ import { overrideParameters, parameterOverrides, ParameterOverrideError, paramsS
 import type { ParameterOverrideApiError } from './params.js';
 import { runSweep, sweepProperties } from './sweep.js';
 import { runOptimize, optimizeProperties } from './optimize.js';
-import { runCorners, cornersProperties } from './corners.js';
+import { runCorners, cornersProperties, cornersOutputSchemas } from './corners.js';
 import { runMonteCarlo, monteCarloProperties } from './monte-carlo.js';
 import { acMetrics, acMetricsArgs, acMetricsOutputSchema, acMetricsProperties } from './ac-metrics.js';
 import { tranMetrics, tranMetricsArgs, tranMetricsOutputSchemas, tranMetricsProperties } from './tran-metrics.js';
@@ -362,12 +362,13 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_corners',
-    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Top-level .param overrides require SPICE text. Temperature in Celsius supports SPICE text and spice-ts JSON, overriding request temperature for native JSON; circuit-json temperature and JSON parameter overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement, or 1–16 uniquely identified {id, measurement} entries. List mode returns ordered per-corner results and per-id summaries. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
+    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Top-level .param overrides require SPICE text. Temperature in Celsius supports SPICE text and spice-ts JSON, overriding request temperature for native JSON; circuit-json temperature and JSON parameter overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement, or 1–16 uniquely identified {id, measurement, limits?} entries. Optional limits specify finite inclusive min and/or max in the returned unit; successful results include withinLimits, without rounding or tolerance. List mode returns ordered per-corner results and per-id summaries. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
     inputSchema: {
       ...requestInputSchema, required: ['request', 'corners'],
       properties: { ...requestInputSchema.properties, ...cornersProperties },
       oneOf: [{ required: ['measurement'], not: { required: ['measurements'] } }, { required: ['measurements'], not: { required: ['measurement'] } }],
     },
+    outputSchema: { type: 'object', oneOf: [...cornersOutputSchemas, toolFailureOutputSchema], $defs: commonSchemaV1.$defs },
   },
   {
     name: 'spice_ac_metrics',
