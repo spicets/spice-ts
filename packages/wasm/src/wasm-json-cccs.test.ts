@@ -140,6 +140,7 @@ describe('native WASM JSON CCCS', () => {
       expect(await wasm.simulate(request(oversized), { requestId: 'order' })).toMatchObject({ ok: false, error: { code: 'RESOURCE_LIMIT', details: { limit: 'maxSystemOrder' } } });
       const unsupportedAnalysis = document();
       unsupportedAnalysis.analyses = [{ type: 'tran', timestep: 1e-6, stopTime: 1e-3 }];
+      unsupportedAnalysis.circuit.components[0]!.type = 'H';
       const rejected = await wasm.simulate(request(unsupportedAnalysis), { requestId: 'tran' });
       expect(rejected, JSON.stringify(rejected)).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
       const singular = document(); singular.circuit.components.pop();
