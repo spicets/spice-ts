@@ -143,10 +143,10 @@ describe('native WASM JSON CCVS', () => {
         oversized.circuit.components.push(component('R', `Rextra${i}`, [net, '0'], { resistance: 1000 }));
       }
       expect(await wasm.simulate(request(oversized), { requestId: 'order' })).toMatchObject({ ok: false, error: { code: 'RESOURCE_LIMIT', details: { limit: 'maxSystemOrder' } } });
-      const unsupportedAnalysis = document();
-      unsupportedAnalysis.analyses = [{ type: 'tran', timestep: 1e-6, stopTime: 1e-3 }];
-      const rejected = await wasm.simulate(request(unsupportedAnalysis), { requestId: 'tran' });
-      expect(rejected, JSON.stringify(rejected)).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
+      const transientAnalysis = document();
+      transientAnalysis.analyses = [{ type: 'tran', timestep: 1e-6, stopTime: 1e-3 }];
+      const transient = await wasm.simulate(request(transientAnalysis), { requestId: 'tran' });
+      expect(transient, JSON.stringify(transient)).toMatchObject({ ok: true, data: { analyses: [{ type: 'tran' }] } });
       const multiple = document(); multiple.analyses.push({ type: 'op' });
       expect(await wasm.simulate(request(multiple), { requestId: 'multiple' })).toMatchObject({ ok: false, error: { code: 'RESOURCE_LIMIT' } });
     } finally { await wasm.close(); }

@@ -138,11 +138,11 @@ describe('native WASM JSON CCCS', () => {
         oversized.circuit.components.push(component('R', `Rextra${i}`, [net, '0'], { resistance: 1000 }));
       }
       expect(await wasm.simulate(request(oversized), { requestId: 'order' })).toMatchObject({ ok: false, error: { code: 'RESOURCE_LIMIT', details: { limit: 'maxSystemOrder' } } });
-      const unsupportedAnalysis = document();
-      unsupportedAnalysis.analyses = [{ type: 'tran', timestep: 1e-6, stopTime: 1e-3 }];
-      unsupportedAnalysis.circuit.components[0]!.type = 'H';
-      const rejected = await wasm.simulate(request(unsupportedAnalysis), { requestId: 'tran' });
-      expect(rejected, JSON.stringify(rejected)).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED_FEATURE' } });
+      const transientAnalysis = document();
+      transientAnalysis.analyses = [{ type: 'tran', timestep: 1e-6, stopTime: 1e-3 }];
+      transientAnalysis.circuit.components[0]!.type = 'H';
+      const transient = await wasm.simulate(request(transientAnalysis), { requestId: 'tran' });
+      expect(transient, JSON.stringify(transient)).toMatchObject({ ok: true, data: { analyses: [{ type: 'tran' }] } });
       const singular = document(); singular.circuit.components.pop();
       const bad = await wasm.simulate(request(singular), { requestId: 'singular' });
       expect(bad, JSON.stringify(bad)).toMatchObject({ ok: false, error: { code: 'SINGULAR_MATRIX' } });

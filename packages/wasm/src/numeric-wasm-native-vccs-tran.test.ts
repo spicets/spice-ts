@@ -98,7 +98,7 @@ it('rejects malformed G and unsupported transient combinations with structured e
       else if (variant === 'extra-param') g.params.extra = 1;
       else if (variant === 'model') g.model = 'unknown';
       else g.type = variant;
-      const code = ['nan', 'infinity'].includes(variant) ? 'INVALID_REQUEST' : ['extra-param', 'model', 'H'].includes(variant) ? 'UNSUPPORTED_FEATURE' : 'INVALID_CIRCUIT';
+      const code = ['nan', 'infinity'].includes(variant) ? 'INVALID_REQUEST' : ['extra-param', 'model'].includes(variant) ? 'UNSUPPORTED_FEATURE' : 'INVALID_CIRCUIT';
       for (const execute of [engine.validate.bind(engine), engine.simulate.bind(engine)]) {
         const result = await execute(input, { requestId: variant });
         expect(result, `${variant}: ${JSON.stringify(result)}`).toMatchObject({ ok: false, error: { code, phase: 'validation' } });
