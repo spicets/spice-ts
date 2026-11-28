@@ -40,8 +40,9 @@ describe('stdio transport', () => {
     ]);
     expect(listed.tools.every(tool => tool.inputSchema.type === 'object')).toBe(true);
     expect(listed.tools.find(tool => tool.name === 'spice_corners')?.inputSchema).toMatchObject({
-      required: ['request', 'corners', 'measurement'],
-      properties: { corners: { maxItems: 64 }, measurement: { type: 'object' } },
+      required: ['request', 'corners'],
+      properties: { corners: { maxItems: 64 }, measurement: { type: 'object' }, measurements: { type: 'array', maxItems: 16 } },
+      oneOf: [{ required: ['measurement'], not: { required: ['measurements'] } }, { required: ['measurements'], not: { required: ['measurement'] } }],
     });
     expect(await client.callTool({ name: 'spice_impedance', arguments: {
       request: { apiVersion: '1', input: { format: 'spice', source: 'R1 in 0 1k\n.ac lin 1 100 100' } },

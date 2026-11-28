@@ -362,10 +362,11 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: 'spice_corners',
-    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Top-level .param overrides require SPICE text. Temperature in Celsius supports SPICE text and spice-ts JSON, overriding request temperature for native JSON; circuit-json temperature and JSON parameter overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
+    description: 'Run protocol-v1 spice, spice-ts JSON, or circuit-json input across up to 64 uniquely named deterministic corners. Top-level .param overrides require SPICE text. Temperature in Celsius supports SPICE text and spice-ts JSON, overriding request temperature for native JSON; circuit-json temperature and JSON parameter overrides return per-corner INVALID_REQUEST errors. Apply one spice_measure-style measurement, or 1–16 uniquely identified {id, measurement} entries. List mode returns ordered per-corner results and per-id summaries. Returns ordered per-corner values or errors and successful min/max names and absolute spread (null summary if all fail). First corner wins ties. Shares one wall-time budget.',
     inputSchema: {
-      ...requestInputSchema, required: ['request', 'corners', 'measurement'],
+      ...requestInputSchema, required: ['request', 'corners'],
       properties: { ...requestInputSchema.properties, ...cornersProperties },
+      oneOf: [{ required: ['measurement'], not: { required: ['measurements'] } }, { required: ['measurements'], not: { required: ['measurement'] } }],
     },
   },
   {

@@ -2,6 +2,7 @@ import { mapProtocolErrorV1 } from '@spice-ts/core';
 import type { SimulationRequestV1, SpiceApiErrorV1 } from '@spice-ts/core/protocol';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { measurementListSchema } from './measure.js';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
 import { overrideParameters, ParameterOverrideError, paramsSchema } from './params.js';
 import { overrideComponent } from './sweep.js';
 
@@ -10,7 +11,17 @@ type Corner = { name: string; params?: Record<string, number>; temp?: number; co
 type CornerResult = { name: string; status: 'complete'; value: number; unit: string }
   | { name: string; status: 'failed'; error: unknown };
 type CornerSummary = { min: { name: string; value: number }; max: { name: string; value: number }; spread: number; unit: string };
+type NamedMeasurementResult = { id: string } & ({ value: number; unit: string } | { error: unknown });
+type MultiCornerResult = { name: string; status: 'complete'; measurements: NamedMeasurementResult[] } | { name: string; status: 'failed'; error: unknown };
 export type CornersResult = { corners: CornerResult[]; summary: CornerSummary | null };
+export type MultiCornersResult = { corners: MultiCornerResult[]; summaries: { id: string; summary: CornerSummary | null }[] };
+
+const namedMeasurementsSchema = { type: 'array', minItems: 1, maxItems: 16, items: {
+  type: 'object', required: ['id', 'measurement'], additionalProperties: false, properties: {
+    id: { type: 'string', minLength: 1, maxLength: 128, pattern: '.*\\S.*' }, measurement: measurementListSchema.items,
+  },
+} };
+const validateNamedMeasurements = new AjvJsonSchemaValidator().getValidator(namedMeasurementsSchema);
 
 export const cornersProperties = {
   corners: { type: 'array', minItems: 1, maxItems: MAX_CORNERS, items: {
@@ -22,6 +33,7 @@ export const cornersProperties = {
     },
   } },
   measurement: measurementListSchema.items,
+  measurements: namedMeasurementsSchema,
 };
 
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -33,10 +45,15 @@ function invalid(message: string): never {
 export async function runCorners(
   args: unknown, request: SimulationRequestV1, originalFormat: SimulationRequestV1['input']['format'],
   execute: (request: SimulationRequestV1, measurements: unknown[]) => Promise<CallToolResult>,
-  check: (result: CornersResult) => void,
-): Promise<CornersResult> {
-  if (!record(args) || Object.keys(args).some(k => !['request', 'corners', 'measurement'].includes(k))
-    || !record(args.measurement)) invalid('Expected request, corners and one measurement');
+  check: (result: CornersResult | MultiCornersResult) => void,
+): Promise<CornersResult | MultiCornersResult> {
+  if (!record(args) || Object.keys(args).some(k => !['request', 'corners', 'measurement', 'measurements'].includes(k))) invalid('Invalid corners fields');
+  const multi = Object.hasOwn(args, 'measurements');
+  if (multi === Object.hasOwn(args, 'measurement')) invalid('Expected exactly one of measurement or measurements');
+  if (!multi && !record(args.measurement)) invalid('Expected one measurement');
+  if (multi && !validateNamedMeasurements(args.measurements).valid) invalid('Invalid named measurements');
+  const named = multi ? args.measurements as { id: string; measurement: unknown }[] : [];
+  if (new Set(named.map(m => m.id)).size !== named.length) invalid('Duplicate measurement id');
   if (!Array.isArray(args.corners) || !args.corners.length) invalid('corners must be a nonempty list');
   if (args.corners.length > MAX_CORNERS) throw {
     code: 'RESOURCE_LIMIT', message: 'Corner count cap exceeded', phase: 'validation', retryable: false,
@@ -51,8 +68,10 @@ export async function runCorners(
   }
   if (request.input.format === 'spice' && typeof request.input.source !== 'string') invalid('Corners require SPICE text input');
   const result: CornersResult = { corners: [], summary: null };
+  const multiResult: MultiCornersResult = { corners: [], summaries: named.map(({ id }) => ({ id, summary: null })) };
+  const currentResult = () => multi ? multiResult : result;
   for (const corner of args.corners as Corner[]) {
-    check(result);
+    check(currentResult());
     let entry: CornerResult;
     let checkingLimits = false;
     try {
@@ -68,7 +87,7 @@ export async function runCorners(
           if (index % 8 === 0) {
             await new Promise<void>(resolve => setImmediate(resolve));
             checkingLimits = true;
-            check(result);
+            check(currentResult());
             checkingLimits = false;
           }
           const input = changed.input;
@@ -100,7 +119,7 @@ export async function runCorners(
             // Allow abort timers and other requests to run between bounded batches.
             await new Promise<void>(resolve => setImmediate(resolve));
             checkingLimits = true;
-            check(result);
+            check(currentResult());
             checkingLimits = false;
           }
           changed = overrideComponent(changed, name, value as number);
@@ -115,15 +134,45 @@ export async function runCorners(
         const index = /^\s*\.end\s*(?:[;$].*)?$/im.exec(source)?.index ?? source.length;
         changed = { ...changed, input: { ...changed.input, source: source.slice(0, index) + `\n.temp ${corner.temp}\n` + source.slice(index) } };
       }
-      const response = await execute(changed, [args.measurement]);
+      const response = await execute(changed, multi ? named.map(m => m.measurement) : [args.measurement]);
       const content = response.structuredContent!;
       const measured = (content.measurements as ({ value: number; unit: string } | { error: unknown })[] | undefined)?.[0];
+      if (multi && !response.isError) {
+        const values = content.measurements;
+        if (!Array.isArray(values) || values.length !== named.length) throw new Error('Missing measurement results');
+        const results: NamedMeasurementResult[] = values.map((value, i) => {
+          const id = named[i].id;
+          if (!record(value) || 'error' in value || typeof value.value !== 'number' || !Number.isFinite(value.value) || typeof value.unit !== 'string') {
+            return { id, error: record(value) && 'error' in value ? value.error : mapProtocolErrorV1(new Error('Invalid measurement result')) };
+          }
+          const summary = multiResult.summaries[i].summary;
+          if (summary && summary.unit !== value.unit) return { id, error: mapProtocolErrorV1(new Error('Measurement unit changed between corners')) };
+          const point = { name: corner.name, value: value.value };
+          if (!summary) multiResult.summaries[i].summary = { min: point, max: point, spread: 0, unit: value.unit };
+          else {
+            if (value.value < summary.min.value) summary.min = point;
+            if (value.value > summary.max.value) summary.max = point;
+            summary.spread = summary.max.value - summary.min.value;
+          }
+          return { id, value: value.value, unit: value.unit };
+        });
+        multiResult.corners.push({ name: corner.name, status: 'complete', measurements: results });
+        checkingLimits = true;
+        check(currentResult());
+        checkingLimits = false;
+        continue;
+      }
       if (response.isError) entry = { name: corner.name, status: 'failed', error: content.error };
       else if (!measured || 'error' in measured) entry = { name: corner.name, status: 'failed', error: measured && 'error' in measured ? measured.error : mapProtocolErrorV1(new Error('Missing measurement result')) };
       else entry = { name: corner.name, status: 'complete', ...measured };
     } catch (error) {
       if (checkingLimits) throw error;
       entry = { name: corner.name, status: 'failed', error: error instanceof ParameterOverrideError ? error.apiError : mapProtocolErrorV1(error) };
+    }
+    if (multi) {
+      multiResult.corners.push(entry as MultiCornerResult);
+      check(currentResult());
+      continue;
     }
     result.corners.push(entry);
     if (entry.status === 'complete') {
@@ -135,7 +184,7 @@ export async function runCorners(
         result.summary.spread = result.summary.max.value - result.summary.min.value;
       }
     }
-    check(result);
+    check(currentResult());
   }
-  return result;
+  return currentResult();
 }
