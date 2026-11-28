@@ -97,7 +97,7 @@ export interface SpiceEngineCapabilitiesV1 {
     devicesByAnalysis: {
       op: readonly ['R', 'C', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'];
       dc: readonly ['R', 'C', 'I', 'V', 'D', 'J', 'S', 'W'];
-      tran: readonly ['R', 'C', 'L', 'I', 'V', 'J', 'S', 'W'];
+      tran: readonly ['R', 'C', 'L', 'I', 'V', 'H', 'J', 'S', 'W'];
       ac: readonly ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S', 'W'];
     };
     measurements: readonly ['tran:find-at', 'tran:avg', 'tran:min', 'tran:max', 'tran:rms', 'dc:find-at'];
@@ -222,7 +222,7 @@ export async function createSpiceEngine(options: CreateSpiceEngineOptions): Prom
         devicesByAnalysis: {
           op: ['R', 'C', 'I', 'V', 'G', 'F', 'E', 'H', 'D', 'Q', 'M', 'J', 'S', 'W'] as const,
           dc: ['R', 'C', 'I', 'V', 'D', 'J', 'S', 'W'] as const,
-          tran: ['R', 'C', 'L', 'I', 'V', 'J', 'S', 'W'] as const,
+          tran: ['R', 'C', 'L', 'I', 'V', 'H', 'J', 'S', 'W'] as const,
           ac: ['R', 'C', 'L', 'I', 'V', 'D', 'Q', 'M', 'J', 'S', 'W'] as const,
         },
         measurements: ['tran:find-at', 'tran:avg', 'tran:min', 'tran:max', 'tran:rms', 'dc:find-at'] as const,

@@ -19,7 +19,7 @@ await engine.close();
 
 `spice-ts-wasm` runs real and split-complex WebAssembly dense f64 Gaussian-elimination kernels for four deliberately narrow subsets:
 
-- SPICE text input, or bounded flat native `spice-ts` JSON: OP/AC with R/C/L/I/V/E/F/G/H, and transient with R/C/L/I/V/E/F/G. Native transient H, models and subcircuits remain unsupported. Native OP/AC/transient output selections are supported within the existing limits.
+- SPICE text input, or bounded flat native `spice-ts` JSON: OP/AC/transient with R/C/L/I/V/E/F/G/H. Native models and subcircuits remain unsupported. Native OP/AC/transient output selections are supported within the existing limits.
 - exactly one unstepped analysis
 - `.op` with resistors, open-circuit capacitors (ignoring `IC`), constant inductors and K coupling, independent constant/DC voltage and current sources, linear VCCS, CCCS, VCVS, and CCVS controlled sources, and bounded diode/BJT/MOS1/JFET models (`R`, `C`, `L`, `K`, `V`, `I`, `G`, `F`, `E`, `H`, `D`, `Q`, `M`, `J`)
 - `.dc` with one or two nested linear sweeps of independent constant/DC voltage or current sources (first source varies fastest), resistors, open-circuit capacitors (ignoring `IC`), constant inductors and K coupling, linear E/F/G/H controlled sources and bounded diodes/BJTs/MOS1/JFETs (`R`, `C`, `L`, `K`, `V`, `I`, `E`, `F`, `G`, `H`, `D`, `Q`, `M`, `J`)

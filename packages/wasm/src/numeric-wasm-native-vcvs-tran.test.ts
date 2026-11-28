@@ -92,7 +92,7 @@ it.each(waveforms.flatMap(([waveform, params, source]) => [2, -2, 0].flatMap(gai
   } finally { await engine.close(); }
 });
 
-it('rejects invalid VCVS inputs and unsupported controlled sources with structured errors', async () => {
+it('rejects invalid VCVS inputs and malformed CCVS ports with structured errors', async () => {
   const engine = await createSpiceEngine({ backend: 'spice-ts-wasm' });
   try {
     for (const variant of ['ports', 'net', 'gain-nan', 'gain-infinity', 'H'] as const) {
@@ -104,7 +104,7 @@ it('rejects invalid VCVS inputs and unsupported controlled sources with structur
       else if (variant === 'gain-nan') e.params.gain = NaN;
       else if (variant === 'gain-infinity') e.params.gain = Infinity;
       else e.type = variant;
-      const code = ['H'].includes(variant) ? 'UNSUPPORTED_FEATURE' : variant.startsWith('gain-') ? 'INVALID_REQUEST' : 'INVALID_CIRCUIT';
+      const code = variant.startsWith('gain-') ? 'INVALID_REQUEST' : 'INVALID_CIRCUIT';
       for (const result of [await engine.validate(input, { requestId: variant }), await engine.simulate(input, { requestId: variant })]) {
         expect(result, `${variant}: ${JSON.stringify(result)}`).toMatchObject({ ok: false, error: { code, phase: 'validation' } });
       }
